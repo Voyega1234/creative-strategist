@@ -245,8 +245,8 @@ export default async function ConfigurePage({
                     }
                     className={`text-sm px-3 py-1 h-auto ${
                       !selectedServiceFilter || selectedServiceFilter === "All Competitors"
-                        ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
-                        : "border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+                        ? "bg-black text-white hover:bg-gray-800"
+                        : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
                     }`}
                   >
                     All Competitors
@@ -264,8 +264,8 @@ export default async function ConfigurePage({
                       variant={selectedServiceFilter === service ? "default" : "outline"}
                       className={`text-sm px-3 py-1 h-auto ${
                         selectedServiceFilter === service
-                          ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
-                          : "border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+                          ? "bg-black text-white hover:bg-gray-800"
+                          : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
                       }`}
                     >
                       {service}
@@ -365,7 +365,7 @@ export default async function ConfigurePage({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+                    className="h-8 w-8 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
                     disabled={currentPage === 1}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -385,8 +385,8 @@ export default async function ConfigurePage({
                       size="icon"
                       className={`h-8 w-8 ${
                         page === currentPage
-                          ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
-                          : "border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+                          ? "bg-black text-white hover:bg-gray-800"
+                          : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
                       }`}
                     >
                       {page}
@@ -402,7 +402,7 @@ export default async function ConfigurePage({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+                    className="h-8 w-8 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
                     disabled={currentPage === totalPages}
                   >
                     <ChevronRight className="h-4 w-4" />

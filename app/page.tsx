@@ -52,6 +52,13 @@ function MainContent() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState<string>("Gemini 2.5 Pro")
+  
+  const modelOptions = [
+    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+    { id: "gpt-4o", name: "GPT-4o" }
+  ]
   
   const briefTemplates = [
     {
@@ -142,6 +149,7 @@ function MainContent() {
           clientName: activeClientName,
           productFocus: activeProductFocus,
           instructions: instructions.trim() || undefined,
+          model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
         }),
       })
 
@@ -365,21 +373,27 @@ function MainContent() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="flex items-center gap-2 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                      className="flex items-center gap-2 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent min-w-[160px]"
                     >
-                      Gemini
+                      {selectedModel}
                       <ChevronDown className="ml-auto h-4 w-4 text-[#8e8e93]" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem>Gemini</DropdownMenuItem>
-                    <DropdownMenuItem>Another Model</DropdownMenuItem>
+                    {modelOptions.map((model) => (
+                      <DropdownMenuItem 
+                        key={model.id}
+                        onClick={() => setSelectedModel(model.name)}
+                      >
+                        {model.name}
+                      </DropdownMenuItem>
+                    ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button 
                   onClick={handleGenerateTopics}
                   disabled={isGenerating}
-                  className="ml-auto bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="ml-auto bg-black text-white hover:bg-gray-800"
                 >
                   {isGenerating ? (
                     <>
@@ -409,7 +423,7 @@ function MainContent() {
                         setInstructions('')
                         setSelectedTemplate(null)
                       }}
-                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 text-xs h-auto py-1 px-2"
+                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 text-xs h-auto py-1 px-2"
                     >
                       Clear
                     </Button>
@@ -431,8 +445,8 @@ function MainContent() {
                     onClick={() => handleTemplateSelect(template.id)}
                     className={`text-sm px-3 py-1 h-auto transition-all duration-200 ${
                       selectedTemplate === template.id
-                        ? 'border-blue-500 bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600'
-                        : 'border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent'
+                        ? 'border-black bg-black text-white hover:bg-gray-800'
+                        : 'border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent'
                     }`}
                   >
                     {template.title}
@@ -442,18 +456,12 @@ function MainContent() {
 
 {activeTopicTab === "generate" ? (
                 <Tabs defaultValue="openai" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#d1d1d6]">
+                  <TabsList className="grid w-full grid-cols-1 h-auto bg-transparent p-0 border-b border-[#d1d1d6]">
                     <TabsTrigger
                       value="openai"
                       className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-sm font-medium py-2"
                     >
-                      Gemini
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="openai-with-research"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-sm font-medium py-2"
-                    >
-                      Gemini (With Research)
+                      Ideas Result
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="openai" className="mt-4">
@@ -531,11 +539,6 @@ function MainContent() {
                           )}
                         </div>
                       )}
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="openai-with-research" className="mt-4">
-                    <div className="p-6 bg-white rounded-lg border border-[#d1d1d6] shadow-sm text-center text-[#8e8e93]">
-                      Content for Gemini (With Research) goes here.
                     </div>
                   </TabsContent>
                 </Tabs>

@@ -59,7 +59,7 @@ export function CompetitorSummary({ clientId, productFocus, clientName, initialS
             <Button
               onClick={() => setIsEditing(true)}
               variant="outline"
-              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+              className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
             >
               <Edit className="mr-2 h-4 w-4" />
               Edit
@@ -70,7 +70,7 @@ export function CompetitorSummary({ clientId, productFocus, clientName, initialS
               <Button
                 onClick={() => setIsEditing(false)}
                 variant="outline"
-                className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+                className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
               >
                 <Save className="mr-2 h-4 w-4" />
                 Save
@@ -91,7 +91,7 @@ export function CompetitorSummary({ clientId, productFocus, clientName, initialS
           <Button
             onClick={handleGenerateSummary}
             disabled={isGenerating}
-            className="bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
+            className="bg-black text-white hover:bg-gray-800"
           >
             {isGenerating ? (
               <>
@@ -130,7 +130,7 @@ export function CompetitorSummary({ clientId, productFocus, clientName, initialS
               variant="outline"
               size="sm"
               onClick={() => setSummary('')}
-              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
+              className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
             >
               Clear
             </Button>

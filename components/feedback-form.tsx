@@ -172,14 +172,13 @@ export function FeedbackForm({
                 variant="outline" 
                 onClick={handleClose}
                 disabled={isSubmitting}
-                className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
               >
                 Cancel
               </Button>
               <Button 
                 onClick={handleSubmit}
                 disabled={!isFormValid}
-                className="bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
+                className="bg-black text-white hover:bg-gray-800"
               >
                 {isSubmitting ? (
                   <>

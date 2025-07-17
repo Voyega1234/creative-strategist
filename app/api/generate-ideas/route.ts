@@ -30,11 +30,11 @@ interface N8NIdeaResponse {
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/ee9dbf72-1c09-4dd2-83e9-a6c1775ed8c1';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook-test/ee9dbf72-1c09-4dd2-83e9-a6c1775ed8c1';
 
     // Parse request body
     const body = await request.json();
-    const { clientName, productFocus, instructions, targetMarket } = body;
+    const { clientName, productFocus, instructions, targetMarket, model } = body;
     
     if (!clientName || !productFocus) {
       return NextResponse.json({ 
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    console.log('[generate-ideas] Generating ideas for:', { clientName, productFocus, instructions, targetMarket });
+    console.log('[generate-ideas] Generating ideas for:', { clientName, productFocus, instructions, targetMarket, model });
 
     // Call N8N webhook
     try {
@@ -56,7 +56,8 @@ export async function POST(request: Request) {
           clientName,
           productFocus,
           instructions,
-          targetMarket
+          targetMarket,
+          model: model || "gemini-2.5-pro"
         }),
       });
 
