@@ -1,9 +1,10 @@
 'use client'
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Settings, UserPlus } from "lucide-react"
+import { Sparkles, Settings, UserPlus, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 type AppHeaderProps = {
   activeClientId: string | null
@@ -13,6 +14,8 @@ type AppHeaderProps = {
 
 export function AppHeader({ activeClientId, activeProductFocus, activeClientName }: AppHeaderProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [isNavigating, setIsNavigating] = useState(false)
   
   // Build URLs with all available parameters
   let configureHref = "/configure"
@@ -33,6 +36,23 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
 
   const isCreateActive = pathname === "/"
   const isConfigureActive = pathname === "/configure"
+
+  const handleConfigureClick = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsNavigating(true)
+    
+    try {
+      router.push(configureHref)
+    } catch (error) {
+      console.error('Navigation error:', error)
+      setIsNavigating(false)
+    }
+  }
+
+  // Reset loading state when pathname changes
+  useEffect(() => {
+    setIsNavigating(false)
+  }, [pathname])
 
   return (
     <header className="relative h-20 bg-gradient-to-r from-white via-slate-50 to-white border-b border-gray-200 shadow-sm">
@@ -76,22 +96,26 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
           </Link>
           
           {/* Configure Button */}
-          <Link href={configureHref} passHref>
-            <Button 
-              variant="ghost" 
-              className={`relative px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                isConfigureActive
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-400 text-white shadow-lg hover:from-blue-700 hover:to-blue-500'
-                  : 'text-blue-700 hover:bg-blue-50 hover:text-blue-900'
-              }`}
-            >
+          <Button 
+            variant="ghost" 
+            onClick={handleConfigureClick}
+            disabled={isNavigating}
+            className={`relative px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+              isConfigureActive
+                ? 'bg-gradient-to-r from-blue-600 to-blue-400 text-white shadow-lg hover:from-blue-700 hover:to-blue-500'
+                : 'text-blue-700 hover:bg-blue-50 hover:text-blue-900'
+            }`}
+          >
+            {isNavigating ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
               <Settings className="w-4 h-4 mr-2" />
-              ตั้งค่าและวิเคราะห์
-              {isConfigureActive && (
-                <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full" />
-              )}
-            </Button>
-          </Link>
+            )}
+            {isNavigating ? 'กำลังโหลด...' : 'ตั้งค่าและวิเคราะห์'}
+            {isConfigureActive && !isNavigating && (
+              <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full" />
+            )}
+          </Button>
         </div>
 
         {/* Right Side - New Client Button */}

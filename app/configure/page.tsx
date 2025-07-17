@@ -8,6 +8,7 @@ import { MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { AppHeader } from "@/components/layout/header"
+import { ConfigureLoading } from "@/components/configure-loading"
 import { getCompetitors, getUniqueServices, getClientBusinessProfile, type Competitor } from "@/lib/data/competitors"
 import { ClientInformationSection } from "@/components/client-information-section"
 import { ResearchInsightsSection } from "@/components/research-insights-section"
@@ -24,10 +25,11 @@ import { getFeedback, type FeedbackDetail } from "@/lib/data/feedback"
 import { normalizeToArray } from "@/lib/utils"
 import { getSupabase } from "@/lib/supabase/server"
 import Link from "next/link"
+import { Suspense } from "react"
 
 const ITEMS_PER_PAGE = 5 // Define items per page
 
-export default async function ConfigurePage({
+async function ConfigurePageContent({
   searchParams,
 }: {
   searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
@@ -429,5 +431,17 @@ export default async function ConfigurePage({
         </main>
       </div>
     </div>
+  )
+}
+
+export default function ConfigurePage({
+  searchParams,
+}: {
+  searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
+}) {
+  return (
+    <Suspense fallback={<ConfigureLoading />}>
+      <ConfigurePageContent searchParams={searchParams} />
+    </Suspense>
   )
 }
