@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json();
-    const { clientName, productFocus } = body;
+    const { clientName, productFocus, instructions, targetMarket } = body;
     
     if (!clientName || !productFocus) {
       return NextResponse.json({ 
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    console.log('[generate-ideas] Generating ideas for:', { clientName, productFocus });
+    console.log('[generate-ideas] Generating ideas for:', { clientName, productFocus, instructions, targetMarket });
 
     // Call N8N webhook
     try {
@@ -54,7 +54,9 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           clientName,
-          productFocus
+          productFocus,
+          instructions,
+          targetMarket
         }),
       });
 

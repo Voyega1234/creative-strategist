@@ -80,7 +80,7 @@ function ensureAbsoluteUrl(url: string | null | undefined): string | null {
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook-test/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
 
     // Parse request body
     const body = await request.json();
@@ -117,7 +117,8 @@ export async function POST(request: Request) {
           productFocus,
           market,
           additionalInfo,
-          website: clientWebsiteUrl
+          website: clientWebsiteUrl,
+          ad_account_id
         }),
       });
 
@@ -145,19 +146,17 @@ export async function POST(request: Request) {
     
     // --- Process N8N Output --- 
     // Extract client data and filter out client from competitors
-    const competitorsOnly = (parsedData.competitors || []).filter(comp => {
-      // Check if this competitor is actually the client (case-insensitive match)
-      const isClient = comp.name.toLowerCase().includes(clientName.toLowerCase()) || 
-                      clientName.toLowerCase().includes(comp.name.toLowerCase());
-      
-      if (isClient) {
-        console.log(`[competitor-research] Found client data in competitors: ${comp.name}`);
-        return false; // Remove from competitors list
-      }
-      return true; // Keep in competitors list
-    });
-
-    const processedCompetitors: FinalCompetitor[] = competitorsOnly.map((comp): FinalCompetitor => {
+    // Since client is always the first index, we'll extract it directly
+    const allCompetitors = parsedData.competitors || [];
+    let clientData = null;
+    
+    if (allCompetitors.length > 0) {
+      clientData = allCompetitors[0];
+      console.log(`[competitor-research] Extracted client data from first index: ${clientData.name}`);
+    }
+    
+    // Process all competitors including the client (they all get saved to Competitors table)
+    const processedCompetitors: FinalCompetitor[] = allCompetitors.map((comp): FinalCompetitor => {
       // Ensure nested objects exist and provide defaults
       const perception = comp.brandPerception || { positive: null, negative: null };
 

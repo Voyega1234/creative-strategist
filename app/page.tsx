@@ -49,6 +49,36 @@ export default function Component() {
   const [selectedIdea, setSelectedIdea] = useState<IdeaRecommendation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [targetMarket, setTargetMarket] = useState("Thailand")
+  
+  const briefTemplates = [
+    {
+      id: "pain-point",
+      title: "Pain Point Solution Focus",
+      content: "I want you to generate ideas that directly address a key pain point of our target customers, and clearly show how our product or service uniquely solves this problem."
+    },
+    {
+      id: "testimonial",
+      title: "Emotional Testimonial Leverage",
+      content: "Please create ideas that leverage real or hypothetical testimonials—showing authentic customer voices and how their lives improved after using our product or service."
+    },
+    {
+      id: "data-driven",
+      title: "Data-Driven Proof",
+      content: "Develop ideas that use surprising, compelling, or quantifiable proof points (e.g., statistics, results, or proprietary data) to demonstrate the effectiveness of our product or service in a way that builds trust."
+    },
+    {
+      id: "comparison",
+      title: "Comparison/Before-After Stories",
+      content: "Generate ideas that use 'before and after' scenarios, direct comparisons, or transformation stories to vividly illustrate the difference our product or service makes."
+    },
+    {
+      id: "unexpected",
+      title: "Unexpected Use Cases or Benefits",
+      content: "I want you to come up with ideas that highlight unusual, overlooked, or unexpected ways our product or service can be used, providing fresh perspectives that competitors aren't talking about."
+    }
+  ]
   
   const activeClientId = searchParams.get('clientId') || null
   const activeProductFocus = searchParams.get('productFocus') || null
@@ -109,7 +139,9 @@ export default function Component() {
         },
         body: JSON.stringify({
           clientName: activeClientName,
-          productFocus: activeProductFocus
+          productFocus: activeProductFocus,
+          instructions: instructions.trim() || undefined,
+          targetMarket: targetMarket
         }),
       })
 
@@ -222,6 +254,26 @@ export default function Component() {
   const handleCloseDetail = () => {
     setDetailModalOpen(false)
     setSelectedDetailIdea(null)
+  }
+
+  const handleTemplateSelect = (templateId: string) => {
+    const template = briefTemplates.find(t => t.id === templateId)
+    if (template) {
+      setInstructions(template.content)
+      setSelectedTemplate(templateId)
+    }
+  }
+
+  // Clear template selection when user manually edits instructions
+  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInstructions(e.target.value)
+    // Clear selected template if user manually edits
+    if (selectedTemplate) {
+      const selectedTemplateContent = briefTemplates.find(t => t.id === selectedTemplate)?.content
+      if (e.target.value !== selectedTemplateContent) {
+        setSelectedTemplate(null)
+      }
+    }
   }
 
   const loadSavedTopics = async () => {
@@ -468,30 +520,61 @@ export default function Component() {
                   )}
                 </Button>
               </div>
+              
               <div className="mb-4">
-                <label htmlFor="instructions" className="text-sm font-medium text-[#000000] block mb-2">
-                  Optional instructions
+                <label htmlFor="targetMarket" className="text-sm font-medium text-[#000000] block mb-2">
+                  Target Market
                 </label>
+                <input
+                  id="targetMarket"
+                  type="text"
+                  value={targetMarket}
+                  onChange={(e) => setTargetMarket(e.target.value)}
+                  placeholder="Enter target market..."
+                  className="w-full px-3 py-2 border border-[#999999] rounded-md focus:border-black focus:ring-0 focus:outline-none text-sm"
+                />
+              </div>
+              
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="instructions" className="text-sm font-medium text-[#000000]">
+                    Optional instructions
+                  </label>
+                  {instructions && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setInstructions('')
+                        setSelectedTemplate(null)
+                      }}
+                      className="text-[#8e8e93] hover:text-black text-xs h-auto py-1 px-2"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
                 <Textarea
                   id="instructions"
-                  placeholder="Provide additional context or specific instructions..."
+                  value={instructions}
+                  onChange={handleInstructionsChange}
+                  placeholder="Provide additional context or specific instructions, or click one of the buttons below to auto-fill..."
                   className="min-h-[80px] border-[#999999] focus:border-black focus:ring-0"
                 />
               </div>
               <div className="flex flex-wrap gap-2 mb-4">
-                {[
-                  "Pain Point Solution Focus",
-                  "Emotional Testimonial Leverage",
-                  "Data-Driven Proof",
-                  "Comparison/Before-After Stories",
-                  "Unexpected Use Cases or Benefits",
-                ].map((filter, index) => (
+                {briefTemplates.map((template) => (
                   <Button
-                    key={index}
+                    key={template.id}
                     variant="outline"
-                    className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] text-sm px-3 py-1 h-auto bg-transparent"
+                    onClick={() => handleTemplateSelect(template.id)}
+                    className={`text-sm px-3 py-1 h-auto transition-all duration-200 ${
+                      selectedTemplate === template.id
+                        ? 'border-black bg-black text-white hover:bg-gray-800'
+                        : 'border-[#999999] text-[#000000] hover:bg-[#eeeeee] hover:border-black bg-transparent'
+                    }`}
                   >
-                    {filter}
+                    {template.title}
                   </Button>
                 ))}
               </div>

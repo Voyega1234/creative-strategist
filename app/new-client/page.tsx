@@ -17,13 +17,14 @@ export default function NewClientPage() {
     clientName: "",
     websiteUrl: "",
     facebookUrl: "",
-    market: "",
+    market: "Thailand",
     productFocus: "",
     additionalInfo: "",
     userCompetitors: "",
     ad_account_id: ""
   })
   const [isCreating, setIsCreating] = useState(false)
+  const [adAccountError, setAdAccountError] = useState("")
   const router = useRouter()
 
   useEffect(() => {
@@ -34,11 +35,64 @@ export default function NewClientPage() {
     fetchClients()
   }, [])
 
+  const validateAndFormatAdAccountId = (adAccountId: string): string | null => {
+    if (!adAccountId.trim()) return null // Empty is allowed (optional)
+    
+    const trimmed = adAccountId.trim()
+    
+    // If it already has act_ prefix, validate the format
+    if (trimmed.startsWith('act_')) {
+      const numberPart = trimmed.substring(4)
+      if (!/^\d{15,16}$/.test(numberPart)) {
+        throw new Error("Ad Account ID must be in format: act_1234567890123456 (15-16 digits after act_)")
+      }
+      return trimmed
+    }
+    
+    // If it's only numbers, add the act_ prefix
+    if (/^\d{15,16}$/.test(trimmed)) {
+      return `act_${trimmed}`
+    }
+    
+    // Invalid format
+    throw new Error("Ad Account ID must be either 15-16 digits or in format: act_1234567890123456")
+  }
+
+  const handleAdAccountChange = (value: string) => {
+    setFormData(prev => ({ ...prev, ad_account_id: value }))
+    
+    // Clear error if field is empty (since it's optional)
+    if (!value.trim()) {
+      setAdAccountError("")
+      return
+    }
+    
+    // Validate format
+    try {
+      validateAndFormatAdAccountId(value)
+      setAdAccountError("")
+    } catch (error: any) {
+      setAdAccountError(error.message)
+    }
+  }
+
   const handleCreateNewClient = async () => {
     if (!formData.clientName || !formData.market) {
       alert("Please enter client name and target market.")
       return
     }
+
+    // Validate ad account ID if provided
+    let validatedAdAccountId = null
+    if (formData.ad_account_id) {
+      try {
+        validatedAdAccountId = validateAndFormatAdAccountId(formData.ad_account_id)
+      } catch (error: any) {
+        alert(error.message)
+        return
+      }
+    }
+
     setIsCreating(true)
     
     try {
@@ -47,7 +101,10 @@ export default function NewClientPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          ad_account_id: validatedAdAccountId
+        }),
       })
 
       const result = await response.json()
@@ -161,14 +218,21 @@ export default function NewClientPage() {
                 disabled={isCreating}
               />
 
-              <Input
-                type="text"
-                placeholder="Ad Account ID (optional)"
-                className="border-[#999999] focus:border-black focus:ring-0 h-12 text-base"
-                value={formData.ad_account_id}
-                onChange={(e) => setFormData(prev => ({ ...prev, ad_account_id: e.target.value }))}
-                disabled={isCreating}
-              />
+              <div>
+                <Input
+                  type="text"
+                  placeholder="Ad Account ID (optional) - e.g., act_1234567890123456"
+                  className={`border-[#999999] focus:border-black focus:ring-0 h-12 text-base ${
+                    adAccountError ? 'border-red-500 focus:border-red-500' : ''
+                  }`}
+                  value={formData.ad_account_id}
+                  onChange={(e) => handleAdAccountChange(e.target.value)}
+                  disabled={isCreating}
+                />
+                {adAccountError && (
+                  <p className="text-red-500 text-sm mt-1">{adAccountError}</p>
+                )}
+              </div>
 
               <Button
                 className="w-full h-12 bg-black hover:bg-gray-800 text-base"
@@ -201,7 +265,14 @@ export default function NewClientPage() {
                   <ChevronDown className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+              <DropdownMenuContent 
+                align="start" 
+                className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[300px] overflow-y-auto"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: '#cbd5e1 #f1f5f9'
+                }}
+              >
                 {clients.map((client) => (
                   <DropdownMenuItem key={client.id} asChild>
                     <Link href={`/configure?clientId=${client.id}`}>{client.clientName}</Link>

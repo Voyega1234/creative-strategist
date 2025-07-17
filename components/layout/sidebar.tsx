@@ -56,7 +56,14 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
               <ChevronDown className="ml-auto h-4 w-4 text-[#8e8e93]" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
+          <DropdownMenuContent 
+            align="start" 
+            className="max-h-[400px] overflow-y-auto w-60"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#cbd5e1 #f1f5f9'
+            }}
+          >
             {clients.map((client) => (
               <DropdownMenuItem key={client.id} asChild>
                 <Link href={`${currentPath}?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}`}>
