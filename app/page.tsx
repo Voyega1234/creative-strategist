@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -13,6 +13,7 @@ import { AppHeader } from "@/components/layout/header"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { useSearchParams } from "next/navigation"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Types for ideas
 export interface IdeaRecommendation {
@@ -34,7 +35,8 @@ export interface IdeaRecommendation {
   };
 }
 
-export default function Component() {
+// Client component that uses useSearchParams
+function MainContent() {
   const searchParams = useSearchParams()
   const [topics, setTopics] = useState<IdeaRecommendation[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -632,5 +634,19 @@ export default function Component() {
         idea={selectedDetailIdea}
       />
     </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col space-y-4 p-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    }>
+      <MainContent />
+    </Suspense>
   )
 }
