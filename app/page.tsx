@@ -50,7 +50,6 @@ export default function Component() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
-  const [targetMarket, setTargetMarket] = useState("Thailand")
   
   const briefTemplates = [
     {
@@ -141,7 +140,6 @@ export default function Component() {
           clientName: activeClientName,
           productFocus: activeProductFocus,
           instructions: instructions.trim() || undefined,
-          targetMarket: targetMarket
         }),
       })
 
@@ -346,132 +344,6 @@ export default function Component() {
   )
 
 
-  const ideasData = [
-    {
-      id: "1",
-      focusTarget: "Focus Target 1",
-      keyMessage: "ปลดล็อคยอดขายพุ่งทะยาน ด้วยจิตวิทยา 'ความกลัว' ใน 3 วินาที",
-      topicIdeas: [
-        {
-          category: "Product Benefits",
-          items: [
-            "เพิ่มยอดขายอย่างรวดเร็วและมีประสิทธิภาพ",
-            "เข้าถึงกลุ่มเป้าหมายที่ใช่ ด้วยแคมเปญที่ดึงดูด",
-            "เรียนรู้วิธีสร้างสรรค์โฆษณาที่กระตุ้นการตัดสินใจซื้อทันที",
-          ],
-        },
-        {
-          category: "Pain Points & Emotional",
-          items: [
-            "ขาดความเข้าใจในการใช้จิตวิทยา 'ความกลัว' ในการตลาด",
-            "แคมเปญโฆษณาไม่ดึงดูด ไม่ได้ผลลัพธ์ที่ต้องการ",
-            "กลัวที่จะพลาดโอกาสในการเพิ่มยอดขายและเติบโต",
-          ],
-        },
-        {
-          category: "Promotion & Pricing",
-          items: [
-            "แพคเกจราคาพิเศษสำหรับลูกค้าใหม่ที่ต้องการทดลอง",
-            "โปรโมชั่นลดราคาสำหรับการใช้บริการครบวงจร",
-            "รับคำปรึกษาฟรี เพื่อวางแผนกลยุทธ์ที่เหมาะสมกับธุรกิจของคุณ",
-          ],
-        },
-      ],
-    },
-    {
-      id: "2",
-      focusTarget: "Focus Target 2",
-      keyMessage: "ปลดล็อคยอดขายพุ่งทะยาน ด้วยจิตวิทยา 'ความกลัว' ใน 3 วินาที",
-      topicIdeas: [
-        {
-          category: "Product Benefits",
-          items: [
-            "เพิ่มยอดขายอย่างรวดเร็วและมีประสิทธิภาพ",
-            "เข้าถึงกลุ่มเป้าหมายที่ใช่ ด้วยแคมเปญที่ดึงดูด",
-            "เรียนรู้วิธีสร้างสรรค์โฆษณาที่กระตุ้นการตัดสินใจซื้อทันที",
-          ],
-        },
-        {
-          category: "Pain Points & Emotional",
-          items: [
-            "ขาดความเข้าใจในการใช้จิตวิทยา 'ความกลัว' ในการตลาด",
-            "แคมเปญโฆษณาไม่ดึงดูด ไม่ได้ผลลัพธ์ที่ต้องการ",
-            "กลัวที่จะพลาดโอกาสในการเพิ่มยอดขายและเติบโต",
-          ],
-        },
-        {
-          category: "Promotion & Pricing",
-          items: [
-            "แพคเกจราคาพิเศษสำหรับลูกค้าใหม่ที่ต้องการทดลอง",
-            "โปรโมชั่นลดราคาสำหรับการใช้บริการครบวงจร",
-            "รับคำปรึกษาฟรี เพื่อวางแผนกลยุทธ์ที่เหมาะสมกับธุรกิจของคุณ",
-          ],
-        },
-      ],
-    },
-    {
-      id: "3",
-      focusTarget: "Focus Target 3",
-      keyMessage: "ปลดล็อคยอดขายพุ่งทะยาน ด้วยจิตวิทยา 'ความกลัว' ใน 3 วินาที",
-      topicIdeas: [
-        {
-          category: "Product Benefits",
-          items: [
-            "เพิ่มยอดขายอย่างรวดเร็วและมีประสิทธิภาพ",
-            "เข้าถึงกลุ่มเป้าหมายที่ใช่ ด้วยแคมเปญที่ดึงดูด",
-            "เรียนรู้วิธีสร้างสรรค์โฆษณาที่กระตุ้นการตัดสินใจซื้อทันที",
-          ],
-        },
-        {
-          category: "Pain Points & Emotional",
-          items: [
-            "ขาดความเข้าใจในการใช้จิตวิทยา 'ความกลัว' ในการตลาด",
-            "แคมเปญโฆษณาไม่ดึงดูด ไม่ได้ผลลัพธ์ที่ต้องการ",
-            "กลัวที่จะพลาดโอกาสในการเพิ่มยอดขายและเติบโต",
-          ],
-        },
-        {
-          category: "Promotion & Pricing",
-          items: [
-            "แพคเกจราคาพิเศษสำหรับลูกค้าใหม่ที่ต้องการทดลอง",
-            "โปรโมชั่นลดราคาสำหรับการใช้บริการครบวงจร",
-            "รับคำปรึกษาฟรี เพื่อวางแผนกลยุทธ์ที่เหมาะสมกับธุรกิจของคุณ",
-          ],
-        },
-      ],
-    },
-    {
-      id: "4",
-      focusTarget: "Focus Target 4",
-      keyMessage: "ปลดล็อคยอดขายพุ่งทะยาน ด้วยจิตวิทยา 'ความกลัว' ใน 3 วินาที",
-      topicIdeas: [
-        {
-          category: "Product Benefits",
-          items: [
-            "เพิ่มยอดขายอย่างรวดเร็วและมีประสิทธิภาพ",
-            "เข้าถึงกลุ่มเป้าหมายที่ใช่ ด้วยแคมเปญที่ดึงดูด",
-            "เรียนรู้วิธีสร้างสรรค์โฆษณาที่กระตุ้นการตัดสินใจซื้อทันที",
-          ],
-        },
-        {
-          category: "Pain Points & Emotional",
-          items: [
-            "ขาดความเข้าใจในการใช้จิตวิทยา 'ความกลัว' ในการตลาด",
-            "แคมเปญโฆษณาไม่ดึงดูด ไม่ได้ผลลัพธ์ที่ต้องการ",
-            "กลัวที่จะพลาดโอกาสในการเพิ่มยอดขายและเติบโต",
-          ],
-        },
-        {
-          category: "Promotion & Pricing",
-          items: [
-            "แพคเกจราคาพิเศษสำหรับลูกค้าใหม่ที่ต้องการทดลอง",
-            "โปรโมชั่นลดราคาสำหรับการใช้บริการครบวงจร",
-            "รับคำปรึกษาฟรี เพื่อวางแผนกลยุทธ์ที่เหมาะสมกับธุรกิจของคุณ",
-          ],
-        },
-      ],
-    },
-  ]
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[260px_1fr] bg-[#f2f2f7]">
@@ -521,19 +393,6 @@ export default function Component() {
                 </Button>
               </div>
               
-              <div className="mb-4">
-                <label htmlFor="targetMarket" className="text-sm font-medium text-[#000000] block mb-2">
-                  Target Market
-                </label>
-                <input
-                  id="targetMarket"
-                  type="text"
-                  value={targetMarket}
-                  onChange={(e) => setTargetMarket(e.target.value)}
-                  placeholder="Enter target market..."
-                  className="w-full px-3 py-2 border border-[#999999] rounded-md focus:border-black focus:ring-0 focus:outline-none text-sm"
-                />
-              </div>
               
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
@@ -754,51 +613,6 @@ export default function Component() {
             </div>
           </section>
 
-          {/* Section 2: Generate Ideas */}
-          <section>
-            <h2 className="text-xl font-semibold mb-4">2. Generate Ideas</h2>
-            <div className="flex justify-end mb-4">
-              <Button variant="ghost" size="icon" className="text-[#8e8e93] hover:text-black">
-                <RefreshCcw className="h-5 w-5" />
-                <span className="sr-only">Refresh</span>
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ideasData.map((target) => (
-                <Card key={target.id} className="p-4 border border-[#d1d1d6] shadow-sm relative">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold">{target.focusTarget}</h3>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-[#8e8e93] hover:text-black">
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-[#8e8e93] hover:text-black">
-                        <Lock className="h-4 w-4" />
-                        <span className="sr-only">Lock</span>
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-sm text-[#000000] mb-4">
-                    <span className="font-semibold">Key Message:</span> {target.keyMessage}
-                  </p>
-                  <h4 className="font-semibold mb-2">Topic Ideas:</h4>
-                  <ul className="list-disc pl-5 text-sm text-[#000000] space-y-1">
-                    {target.topicIdeas.map((ideaCategory, i) => (
-                      <li key={i}>
-                        <span className="font-semibold">{ideaCategory.category}</span>
-                        <ul className="list-disc pl-5 text-xs space-y-0.5">
-                          {ideaCategory.items.map((item, j) => (
-                            <li key={j}>{item}</li>
-                          ))}
-                        </ul>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              ))}
-            </div>
-          </section>
         </main>
       </div>
       
