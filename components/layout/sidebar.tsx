@@ -43,8 +43,8 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
   }, [])
 
   return (
-    <div className="hidden border-r bg-white md:flex md:flex-col">
-      <div className="flex h-16 items-center border-b px-4">
+    <div className="hidden border-r border-gray-200 bg-white/80 backdrop-blur-sm md:flex md:flex-col shadow-sm">
+      <div className="flex h-20 items-center border-b border-gray-200 px-6">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 text-lg font-semibold w-full justify-start">

@@ -128,7 +128,7 @@ export default function NewClientPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f2f2f7] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50 p-4">
       <div className="w-full max-w-2xl text-center">
         <h1 className="text-4xl font-bold mb-4">Competitor Research</h1>
         <p className="text-lg text-[#8e8e93] mb-8">
@@ -136,16 +136,16 @@ export default function NewClientPage() {
         </p>
 
         <Tabs defaultValue="new-client" className="w-full max-w-md mx-auto">
-          <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border border-[#999999] rounded-md overflow-hidden mb-8">
+          <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border border-blue-200 rounded-md overflow-hidden mb-8">
             <TabsTrigger
               value="new-client"
-              className="data-[state=active]:bg-black data-[state=active]:text-white data-[state=active]:shadow-none rounded-none text-base font-medium py-2"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-none rounded-none text-base font-medium py-2 text-blue-700"
             >
               New Client
             </TabsTrigger>
             <TabsTrigger
               value="select-client"
-              className="data-[state=active]:bg-black data-[state=active]:text-white data-[state=active]:shadow-none rounded-none text-base font-medium py-2"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-none rounded-none text-base font-medium py-2 text-blue-700"
             >
               Select Client
             </TabsTrigger>
@@ -235,7 +235,7 @@ export default function NewClientPage() {
               </div>
 
               <Button
-                className="w-full h-12 bg-black hover:bg-gray-800 text-base"
+                className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-base shadow-lg hover:shadow-xl transition-all duration-300"
                 onClick={handleCreateNewClient}
                 disabled={isCreating}
               >

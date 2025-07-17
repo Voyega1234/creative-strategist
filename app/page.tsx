@@ -346,7 +346,7 @@ export default function Component() {
 
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[260px_1fr] bg-[#f2f2f7]">
+    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50">
       <AppSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
       <div className="flex flex-col">
         <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
@@ -377,7 +377,7 @@ export default function Component() {
                 <Button 
                   onClick={handleGenerateTopics}
                   disabled={isGenerating}
-                  className="ml-auto bg-black text-white hover:bg-gray-800"
+                  className="ml-auto bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   {isGenerating ? (
                     <>
@@ -407,7 +407,7 @@ export default function Component() {
                         setInstructions('')
                         setSelectedTemplate(null)
                       }}
-                      className="text-[#8e8e93] hover:text-black text-xs h-auto py-1 px-2"
+                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 text-xs h-auto py-1 px-2"
                     >
                       Clear
                     </Button>
@@ -429,8 +429,8 @@ export default function Component() {
                     onClick={() => handleTemplateSelect(template.id)}
                     className={`text-sm px-3 py-1 h-auto transition-all duration-200 ${
                       selectedTemplate === template.id
-                        ? 'border-black bg-black text-white hover:bg-gray-800'
-                        : 'border-[#999999] text-[#000000] hover:bg-[#eeeeee] hover:border-black bg-transparent'
+                        ? 'border-blue-500 bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600'
+                        : 'border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent'
                     }`}
                   >
                     {template.title}

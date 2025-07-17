@@ -122,7 +122,7 @@ export default async function ConfigurePage({
 
   if (!initialClientProfileData) {
     return (
-      <div className="grid min-h-screen w-full md:grid-cols-[260px_1fr] bg-[#f2f2f7]">
+      <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50">
         <AppSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
         <div className="flex flex-col">
           <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
@@ -140,7 +140,7 @@ export default async function ConfigurePage({
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[260px_1fr] bg-[#f2f2f7]">
+    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50">
       <AppSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
       <div className="flex flex-col">
         <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
@@ -245,8 +245,8 @@ export default async function ConfigurePage({
                     }
                     className={`text-sm px-3 py-1 h-auto ${
                       !selectedServiceFilter || selectedServiceFilter === "All Competitors"
-                        ? "bg-black text-white hover:bg-gray-800"
-                        : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                        ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
+                        : "border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
                     }`}
                   >
                     All Competitors
@@ -264,8 +264,8 @@ export default async function ConfigurePage({
                       variant={selectedServiceFilter === service ? "default" : "outline"}
                       className={`text-sm px-3 py-1 h-auto ${
                         selectedServiceFilter === service
-                          ? "bg-black text-white hover:bg-gray-800"
-                          : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                          ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
+                          : "border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
                       }`}
                     >
                       {service}
@@ -365,7 +365,7 @@ export default async function ConfigurePage({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                    className="h-8 w-8 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
                     disabled={currentPage === 1}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -385,8 +385,8 @@ export default async function ConfigurePage({
                       size="icon"
                       className={`h-8 w-8 ${
                         page === currentPage
-                          ? "bg-black text-white hover:bg-[#eeeeee]"
-                          : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                          ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
+                          : "border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
                       }`}
                     >
                       {page}
@@ -402,7 +402,7 @@ export default async function ConfigurePage({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                    className="h-8 w-8 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400 bg-transparent"
                     disabled={currentPage === totalPages}
                   >
                     <ChevronRight className="h-4 w-4" />

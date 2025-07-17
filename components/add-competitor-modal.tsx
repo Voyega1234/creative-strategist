@@ -81,7 +81,7 @@ export function AddCompetitorModal({ clientId, clientName, productFocus }: AddCo
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="ml-auto bg-black text-white hover:bg-gray-800">
+        <Button className="ml-auto bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600">
           <Plus className="mr-2 h-4 w-4" />
           Add Competitor
         </Button>
@@ -139,13 +139,14 @@ export function AddCompetitorModal({ clientId, clientName, productFocus }: AddCo
               variant="outline"
               onClick={handleClose}
               disabled={isResearching}
+              className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isResearching || !competitorName.trim()}
-              className="bg-black text-white hover:bg-gray-800"
+              className="bg-gradient-to-r from-blue-600 to-blue-500 text-white hover:from-blue-700 hover:to-blue-600"
             >
               {isResearching ? (
                 <>
