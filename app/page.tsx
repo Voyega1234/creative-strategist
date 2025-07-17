@@ -10,10 +10,12 @@ import { ChevronDown, RefreshCcw, Bookmark, Edit, Lock, Sparkles } from "lucide-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { AppHeader } from "@/components/layout/header"
+import { FeedbackForm } from "@/components/feedback-form"
+import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { useSearchParams } from "next/navigation"
 
 // Types for ideas
-interface IdeaRecommendation {
+export interface IdeaRecommendation {
   title: string;
   description: string;
   category: string;
@@ -42,7 +44,11 @@ export default function Component() {
   const [isSaving, setIsSaving] = useState<Set<number>>(new Set())
   const [savedTopics, setSavedTopics] = useState<IdeaRecommendation[]>([])
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
-  const [activeTopicTab, setActiveTopicTab] = useState("generate")
+  const [activeTopicTab, setActiveTopicTab] = useState<"generate" | "saved">("generate")
+  const [feedbackFormOpen, setFeedbackFormOpen] = useState(false)
+  const [selectedIdea, setSelectedIdea] = useState<IdeaRecommendation | null>(null)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
   
   const activeClientId = searchParams.get('clientId') || null
   const activeProductFocus = searchParams.get('productFocus') || null
@@ -198,6 +204,26 @@ export default function Component() {
     }
   }
 
+  const handleOpenFeedback = (idea: IdeaRecommendation) => {
+    setSelectedIdea(idea)
+    setFeedbackFormOpen(true)
+  }
+
+  const handleCloseFeedback = () => {
+    setFeedbackFormOpen(false)
+    setSelectedIdea(null)
+  }
+
+  const handleOpenDetail = (idea: IdeaRecommendation) => {
+    setSelectedDetailIdea(idea)
+    setDetailModalOpen(true)
+  }
+
+  const handleCloseDetail = () => {
+    setDetailModalOpen(false)
+    setSelectedDetailIdea(null)
+  }
+
   const loadSavedTopics = async () => {
     if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
       setSavedTopics([])
@@ -227,6 +253,45 @@ export default function Component() {
       loadSavedTopics()
     }
   }, [activeTopicTab, activeClientName, activeProductFocus])
+
+  const renderTabButtons = (refreshAction?: () => void, isLoading?: boolean) => (
+    <div className="relative flex justify-center mb-4">
+      <div className="flex bg-[#f8f9fa] border border-[#d1d1d6] rounded-xl p-1 shadow-sm">
+        <Button
+          variant="ghost"
+          className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
+            activeTopicTab === "generate" 
+              ? "bg-white text-black shadow-sm border border-white" 
+              : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
+          }`}
+          onClick={() => setActiveTopicTab("generate")}
+        >
+          🚀 Generate Topic
+        </Button>
+        <Button
+          variant="ghost"
+          className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
+            activeTopicTab === "saved" 
+              ? "bg-white text-black shadow-sm border border-white" 
+              : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
+          }`}
+          onClick={() => setActiveTopicTab("saved")}
+        >
+          💾 Saved Topic
+        </Button>
+      </div>
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="absolute right-0 text-[#8e8e93] hover:text-black"
+        onClick={refreshAction}
+        disabled={isLoading}
+      >
+        <RefreshCcw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+        <span className="sr-only">Refresh</span>
+      </Button>
+    </div>
+  )
 
 
   const ideasData = [
@@ -448,39 +513,14 @@ export default function Component() {
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="openai" className="mt-4">
-                    <div className="relative flex justify-center mb-4">
-                      <div className="flex bg-[#f8f9fa] border border-[#d1d1d6] rounded-xl p-1 shadow-sm">
-                        <Button
-                          variant="ghost"
-                          className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                            activeTopicTab === "generate" 
-                              ? "bg-white text-black shadow-sm border border-white" 
-                              : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
-                          }`}
-                          onClick={() => setActiveTopicTab("generate")}
-                        >
-                          🚀 Generate Topic
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                            activeTopicTab === "saved" 
-                              ? "bg-white text-black shadow-sm border border-white" 
-                              : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
-                          }`}
-                          onClick={() => setActiveTopicTab("saved")}
-                        >
-                          💾 Saved Topic
-                        </Button>
-                      </div>
-                      <Button variant="ghost" size="icon" className="absolute right-0 text-[#8e8e93] hover:text-black">
-                        <RefreshCcw className="h-5 w-5" />
-                        <span className="sr-only">Refresh</span>
-                      </Button>
-                    </div>
+                    {renderTabButtons()}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {topics.length > 0 ? topics.map((topic, index) => (
-                        <Card key={index} className="p-4 border border-[#d1d1d6] shadow-sm relative">
+                        <Card 
+                          key={index} 
+                          className="p-4 border border-[#d1d1d6] shadow-sm relative cursor-pointer hover:shadow-md transition-shadow duration-200"
+                          onClick={() => handleOpenDetail(topic)}
+                        >
                           <Badge className={`text-white text-xs font-normal px-2 py-0.5 rounded-sm mb-2 ${
                             topic.impact === 'High' ? 'bg-[#34c759]' : 
                             topic.impact === 'Medium' ? 'bg-[#f59e0b]' : 'bg-[#ef4444]'
@@ -490,7 +530,10 @@ export default function Component() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleSaveIdea(topic, index)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSaveIdea(topic, index)
+                            }}
                             disabled={isSaving.has(index)}
                             className="absolute top-4 right-4 h-6 w-6 text-[#8e8e93] hover:text-black"
                           >
@@ -522,9 +565,15 @@ export default function Component() {
                               </Button>
                             ))}
                           </div>
-                          <a href="#" className="text-sm text-[#000000] hover:underline">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenFeedback(topic)
+                            }}
+                            className="text-sm text-[#000000] hover:underline cursor-pointer bg-transparent border-none p-0"
+                          >
                             Add feedback
-                          </a>
+                          </button>
                         </Card>
                       )) : (
                         <div className="col-span-2 text-center py-8 text-gray-500">
@@ -548,42 +597,7 @@ export default function Component() {
                 </Tabs>
               ) : (
                 <div className="mt-4">
-                  <div className="relative flex justify-center mb-4">
-                    <div className="flex bg-[#f8f9fa] border border-[#d1d1d6] rounded-xl p-1 shadow-sm">
-                      <Button
-                        variant="ghost"
-                        className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                          activeTopicTab === "generate" 
-                            ? "bg-white text-black shadow-sm border border-white" 
-                            : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
-                        }`}
-                        onClick={() => setActiveTopicTab("generate")}
-                      >
-                        🚀 Generate Topic
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
-                          activeTopicTab === "saved" 
-                            ? "bg-white text-black shadow-sm border border-white" 
-                            : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
-                        }`}
-                        onClick={() => setActiveTopicTab("saved")}
-                      >
-                        💾 Saved Topic
-                      </Button>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute right-0 text-[#8e8e93] hover:text-black"
-                      onClick={loadSavedTopics}
-                      disabled={isLoadingSaved}
-                    >
-                      <RefreshCcw className={`h-5 w-5 ${isLoadingSaved ? 'animate-spin' : ''}`} />
-                      <span className="sr-only">Refresh</span>
-                    </Button>
-                  </div>
+                  {renderTabButtons(loadSavedTopics, isLoadingSaved)}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {isLoadingSaved ? (
                       <div className="col-span-2 text-center py-8 text-gray-500">
@@ -594,7 +608,11 @@ export default function Component() {
                       </div>
                     ) : savedTopics.length > 0 ? (
                       savedTopics.map((topic, index) => (
-                        <Card key={index} className="p-4 border border-[#d1d1d6] shadow-sm relative">
+                        <Card 
+                          key={index} 
+                          className="p-4 border border-[#d1d1d6] shadow-sm relative cursor-pointer hover:shadow-md transition-shadow duration-200"
+                          onClick={() => handleOpenDetail(topic)}
+                        >
                           <Badge className={`text-white text-xs font-normal px-2 py-0.5 rounded-sm mb-2 ${
                             topic.impact === 'High' ? 'bg-[#34c759]' : 
                             topic.impact === 'Medium' ? 'bg-[#f59e0b]' : 'bg-[#ef4444]'
@@ -604,7 +622,10 @@ export default function Component() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleSaveIdea(topic, index)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSaveIdea(topic, index)
+                            }}
                             disabled={isSaving.has(index)}
                             className="absolute top-4 right-4 h-6 w-6 text-[#8e8e93] hover:text-black"
                           >
@@ -624,9 +645,15 @@ export default function Component() {
                               </Button>
                             ))}
                           </div>
-                          <a href="#" className="text-sm text-[#000000] hover:underline">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenFeedback(topic)
+                            }}
+                            className="text-sm text-[#000000] hover:underline cursor-pointer bg-transparent border-none p-0"
+                          >
                             Add feedback
-                          </a>
+                          </button>
                         </Card>
                       ))
                     ) : (
@@ -691,6 +718,22 @@ export default function Component() {
           </section>
         </main>
       </div>
+      
+      {/* Feedback Form Modal */}
+      <FeedbackForm
+        isOpen={feedbackFormOpen}
+        onClose={handleCloseFeedback}
+        idea={selectedIdea}
+        clientName={activeClientName}
+        productFocus={activeProductFocus || ''}
+      />
+
+      {/* Idea Detail Modal */}
+      <IdeaDetailModal
+        isOpen={detailModalOpen}
+        onClose={handleCloseDetail}
+        idea={selectedDetailIdea}
+      />
     </div>
   )
 }
