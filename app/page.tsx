@@ -48,6 +48,44 @@ function MainContent() {
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
   const [activeTopicTab, setActiveTopicTab] = useState<"generate" | "saved">("generate")
   const [feedbackFormOpen, setFeedbackFormOpen] = useState(false)
+
+  // Helper functions for localStorage
+  const getStorageKey = (clientName: string, productFocus: string) => {
+    return `ideas_${clientName}_${productFocus}`
+  }
+
+  const saveIdeasToStorage = (ideas: IdeaRecommendation[], clientName: string, productFocus: string) => {
+    try {
+      const key = getStorageKey(clientName, productFocus)
+      localStorage.setItem(key, JSON.stringify({
+        ideas,
+        timestamp: Date.now(),
+        clientName,
+        productFocus
+      }))
+    } catch (error) {
+      console.error('Error saving ideas to localStorage:', error)
+    }
+  }
+
+  const loadIdeasFromStorage = (clientName: string, productFocus: string): IdeaRecommendation[] => {
+    try {
+      const key = getStorageKey(clientName, productFocus)
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        const data = JSON.parse(stored)
+        // Check if data is not too old (24 hours)
+        const now = Date.now()
+        const timeDiff = now - data.timestamp
+        if (timeDiff < 24 * 60 * 60 * 1000) {
+          return data.ideas || []
+        }
+      }
+    } catch (error) {
+      console.error('Error loading ideas from localStorage:', error)
+    }
+    return []
+  }
   const [selectedIdea, setSelectedIdea] = useState<IdeaRecommendation | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
@@ -107,6 +145,23 @@ function MainContent() {
     }
   }, [])
 
+  // Load ideas from localStorage when component mounts or client/product focus changes
+  useEffect(() => {
+    if (activeClientName && activeProductFocus && activeClientName !== 'No Client Selected') {
+      const storedIdeas = loadIdeasFromStorage(activeClientName, activeProductFocus)
+      if (storedIdeas.length > 0) {
+        setTopics(storedIdeas)
+        console.log(`Loaded ${storedIdeas.length} ideas from localStorage for ${activeClientName} - ${activeProductFocus}`)
+      } else {
+        // Clear topics if no stored ideas for this client/product focus
+        setTopics([])
+      }
+    } else {
+      // Clear topics if no valid client/product focus
+      setTopics([])
+    }
+  }, [activeClientName, activeProductFocus])
+
   // Check for return notification on mount
   useEffect(() => {
     const checkReturnNotification = () => {
@@ -151,24 +206,12 @@ function MainContent() {
   // Function to play notification sound
   const playNotificationSound = () => {
     try {
-      // Create a simple notification sound using Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const oscillator = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-      
-      oscillator.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      
-      // Create a pleasant notification sound (similar to v0)
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
-      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1)
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2)
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
-      
-      oscillator.start(audioContext.currentTime)
-      oscillator.stop(audioContext.currentTime + 0.3)
+      // Use the new notification sound file
+      const audio = new Audio('/files_resource/new-notification-011-364050.mp3')
+      audio.volume = 0.5 // Set volume to 50%
+      audio.play().catch(error => {
+        console.log('Could not play notification sound:', error)
+      })
     } catch (error) {
       console.log('Could not play notification sound:', error)
     }
@@ -261,6 +304,10 @@ function MainContent() {
       
       if (data.success) {
         setTopics(data.ideas)
+        // Save ideas to localStorage
+        if (activeClientName && activeProductFocus) {
+          saveIdeasToStorage(data.ideas, activeClientName, activeProductFocus)
+        }
         // Clear saved ideas state when new topics are generated
         setSavedIdeas(new Set())
         // Load saved ideas for new topics
