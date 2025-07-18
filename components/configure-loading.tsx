@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export function ConfigureLoading() {
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50 animate-pulse">
       {/* Sidebar Loading */}
       <div className="hidden border-r border-gray-200 bg-white/80 backdrop-blur-sm md:flex md:flex-col shadow-sm">
         <div className="flex h-20 items-center border-b border-gray-200 px-6">
@@ -39,41 +39,26 @@ export function ConfigureLoading() {
         <main className="flex-1 p-6 overflow-auto">
           <Tabs defaultValue="client" className="w-full">
             <TabsList className="grid w-full grid-cols-3 h-auto bg-transparent p-0 border-b border-[#d1d1d6]">
-              <TabsTrigger
-                value="client"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-base font-medium py-3"
-              >
-                Client
-              </TabsTrigger>
-              <TabsTrigger
-                value="competitors"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-base font-medium py-3"
-              >
-                Competitors
-              </TabsTrigger>
-              <TabsTrigger
-                value="instruction"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-base font-medium py-3"
-              >
-                Instruction
-              </TabsTrigger>
+              <div className="flex items-center justify-center py-3">
+                <Skeleton className="h-5 w-16" />
+              </div>
+              <div className="flex items-center justify-center py-3">
+                <Skeleton className="h-5 w-20" />
+              </div>
+              <div className="flex items-center justify-center py-3">
+                <Skeleton className="h-5 w-18" />
+              </div>
             </TabsList>
 
             <TabsContent value="client" className="mt-4">
               <Tabs defaultValue="information" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#d1d1d6] mb-6">
-                  <TabsTrigger
-                    value="information"
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-sm font-medium py-2"
-                  >
-                    Information
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="strategic-insights"
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-sm font-medium py-2"
-                  >
-                    Strategic Insights
-                  </TabsTrigger>
+                  <div className="flex items-center justify-center py-2">
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <div className="flex items-center justify-center py-2">
+                    <Skeleton className="h-4 w-28" />
+                  </div>
                 </TabsList>
 
                 <TabsContent value="information">
