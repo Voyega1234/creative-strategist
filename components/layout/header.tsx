@@ -12,10 +12,33 @@ type AppHeaderProps = {
   activeClientName?: string | null
 }
 
+// Check if there are new results available
+const checkForNewResults = (clientName: string | null, productFocus: string | null): boolean => {
+  try {
+    const lastGeneration = localStorage.getItem('lastGenerationComplete')
+    if (lastGeneration && clientName && productFocus) {
+      const data = JSON.parse(lastGeneration)
+      const now = Date.now()
+      const timeDiff = now - data.timestamp
+      
+      return (
+        timeDiff < 30 * 60 * 1000 && // 30 minutes
+        !data.shown &&
+        data.clientName === clientName &&
+        data.productFocus === productFocus
+      )
+    }
+  } catch (error) {
+    console.log('Error checking for new results:', error)
+  }
+  return false
+}
+
 export function AppHeader({ activeClientId, activeProductFocus, activeClientName }: AppHeaderProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isNavigating, setIsNavigating] = useState(false)
+  const [hasNewResults, setHasNewResults] = useState(false)
   
   // Build URLs with all available parameters
   let configureHref = "/configure"
@@ -54,6 +77,18 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
     setIsNavigating(false)
   }, [pathname])
 
+  // Check for new results periodically
+  useEffect(() => {
+    const checkResults = () => {
+      setHasNewResults(checkForNewResults(activeClientName ?? null, activeProductFocus ?? null))
+    }
+    
+    checkResults()
+    const interval = setInterval(checkResults, 5000) // Check every 5 seconds
+    
+    return () => clearInterval(interval)
+  }, [activeClientName, activeProductFocus])
+
   return (
     <header className="relative h-20 bg-gradient-to-r from-white via-slate-50 to-white border-b border-gray-200 shadow-sm">
       {/* Premium Background Pattern */}
@@ -89,6 +124,11 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
             >
               <Sparkles className="w-4 h-4 mr-2" />
               สร้างหัวข้อ
+              {hasNewResults && pathname !== "/" && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                </div>
+              )}
               {isCreateActive && (
                 <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full" />
               )}

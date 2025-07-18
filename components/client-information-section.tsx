@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Edit, Save, X } from "lucide-react"
 import { BusinessProfileForm } from "./business-profile-form"
 import { TargetCommunicationForm } from "./target-communication-form"
+import { RelatedNewsSection } from "./related-news-section"
 import type { ClientProfile } from "@/lib/data/client-profile"
 import type { Competitor } from "@/lib/data/competitors"
 import { updateClientProfile } from "@/app/actions"
@@ -40,30 +41,9 @@ export function ClientInformationSection({ initialClientProfileData, clientBusin
 
   return (
     <>
-      {/* Business Profile Section */}
-      <h2 className="text-lg font-semibold mb-4">Business Profile</h2>
-      <BusinessProfileForm isEditing={isEditing} formData={formData} setFormData={setFormData} clientBusinessProfile={clientBusinessProfile} />
-
-      {/* Target & Communication Section */}
-      <h2 className="text-lg font-semibold mb-4">Target & Communication</h2>
-      <TargetCommunicationForm formData={formData} clientBusinessProfile={clientBusinessProfile} />
-
-      {/* Related News Section */}
-      <h2 className="text-lg font-semibold mb-4 mt-6">Related News</h2>
-      <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white mb-6">
-        <ul className="list-disc pl-5 text-sm text-[#000000] space-y-1">
-          <li>{"Lorem ipsum dolor sit amet consectetur. Velit faucibus scelerisque aliquam fermentum tortor."}</li>
-          <li>{"Porttitor aliquam augue non eros sit."}</li>
-          <li>{"Ultrices scelerisque adipiscing condimentum dictum aenean nulla dictumst volutpat proin."}</li>
-          <li>{"Morbi egestas adipiscing dui porttitor tellus senectus vitae nam ullamcorper."}</li>
-        </ul>
-      </Card>
-
-      {/* Action Buttons at the bottom */}
-      <div className="flex justify-between items-center mt-6">
-        <Button variant="outline" className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent">
-          Export
-        </Button>
+      {/* Header with Edit Details button */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-lg font-semibold">Business Profile</h2>
         <div className="flex gap-2">
           {!isEditing ? (
             <Button
@@ -91,8 +71,28 @@ export function ClientInformationSection({ initialClientProfileData, clientBusin
               </Button>
             </>
           )}
-          <Button className="bg-black text-white hover:bg-gray-800">Add Instruction</Button>
         </div>
+      </div>
+      <BusinessProfileForm isEditing={isEditing} formData={formData} setFormData={setFormData} clientBusinessProfile={clientBusinessProfile} />
+
+      {/* Target & Communication Section */}
+      <h2 className="text-lg font-semibold mb-4">Target & Communication</h2>
+      <TargetCommunicationForm formData={formData} clientBusinessProfile={clientBusinessProfile} />
+
+      {/* Related News Section */}
+      <div className="mt-6">
+        <RelatedNewsSection 
+          clientName={clientBusinessProfile?.name || initialClientProfileData?.clientName || "No Client Selected"} 
+          productFocus={initialClientProfileData?.productFocus || ''} 
+        />
+      </div>
+
+      {/* Action Buttons at the bottom */}
+      <div className="flex justify-between items-center mt-6">
+        <Button variant="outline" className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent">
+          Export
+        </Button>
+        <Button className="bg-black text-white hover:bg-gray-800">Add Instruction</Button>
       </div>
     </>
   )

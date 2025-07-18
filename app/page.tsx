@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, RefreshCcw, Bookmark, Edit, Lock, Sparkles } from "lucide-react"
+import { ChevronDown, RefreshCcw, Bookmark, Sparkles } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { AppHeader } from "@/components/layout/header"
@@ -53,6 +53,9 @@ function MainContent() {
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [selectedModel, setSelectedModel] = useState<string>("Gemini 2.5 Pro")
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+  const [showReturnNotification, setShowReturnNotification] = useState(false)
+  const [returnNotificationData, setReturnNotificationData] = useState<any>(null)
   
   const modelOptions = [
     { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
@@ -91,6 +94,107 @@ function MainContent() {
   const activeClientId = searchParams.get('clientId') || null
   const activeProductFocus = searchParams.get('productFocus') || null
   const activeClientName = searchParams.get('clientName') || "No Client Selected"
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission)
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+          setNotificationPermission(permission)
+        })
+      }
+    }
+  }, [])
+
+  // Check for return notification on mount
+  useEffect(() => {
+    const checkReturnNotification = () => {
+      try {
+        const lastGeneration = localStorage.getItem('lastGenerationComplete')
+        if (lastGeneration) {
+          const data = JSON.parse(lastGeneration)
+          const now = Date.now()
+          const timeDiff = now - data.timestamp
+          
+          // Show return notification if:
+          // 1. Generation completed within last 30 minutes
+          // 2. Not already shown
+          // 3. Current page matches the generation context
+          if (
+            timeDiff < 30 * 60 * 1000 && // 30 minutes
+            !data.shown &&
+            data.clientName === activeClientName &&
+            data.productFocus === activeProductFocus
+          ) {
+            setReturnNotificationData(data)
+            setShowReturnNotification(true)
+            
+            // Mark as shown
+            localStorage.setItem('lastGenerationComplete', JSON.stringify({
+              ...data,
+              shown: true
+            }))
+          }
+        }
+      } catch (error) {
+        console.log('Error checking return notification:', error)
+      }
+    }
+
+    // Check after a small delay to ensure URL params are loaded
+    if (activeClientName && activeProductFocus) {
+      setTimeout(checkReturnNotification, 1000)
+    }
+  }, [activeClientName, activeProductFocus])
+
+  // Function to play notification sound
+  const playNotificationSound = () => {
+    try {
+      // Create a simple notification sound using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
+      
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      
+      // Create a pleasant notification sound (similar to v0)
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1)
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2)
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
+      
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + 0.3)
+    } catch (error) {
+      console.log('Could not play notification sound:', error)
+    }
+  }
+
+  // Function to show browser notification
+  const showNotification = (title: string, message: string, ideaCount: number) => {
+    if (notificationPermission === 'granted') {
+      const notification = new Notification(title, {
+        body: message,
+        icon: '/favicon.ico', // You can add a custom icon
+        badge: '/favicon.ico',
+        tag: 'idea-generation',
+        requireInteraction: true,
+        data: { ideaCount }
+      })
+
+      notification.onclick = () => {
+        window.focus()
+        notification.close()
+      }
+
+      // Auto close after 10 seconds
+      setTimeout(() => notification.close(), 10000)
+    }
+  }
 
   // Load clients on mount
   useEffect(() => {
@@ -161,6 +265,24 @@ function MainContent() {
         setSavedIdeas(new Set())
         // Load saved ideas for new topics
         setTimeout(loadSavedIdeas, 100)
+        
+        // Show completion notifications
+        const ideaCount = data.ideas.length
+        playNotificationSound()
+        showNotification(
+          '🎉 ไอเดียสร้างเสร็จแล้ว!',
+          `สร้างไอเดีย ${ideaCount} ข้อสำเร็จแล้วสำหรับ ${activeClientName}`,
+          ideaCount
+        )
+        
+        // Store completion info in localStorage for return notification
+        localStorage.setItem('lastGenerationComplete', JSON.stringify({
+          timestamp: Date.now(),
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+          ideaCount,
+          shown: false
+        }))
       } else {
         alert(`เกิดข้อผิดพลาด: ${data.error}`)
       }
@@ -361,6 +483,57 @@ function MainContent() {
       <div className="flex flex-col">
         <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
         <main className="flex-1 p-6 overflow-auto">
+          {/* Return Notification Banner */}
+          {showReturnNotification && returnNotificationData && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg relative">
+              <button
+                onClick={() => setShowReturnNotification(false)}
+                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-green-100 hover:bg-green-200 flex items-center justify-center text-green-600 text-sm font-bold transition-colors"
+              >
+                ×
+              </button>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-lg">🎉</span>
+                </div>
+                <div className="flex-1 pr-8">
+                  <h3 className="text-green-800 font-medium mb-1">ไอเดียพร้อมแล้ว!</h3>
+                  <div className="text-sm text-green-700">
+                    <p>สร้างไอเดีย <span className="font-semibold">{returnNotificationData.ideaCount} ข้อ</span> เสร็จเรียบร้อยแล้ว</p>
+                    <p className="text-xs text-green-600 mt-1">
+                      เมื่อ {new Date(returnNotificationData.timestamp).toLocaleTimeString('th-TH')} • {returnNotificationData.clientName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Product Focus Selection Guide */}
+          {(!activeProductFocus || activeClientName === "No Client Selected") && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-white text-sm font-bold">!</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-amber-800 font-medium mb-1">เริ่มต้นสร้างไอเดีย</h3>
+                  <div className="text-sm text-amber-700 space-y-1">
+                    {activeClientName === "No Client Selected" ? (
+                      <p>1. เลือกลูกค้าจากแถบด้านซ้าย</p>
+                    ) : (
+                      <>
+                        <p>✅ เลือกลูกค้าแล้ว: <span className="font-medium">{activeClientName}</span></p>
+                        <p>2. เลือก Product Focus จากแถบด้านซ้าย</p>
+                      </>
+                    )}
+                    <p>{activeProductFocus ? "✅" : "3."} กดปุ่ม Generate Topics เพื่อสร้างไอเดีย</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Section 1: Generate Topics */}
           <section className="mb-8">
             <h2 className="text-xl font-semibold mb-4">1. Generate Topics</h2>
@@ -617,6 +790,7 @@ function MainContent() {
               )}
             </div>
           </section>
+
 
         </main>
       </div>
