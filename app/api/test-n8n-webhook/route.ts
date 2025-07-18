@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook-test/94c24213-722c-4a6d-933f-ff03b598d588';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/94c24213-722c-4a6d-933f-ff03b598d588';
 
     // Parse request body
     const body = await request.json();
