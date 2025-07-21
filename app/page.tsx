@@ -614,6 +614,19 @@ function MainContent() {
           <section className="mb-8">
             <h2 className="text-xl font-semibold mb-4">1. Generate Topics</h2>
             <div className="bg-white p-6 rounded-lg shadow-sm border border-[#d1d1d6]">
+              {/* FYI Warning */}
+              <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                    <span className="text-white text-xs font-bold">i</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-blue-800">
+                      <span className="font-medium">FYI:</span> กรุณาตรวจสอบการตั้งค่าลูกค้าและ Product Focus ให้ถูกต้องก่อนกดสร้างไอเดีย
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="flex items-center gap-4 mb-4">
                 <label htmlFor="models" className="text-sm font-medium text-[#000000]">
                   Select Models to Run:
