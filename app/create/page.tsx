@@ -20,10 +20,15 @@ import {
   Zap,
   Brain,
   ArrowRight,
-  Star
+  Star,
+  Share2,
+  Link as LinkIcon,
+  Download,
+  ChevronDown
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
 // Types
@@ -55,6 +60,8 @@ export default function CreatePage() {
   const [selectedImpact, setSelectedImpact] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [savedIdeas, setSavedIdeas] = useState<Set<number>>(new Set())
+  const [isSharing, setIsSharing] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
 
   const handleGenerateIdeas = async () => {
     if (!clientName.trim() || !productFocus.trim()) {
@@ -103,6 +110,121 @@ export default function CreatePage() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     // You can add a toast notification here
+  }
+
+  const handleShareIdeas = async () => {
+    if (!ideas.length) {
+      alert('ไม่มีไอเดียที่จะแชร์')
+      return
+    }
+
+    setIsSharing(true)
+    try {
+      const response = await fetch('/api/share-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ideas: ideas,
+          clientName: clientName.trim(),
+          productFocus: productFocus.trim(),
+          instructions: null, // No instructions in create page
+          model: 'Generated Ideas'
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setShareUrl(data.shareUrl)
+        // Copy URL to clipboard
+        await navigator.clipboard.writeText(data.shareUrl)
+        alert(`✅ ลิงก์แชร์ถูกสร้างและคัดลอกแล้ว!\n\n${data.shareUrl}`)
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sharing ideas:', error)
+      alert('เกิดข้อผิดพลาดในการสร้างลิงก์แชร์')
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  const handleCopyAllIdeas = () => {
+    if (!ideas.length) {
+      alert('ไม่มีไอเดียที่จะคัดลอก')
+      return
+    }
+
+    const formattedText = `🎯 Creative Ideas - ${clientName}\n📦 Product Focus: ${productFocus}\n📅 สร้างเมื่อ: ${new Date().toLocaleDateString('th-TH')}\n\n` +
+      ideas.map((idea, index) => 
+        `${index + 1}. ${idea.title}\n` +
+        `📊 Impact: ${idea.impact}\n` +
+        `📝 Description: ${idea.description}\n` +
+        `🏷️ Tags: ${idea.tags.join(', ')}\n` +
+        `💡 Concept: ${idea.concept_idea}\n` +
+        `📢 Headline: ${idea.copywriting.headline}\n` +
+        `🎯 CTA: ${idea.copywriting.cta}\n` +
+        `---\n`
+      ).join('\n')
+
+    navigator.clipboard.writeText(formattedText)
+    alert('✅ คัดลอกไอเดียทั้งหมดแล้ว!')
+  }
+
+  const handleExportPDF = () => {
+    // TODO: Implement PDF export
+    alert('🚧 PDF Export จะเปิดใช้งานในเร็วๆ นี้!')
+  }
+
+  const handleShareSingleIdea = async (idea: IdeaRecommendation, index: number) => {
+    setIsSharing(true)
+    try {
+      const response = await fetch('/api/share-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ideas: [idea], // Single idea in array
+          clientName: clientName.trim(),
+          productFocus: productFocus.trim(),
+          instructions: null,
+          model: 'Single Idea Share'
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        // Copy URL to clipboard
+        await navigator.clipboard.writeText(data.shareUrl)
+        alert(`✅ ไอเดีย "${idea.title}" ถูกแชร์แล้ว!\n\nลิงก์ถูกคัดลอกไปยังคลิปบอร์ด:\n${data.shareUrl}`)
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sharing single idea:', error)
+      alert('เกิดข้อผิดพลาดในการแชร์ไอเดีย')
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  const handleCopySingleIdea = (idea: IdeaRecommendation) => {
+    const formattedText = `🎯 ${idea.title}\n` +
+      `📊 Impact: ${idea.impact}\n` +
+      `📝 ${idea.description}\n` +
+      `🏷️ Tags: ${idea.tags.join(', ')}\n` +
+      `💡 Concept: ${idea.concept_idea}\n` +
+      `📢 Headline: ${idea.copywriting.headline}\n` +
+      `🎯 CTA: ${idea.copywriting.cta}\n` +
+      `\n🏢 Client: ${clientName}\n📦 Product Focus: ${productFocus}`
+
+    navigator.clipboard.writeText(formattedText)
+    alert('✅ คัดลอกไอเดียแล้ว!')
   }
 
   // Filter ideas based on selected filters and search
@@ -252,11 +374,97 @@ export default function CreatePage() {
                   </SelectContent>
                 </Select>
 
-                <div className="ml-auto flex items-center gap-2 text-sm text-gray-600">
-                  <span>พบ {filteredIdeas.length} ไอเดีย</span>
+                <div className="ml-auto flex items-center gap-4">
+                  <span className="text-sm text-gray-600">พบ {filteredIdeas.length} ไอเดีย</span>
+                  
+                  {/* Share Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-2 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100"
+                        disabled={ideas.length === 0}
+                      >
+                        <Share2 className="w-4 h-4" />
+                        แชร์ไอเดีย
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuItem 
+                        onClick={handleShareIdeas}
+                        disabled={isSharing}
+                        className="gap-2"
+                      >
+                        {isSharing ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            กำลังสร้างลิงก์...
+                          </>
+                        ) : (
+                          <>
+                            <LinkIcon className="w-4 h-4" />
+                            สร้างลิงก์แชร์
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleCopyAllIdeas} className="gap-2">
+                        <Copy className="w-4 h-4" />
+                        คัดลอกข้อความ
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportPDF} className="gap-2">
+                        <Download className="w-4 h-4" />
+                        ดาวน์โหลด PDF
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </Card>
+
+            {/* Share Actions Bar */}
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-gray-900">💡 ไอเดียที่สร้างขึ้น</h3>
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  {ideas.length} ไอเดีย
+                </Badge>
+              </div>
+              
+              {ideas.length > 0 && (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleCopyAllIdeas}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Copy className="w-4 h-4" />
+                    คัดลอกทั้งหมด
+                  </Button>
+                  
+                  <Button
+                    onClick={handleShareIdeas}
+                    disabled={isSharing}
+                    className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                    size="sm"
+                  >
+                    {isSharing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        กำลังสร้างลิงก์...
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-4 h-4" />
+                        แชร์ไอเดียทั้งหมด
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
 
             {/* Ideas Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -274,6 +482,42 @@ export default function CreatePage() {
                       </Badge>
                     </div>
                     <div className="flex gap-2">
+                      {/* Individual Share Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-purple-600"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleShareSingleIdea(idea, index)
+                            }}
+                            disabled={isSharing}
+                            className="gap-2"
+                          >
+                            <LinkIcon className="w-4 h-4" />
+                            แชร์ไอเดียนี้
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCopySingleIdea(idea)
+                            }}
+                            className="gap-2"
+                          >
+                            <Copy className="w-4 h-4" />
+                            คัดลอกข้อความ
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      
                       <Button
                         variant="ghost"
                         size="sm"

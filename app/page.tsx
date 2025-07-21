@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, RefreshCcw, Bookmark, Sparkles } from "lucide-react"
+import { ChevronDown, RefreshCcw, Bookmark, Sparkles, Share2, Copy, Link as LinkIcon } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { AppHeader } from "@/components/layout/header"
@@ -94,6 +94,7 @@ function MainContent() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
   const [showReturnNotification, setShowReturnNotification] = useState(false)
   const [returnNotificationData, setReturnNotificationData] = useState<any>(null)
+  const [isSharing, setIsSharing] = useState(false)
   
   const modelOptions = [
     { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
@@ -512,6 +513,127 @@ function MainContent() {
     }
   }, [activeTopicTab, activeClientName, activeProductFocus])
 
+  // Sharing functions
+  const handleShareIdeas = async () => {
+    if (!topics.length) {
+      alert('ไม่มีไอเดียที่จะแชร์')
+      return
+    }
+
+    if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
+      alert('กรุณาเลือกลูกค้าและ Product Focus ก่อนแชร์')
+      return
+    }
+
+    setIsSharing(true)
+    try {
+      const response = await fetch('/api/share-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ideas: topics,
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+          instructions: instructions.trim() || null,
+          model: selectedModel
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        // Copy URL to clipboard
+        await navigator.clipboard.writeText(data.shareUrl)
+        alert(`✅ ลิงก์แชร์ถูกสร้างและคัดลอกแล้ว!\n\n${data.shareUrl}`)
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sharing ideas:', error)
+      alert('เกิดข้อผิดพลาดในการสร้างลิงก์แชร์')
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  const handleCopyAllIdeas = () => {
+    if (!topics.length) {
+      alert('ไม่มีไอเดียที่จะคัดลอก')
+      return
+    }
+
+    const formattedText = `🎯 Creative Ideas - ${activeClientName}\n📦 Product Focus: ${activeProductFocus}\n📅 สร้างเมื่อ: ${new Date().toLocaleDateString('th-TH')}\n🤖 Model: ${selectedModel}\n${instructions ? `📝 Instructions: ${instructions}\n` : ''}\n` +
+      topics.map((idea, index) => 
+        `${index + 1}. ${idea.concept_idea}\n` +
+        `📊 Impact: ${idea.impact}\n` +
+        `📝 Description: ${idea.description}\n` +
+        `🏷️ Tags: ${idea.tags.join(', ')}\n` +
+        `💡 Content Pillar: ${idea.content_pillar}\n` +
+        `📢 Headline: ${idea.copywriting.headline}\n` +
+        `🎯 CTA: ${idea.copywriting.cta}\n` +
+        `🔍 Competitive Gap: ${idea.competitiveGap}\n` +
+        `---\n`
+      ).join('\n')
+
+    navigator.clipboard.writeText(formattedText)
+    alert('✅ คัดลอกไอเดียทั้งหมดแล้ว!')
+  }
+
+  const handleShareSingleIdea = async (idea: IdeaRecommendation) => {
+    if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
+      alert('กรุณาเลือกลูกค้าและ Product Focus ก่อนแชร์')
+      return
+    }
+
+    setIsSharing(true)
+    try {
+      const response = await fetch('/api/share-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ideas: [idea],
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+          instructions: instructions.trim() || null,
+          model: selectedModel
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        await navigator.clipboard.writeText(data.shareUrl)
+        alert(`✅ ไอเดีย "${idea.concept_idea}" ถูกแชร์แล้ว!\n\nลิงก์ถูกคัดลอกไปยังคลิปบอร์ด:\n${data.shareUrl}`)
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sharing single idea:', error)
+      alert('เกิดข้อผิดพลาดในการแชร์ไอเดีย')
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  const handleCopySingleIdea = (idea: IdeaRecommendation) => {
+    const formattedText = `🎯 ${idea.concept_idea}\n` +
+      `📊 Impact: ${idea.impact}\n` +
+      `📝 ${idea.description}\n` +
+      `🏷️ Tags: ${idea.tags.join(', ')}\n` +
+      `💡 Content Pillar: ${idea.content_pillar}\n` +
+      `📢 Headline: ${idea.copywriting.headline}\n` +
+      `🎯 CTA: ${idea.copywriting.cta}\n` +
+      `🔍 Gap: ${idea.competitiveGap}\n` +
+      `\n🏢 Client: ${activeClientName}\n📦 Product Focus: ${activeProductFocus}`
+
+    navigator.clipboard.writeText(formattedText)
+    alert('✅ คัดลอกไอเดียแล้ว!')
+  }
+
   const renderTabButtons = (refreshAction?: () => void, isLoading?: boolean) => (
     <div className="relative flex justify-center mb-4">
       <div className="flex bg-[#f8f9fa] border border-[#d1d1d6] rounded-xl p-1 shadow-sm">
@@ -728,6 +850,50 @@ function MainContent() {
                   </TabsList>
                   <TabsContent value="openai" className="mt-4">
                     {renderTabButtons()}
+                    
+                    {/* Share Actions Bar */}
+                    {topics.length > 0 && (
+                      <div className="flex justify-between items-center mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-gray-900">💡 ไอเดียที่สร้างขึ้น</h3>
+                          <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-xs">
+                            {topics.length} ไอเดีย
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleCopyAllIdeas}
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 text-xs h-8"
+                          >
+                            <Copy className="w-3 h-3" />
+                            คัดลอกทั้งหมด
+                          </Button>
+                          
+                          <Button
+                            onClick={handleShareIdeas}
+                            disabled={isSharing}
+                            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-xs h-8"
+                            size="sm"
+                          >
+                            {isSharing ? (
+                              <>
+                                <RefreshCcw className="w-3 h-3 animate-spin" />
+                                กำลังสร้าง...
+                              </>
+                            ) : (
+                              <>
+                                <Share2 className="w-3 h-3" />
+                                แชร์ไอเดียทั้งหมด
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {topics.length > 0 ? topics.map((topic, index) => (
                         <Card 
@@ -741,6 +907,44 @@ function MainContent() {
                           }`}>
                             {topic.impact} Impact
                           </Badge>
+                          
+                          {/* Share Dropdown */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute top-4 right-10 h-6 w-6 text-[#8e8e93] hover:text-purple-600"
+                              >
+                                <Share2 className="h-3 w-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleShareSingleIdea(topic)
+                                }}
+                                disabled={isSharing}
+                                className="gap-2 text-xs"
+                              >
+                                <LinkIcon className="w-3 h-3" />
+                                แชร์ไอเดียนี้
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleCopySingleIdea(topic)
+                                }}
+                                className="gap-2 text-xs"
+                              >
+                                <Copy className="w-3 h-3" />
+                                คัดลอกข้อความ
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          
                           <Button
                             variant="ghost"
                             size="icon"
