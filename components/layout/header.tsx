@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Settings, UserPlus, Loader2 } from "lucide-react"
+import { Sparkles, Settings, UserPlus, Loader2, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -43,6 +43,7 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
   // Build URLs with all available parameters
   let configureHref = "/configure"
   let createHref = "/"
+  let imagesHref = "/images"
   
   if (activeClientId) {
     const params = new URLSearchParams()
@@ -55,10 +56,12 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
     }
     configureHref = `/configure?${params.toString()}`
     createHref = `/?${params.toString()}`
+    imagesHref = `/images?${params.toString()}`
   }
 
   const isCreateActive = pathname === "/"
   const isConfigureActive = pathname === "/configure"
+  const isImagesActive = pathname === "/images"
 
   const handleConfigureClick = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -156,6 +159,24 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
               <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full" />
             )}
           </Button>
+          
+          {/* Images Button */}
+          <Link href={imagesHref} passHref>
+            <Button 
+              variant="ghost" 
+              className={`relative px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                isImagesActive
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg hover:from-purple-700 hover:to-pink-700'
+                  : 'text-purple-700 hover:bg-purple-50 hover:text-purple-900'
+              }`}
+            >
+              <ImageIcon className="w-4 h-4 mr-2" />
+              สร้างรูปภาพ
+              {isImagesActive && (
+                <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full" />
+              )}
+            </Button>
+          </Link>
         </div>
 
         {/* Right Side - New Client Button */}

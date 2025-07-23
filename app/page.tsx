@@ -782,7 +782,7 @@ function MainContent() {
                   {isGenerating ? (
                     <>
                       <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
-                      กำลังสร้าง...
+                      Analyzing Competitors...
                     </>
                   ) : (
                     <>
@@ -998,7 +998,7 @@ function MainContent() {
                           {isGenerating ? (
                             <div className="flex items-center justify-center gap-2">
                               <RefreshCcw className="w-5 h-5 animate-spin" />
-                              กำลังสร้างหัวข้อ...
+                              Analyzing Competitors...
                             </div>
                           ) : (
                             "คลิก Generate Topics เพื่อสร้างหัวข้อใหม่"

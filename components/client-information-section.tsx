@@ -77,7 +77,12 @@ export function ClientInformationSection({ initialClientProfileData, clientBusin
 
       {/* Target & Communication Section */}
       <h2 className="text-lg font-semibold mb-4">Target & Communication</h2>
-      <TargetCommunicationForm formData={formData} clientBusinessProfile={clientBusinessProfile} />
+      <TargetCommunicationForm 
+        isEditing={isEditing} 
+        formData={formData} 
+        setFormData={setFormData}
+        clientBusinessProfile={clientBusinessProfile} 
+      />
 
       {/* Related News Section */}
       <div className="mt-6">

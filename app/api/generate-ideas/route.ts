@@ -30,9 +30,11 @@ interface N8NIdeaResponse {
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/ee9dbf72-1c09-4dd2-83e9-a6c1775ed8c1';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook-test/ee9dbf72-1c09-4dd2-83e9-a6c1775ed8c1';
 
     // Parse request body
+
+
     const body = await request.json();
     const { clientName, productFocus, instructions, targetMarket, model } = body;
     
@@ -43,24 +45,45 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    console.log('[generate-ideas] Generating ideas for:', { clientName, productFocus, instructions, targetMarket, model });
+    console.log('[generate-ideas] Generating ideas and strategic insights for:', { clientName, productFocus, instructions, targetMarket, model });
 
-    // Call N8N webhook
+    // Strategic Insights webhook URL - Replace with your actual Strategic Insights n8n webhook
+    const N8N_STRATEGIC_INSIGHTS_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/strategic-insights-url-here';
+    
+    // Call both N8N webhooks in parallel
     try {
-      const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientName,
-          productFocus,
-          instructions,
-          targetMarket,
-          model: model || "gemini-2.5-pro"
+      const [webhookResponse, strategicInsightsResponse] = await Promise.all([
+        // Deep Research (Ideas generation)
+        fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clientName,
+            productFocus,
+            instructions,
+            targetMarket,
+            model: model || "gemini-2.5-pro"
+          }),
         }),
-      });
+        // Strategic Insights (Market Analysis)
+        fetch(N8N_STRATEGIC_INSIGHTS_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clientName,
+            productFocus,
+            instructions,
+            targetMarket,
+            model: model || "gemini-2.5-pro"
+          }),
+        })
+      ]);
 
+      // Check deep research response
       if (!webhookResponse.ok) {
         const errorText = await webhookResponse.text();
         console.error(`[generate-ideas] N8N webhook error: ${webhookResponse.status} - ${errorText}`);
@@ -69,6 +92,40 @@ export async function POST(request: Request) {
 
       const ideaData: N8NIdeaResponse = await webhookResponse.json();
       console.log(`[generate-ideas] Successfully generated ${ideaData.output.recommendations.length} ideas`);
+
+      // Handle strategic insights response - WAIT for completion
+      if (strategicInsightsResponse.ok) {
+        try {
+          const strategicInsightsData = await strategicInsightsResponse.json();
+          console.log('[generate-ideas] Successfully generated strategic insights');
+          
+          // Save strategic insights to database and WAIT for completion
+          const saveResponse = await fetch('/api/save-strategic-insights', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              clientName,
+              productFocus,
+              strategicInsights: strategicInsightsData.output || strategicInsightsData
+            }),
+          });
+
+          if (!saveResponse.ok) {
+            console.error('[generate-ideas] Failed to save strategic insights:', await saveResponse.text());
+          } else {
+            console.log('[generate-ideas] Strategic insights saved successfully');
+          }
+          
+        } catch (strategicInsightsError) {
+          console.error('[generate-ideas] Error processing strategic insights:', strategicInsightsError);
+        }
+      } else {
+        const strategicInsightsError = await strategicInsightsResponse.text();
+        console.error('[generate-ideas] Strategic insights webhook failed:', strategicInsightsResponse.status, strategicInsightsError);
+        // Don't fail the whole process, just log the error
+      }
 
       return NextResponse.json({ 
         success: true,

@@ -1,9 +1,15 @@
-// This file is for client-side Supabase client if needed.
-// For now, we'll focus on server-side fetching.
-// import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
+import { StorageClient } from '@supabase/storage-js'
 
-// export const createClient = () =>
-//   createBrowserClient(
-//     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-//     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-//   )
+export const getSupabase = () =>
+  createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+// Direct StorageClient following the official docs exactly
+export const getStorageClient = () => 
+  new StorageClient(`${process.env.NEXT_PUBLIC_SUPABASE_URL!}/storage/v1`, {
+    apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+  })

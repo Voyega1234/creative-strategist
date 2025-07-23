@@ -79,47 +79,115 @@ export function BusinessProfileForm({ isEditing, formData, setFormData, clientBu
         </div>
         <div>
           <p className="text-sm font-medium text-black mb-1">Services</p>
-          <div className="text-sm text-[#8e8e93]">
-            {clientBusinessProfile?.services ? 
-              normalizeToArray(clientBusinessProfile.services).map((service, index) => (
-                <span key={index} className="inline-block bg-[#f2f2f7] rounded px-2 py-1 mr-1 mb-1">
-                  {service}
-                </span>
-              )) : 'N/A'
-            }
-          </div>
+          {isEditing ? (
+            <Textarea
+              name="services"
+              value={formData.services || (clientBusinessProfile?.services ? normalizeToArray(clientBusinessProfile.services).join(', ') : "")}
+              onChange={handleChange}
+              placeholder="Enter services separated by commas"
+              className="min-h-[60px] border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
+            />
+          ) : (
+            <div className="text-sm text-[#8e8e93]">
+              {formData.services ? 
+                formData.services.split(',').map((service, index) => (
+                  <span key={index} className="inline-block bg-[#f2f2f7] rounded px-2 py-1 mr-1 mb-1">
+                    {service.trim()}
+                  </span>
+                )) : clientBusinessProfile?.services ? 
+                normalizeToArray(clientBusinessProfile.services).map((service, index) => (
+                  <span key={index} className="inline-block bg-[#f2f2f7] rounded px-2 py-1 mr-1 mb-1">
+                    {service}
+                  </span>
+                )) : 'N/A'
+              }
+            </div>
+          )}
         </div>
         <div>
           <p className="text-sm font-medium text-black mb-1">Pricing</p>
-          <p className="text-sm text-[#8e8e93]">{clientBusinessProfile?.pricing || 'N/A'}</p>
+          {isEditing ? (
+            <Textarea
+              name="pricing"
+              value={formData.pricing || clientBusinessProfile?.pricing || ""}
+              onChange={handleChange}
+              className="min-h-[60px] border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
+            />
+          ) : (
+            <p className="text-sm text-[#8e8e93]">{formData.pricing || clientBusinessProfile?.pricing || 'N/A'}</p>
+          )}
         </div>
         <div>
           <p className="text-sm font-medium text-black mb-1">USP (Unique Selling Proposition)</p>
-          <p className="text-sm text-[#8e8e93]">{clientBusinessProfile?.specialty || 'N/A'}</p>
+          {isEditing ? (
+            <Textarea
+              name="usp"
+              value={formData.usp || clientBusinessProfile?.usp || ""}
+              onChange={handleChange}
+              className="min-h-[60px] border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
+            />
+          ) : (
+            <p className="text-sm text-[#8e8e93]">{formData.usp || clientBusinessProfile?.usp || 'N/A'}</p>
+          )}
         </div>
         <div>
           <p className="text-sm font-medium text-black mb-1">Specialty</p>
-          <p className="text-sm text-[#8e8e93]">{clientBusinessProfile?.specialty || 'N/A'}</p>
+          {isEditing ? (
+            <Textarea
+              name="specialty"
+              value={formData.specialty || clientBusinessProfile?.specialty || ""}
+              onChange={handleChange}
+              className="min-h-[60px] border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
+            />
+          ) : (
+            <p className="text-sm text-[#8e8e93]">{formData.specialty || clientBusinessProfile?.specialty || 'N/A'}</p>
+          )}
         </div>
         <div>
           <p className="text-sm font-medium text-black mb-1">Strengths</p>
-          <div className="text-sm text-[#8e8e93]">
-            {clientBusinessProfile?.strengths ? 
-              normalizeToArray(clientBusinessProfile.strengths).map((strength, index) => (
-                <div key={index}>• {strength}</div>
-              )) : 'N/A'
-            }
-          </div>
+          {isEditing ? (
+            <Textarea
+              name="strengths"
+              value={formData.strengths || (clientBusinessProfile?.strengths ? normalizeToArray(clientBusinessProfile.strengths).join(', ') : "")}
+              onChange={handleChange}
+              placeholder="Enter strengths separated by commas"
+              className="min-h-[60px] border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
+            />
+          ) : (
+            <div className="text-sm text-[#8e8e93]">
+              {formData.strengths ? 
+                formData.strengths.split(',').map((strength, index) => (
+                  <div key={index}>• {strength.trim()}</div>
+                )) : clientBusinessProfile?.strengths ? 
+                normalizeToArray(clientBusinessProfile.strengths).map((strength, index) => (
+                  <div key={index}>• {strength}</div>
+                )) : 'N/A'
+              }
+            </div>
+          )}
         </div>
         <div>
           <p className="text-sm font-medium text-black mb-1">Weaknesses</p>
-          <div className="text-sm text-[#8e8e93]">
-            {clientBusinessProfile?.weaknesses ? 
-              normalizeToArray(clientBusinessProfile.weaknesses).map((weakness, index) => (
-                <div key={index}>• {weakness}</div>
-              )) : 'N/A'
-            }
-          </div>
+          {isEditing ? (
+            <Textarea
+              name="weaknesses"
+              value={formData.weaknesses || (clientBusinessProfile?.weaknesses ? normalizeToArray(clientBusinessProfile.weaknesses).join(', ') : "")}
+              onChange={handleChange}
+              placeholder="Enter weaknesses separated by commas"
+              className="min-h-[60px] border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
+            />
+          ) : (
+            <div className="text-sm text-[#8e8e93]">
+              {formData.weaknesses ? 
+                formData.weaknesses.split(',').map((weakness, index) => (
+                  <div key={index}>• {weakness.trim()}</div>
+                )) : clientBusinessProfile?.weaknesses ? 
+                normalizeToArray(clientBusinessProfile.weaknesses).map((weakness, index) => (
+                  <div key={index}>• {weakness}</div>
+                )) : 'N/A'
+              }
+            </div>
+          )}
         </div>
         <div>
           <p className="text-sm font-medium text-black mb-1">Market</p>
