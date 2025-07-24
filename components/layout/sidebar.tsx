@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Plus, ArrowRight, Lightbulb } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+// import { cachedApiCall } from "@/lib/utils/cache"
 
 type AppSidebarProps = {
   activeClientId: string | null
@@ -32,6 +33,7 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
   useEffect(() => {
     const loadClients = async () => {
       try {
+        // Temporarily using direct fetch - will add caching back later
         const response = await fetch('/api/clients-with-product-focus')
         if (response.ok) {
           const clientsData = await response.json()

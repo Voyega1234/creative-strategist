@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/server"
+// import { cachedQuery } from "@/lib/utils/server-cache"
 
 // Type for client list, based on AnalysisRun table
 export type ClientListItem = {
@@ -7,6 +8,7 @@ export type ClientListItem = {
 }
 
 export async function getClients(): Promise<ClientListItem[]> {
+  // Temporarily disabled caching
   const supabase = getSupabase()
   const { data, error } = await supabase.from("AnalysisRun").select("id, clientName").order("clientName")
   
@@ -39,6 +41,7 @@ export type ClientWithProductFocus = {
 
 // Get clients with their product focuses
 export async function getClientsWithProductFocus(): Promise<ClientWithProductFocus[]> {
+  // Temporarily disabled caching
   const supabase = getSupabase()
   const { data, error } = await supabase
     .from("AnalysisRun")

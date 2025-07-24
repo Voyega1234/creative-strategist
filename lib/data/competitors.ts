@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase/server"
 import { findMatchingCompanyName } from "@/lib/utils/name-matching"
 import { normalizeToArray } from "@/lib/utils" // Import normalizeToArray
+// import { cachedQuery } from "@/lib/utils/server-cache"
 
 // Type for Competitor, based on your Competitor table schema
 export type Competitor = {
@@ -29,23 +30,31 @@ export async function getCompetitors(
   page = 1, // Add page parameter
   pageSize = 5, // Add pageSize parameter
 ): Promise<{ data: Competitor[]; count: number }> {
+  // Temporarily disabled caching
   const supabase = getSupabase()
   console.log("Fetching competitors for analysisRunId:", analysisRunId, "with serviceFilter:", serviceFilter)
 
-  // First, get the client name to filter out
-  const { data: analysisRun } = await supabase
+  // Optimized: Get client name first
+  const analysisRunResult = await supabase
     .from("AnalysisRun")
     .select("clientName")
     .eq("id", analysisRunId)
     .maybeSingle()
 
-  let query = supabase.from("Competitor").select("*", { count: "exact" }).eq("analysisRunId", analysisRunId)
+  const clientName = analysisRunResult.data?.clientName
 
-  // Filter out the client from competitors list
-  if (analysisRun?.clientName) {
-    query = query.not("name", "ilike", `%${analysisRun.clientName}%`)
+  // Build optimized query with all filters
+  let query = supabase
+    .from("Competitor")
+    .select("*")
+    .eq("analysisRunId", analysisRunId)
+
+  // Filter out the client from competitors list if client name exists
+  if (clientName) {
+    query = query.not("name", "ilike", `%${clientName}%`)
   }
 
+  // Apply service filter if specified
   if (serviceFilter && serviceFilter !== "All Competitors") {
     query = query.contains("services", [serviceFilter])
   }
@@ -53,20 +62,38 @@ export async function getCompetitors(
   // Apply pagination
   const start = (page - 1) * pageSize
   const end = start + pageSize - 1
-  query = query.range(start, end)
+  query = query.range(start, end).order("name") // Add ordering for consistent results
 
-  const { data, error, count } = await query
+  const { data, error } = await query
 
   if (error) {
     console.error("Error fetching competitors:", JSON.stringify(error, null, 2))
     return { data: [], count: 0 }
-  } else {
-    console.log("Competitors data from Supabase:", data)
   }
+
+  console.log("Competitors data from Supabase:", data?.length || 0, "items")
+  
+  // For count, use a more efficient approach - count after filters
+  let countQuery = supabase
+    .from("Competitor")
+    .select("*", { count: "exact", head: true })
+    .eq("analysisRunId", analysisRunId)
+  
+  if (clientName) {
+    countQuery = countQuery.not("name", "ilike", `%${clientName}%`)
+  }
+  
+  if (serviceFilter && serviceFilter !== "All Competitors") {
+    countQuery = countQuery.contains("services", [serviceFilter])
+  }
+
+  const { count } = await countQuery
+  
   return { data: data as Competitor[], count: count || 0 }
 }
 
 export async function getUniqueServices(analysisRunId: string): Promise<string[]> {
+  // Temporarily disabled caching
   const supabase = getSupabase()
   const { data, error } = await supabase.from("Competitor").select("services").eq("analysisRunId", analysisRunId)
 

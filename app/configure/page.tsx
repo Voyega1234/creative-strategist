@@ -16,8 +16,8 @@ import { CompetitorSummary } from "@/components/competitor-summary"
 import { AddCompetitorModal } from "@/components/add-competitor-modal"
 import { CompetitorTable } from "@/components/competitor-table"
 import { getClientProfile } from "@/lib/data/client-profile"
-import { getClients } from "@/lib/data/clients"
-import { getResearchMarketDataByRunId, type ResearchMarketData } from "@/lib/data/research-market"
+import { getClients, getClientsWithProductFocus } from "@/lib/data/clients"
+import { getResearchMarketDataByRunId, getResearchMarketData, type ResearchMarketData } from "@/lib/data/research-market"
 import { getTopPerformingAdsByMetric, type AdDetail } from "@/lib/data/ads-details"
 import { getFeedback, type FeedbackDetail } from "@/lib/data/feedback"
 import { getSupabase } from "@/lib/supabase/server"
@@ -42,7 +42,6 @@ async function ConfigurePageContent({
   let activeProductFocus = searchParams.productFocus || null
   if (!activeProductFocus && activeClientName && activeClientName !== "No Client Selected") {
     // Get clients with product focuses to find the first one for this client
-    const { getClientsWithProductFocus } = await import("@/lib/data/clients")
     const clientsWithProductFocus = await getClientsWithProductFocus()
     const currentClient = clientsWithProductFocus.find(c => c.clientName === activeClientName)
     if (currentClient && currentClient.productFocuses.length > 0) {
@@ -65,25 +64,30 @@ async function ConfigurePageContent({
   let existingCompetitorSummary = ''
 
   if (activeClientId) {
-    initialClientProfileData = await getClientProfile(activeClientId)
-    
-    // Get competitor summary from AnalysisRun table
-    const { data: analysisRunData } = await getSupabase()
-      .from('AnalysisRun')
-      .select('competitor_summary')
-      .eq('id', activeClientId)
-      .single()
-    
-    existingCompetitorSummary = analysisRunData?.competitor_summary || ''
-    
-    // Get client business profile (may return null if not found)
-    clientBusinessProfile = await getClientBusinessProfile(activeClientId)
+    // Execute all independent queries in parallel for better performance
+    const [
+      clientProfileResult,
+      analysisRunResult,
+      clientBusinessProfileResult,
+    ] = await Promise.all([
+      getClientProfile(activeClientId),
+      getSupabase()
+        .from('AnalysisRun')
+        .select('competitor_summary')
+        .eq('id', activeClientId)
+        .single(),
+      getClientBusinessProfile(activeClientId),
+    ])
+
+    initialClientProfileData = clientProfileResult
+    existingCompetitorSummary = analysisRunResult.data?.competitor_summary || ''
+    clientBusinessProfile = clientBusinessProfileResult
     
     // Use the actual productFocus or fall back to "default" only if really needed
     const effectiveProductFocus = activeProductFocus || "default"
     
+    // Get research market data with fallback - these need to be sequential as fallback depends on first result
     if (activeClientName) {
-      const { getResearchMarketData } = await import("@/lib/data/research-market")
       researchMarketData = await getResearchMarketData(activeClientName, effectiveProductFocus)
       console.log(`Fetching research data for: ${activeClientName} - ${effectiveProductFocus}`)
     }
@@ -93,23 +97,30 @@ async function ConfigurePageContent({
       console.log(`No data found, trying fallback with activeClientId: ${activeClientId}`)
       researchMarketData = await getResearchMarketDataByRunId(activeClientId)
     }
-    
-    const { data, count } = await getCompetitors(activeClientId, selectedServiceFilter, currentPage, ITEMS_PER_PAGE)
-    competitorsData = data
-    totalCompetitorsCount = count
-    uniqueServices = await getUniqueServices(activeClientId)
-    
-    // Get top performing ads - try to get ad_account from client profile
-    const adAccount = initialClientProfileData?.ad_account_id || undefined
-    console.log("Ad Account ID:", adAccount)
-    topPerformingAds = await getTopPerformingAdsByMetric('roas', adAccount, 10)
+
+    // Execute remaining queries in parallel - these can run independently
+    const [
+      competitorsResult,
+      uniqueServicesResult,
+      topPerformingAdsResult,
+      feedbackDataResult,
+    ] = await Promise.all([
+      getCompetitors(activeClientId, selectedServiceFilter, currentPage, ITEMS_PER_PAGE),
+      getUniqueServices(activeClientId),
+      getTopPerformingAdsByMetric('roas', initialClientProfileData?.ad_account_id || undefined, 10),
+      getFeedback(activeClientName, activeProductFocus || undefined, 'all'),
+    ])
+
+    competitorsData = competitorsResult.data
+    totalCompetitorsCount = competitorsResult.count
+    uniqueServices = uniqueServicesResult
+    topPerformingAds = topPerformingAdsResult
+    feedbackData = feedbackDataResult
+
+    console.log("Ad Account ID:", initialClientProfileData?.ad_account_id)
     console.log("Top Performing Ads fetched:", topPerformingAds.length)
     console.log("Client Business Profile found:", !!clientBusinessProfile)
-    
-    // Get feedback data for this client and product focus
-    feedbackData = await getFeedback(activeClientName, activeProductFocus || undefined, 'all')
     console.log("Feedback data fetched:", feedbackData.length)
-
     console.log("Active Client ID in ConfigurePage:", activeClientId)
     console.log("Active Product Focus:", activeProductFocus)
     console.log("Client Business Profile:", clientBusinessProfile)
