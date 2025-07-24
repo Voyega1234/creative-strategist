@@ -27,6 +27,49 @@ export default function NewClientPage() {
   const [adAccountError, setAdAccountError] = useState("")
   const router = useRouter()
 
+  // Function to play notification sound
+  const playNotificationSound = () => {
+    try {
+      // Use the new notification sound file
+      const audio = new Audio('/new-notification-011-364050.mp3')
+      audio.volume = 0.5 // Set volume to 50%
+      
+      // Log for debugging
+      console.log('Attempting to play notification sound...')
+      
+      audio.play().then(() => {
+        console.log('Notification sound played successfully')
+      }).catch(error => {
+        console.error('Could not play notification sound:', error)
+        // Fallback to Web Audio API beep
+        try {
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+          const oscillator = audioContext.createOscillator()
+          const gainNode = audioContext.createGain()
+          
+          oscillator.connect(gainNode)
+          gainNode.connect(audioContext.destination)
+          
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+          oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1)
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2)
+          
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
+          
+          oscillator.start(audioContext.currentTime)
+          oscillator.stop(audioContext.currentTime + 0.3)
+          
+          console.log('Played fallback beep sound')
+        } catch (fallbackError) {
+          console.error('Fallback sound also failed:', fallbackError)
+        }
+      })
+    } catch (error) {
+      console.error('Could not initialize notification sound:', error)
+    }
+  }
+
   useEffect(() => {
     const fetchClients = async () => {
       const fetchedClients = await getClients()
@@ -113,6 +156,10 @@ export default function NewClientPage() {
         const insightsStatus = result.strategicInsightsGenerated ? 
           "Competitor analysis and strategic insights completed successfully!" :
           "Competitor analysis completed successfully! (Strategic insights generation encountered an issue)"
+        
+        // Play success sound
+        playNotificationSound()
+        
         alert(insightsStatus)
         // Navigate to configure page to view results
         const destination = result.analysisRunId 

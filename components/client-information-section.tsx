@@ -85,12 +85,12 @@ export function ClientInformationSection({ initialClientProfileData, clientBusin
       />
 
       {/* Related News Section */}
-      <div className="mt-6">
+      {/* <div className="mt-6">
         <RelatedNewsSection 
           clientName={clientBusinessProfile?.name || initialClientProfileData?.clientName || "No Client Selected"} 
           productFocus={initialClientProfileData?.productFocus || ''} 
         />
-      </div>
+      </div> */}
 
       {/* Action Buttons at the bottom */}
       <div className="flex justify-between items-center mt-6">
