@@ -90,7 +90,25 @@ export async function POST(request: Request) {
         throw new Error(`N8N webhook error: ${webhookResponse.status}`);
       }
 
-      const ideaData: N8NIdeaResponse = await webhookResponse.json();
+      const rawResponse = await webhookResponse.json();
+      console.log('[generate-ideas] Raw n8n response:', rawResponse);
+      
+      // Handle n8n response format - multiple possible structures
+      let ideaData: N8NIdeaResponse;
+      if (Array.isArray(rawResponse) && rawResponse.length > 0 && rawResponse[0].recommendations) {
+        // Format 1: [{recommendations: [...]}]
+        ideaData = { output: { recommendations: rawResponse[0].recommendations } };
+      } else if (rawResponse.output?.recommendations) {
+        // Format 2: {output: {recommendations: [...]}}
+        ideaData = rawResponse;
+      } else if (rawResponse.recommendations && Array.isArray(rawResponse.recommendations)) {
+        // Format 3: {recommendations: [...]} - Current format
+        ideaData = { output: { recommendations: rawResponse.recommendations } };
+      } else {
+        console.error('[generate-ideas] Unknown response format:', rawResponse);
+        throw new Error('Invalid response format from n8n webhook');
+      }
+      
       console.log(`[generate-ideas] Successfully generated ${ideaData.output.recommendations.length} ideas`);
 
       // Handle strategic insights response - WAIT for completion

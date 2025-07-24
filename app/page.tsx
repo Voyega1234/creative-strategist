@@ -2,11 +2,12 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, RefreshCcw, Bookmark, Sparkles, Share2, Copy, Link as LinkIcon } from "lucide-react"
+import { ChevronDown, RefreshCcw, Bookmark, Sparkles, Share2, Copy, Link as LinkIcon, CheckSquare, ThumbsUp, ThumbsDown, X, MessageCircle, Save, Loader2, Info } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { AppHeader } from "@/components/layout/header"
@@ -48,6 +49,13 @@ function MainContent() {
   const [isLoadingSaved, setIsLoadingSaved] = useState(false)
   const [activeTopicTab, setActiveTopicTab] = useState<"generate" | "saved">("generate")
   const [feedbackFormOpen, setFeedbackFormOpen] = useState(false)
+  
+  // New state for card selection and feedback
+  const [selectedCards, setSelectedCards] = useState<Set<number>>(new Set())
+  const [ideaFeedback, setIdeaFeedback] = useState<Record<number, {vote?: 'good' | 'bad', comment?: string, showTemplates?: boolean}>>({})
+  const [editingFeedbackId, setEditingFeedbackId] = useState<number | null>(null)
+  const [isRegeneratingIdea, setIsRegeneratingIdea] = useState(false)
+  const [regeneratingIdeaId, setRegeneratingIdeaId] = useState<number | null>(null)
 
   // Helper functions for localStorage
   const getStorageKey = (clientName: string, productFocus: string) => {
@@ -95,6 +103,7 @@ function MainContent() {
   const [showReturnNotification, setShowReturnNotification] = useState(false)
   const [returnNotificationData, setReturnNotificationData] = useState<any>(null)
   const [isSharing, setIsSharing] = useState(false)
+  const [showBriefTemplates, setShowBriefTemplates] = useState(false)
   
   const modelOptions = [
     { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
@@ -471,6 +480,108 @@ function MainContent() {
     }
   }
 
+  // Feedback templates
+  const FEEDBACK_TEMPLATES = {
+    good: [
+      "Great concept! Very relevant to our target audience.",
+      "This has strong potential for engagement.",
+      "Excellent alignment with brand values.",
+      "Clear competitive advantage identified."
+    ],
+    bad: [
+      "Doesn't align with our brand positioning.",
+      "Too similar to existing competitor content.",
+      "Target audience mismatch.",
+      "Execution complexity too high."
+    ]
+  }
+
+  // Card click handler - open modal
+  const handleCardClick = (idea: IdeaRecommendation, index: number) => {
+    setSelectedDetailIdea(idea)
+    setDetailModalOpen(true)
+  }
+
+
+  // Feedback functions
+  const handleFeedbackVote = (index: number, vote: 'good' | 'bad') => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        vote,
+        showTemplates: true
+      }
+    }))
+  }
+
+  const handleFeedbackComment = (index: number, comment: string) => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        comment
+      }
+    }))
+  }
+
+  const toggleFeedbackEditing = (index: number | null) => {
+    setEditingFeedbackId(index)
+  }
+
+  const toggleTemplates = (index: number, show: boolean) => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        showTemplates: show
+      }
+    }))
+  }
+
+  const applyTemplate = (index: number, template: string) => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        comment: template,
+        showTemplates: false
+      }
+    }))
+    setEditingFeedbackId(index)
+  }
+
+  const saveFeedbackToDatabase = async () => {
+    // Placeholder function - implement actual database saving logic here
+    console.log('Saving feedback to database:', ideaFeedback)
+    alert('Feedback saved!')
+    setEditingFeedbackId(null)
+  }
+
+  const regenerateIdea = async (index: number) => {
+    setIsRegeneratingIdea(true)
+    setRegeneratingIdeaId(index)
+    
+    try {
+      // Placeholder for regeneration logic
+      setTimeout(() => {
+        alert('Idea regenerated!')
+        setIsRegeneratingIdea(false)
+        setRegeneratingIdeaId(null)
+      }, 2000)
+    } catch (error) {
+      console.error('Error regenerating idea:', error)
+      setIsRegeneratingIdea(false)
+      setRegeneratingIdeaId(null)
+    }
+  }
+
+  const handleOpenDetails = (idea: IdeaRecommendation, e: React.MouseEvent, index?: number) => {
+    e.stopPropagation()
+    // Placeholder for opening details dialog
+    console.log('Opening details for idea:', idea.title, 'at index:', index)
+  }
+
   // Clear template selection when user manually edits instructions
   const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInstructions(e.target.value)
@@ -749,7 +860,7 @@ function MainContent() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4 mb-4">
+              <div className="hidden flex items-center gap-4 mb-4">
                 <label htmlFor="models" className="text-sm font-medium text-[#000000]">
                   Select Models to Run:
                 </label>
@@ -774,31 +885,25 @@ function MainContent() {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button 
-                  onClick={handleGenerateTopics}
-                  disabled={isGenerating}
-                  className="ml-auto bg-black text-white hover:bg-gray-800"
-                >
-                  {isGenerating ? (
-                    <>
-                      <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing Competitors...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Topics
-                    </>
-                  )}
-                </Button>
               </div>
               
               
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label htmlFor="instructions" className="text-sm font-medium text-[#000000]">
-                    Optional instructions
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="instructions" className="text-sm font-medium text-[#000000]">
+                      Optional instructions
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowBriefTemplates(!showBriefTemplates)}
+                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 text-xs h-auto py-1 px-2"
+                    >
+                      {showBriefTemplates ? 'Hide Templates' : 'Show Templates'}
+                      <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${showBriefTemplates ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </div>
                   {instructions && (
                     <Button
                       variant="ghost"
@@ -821,21 +926,44 @@ function MainContent() {
                   className="min-h-[80px] border-[#999999] focus:border-black focus:ring-0"
                 />
               </div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {briefTemplates.map((template) => (
-                  <Button
-                    key={template.id}
-                    variant="outline"
-                    onClick={() => handleTemplateSelect(template.id)}
-                    className={`text-sm px-3 py-1 h-auto transition-all duration-200 ${
-                      selectedTemplate === template.id
-                        ? 'border-black bg-black text-white hover:bg-gray-800'
-                        : 'border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent'
-                    }`}
-                  >
-                    {template.title}
-                  </Button>
-                ))}
+              {showBriefTemplates && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {briefTemplates.map((template) => (
+                    <Button
+                      key={template.id}
+                      variant="outline"
+                      onClick={() => handleTemplateSelect(template.id)}
+                      className={`text-sm px-3 py-1 h-auto transition-all duration-200 ${
+                        selectedTemplate === template.id
+                          ? 'border-black bg-black text-white hover:bg-gray-800'
+                          : 'border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent'
+                      }`}
+                    >
+                      {template.title}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              
+              {/* Generate Topic Button */}
+              <div className="mb-4">
+                <Button 
+                  onClick={handleGenerateTopics}
+                  disabled={isGenerating}
+                  className="w-full bg-black text-white hover:bg-gray-800"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+                      Analyzing Competitors...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Topics
+                    </>
+                  )}
+                </Button>
               </div>
 
 {activeTopicTab === "generate" ? (
@@ -894,107 +1022,255 @@ function MainContent() {
                       </div>
                     )}
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {topics.length > 0 ? topics.map((topic, index) => (
-                        <Card 
-                          key={index} 
-                          className="p-4 border border-[#d1d1d6] shadow-sm relative cursor-pointer hover:shadow-md transition-shadow duration-200"
-                          onClick={() => handleOpenDetail(topic)}
-                        >
-                          <Badge className={`text-white text-xs font-normal px-2 py-0.5 rounded-sm mb-2 ${
-                            topic.impact === 'High' ? 'bg-[#34c759]' : 
-                            topic.impact === 'Medium' ? 'bg-[#f59e0b]' : 'bg-[#ef4444]'
-                          }`}>
-                            {topic.impact} Impact
-                          </Badge>
-                          
-                          {/* Share Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {topics.length > 0 ? topics.map((topic, index) => {
+                        const hasCompetitors = true; // Assuming all ideas have competitor research
+                        const displayName = topic.content_pillar;
+                        
+                        return (
+                          <Card
+                            key={index}
+                            onClick={() => handleCardClick(topic, index)}
+                            className={cn(
+                              "cursor-pointer hover:shadow-md transition-shadow duration-200 flex flex-col h-full relative",
+                              "border",
+                              (topic.impact === 'High' || topic.impact === 'high') ? 'border-green-500' :
+                              (topic.impact === 'Medium' || topic.impact === 'medium') ? 'border-yellow-500' :
+                              '',
+                              hasCompetitors ? 'border-l-4 border-l-blue-500' : ''
+                            )}
+                          >
+                            {/* Bookmark/Save Icon */}
+                            <div className="absolute top-2 right-2 z-10">
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute top-4 right-10 h-6 w-6 text-[#8e8e93] hover:text-purple-600"
-                              >
-                                <Share2 className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem 
+                                size="sm"
+                                className={cn(
+                                  "h-8 w-8 p-0 hover:bg-yellow-100",
+                                  savedIdeas.has(topic.title) ? "bg-yellow-100" : ""
+                                )}
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleShareSingleIdea(topic)
+                                  e.stopPropagation();
+                                  handleSaveIdea(topic, index);
                                 }}
-                                disabled={isSharing}
-                                className="gap-2 text-xs"
                               >
-                                <LinkIcon className="w-3 h-3" />
-                                แชร์ไอเดียนี้
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCopySingleIdea(topic)
-                                }}
-                                className="gap-2 text-xs"
-                              >
-                                <Copy className="w-3 h-3" />
-                                คัดลอกข้อความ
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSaveIdea(topic, index)
-                            }}
-                            disabled={isSaving.has(index)}
-                            className="absolute top-4 right-4 h-6 w-6 text-[#8e8e93] hover:text-black"
-                          >
-                            {isSaving.has(index) ? (
-                              <RefreshCcw className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Bookmark 
-                                className={`h-4 w-4 ${
-                                  savedIdeas.has(topic.title) 
-                                    ? 'fill-yellow-400 text-yellow-400' 
-                                    : 'text-[#8e8e93]'
-                                }`} 
-                              />
-                            )}
-                            <span className="sr-only">
-                              {savedIdeas.has(topic.title) ? 'Remove bookmark' : 'Add bookmark'}
-                            </span>
-                          </Button>
-                          <h3 className="text-lg font-semibold mb-2">{topic.concept_idea}</h3>
-                          <p className="text-sm text-[#000000] mb-4">{topic.description}</p>
-                          <div className="flex flex-wrap gap-2 mb-4">
-                            {topic.tags.map((tag, i) => (
-                              <Button
-                                key={i}
-                                variant="outline"
-                                className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] text-xs px-2 py-0.5 h-auto bg-transparent"
-                              >
-                                {tag}
+                                <Bookmark className={cn(
+                                  "h-4 w-4 hover:text-yellow-500",
+                                  savedIdeas.has(topic.title) ? "text-yellow-500 fill-yellow-500" : "text-gray-400"
+                                )} />
                               </Button>
-                            ))}
-                          </div>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenFeedback(topic)
-                            }}
-                            className="text-sm text-[#000000] hover:underline cursor-pointer bg-transparent border-none p-0"
-                          >
-                            Add feedback
-                          </button>
-                        </Card>
-                      )) : (
-                        <div className="col-span-2 text-center py-8 text-gray-500">
+                            </div>
+                            <CardHeader className="pb-2">
+                              <div className="flex justify-between items-start mb-1">
+                                <div>
+                                  <Badge variant="outline" className={cn(
+                                    "text-xs mb-1",
+                                    hasCompetitors ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-muted'
+                                  )}>
+                                    {displayName}
+                                  </Badge>
+                                </div>
+                                <Badge variant={
+                                  (topic.impact === 'High' || topic.impact === 'high') ? 'default' : 
+                                  (topic.impact === 'Medium' || topic.impact === 'medium') ? 'outline' : 
+                                  'secondary'
+                                } className={cn(
+                                  "text-xs mr-6",
+                                  (topic.impact === 'High' || topic.impact === 'high') ? 'bg-green-600 text-white' :
+                                  (topic.impact === 'Medium' || topic.impact === 'medium') ? 'border-yellow-600 text-yellow-700' :
+                                  ''
+                                )}>{topic.impact || 'Low'} Impact</Badge>
+                              </div>
+                              <CardTitle className="text-base leading-tight pr-8">
+                                {topic.concept_idea || topic.title}
+                              </CardTitle>
+                              <CardDescription className="pt-1 text-sm">
+                                <span className="block font-semibold text-muted-foreground">{topic.title}</span>
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex-grow text-sm text-muted-foreground pb-3">
+                              <p className="line-clamp-4 mb-2">{topic.description}</p>
+                              
+                              {/* Idea Evaluation UI */}
+                              <div className="mt-3 pt-3 border-t border-dashed">
+                                <p className="text-xs font-medium mb-2 text-gray-600">Rate this idea:</p>
+                                <div className="space-y-2">
+                                  <div className="flex space-x-2">
+                                    <Button 
+                                      variant={ideaFeedback[index]?.vote === 'good' ? 'default' : 'outline'}
+                                      size="sm"
+                                      className={ideaFeedback[index]?.vote === 'good' ? 'bg-green-600 hover:bg-green-700' : ''}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleFeedbackVote(index, 'good');
+                                      }}
+                                    >
+                                      <ThumbsUp className="h-4 w-4 mr-1" />
+                                      Good
+                                    </Button>
+                                    <Button 
+                                      variant={ideaFeedback[index]?.vote === 'bad' ? 'default' : 'outline'}
+                                      size="sm"
+                                      className={ideaFeedback[index]?.vote === 'bad' ? 'bg-red-600 hover:bg-red-700' : ''}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleFeedbackVote(index, 'bad');
+                                      }}
+                                    >
+                                      <ThumbsDown className="h-4 w-4 mr-1" />
+                                      Bad
+                                    </Button>
+                                  </div>
+                                  
+                                  {/* Template suggestions */}
+                                  {ideaFeedback[index]?.showTemplates && (
+                                    <div className="bg-muted/50 p-2 rounded-md border border-border">
+                                      <div className="text-xs text-muted-foreground mb-1">
+                                        Quick feedback:
+                                      </div>
+                                      <div className="space-y-1">
+                                        {FEEDBACK_TEMPLATES[ideaFeedback[index]?.vote === 'good' ? 'good' : 'bad']?.map((template: string, templateIndex: number) => (
+                                          <div 
+                                            key={`${index}-template-${templateIndex}`}
+                                            className="text-xs p-1.5 hover:bg-muted rounded cursor-pointer"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              applyTemplate(index, template);
+                                            }}
+                                          >
+                                            "{template}"
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <div className="flex justify-end mt-1">
+                                        <Button 
+                                          variant="ghost" 
+                                          className="h-6 text-xs"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleTemplates(index, false);
+                                          }}
+                                        >
+                                          <X className="h-3 w-3 mr-1" /> Close
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Feedback textarea */}
+                                {(editingFeedbackId === index || ideaFeedback[index]?.comment) && (
+                                  <div className="mb-3">
+                                    {editingFeedbackId === index ? (
+                                      <>
+                                        <Textarea 
+                                          placeholder="Why do you like/dislike this idea?"
+                                          className="w-full text-xs"
+                                          value={ideaFeedback[index]?.comment || ''}
+                                          onChange={(e) => {
+                                            e.stopPropagation();
+                                            handleFeedbackComment(index, e.target.value);
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                        <div className="flex flex-wrap gap-2">
+                                          {Object.keys(ideaFeedback).length > 0 && (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="text-xs h-7 mt-1"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                await saveFeedbackToDatabase();
+                                                toggleFeedbackEditing(null);
+                                              }}
+                                              disabled={!ideaFeedback[index]?.comment?.trim()}
+                                            >
+                                              <Save className="h-3 w-3 mr-1" />
+                                              Save
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div 
+                                        className="p-2 bg-muted rounded-md text-xs cursor-pointer hover:bg-muted/80"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleFeedbackEditing(index);
+                                        }}
+                                      >
+                                        <p>{ideaFeedback[index]?.comment}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* Add feedback or regenerate buttons */}
+                                <div className="flex space-x-2">
+                                  {!ideaFeedback[index]?.comment && ideaFeedback[index]?.vote && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="text-xs"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleFeedbackEditing(index);
+                                      }}
+                                    >
+                                      <MessageCircle className="h-3 w-3 mr-1" />
+                                      Add Feedback
+                                    </Button>
+                                  )}
+                                  
+                                  {/* Regenerate button - only visible if feedback exists */}
+                                  {ideaFeedback[index]?.comment && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      className="text-xs"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        regenerateIdea(index);
+                                      }}
+                                      disabled={isRegeneratingIdea && regeneratingIdeaId === index}
+                                    >
+                                      {isRegeneratingIdea && regeneratingIdeaId === index ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          Regenerating...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <RefreshCcw className="h-3 w-3 mr-1" />
+                                          Regenerate
+                                        </>
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                            <CardFooter className="flex justify-between items-center pt-2 pb-3">
+                              <div className="flex flex-wrap gap-1 items-center">
+                                {(topic.tags || []).map(tag => (
+                                  <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                                ))}
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7" 
+                                onClick={(e) => handleOpenDetails(topic, e, index)}
+                              >
+                                <Info size={16} />
+                                <span className="sr-only">View Details / Generate Image</span>
+                              </Button>
+                            </CardFooter>
+                          </Card>
+                        );
+                      }) : (
+                        <div className="col-span-full text-center py-8 text-gray-500">
                           {isGenerating ? (
                             <div className="flex items-center justify-center gap-2">
                               <RefreshCcw className="w-5 h-5 animate-spin" />
@@ -1100,7 +1376,7 @@ function MainContent() {
       {/* Idea Detail Modal */}
       <IdeaDetailModal
         isOpen={detailModalOpen}
-        onClose={handleCloseDetail}
+        onClose={() => setDetailModalOpen(false)}
         idea={selectedDetailIdea}
       />
     </div>

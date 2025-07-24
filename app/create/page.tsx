@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -24,9 +24,18 @@ import {
   Share2,
   Link as LinkIcon,
   Download,
-  ChevronDown
+  ChevronDown,
+  CheckSquare,
+  ThumbsUp,
+  ThumbsDown,
+  X,
+  MessageCircle,
+  Save,
+  Loader2,
+  Info
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
@@ -62,6 +71,13 @@ export default function CreatePage() {
   const [savedIdeas, setSavedIdeas] = useState<Set<number>>(new Set())
   const [isSharing, setIsSharing] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  
+  // New state for card selection and feedback
+  const [selectedCards, setSelectedCards] = useState<Set<number>>(new Set())
+  const [ideaFeedback, setIdeaFeedback] = useState<Record<number, {vote?: 'good' | 'bad', comment?: string, showTemplates?: boolean}>>({})
+  const [editingFeedbackId, setEditingFeedbackId] = useState<number | null>(null)
+  const [isRegeneratingIdea, setIsRegeneratingIdea] = useState(false)
+  const [regeneratingIdeaId, setRegeneratingIdeaId] = useState<number | null>(null)
 
   const handleGenerateIdeas = async () => {
     if (!clientName.trim() || !productFocus.trim()) {
@@ -225,6 +241,114 @@ export default function CreatePage() {
 
     navigator.clipboard.writeText(formattedText)
     alert('✅ คัดลอกไอเดียแล้ว!')
+  }
+
+  // Feedback templates
+  const FEEDBACK_TEMPLATES = {
+    good: [
+      "Great concept! Very relevant to our target audience.",
+      "This has strong potential for engagement.",
+      "Excellent alignment with brand values.",
+      "Clear competitive advantage identified."
+    ],
+    bad: [
+      "Doesn't align with our brand positioning.",
+      "Too similar to existing competitor content.",
+      "Target audience mismatch.",
+      "Execution complexity too high."
+    ]
+  }
+
+  // Card selection functions
+  const handleCardSelectionToggle = (idea: IdeaRecommendation, index: number) => {
+    setSelectedCards(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
+
+  // Feedback functions
+  const handleFeedbackVote = (index: number, vote: 'good' | 'bad') => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        vote,
+        showTemplates: true
+      }
+    }))
+  }
+
+  const handleFeedbackComment = (index: number, comment: string) => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        comment
+      }
+    }))
+  }
+
+  const toggleFeedbackEditing = (index: number | null) => {
+    setEditingFeedbackId(index)
+  }
+
+  const toggleTemplates = (index: number, show: boolean) => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        showTemplates: show
+      }
+    }))
+  }
+
+  const applyTemplate = (index: number, template: string) => {
+    setIdeaFeedback(prev => ({
+      ...prev,
+      [index]: {
+        ...prev[index],
+        comment: template,
+        showTemplates: false
+      }
+    }))
+    setEditingFeedbackId(index)
+  }
+
+  const saveFeedbackToDatabase = async () => {
+    // Placeholder function - implement actual database saving logic here
+    console.log('Saving feedback to database:', ideaFeedback)
+    alert('Feedback saved!')
+    setEditingFeedbackId(null)
+  }
+
+  const regenerateIdea = async (index: number) => {
+    setIsRegeneratingIdea(true)
+    setRegeneratingIdeaId(index)
+    
+    try {
+      // Placeholder for regeneration logic
+      setTimeout(() => {
+        alert('Idea regenerated!')
+        setIsRegeneratingIdea(false)
+        setRegeneratingIdeaId(null)
+      }, 2000)
+    } catch (error) {
+      console.error('Error regenerating idea:', error)
+      setIsRegeneratingIdea(false)
+      setRegeneratingIdeaId(null)
+    }
+  }
+
+  const handleOpenDetails = (idea: IdeaRecommendation, e: React.MouseEvent, index?: number) => {
+    e.stopPropagation()
+    // Placeholder for opening details dialog
+    console.log('Opening details for idea:', idea.title, 'at index:', index)
   }
 
   // Filter ideas based on selected filters and search
@@ -468,189 +592,246 @@ export default function CreatePage() {
 
             {/* Ideas Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {filteredIdeas.map((idea, index) => (
-                <Card key={index} className="p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm hover:shadow-2xl transition-all duration-300 group">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <Badge className={cn("flex items-center gap-1", getImpactColor(idea.impact))}>
-                        {getImpactIcon(idea.impact)}
-                        {idea.impact} Impact
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {idea.category}
-                      </Badge>
-                    </div>
-                    <div className="flex gap-2">
-                      {/* Individual Share Dropdown */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-purple-600"
-                          >
-                            <Share2 className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleShareSingleIdea(idea, index)
-                            }}
-                            disabled={isSharing}
-                            className="gap-2"
-                          >
-                            <LinkIcon className="w-4 h-4" />
-                            แชร์ไอเดียนี้
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCopySingleIdea(idea)
-                            }}
-                            className="gap-2"
-                          >
-                            <Copy className="w-4 h-4" />
-                            คัดลอกข้อความ
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleSaveIdea(index)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Bookmark 
-                          className={cn("w-4 h-4", savedIdeas.has(index) ? "fill-yellow-400 text-yellow-400" : "text-gray-400")} 
-                        />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Title and Description */}
-                  <div className="mb-4">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-purple-600 transition-colors">
-                      {idea.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      {idea.description}
-                    </p>
-                  </div>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {idea.tags.map((tag, tagIndex) => (
-                      <Badge key={tagIndex} variant="secondary" className="text-xs bg-gray-100 text-gray-700">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  {/* Content Tabs */}
-                  <Tabs defaultValue="concept" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-gray-100">
-                      <TabsTrigger value="concept" className="text-xs py-2">แนวคิด</TabsTrigger>
-                      <TabsTrigger value="copywriting" className="text-xs py-2">Copy</TabsTrigger>
-                      <TabsTrigger value="gap" className="text-xs py-2">Gap Analysis</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="concept" className="mt-4">
-                      <div className="space-y-3">
+              {filteredIdeas.map((idea, index) => {
+                const isSelected = selectedCards.has(index);
+                const hasCompetitors = true; // Assuming all ideas have competitor research
+                const displayName = idea.content_pillar;
+                
+                return (
+                  <Card
+                    key={index}
+                    onClick={() => handleCardSelectionToggle(idea, index)}
+                    className={cn(
+                      "cursor-pointer hover:shadow-md transition-shadow duration-200 flex flex-col h-full relative",
+                      isSelected ? "border-2 border-primary shadow-md" : "border",
+                      !isSelected && idea.impact === 'High' ? 'border-green-500' :
+                      !isSelected && idea.impact === 'Medium' ? 'border-yellow-500' :
+                      '',
+                      hasCompetitors ? 'border-l-4 border-l-blue-500' : ''
+                    )}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 p-1 bg-primary text-primary-foreground rounded-full z-10">
+                        <CheckSquare size={16} />
+                      </div>
+                    )}
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start mb-1">
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-1">Content Pillar</h4>
-                          <Badge variant="outline" className="text-xs">
-                            {idea.content_pillar}
+                          <Badge variant="outline" className={cn(
+                            "text-xs mb-1",
+                            hasCompetitors ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-muted'
+                          )}>
+                            {displayName}
                           </Badge>
                         </div>
-                        <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">แนวคิดหลัก</h4>
-                          <p className="text-sm text-gray-600 leading-relaxed">
-                            {idea.concept_idea}
-                          </p>
-                        </div>
+                        {hasCompetitors && (
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                            Market Research
+                          </Badge>
+                        )}
                       </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="copywriting" className="mt-4">
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-gray-700">หัวข้อหลัก</h4>
-                            <Button
-                              variant="ghost"
+                      <CardTitle className="text-base leading-tight pr-8">
+                        {idea.concept_idea || idea.title}
+                      </CardTitle>
+                      <CardDescription className="pt-1 text-sm">
+                        <span className="block font-semibold text-muted-foreground">{idea.title}</span>
+                        <Badge variant="secondary" className="mr-1">{idea.category}</Badge>
+                        <Badge variant={idea.impact === 'High' ? 'default' : idea.impact === 'Medium' ? 'outline' : 'secondary'} className={cn(
+                          idea.impact === 'High' ? 'bg-green-600 text-white' :
+                          idea.impact === 'Medium' ? 'border-yellow-600 text-yellow-700' :
+                          ''
+                        )}>{idea.impact} Impact</Badge>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow text-sm text-muted-foreground pb-3">
+                      <p className="line-clamp-4 mb-2">{idea.description}</p>
+                      
+                      {/* Idea Evaluation UI */}
+                      <div className="mt-3 pt-3 border-t border-dashed">
+                        <p className="text-xs font-medium mb-2 text-gray-600">Rate this idea:</p>
+                        <div className="space-y-2">
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant={ideaFeedback[index]?.vote === 'good' ? 'default' : 'outline'}
                               size="sm"
-                              onClick={() => copyToClipboard(idea.copywriting.headline)}
-                              className="h-6 px-2 text-xs"
+                              className={ideaFeedback[index]?.vote === 'good' ? 'bg-green-600 hover:bg-green-700' : ''}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFeedbackVote(index, 'good');
+                              }}
                             >
-                              <Copy className="w-3 h-3" />
+                              <ThumbsUp className="h-4 w-4 mr-1" />
+                              Good
+                            </Button>
+                            <Button 
+                              variant={ideaFeedback[index]?.vote === 'bad' ? 'default' : 'outline'}
+                              size="sm"
+                              className={ideaFeedback[index]?.vote === 'bad' ? 'bg-red-600 hover:bg-red-700' : ''}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFeedbackVote(index, 'bad');
+                              }}
+                            >
+                              <ThumbsDown className="h-4 w-4 mr-1" />
+                              Bad
                             </Button>
                           </div>
-                          <p className="text-sm font-medium text-gray-900 bg-gray-50 p-3 rounded-lg">
-                            {idea.copywriting.headline}
-                          </p>
+                          
+                          {/* Template suggestions */}
+                          {ideaFeedback[index]?.showTemplates && (
+                            <div className="bg-muted/50 p-2 rounded-md border border-border">
+                              <div className="text-xs text-muted-foreground mb-1">
+                                Quick feedback:
+                              </div>
+                              <div className="space-y-1">
+                                {FEEDBACK_TEMPLATES[ideaFeedback[index]?.vote === 'good' ? 'good' : 'bad']?.map((template: string, templateIndex: number) => (
+                                  <div 
+                                    key={`${index}-template-${templateIndex}`}
+                                    className="text-xs p-1.5 hover:bg-muted rounded cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      applyTemplate(index, template);
+                                    }}
+                                  >
+                                    "{template}"
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex justify-end mt-1">
+                                <Button 
+                                  variant="ghost" 
+                                  className="h-6 text-xs"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleTemplates(index, false);
+                                  }}
+                                >
+                                  <X className="h-3 w-3 mr-1" /> Close
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         
-                        <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">หัวข้อรอง</h4>
-                          <div className="space-y-2">
-                            <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                              {idea.copywriting.sub_headline_1}
-                            </p>
-                            <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                              {idea.copywriting.sub_headline_2}
-                            </p>
+                        {/* Feedback textarea */}
+                        {(editingFeedbackId === index || ideaFeedback[index]?.comment) && (
+                          <div className="mb-3">
+                            {editingFeedbackId === index ? (
+                              <>
+                                <Textarea 
+                                  placeholder="Why do you like/dislike this idea?"
+                                  className="w-full text-xs"
+                                  value={ideaFeedback[index]?.comment || ''}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    handleFeedbackComment(index, e.target.value);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  {Object.keys(ideaFeedback).length > 0 && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-xs h-7 mt-1"
+                                      onClick={saveFeedbackToDatabase}
+                                      disabled={!ideaFeedback[index]?.comment?.trim()}
+                                    >
+                                      <Save className="h-3 w-3 mr-1" />
+                                      Save
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFeedbackEditing(null);
+                                    }}
+                                  >
+                                    Done
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <div 
+                                className="p-2 bg-muted rounded-md text-xs cursor-pointer hover:bg-muted/80"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFeedbackEditing(index);
+                                }}
+                              >
+                                <p>{ideaFeedback[index]?.comment}</p>
+                              </div>
+                            )}
                           </div>
-                        </div>
-
-                        <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">จุดเด่น</h4>
-                          <ul className="space-y-1">
-                            {idea.copywriting.bullets.map((bullet, bulletIndex) => (
-                              <li key={bulletIndex} className="text-xs text-gray-600 flex items-start gap-2">
-                                <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
-                                <span>{bullet}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold text-gray-700">Call to Action</h4>
-                            <Button
-                              variant="ghost"
+                        )}
+                        
+                        {/* Add feedback or regenerate buttons */}
+                        <div className="flex space-x-2">
+                          {!ideaFeedback[index]?.comment && (
+                            <Button 
+                              variant="outline" 
                               size="sm"
-                              onClick={() => copyToClipboard(idea.copywriting.cta)}
-                              className="h-6 px-2 text-xs"
+                              className="text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFeedbackEditing(index);
+                              }}
                             >
-                              <Copy className="w-3 h-3" />
+                              <MessageCircle className="h-3 w-3 mr-1" />
+                              Add Feedback
                             </Button>
-                          </div>
-                          <p className="text-sm text-purple-700 bg-purple-50 p-3 rounded-lg border border-purple-200">
-                            {idea.copywriting.cta}
-                          </p>
+                          )}
+                          
+                          {/* Regenerate button - only visible if feedback exists */}
+                          {ideaFeedback[index]?.comment && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                regenerateIdea(index);
+                              }}
+                              disabled={isRegeneratingIdea && regeneratingIdeaId === index}
+                            >
+                              {isRegeneratingIdea && regeneratingIdeaId === index ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  Regenerating...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                  Regenerate
+                                </>
+                              )}
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="gap" className="mt-4">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                          <Lightbulb className="w-4 h-4 text-yellow-500" />
-                          ช่องว่างในการแข่งขัน
-                        </h4>
-                        <p className="text-sm text-gray-600 leading-relaxed">
-                          {idea.competitiveGap}
-                        </p>
+                    </CardContent>
+                    <CardFooter className="flex justify-between items-center pt-2 pb-3">
+                      <div className="flex flex-wrap gap-1 items-center">
+                        {(idea.tags || []).map(tag => (
+                          <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                        ))}
                       </div>
-                    </TabsContent>
-                  </Tabs>
-                </Card>
-              ))}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7" 
+                        onClick={(e) => handleOpenDetails(idea, e, index)}
+                      >
+                        <Info size={16} />
+                        <span className="sr-only">View Details / Generate Image</span>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
             </div>
 
             {/* Summary Stats */}
