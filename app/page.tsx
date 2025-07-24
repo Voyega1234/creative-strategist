@@ -675,21 +675,21 @@ function MainContent() {
       return
     }
 
-    const formattedText = `🎯 Creative Ideas - ${activeClientName}\n📦 Product Focus: ${activeProductFocus}\n📅 สร้างเมื่อ: ${new Date().toLocaleDateString('th-TH')}\n🤖 Model: ${selectedModel}\n${instructions ? `📝 Instructions: ${instructions}\n` : ''}\n` +
+    const formattedText = `Creative Ideas - ${activeClientName}\nProduct Focus: ${activeProductFocus}\nCreated: ${new Date().toLocaleDateString('th-TH')}\nModel: ${selectedModel}\n${instructions ? `Instructions: ${instructions}\n` : ''}\n` +
       topics.map((idea, index) => 
         `${index + 1}. ${idea.concept_idea}\n` +
-        `📊 Impact: ${idea.impact}\n` +
-        `📝 Description: ${idea.description}\n` +
-        `🏷️ Tags: ${idea.tags.join(', ')}\n` +
-        `💡 Content Pillar: ${idea.content_pillar}\n` +
-        `📢 Headline: ${idea.copywriting.headline}\n` +
-        `🎯 CTA: ${idea.copywriting.cta}\n` +
-        `🔍 Competitive Gap: ${idea.competitiveGap}\n` +
+        `Impact: ${idea.impact}\n` +
+        `Description: ${idea.description}\n` +
+        `Tags: ${idea.tags.join(', ')}\n` +
+        `Content Pillar: ${idea.content_pillar}\n` +
+        `Headline: ${idea.copywriting.headline}\n` +
+        `CTA: ${idea.copywriting.cta}\n` +
+        `Competitive Gap: ${idea.competitiveGap}\n` +
         `---\n`
       ).join('\n')
 
     navigator.clipboard.writeText(formattedText)
-    alert('✅ คัดลอกไอเดียทั้งหมดแล้ว!')
+    alert('คัดลอกไอเดียทั้งหมดแล้ว')
   }
 
   const handleShareSingleIdea = async (idea: IdeaRecommendation) => {
@@ -731,18 +731,18 @@ function MainContent() {
   }
 
   const handleCopySingleIdea = (idea: IdeaRecommendation) => {
-    const formattedText = `🎯 ${idea.concept_idea}\n` +
-      `📊 Impact: ${idea.impact}\n` +
-      `📝 ${idea.description}\n` +
-      `🏷️ Tags: ${idea.tags.join(', ')}\n` +
-      `💡 Content Pillar: ${idea.content_pillar}\n` +
-      `📢 Headline: ${idea.copywriting.headline}\n` +
-      `🎯 CTA: ${idea.copywriting.cta}\n` +
-      `🔍 Gap: ${idea.competitiveGap}\n` +
-      `\n🏢 Client: ${activeClientName}\n📦 Product Focus: ${activeProductFocus}`
+    const formattedText = `${idea.concept_idea}\n` +
+      `Impact: ${idea.impact}\n` +
+      `${idea.description}\n` +
+      `Tags: ${idea.tags.join(', ')}\n` +
+      `Content Pillar: ${idea.content_pillar}\n` +
+      `Headline: ${idea.copywriting.headline}\n` +
+      `CTA: ${idea.copywriting.cta}\n` +
+      `Gap: ${idea.competitiveGap}\n` +
+      `\nClient: ${activeClientName}\nProduct Focus: ${activeProductFocus}`
 
     navigator.clipboard.writeText(formattedText)
-    alert('✅ คัดลอกไอเดียแล้ว!')
+    alert('คัดลอกไอเดียแล้ว')
   }
 
   const renderTabButtons = (refreshAction?: () => void, isLoading?: boolean) => (
@@ -757,7 +757,7 @@ function MainContent() {
           }`}
           onClick={() => setActiveTopicTab("generate")}
         >
-          🚀 Generate Topic
+          Generate Topic
         </Button>
         <Button
           variant="ghost"
@@ -768,7 +768,7 @@ function MainContent() {
           }`}
           onClick={() => setActiveTopicTab("saved")}
         >
-          💾 Saved Topic
+          Saved Topic
         </Button>
       </div>
       <Button 
@@ -787,36 +787,11 @@ function MainContent() {
 
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-white">
       <AppSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
       <div className="flex flex-col">
         <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
         <main className="flex-1 p-6 overflow-auto">
-          {/* Return Notification Banner */}
-          {showReturnNotification && returnNotificationData && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg relative">
-              <button
-                onClick={() => setShowReturnNotification(false)}
-                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-green-100 hover:bg-green-200 flex items-center justify-center text-green-600 text-sm font-bold transition-colors"
-              >
-                ×
-              </button>
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-lg">🎉</span>
-                </div>
-                <div className="flex-1 pr-8">
-                  <h3 className="text-green-800 font-medium mb-1">ไอเดียพร้อมแล้ว!</h3>
-                  <div className="text-sm text-green-700">
-                    <p>สร้างไอเดีย <span className="font-semibold">{returnNotificationData.ideaCount} ข้อ</span> เสร็จเรียบร้อยแล้ว</p>
-                    <p className="text-xs text-green-600 mt-1">
-                      เมื่อ {new Date(returnNotificationData.timestamp).toLocaleTimeString('th-TH')} • {returnNotificationData.clientName}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Product Focus Selection Guide */}
           {(!activeProductFocus || activeClientName === "No Client Selected") && (
@@ -832,11 +807,11 @@ function MainContent() {
                       <p>1. เลือกลูกค้าจากแถบด้านซ้าย</p>
                     ) : (
                       <>
-                        <p>✅ เลือกลูกค้าแล้ว: <span className="font-medium">{activeClientName}</span></p>
+                        <p>1. เลือกลูกค้าแล้ว: <span className="font-medium">{activeClientName}</span></p>
                         <p>2. เลือก Product Focus จากแถบด้านซ้าย</p>
                       </>
                     )}
-                    <p>{activeProductFocus ? "✅" : "3."} กดปุ่ม Generate Topics เพื่อสร้างไอเดีย</p>
+                    <p>{activeProductFocus ? "3." : "3."} กดปุ่ม Generate Topics เพื่อสร้างไอเดีย</p>
                   </div>
                 </div>
               </div>
@@ -848,13 +823,13 @@ function MainContent() {
             <h2 className="text-xl font-semibold mb-4">1. Generate Topics</h2>
             <div className="bg-white p-6 rounded-lg shadow-sm border border-[#d1d1d6]">
               {/* FYI Warning */}
-              <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <div className="flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                  <div className="flex-shrink-0 w-5 h-5 bg-gray-500 rounded-full flex items-center justify-center mt-0.5">
                     <span className="text-white text-xs font-bold">i</span>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-blue-800">
+                    <p className="text-sm text-gray-800">
                       <span className="font-medium">FYI:</span> กรุณาตรวจสอบการตั้งค่าลูกค้าและ Product Focus ให้ถูกต้องก่อนกดสร้างไอเดีย
                     </p>
                   </div>
@@ -981,11 +956,11 @@ function MainContent() {
                     
                     {/* Share Actions Bar */}
                     {topics.length > 0 && (
-                      <div className="flex justify-between items-center mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                      <div className="flex justify-between items-center mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-gray-900">💡 ไอเดียที่สร้างขึ้น</h3>
-                          <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300 text-xs">
-                            {topics.length} ไอเดีย
+                          <h3 className="text-sm font-semibold text-gray-900">Generated Ideas</h3>
+                          <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300 text-xs">
+                            {topics.length} ideas
                           </Badge>
                         </div>
                         
@@ -997,24 +972,24 @@ function MainContent() {
                             className="gap-2 text-xs h-8"
                           >
                             <Copy className="w-3 h-3" />
-                            คัดลอกทั้งหมด
+                            Copy All
                           </Button>
                           
                           <Button
                             onClick={handleShareIdeas}
                             disabled={isSharing}
-                            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-xs h-8"
+                            className="gap-2 bg-black hover:bg-gray-800 text-white text-xs h-8"
                             size="sm"
                           >
                             {isSharing ? (
                               <>
                                 <RefreshCcw className="w-3 h-3 animate-spin" />
-                                กำลังสร้าง...
+                                Creating...
                               </>
                             ) : (
                               <>
                                 <Share2 className="w-3 h-3" />
-                                แชร์ไอเดียทั้งหมด
+                                Share All Ideas
                               </>
                             )}
                           </Button>
@@ -1033,11 +1008,11 @@ function MainContent() {
                             onClick={() => handleCardClick(topic, index)}
                             className={cn(
                               "cursor-pointer hover:shadow-md transition-shadow duration-200 flex flex-col h-full relative",
-                              "border",
-                              (topic.impact === 'High' || topic.impact === 'high') ? 'border-green-500' :
-                              (topic.impact === 'Medium' || topic.impact === 'medium') ? 'border-yellow-500' :
-                              '',
-                              hasCompetitors ? 'border-l-4 border-l-blue-500' : ''
+                              "border border-gray-200",
+                              (topic.impact === 'High' || topic.impact === 'high') ? 'border-gray-400' :
+                              (topic.impact === 'Medium' || topic.impact === 'medium') ? 'border-gray-300' :
+                              'border-gray-200',
+                              hasCompetitors ? 'border-l-4 border-l-gray-500' : ''
                             )}
                           >
                             {/* Bookmark/Save Icon */}
@@ -1046,8 +1021,8 @@ function MainContent() {
                                 variant="ghost"
                                 size="sm"
                                 className={cn(
-                                  "h-8 w-8 p-0 hover:bg-yellow-100",
-                                  savedIdeas.has(topic.title) ? "bg-yellow-100" : ""
+                                  "h-8 w-8 p-0 hover:bg-gray-100",
+                                  savedIdeas.has(topic.title) ? "bg-gray-100" : ""
                                 )}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1055,8 +1030,8 @@ function MainContent() {
                                 }}
                               >
                                 <Bookmark className={cn(
-                                  "h-4 w-4 hover:text-yellow-500",
-                                  savedIdeas.has(topic.title) ? "text-yellow-500 fill-yellow-500" : "text-gray-400"
+                                  "h-4 w-4 hover:text-black",
+                                  savedIdeas.has(topic.title) ? "text-black fill-black" : "text-gray-400"
                                 )} />
                               </Button>
                             </div>
@@ -1065,7 +1040,7 @@ function MainContent() {
                                 <div>
                                   <Badge variant="outline" className={cn(
                                     "text-xs mb-1",
-                                    hasCompetitors ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-muted'
+                                    hasCompetitors ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-muted'
                                   )}>
                                     {displayName}
                                   </Badge>
@@ -1076,8 +1051,8 @@ function MainContent() {
                                   'secondary'
                                 } className={cn(
                                   "text-xs mr-6",
-                                  (topic.impact === 'High' || topic.impact === 'high') ? 'bg-green-600 text-white' :
-                                  (topic.impact === 'Medium' || topic.impact === 'medium') ? 'border-yellow-600 text-yellow-700' :
+                                  (topic.impact === 'High' || topic.impact === 'high') ? 'bg-green-500 text-white' :
+                                  (topic.impact === 'Medium' || topic.impact === 'medium') ? 'bg-yellow-500 text-white' :
                                   ''
                                 )}>{topic.impact || 'Low'} Impact</Badge>
                               </div>
@@ -1099,7 +1074,7 @@ function MainContent() {
                                     <Button 
                                       variant={ideaFeedback[index]?.vote === 'good' ? 'default' : 'outline'}
                                       size="sm"
-                                      className={ideaFeedback[index]?.vote === 'good' ? 'bg-green-600 hover:bg-green-700' : ''}
+                                      className={ideaFeedback[index]?.vote === 'good' ? 'bg-black hover:bg-gray-800' : ''}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleFeedbackVote(index, 'good');
@@ -1111,7 +1086,7 @@ function MainContent() {
                                     <Button 
                                       variant={ideaFeedback[index]?.vote === 'bad' ? 'default' : 'outline'}
                                       size="sm"
-                                      className={ideaFeedback[index]?.vote === 'bad' ? 'bg-red-600 hover:bg-red-700' : ''}
+                                      className={ideaFeedback[index]?.vote === 'bad' ? 'bg-gray-800 hover:bg-gray-900' : ''}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleFeedbackVote(index, 'bad');

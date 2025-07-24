@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/server"
+import { findMatchingCompanyName } from "@/lib/utils/name-matching"
 import { normalizeToArray } from "@/lib/utils" // Import normalizeToArray
 
 // Type for Competitor, based on your Competitor table schema
@@ -96,12 +97,15 @@ export async function getClientBusinessProfile(analysisRunId: string): Promise<C
     return null
   }
 
-  // Find the competitor record that matches the client name
+  const clientName = analysisRun.clientName;
+
+  // Step 1: Try current logic first (fast, no API cost)
+  console.log(`[getClientBusinessProfile] Looking for client: "${clientName}" in analysis ${analysisRunId}`)
   const { data, error } = await supabase
     .from("Competitor")
     .select("*")
     .eq("analysisRunId", analysisRunId)
-    .ilike("name", `%${analysisRun.clientName}%`)
+    .ilike("name", `%${clientName}%`)
     .maybeSingle()
 
   if (error) {
@@ -109,5 +113,58 @@ export async function getClientBusinessProfile(analysisRunId: string): Promise<C
     return null
   }
 
-  return data as Competitor
+  // If found with current logic, return immediately
+  if (data) {
+    console.log(`[getClientBusinessProfile] Found exact match for "${clientName}": ${data.name}`)
+    return data as Competitor
+  }
+
+  // Step 2: Fallback to Gemini 2.0 Flash only when no match found
+  console.log(`[getClientBusinessProfile] No exact match found for "${clientName}", trying Gemini fallback...`)
+  
+  try {
+    // Get all competitor names for this analysis
+    const { data: allCompetitors, error: competitorsError } = await supabase
+      .from("Competitor")
+      .select("name")
+      .eq("analysisRunId", analysisRunId)
+
+    if (competitorsError || !allCompetitors || allCompetitors.length === 0) {
+      console.log(`[getClientBusinessProfile] No competitors found for analysis ${analysisRunId}`)
+      return null
+    }
+
+    const competitorNames = allCompetitors.map(c => c.name).filter(Boolean) as string[]
+    console.log(`[getClientBusinessProfile] Found ${competitorNames.length} competitors for smart matching`)
+
+    // Use Gemini to find best match
+    const matchResult = await findMatchingCompanyName(clientName, competitorNames)
+    
+    if (matchResult.matchedName) {
+      console.log(`[getClientBusinessProfile] Gemini matched "${clientName}" -> "${matchResult.matchedName}"`)
+      
+      // Query with the exact matched name
+      const { data: matchedData, error: matchedError } = await supabase
+        .from("Competitor")
+        .select("*")
+        .eq("analysisRunId", analysisRunId)
+        .eq("name", matchResult.matchedName)
+        .maybeSingle()
+
+      if (matchedError) {
+        console.error("Error fetching matched competitor:", matchedError)
+        return null
+      }
+
+      return matchedData as Competitor
+    } else {
+      console.log(`[getClientBusinessProfile] Gemini could not find a match for "${clientName}"`)
+      return null
+    }
+
+  } catch (error) {
+    console.error('[getClientBusinessProfile] Gemini fallback failed:', error)
+    // Return null instead of throwing, so the app continues to work
+    return null
+  }
 }

@@ -311,11 +311,38 @@ export async function POST(request: Request) {
       throw dbError; 
     }
 
+    // --- Generate Strategic Insights ---
+    let strategicInsightsGenerated = false;
+    try {
+      console.log('[competitor-research] Generating strategic insights using Gemini API...');
+      
+      // Use the existing google_research API logic internally instead of webhook
+      const googleResearchResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (googleResearchResponse.ok) {
+        await googleResearchResponse.json(); // Process response but don't need to store data
+        console.log('[competitor-research] Successfully generated strategic insights via google_research API');
+        strategicInsightsGenerated = true;
+      } else {
+        const errorText = await googleResearchResponse.text();
+        console.error('[competitor-research] Strategic insights generation failed:', googleResearchResponse.status, errorText);
+      }
+    } catch (strategicInsightsError: any) {
+      console.error('[competitor-research] Error generating strategic insights:', strategicInsightsError);
+      // Don't fail the whole process, just log the error
+    }
+
     // Return success response
     return NextResponse.json({ 
       success: true,
       competitors: processedCompetitors,
-      analysisRunId: newRunId
+      analysisRunId: newRunId,
+      strategicInsightsGenerated
     });
 
   } catch (error: any) {

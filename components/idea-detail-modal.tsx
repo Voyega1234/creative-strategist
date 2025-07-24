@@ -1,21 +1,10 @@
 "use client"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { 
-  Eye, 
-  Target, 
-  TrendingUp, 
-  MessageSquare, 
-  Lightbulb,
-  FileText,
-  Quote,
-  List,
-  MousePointer,
-  Copy
-} from "lucide-react"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 import { IdeaRecommendation } from "@/app/page"
 
 interface IdeaDetailModalProps {
@@ -27,256 +16,103 @@ interface IdeaDetailModalProps {
 export function IdeaDetailModal({ isOpen, onClose, idea }: IdeaDetailModalProps) {
   if (!idea) return null
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    // Could add a toast notification here
-    console.log('Copied to clipboard!')
-  }
-
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case 'High':
-        return 'bg-[#34c759] text-white'
-      case 'Medium':
-        return 'bg-[#f59e0b] text-white'
-      case 'Low':
-        return 'bg-[#ef4444] text-white'
-      default:
-        return 'bg-gray-500 text-white'
-    }
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <Eye className="w-6 h-6" />
-            Idea Details
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="space-y-6">
-          {/* Header Info */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Badge className={`text-xs font-normal px-3 py-1 ${getImpactColor(idea.impact)}`}>
-                <TrendingUp className="w-3 h-3 mr-1" />
-                {idea.impact} Impact
-              </Badge>
-              <Badge variant="outline" className="text-xs px-3 py-1">
-                <Target className="w-3 h-3 mr-1" />
-                {idea.category}
-              </Badge>
-            </div>
-            
-            <h2 className="text-2xl font-bold text-gray-900">{idea.concept_idea}</h2>
-            
-            {idea.title && idea.title !== idea.concept_idea && (
-              <h3 className="text-lg font-semibold text-gray-700">{idea.title}</h3>
-            )}
+      <DialogContent className="max-w-3xl">
+        <ScrollArea className="max-h-[80vh] pr-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl mb-2">{idea.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-x-2 mb-4">
+            <Badge variant="secondary" className="mr-1">{idea.category}</Badge>
+            <Badge variant={
+              idea.impact === 'High' ? 'default' : 
+              idea.impact === 'Medium' ? 'outline' : 
+              'secondary'
+            } className={cn(
+              idea.impact === 'High' ? 'bg-green-500 text-white' :
+              idea.impact === 'Medium' ? 'bg-yellow-500 text-white' :
+              ''
+            )}>{idea.impact} Impact</Badge>
+            {(idea.tags || []).map(tag => (
+              <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+            ))}
           </div>
 
-          <Separator />
+          <div className="py-4 space-y-6">
+            <section>
+              <h4 className="font-semibold mb-2">Description</h4>
+              <p className="text-sm">{idea.description}</p>
+              {idea.competitiveGap && (
+                <>
+                  <h5 className="mt-3 font-semibold text-sm">Competitive Gap Addressed</h5>
+                  <p className="text-sm">{idea.competitiveGap}</p>
+                </>
+              )}
+            </section>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-gray-600" />
-              <h3 className="text-lg font-semibold">Description</h3>
-            </div>
-            <p className="text-gray-700 leading-relaxed">{idea.description}</p>
-          </div>
+            {/* Creative Execution Details Section */}
+            {(idea.content_pillar || idea.product_focus || idea.concept_idea || idea.copywriting) && (
+              <section className="space-y-3 pt-4 border-t mt-4">
+                <h4 className="font-semibold">Creative Execution Details</h4>
+                {idea.content_pillar && (
+                  <div className="text-sm">
+                    <h5 className="inline-block font-medium text-sm mr-2 text-muted-foreground">Content Pillar:</h5>
+                    <span>{idea.content_pillar}</span>
+                  </div>
+                )}
+                {idea.product_focus && (
+                  <div className="text-sm">
+                    <h5 className="inline-block font-medium text-sm mr-2 text-muted-foreground">Product Focus:</h5>
+                    <span>{idea.product_focus}</span>
+                  </div>
+                )}
+                {idea.concept_idea && (
+                  <div className="text-sm">
+                    <h5 className="inline-block font-medium text-sm mr-2 text-muted-foreground">Concept Idea:</h5>
+                    <span>{idea.concept_idea}</span>
+                  </div>
+                )}
 
-          {/* Competitive Gap */}
-          {idea.competitiveGap && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold">Competitive Gap</h3>
-                </div>
-                <p className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-lg">
-                  {idea.competitiveGap}
-                </p>
-              </div>
-            </>
-          )}
-
-          {/* Content Pillar & Product Focus */}
-          <Separator />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {idea.content_pillar && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5 text-orange-600" />
-                  <h3 className="font-semibold">Content Pillar</h3>
-                </div>
-                <p className="text-gray-700 bg-orange-50 p-3 rounded-lg">{idea.content_pillar}</p>
-              </div>
-            )}
-            
-            {idea.product_focus && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-purple-600" />
-                  <h3 className="font-semibold">Product Focus</h3>
-                </div>
-                <p className="text-gray-700 bg-purple-50 p-3 rounded-lg">{idea.product_focus}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Tags */}
-          {idea.tags && idea.tags.length > 0 && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <List className="w-5 h-5 text-green-600" />
-                  <h3 className="font-semibold">Tags</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {idea.tags.map((tag, index) => (
-                    <Badge key={index} variant="outline" className="bg-green-50 border-green-200 text-green-800">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Copywriting Details */}
-          {idea.copywriting && (
-            <>
-              <Separator />
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Quote className="w-5 h-5 text-indigo-600" />
-                  <h3 className="text-lg font-semibold">Copywriting</h3>
-                </div>
-                
-                <div className="space-y-4 bg-indigo-50 p-6 rounded-lg">
-                  {/* Headline */}
-                  {idea.copywriting.headline && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-indigo-900">Main Headline</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => copyToClipboard(idea.copywriting.headline)}
-                          className="text-indigo-600 hover:text-indigo-800"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <p className="text-lg font-medium text-gray-800 bg-white p-4 rounded border-l-4 border-indigo-500">
-                        {idea.copywriting.headline}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Sub Headlines */}
-                  {idea.copywriting.sub_headline_1 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-indigo-900">Sub Headline 1</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => copyToClipboard(idea.copywriting.sub_headline_1)}
-                          className="text-indigo-600 hover:text-indigo-800"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <p className="text-gray-700 bg-white p-3 rounded border-l-4 border-indigo-300">
-                        {idea.copywriting.sub_headline_1}
-                      </p>
-                    </div>
-                  )}
-
-                  {idea.copywriting.sub_headline_2 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-indigo-900">Sub Headline 2</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => copyToClipboard(idea.copywriting.sub_headline_2)}
-                          className="text-indigo-600 hover:text-indigo-800"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <p className="text-gray-700 bg-white p-3 rounded border-l-4 border-indigo-300">
-                        {idea.copywriting.sub_headline_2}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Bullets */}
-                  {idea.copywriting.bullets && idea.copywriting.bullets.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-indigo-900">Key Points</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => copyToClipboard(idea.copywriting.bullets.join('\n• '))}
-                          className="text-indigo-600 hover:text-indigo-800"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="bg-white p-4 rounded border-l-4 border-indigo-300">
-                        <ul className="space-y-2">
-                          {idea.copywriting.bullets.map((bullet, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <span className="text-indigo-500 font-bold">•</span>
-                              <span className="text-gray-700">{bullet}</span>
-                            </li>
+                {/* Display Copywriting Details */}
+                {idea.copywriting && (
+                  <div className="mt-3 space-y-2 border p-3 rounded-md bg-muted/20">
+                    <h5 className="font-medium text-sm mb-1">Draft Copywriting:</h5>
+                    {idea.copywriting.headline && (
+                      <p className="text-sm"><strong>Headline:</strong> {idea.copywriting.headline}</p>
+                    )}
+                    {idea.copywriting.sub_headline_1 && (
+                      <p className="text-sm text-muted-foreground"><strong>Sub-Headline 1:</strong> {idea.copywriting.sub_headline_1}</p>
+                    )}
+                    {idea.copywriting.sub_headline_2 && (
+                      <p className="text-sm text-muted-foreground"><strong>Sub-Headline 2:</strong> {idea.copywriting.sub_headline_2}</p>
+                    )}
+                    {idea.copywriting.bullets && idea.copywriting.bullets.length > 0 && (
+                      <div className="text-sm mt-1">
+                        <strong className="block text-xs text-muted-foreground mb-0.5">Bullets:</strong>
+                        <ul className="list-disc list-inside pl-2 space-y-0.5">
+                          {idea.copywriting.bullets.map((bullet, idx) => (
+                            <li key={idx}>{bullet}</li>
                           ))}
                         </ul>
                       </div>
-                    </div>
-                  )}
-
-                  {/* CTA */}
-                  {idea.copywriting.cta && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-indigo-900">Call to Action</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => copyToClipboard(idea.copywriting.cta)}
-                          className="text-indigo-600 hover:text-indigo-800"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded font-medium text-center">
-                        <MousePointer className="w-5 h-5 inline mr-2" />
-                        {idea.copywriting.cta}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Close Button */}
-          <div className="flex justify-end pt-4">
-            <Button onClick={onClose} variant="outline">
+                    )}
+                    {idea.copywriting.cta && (
+                      <p className="text-sm mt-2"><strong>CTA:</strong> <Badge variant="outline">{idea.copywriting.cta}</Badge></p>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+        </ScrollArea>
+        <DialogFooter className="mt-4 pr-6">
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
               Close
             </Button>
-          </div>
-        </div>
+          </DialogClose>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

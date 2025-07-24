@@ -47,8 +47,8 @@ export async function POST(request: Request) {
     
     console.log('[generate-ideas] Generating ideas and strategic insights for:', { clientName, productFocus, instructions, targetMarket, model });
 
-    // Strategic Insights webhook URL - Replace with your actual Strategic Insights n8n webhook
-    const N8N_STRATEGIC_INSIGHTS_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/strategic-insights-url-here';
+    // Use existing google_research API instead of non-existent webhook
+    const GOOGLE_RESEARCH_URL = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`;
     
     // Call both N8N webhooks in parallel
     try {
@@ -67,19 +67,12 @@ export async function POST(request: Request) {
             model: model || "gemini-2.5-pro"
           }),
         }),
-        // Strategic Insights (Market Analysis)
-        fetch(N8N_STRATEGIC_INSIGHTS_WEBHOOK_URL, {
-          method: 'POST',
+        // Strategic Insights (Market Analysis) - Use existing google_research API
+        fetch(GOOGLE_RESEARCH_URL, {
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            clientName,
-            productFocus,
-            instructions,
-            targetMarket,
-            model: model || "gemini-2.5-pro"
-          }),
         })
       ]);
 
@@ -114,34 +107,15 @@ export async function POST(request: Request) {
       // Handle strategic insights response - WAIT for completion
       if (strategicInsightsResponse.ok) {
         try {
-          const strategicInsightsData = await strategicInsightsResponse.json();
-          console.log('[generate-ideas] Successfully generated strategic insights');
-          
-          // Save strategic insights to database and WAIT for completion
-          const saveResponse = await fetch('/api/save-strategic-insights', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              clientName,
-              productFocus,
-              strategicInsights: strategicInsightsData.output || strategicInsightsData
-            }),
-          });
-
-          if (!saveResponse.ok) {
-            console.error('[generate-ideas] Failed to save strategic insights:', await saveResponse.text());
-          } else {
-            console.log('[generate-ideas] Strategic insights saved successfully');
-          }
-          
+          await strategicInsightsResponse.json(); // Process response but don't need to store data
+          console.log('[generate-ideas] Successfully generated strategic insights via google_research API');
+          // Strategic insights are already saved to database by google_research API
         } catch (strategicInsightsError) {
           console.error('[generate-ideas] Error processing strategic insights:', strategicInsightsError);
         }
       } else {
         const strategicInsightsError = await strategicInsightsResponse.text();
-        console.error('[generate-ideas] Strategic insights webhook failed:', strategicInsightsResponse.status, strategicInsightsError);
+        console.error('[generate-ideas] Strategic insights generation failed:', strategicInsightsResponse.status, strategicInsightsError);
         // Don't fail the whole process, just log the error
       }
 

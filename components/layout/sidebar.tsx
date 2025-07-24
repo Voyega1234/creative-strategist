@@ -111,7 +111,7 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-medium text-black">Product Focuses</h3>
                     {hasNoSelection && hasMultipleOptions && (
-                      <div className="flex items-center text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                      <div className="flex items-center text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
                         <Lightbulb className="w-3 h-3 mr-1" />
                         เลือกหนึ่งอัน
                       </div>
@@ -119,12 +119,12 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
                   </div>
                   
                   {hasNoSelection && hasMultipleOptions && (
-                    <div className="mb-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                    <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                       <div className="flex items-start gap-2">
-                        <ArrowRight className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-xs text-blue-700">
+                        <ArrowRight className="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-xs text-gray-700">
                           <p className="font-medium mb-1">กรุณาเลือก Product Focus</p>
-                          <p className="text-blue-600">เลือกผลิตภัณฑ์ที่ต้องการสร้างไอเดียด้านล่าง</p>
+                          <p className="text-gray-600">เลือกผลิตภัณฑ์ที่ต้องการสร้างไอเดียด้านล่าง</p>
                         </div>
                       </div>
                     </div>
@@ -139,14 +139,14 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
                           activeProductFocus === pf.productFocus
                             ? 'bg-black text-white shadow-sm'
                             : hasNoSelection && hasMultipleOptions
-                            ? 'text-gray-700 hover:bg-blue-50 hover:text-blue-900 border border-blue-200 hover:border-blue-300 animate-pulse hover:animate-none'
+                            ? 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border border-gray-200 hover:border-gray-300 animate-pulse hover:animate-none'
                             : 'text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-black'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span>{pf.productFocus}</span>
                           {hasNoSelection && hasMultipleOptions && activeProductFocus !== pf.productFocus && (
-                            <ArrowRight className="w-3 h-3 text-blue-500" />
+                            <ArrowRight className="w-3 h-3 text-gray-500" />
                           )}
                         </div>
                       </Link>

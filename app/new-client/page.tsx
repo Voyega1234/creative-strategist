@@ -110,7 +110,10 @@ export default function NewClientPage() {
       const result = await response.json()
       
       if (result.success) {
-        alert("Competitor analysis completed successfully!")
+        const insightsStatus = result.strategicInsightsGenerated ? 
+          "Competitor analysis and strategic insights completed successfully!" :
+          "Competitor analysis completed successfully! (Strategic insights generation encountered an issue)"
+        alert(insightsStatus)
         // Navigate to configure page to view results
         const destination = result.analysisRunId 
           ? `/configure?clientId=${result.analysisRunId}` 
@@ -242,7 +245,7 @@ export default function NewClientPage() {
                 {isCreating ? (
                   <>
                     <span className="animate-spin mr-2">🌀</span>
-                    Analyzing Competitors...
+                    Analyzing Competitors & Generating Strategic Insights...
                   </>
                 ) : (
                   <>
