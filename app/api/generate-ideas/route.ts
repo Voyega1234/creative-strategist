@@ -30,7 +30,7 @@ interface N8NIdeaResponse {
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook-test/ee9dbf72-1c09-4dd2-83e9-a6c1775ed8c1';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/ee9dbf72-1c09-4dd2-83e9-a6c1775ed8c1';
 
     // Parse request body
 
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
             productFocus,
             instructions,
             targetMarket,
-            model: model || "gemini-2.5-pro"
+            model: model || "gemini-2.5-flash"
           }),
         }),
         // Strategic Insights (Market Analysis) - Use existing google_research API
