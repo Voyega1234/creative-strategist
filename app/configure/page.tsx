@@ -2,10 +2,7 @@ import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { AppHeader } from "@/components/layout/header"
 import { ConfigureLoading } from "@/components/configure-loading"
@@ -17,12 +14,12 @@ import { TopPerformingAds } from "@/components/top-performing-ads"
 import { FeedbackTableWrapper } from "@/components/feedback-table-wrapper"
 import { CompetitorSummary } from "@/components/competitor-summary"
 import { AddCompetitorModal } from "@/components/add-competitor-modal"
+import { CompetitorTable } from "@/components/competitor-table"
 import { getClientProfile } from "@/lib/data/client-profile"
 import { getClients } from "@/lib/data/clients"
 import { getResearchMarketDataByRunId, type ResearchMarketData } from "@/lib/data/research-market"
 import { getTopPerformingAdsByMetric, type AdDetail } from "@/lib/data/ads-details"
 import { getFeedback, type FeedbackDetail } from "@/lib/data/feedback"
-import { normalizeToArray } from "@/lib/utils"
 import { getSupabase } from "@/lib/supabase/server"
 import Link from "next/link"
 import { Suspense } from "react"
@@ -281,81 +278,8 @@ async function ConfigurePageContent({
                 />
               </div>
 
-              {/* Competitor Table */}
-              <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white overflow-x-auto">
-                <div className="grid grid-cols-[auto_minmax(120px,_1.2fr)_minmax(120px,_1fr)_minmax(180px,_1.5fr)_minmax(180px,_1.5fr)_minmax(180px,_1.5fr)_auto] gap-x-4 gap-y-2 items-center text-sm font-medium text-black border-b pb-2 mb-2">
-                  <div className="w-4"></div> {/* Checkbox column */}
-                  <div>Competitor</div>
-                  <div>Service</div>
-                  <div className="flex items-center">
-                    Pricing
-                    <span className="ml-1 text-[#8e8e93]">↑↓</span>
-                  </div>
-                  <div>Strengths</div>
-                  <div>Weaknesses</div>
-                  <div className="w-4"></div> {/* More options column */}
-                </div>
-
-                {/* Competitor Rows */}
-                {competitorsData.map((competitor: Competitor) => (
-                  <div
-                    key={competitor.id}
-                    className="grid grid-cols-[auto_minmax(120px,_1.2fr)_minmax(120px,_1fr)_minmax(180px,_1.5fr)_minmax(180px,_1.5fr)_minmax(180px,_1.5fr)_auto] gap-x-4 gap-y-2 items-start text-sm text-[#8e8e93] py-2 border-b last:border-b-0"
-                  >
-                    <div className="pt-1">
-                      <Checkbox id={`competitor-${competitor.id}`} />
-                    </div>
-                    <div className="font-medium text-black">{competitor.name}</div>
-                    <div className="flex flex-wrap gap-1">
-                      {normalizeToArray(competitor.services).map((item: string, i: number) => (
-                        <Badge
-                          key={i}
-                          variant="outline"
-                          className="border-[#d1d1d6] text-[#8e8e93] bg-[#f2f2f7] px-2 py-0.5 text-xs font-normal"
-                        >
-                          {item}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div>
-                      <ul className="list-disc pl-4 space-y-0.5">
-                        {normalizeToArray(competitor.pricing).map((item: string, i: number) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <ul className="list-disc pl-4 space-y-0.5">
-                        {normalizeToArray(competitor.strengths).map((item: string, i: number) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <ul className="list-disc pl-4 space-y-0.5">
-                        {normalizeToArray(competitor.weaknesses).map((item: string, i: number) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="pt-1">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-[#8e8e93] hover:text-black">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">More options</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View more</DropdownMenuItem>
-                          <DropdownMenuItem>Compare with Client</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))}
-              </Card>
+              {/* Competitor Table with Column Selector */}
+              <CompetitorTable competitors={competitorsData} clientName={activeClientName} />
               {/* Competitor Table Pagination */}
               <div className="flex items-center justify-end gap-2 mt-4">
                 <Link
