@@ -9,6 +9,8 @@ export async function GET(request: Request) {
     const clientName = url.searchParams.get('clientName');
     const productFocus = url.searchParams.get('productFocus');
     
+    console.log('[saved-topics] Request for:', { clientName, productFocus });
+    
     if (!clientName || !productFocus) {
       return NextResponse.json({ 
         success: false, 
@@ -17,12 +19,22 @@ export async function GET(request: Request) {
     }
 
     const supabase = getSupabase();
+    console.log('[saved-topics] Querying savedideas table with:', { 
+      clientname: clientName, 
+      productfocus: productFocus 
+    });
+    
     const { data, error } = await supabase
       .from('savedideas')
       .select('*')
       .eq('clientname', clientName)
       .eq('productfocus', productFocus)
       .order('savedat', { ascending: false });
+
+    console.log('[saved-topics] Database response:', { 
+      dataCount: data?.length || 0, 
+      error: error?.message 
+    });
 
     if (error) {
       console.error('Error fetching saved topics:', error);

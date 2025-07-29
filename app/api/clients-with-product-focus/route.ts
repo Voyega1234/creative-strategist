@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const clients = await getClientsWithProductFocus();
+    console.log('[clients-with-product-focus] Returning', clients.length, 'clients');
     return NextResponse.json(clients);
   } catch (error) {
     console.error('Error fetching clients with product focus:', error);

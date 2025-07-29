@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/layout/header"
 import { getClients } from "@/lib/data/clients"
 import { ImageGallery } from "@/components/image-gallery"
 import { ImageUpload } from "@/components/image-upload"
+import { AIImageGenerator } from "@/components/ai-image-generator"
 
 export default async function ImagesPage({
   searchParams,
@@ -69,10 +70,9 @@ export default async function ImagesPage({
                   <Upload className="w-4 h-4" />
                   อัปโหลดรูปภาพ
                 </TabsTrigger>
-                <TabsTrigger value="generate" className="flex items-center gap-2" disabled>
+                <TabsTrigger value="generate" className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  สร้างรูปภาพ AI
-                  <span className="text-xs bg-gray-100 px-2 py-1 rounded">เร็วๆ นี้</span>
+                  ค้นหารูปภาพ Pinterest
                 </TabsTrigger>
               </TabsList>
 
@@ -104,24 +104,13 @@ export default async function ImagesPage({
                 </Card>
               </TabsContent>
 
-              {/* Generate Images Tab (Placeholder) */}
+              {/* Generate Images Tab */}
               <TabsContent value="generate" className="space-y-6">
-                <Card className="p-12 text-center">
-                  <div className="max-w-md mx-auto">
-                    <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Sparkles className="w-8 h-8 text-purple-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Image Generation</h3>
-                    <p className="text-gray-600 mb-6">
-                      ฟีเจอร์สร้างรูปภาพด้วย AI กำลังพัฒนา จะพร้อมใช้งานเร็วๆ นี้
-                    </p>
-                    <div className="space-y-2 text-sm text-gray-500">
-                      <p>• สร้างรูปภาพโฆษณาจากคำอธิบาย</p>
-                      <p>• ปรับแต่งสไตล์และองค์ประกอบ</p>
-                      <p>• สร้างหลายแบบพร้อมกัน</p>
-                    </div>
-                  </div>
-                </Card>
+                <AIImageGenerator 
+                  activeClientId={activeClientId}
+                  activeProductFocus={activeProductFocus}
+                  activeClientName={activeClientName}
+                />
               </TabsContent>
             </Tabs>
           </div>

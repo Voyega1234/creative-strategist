@@ -316,8 +316,20 @@ export async function POST(request: Request) {
     try {
       console.log('[competitor-research] Generating strategic insights using Gemini API...');
       
+      // Debug: Check environment variable value
+      console.log('[competitor-research] NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL);
+      
+      // Get base URL from request headers (reliable in any environment)
+      const host = request.headers.get('host');
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
+      const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000');
+      console.log('[competitor-research] Detected baseUrl:', baseUrl);
+      
       // Use the existing google_research API logic internally instead of webhook
-      const googleResearchResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`, {
+      const googleResearchUrl = `${baseUrl}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`;
+      console.log('[competitor-research] GOOGLE_RESEARCH_URL:', googleResearchUrl);
+      
+      const googleResearchResponse = await fetch(googleResearchUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

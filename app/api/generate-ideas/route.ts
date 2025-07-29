@@ -47,8 +47,19 @@ export async function POST(request: Request) {
     
     console.log('[generate-ideas] Generating ideas and strategic insights for:', { clientName, productFocus, instructions, targetMarket, model });
 
+    // Debug: Check environment variable value
+    console.log('[generate-ideas] NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL);
+    console.log('[generate-ideas] All env vars with NEXT_PUBLIC:', Object.keys(process.env).filter(key => key.startsWith('NEXT_PUBLIC')));
+
+    // Get base URL from request headers (reliable in any environment)
+    const host = request.headers.get('host');
+    const protocol = request.headers.get('x-forwarded-proto') || 'https';
+    const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000');
+    console.log('[generate-ideas] Detected baseUrl:', baseUrl);
+
     // Use existing google_research API instead of non-existent webhook
-    const GOOGLE_RESEARCH_URL = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`;
+    const GOOGLE_RESEARCH_URL = `${baseUrl}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`;
+    console.log('[generate-ideas] GOOGLE_RESEARCH_URL:', GOOGLE_RESEARCH_URL);
     
     // Call both N8N webhooks in parallel
     try {
