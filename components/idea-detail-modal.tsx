@@ -98,7 +98,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea }: IdeaDetailModalProps)
                       </div>
                     )}
                     {idea.copywriting.cta && (
-                      <p className="text-sm mt-2"><strong>CTA:</strong> <Badge variant="outline">{idea.copywriting.cta}</Badge></p>
+                      <div className="text-sm mt-2"><strong>CTA:</strong> <Badge variant="outline">{idea.copywriting.cta}</Badge></div>
                     )}
                   </div>
                 )}

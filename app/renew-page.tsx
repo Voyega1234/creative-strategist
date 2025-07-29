@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCcw, Share2, Copy, Sparkles, Lightbulb } from "lucide-react"
+import { RefreshCcw, Share2, Copy } from "lucide-react"
 import { AppSidebar } from "@/components/layout/sidebar"
 import { AppHeader } from "@/components/layout/header"
 import { FeedbackForm } from "@/components/feedback-form"
@@ -262,13 +262,6 @@ function MainContent() {
 
     setIsGenerating(true)
     try {
-      // Use template content if template is selected, otherwise use user input
-      const selectedTemplateContent = selectedTemplate 
-        ? briefTemplates.find(t => t.id === selectedTemplate)?.content 
-        : undefined
-      
-      const finalInstructions = selectedTemplateContent || instructions.trim() || undefined
-
       const response = await fetch('/api/generate-ideas', {
         method: 'POST',
         headers: {
@@ -277,7 +270,7 @@ function MainContent() {
         body: JSON.stringify({
           clientName: activeClientName,
           productFocus: activeProductFocus,
-          instructions: finalInstructions,
+          instructions: instructions.trim() || undefined,
           model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
         }),
       })
@@ -315,9 +308,10 @@ function MainContent() {
   const handleTemplateSelect = (templateId: string) => {
     const template = briefTemplates.find(t => t.id === templateId)
     if (template) {
-      setInstructions("") // Clear the input box instead of showing template content
+      setInstructions(template.content)
       setSelectedTemplate(templateId)
-      // Don't auto-generate - let user click Generate button
+      // Auto-generate ideas when template is selected
+      handleGenerateTopics()
     }
   }
 
@@ -397,48 +391,35 @@ function MainContent() {
         {/* Main Content */}
         <div className="flex-1 bg-gray-50 p-8">
 
-          {/* Background Image Section Container */}
-          <div className="relative rounded-3xl p-12 shadow-sm overflow-hidden">
-            <div 
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: 'url(/14547739_rm218batch4-ning-29.jpg)' }}
-            />
-            <div className="absolute inset-0 bg-black bg-opacity-20" />
-            <div className="relative z-10">
+          {/* Gradient Section Container */}
+          <div className="bg-gradient-to-br from-yellow-200 via-orange-300 to-pink-400 rounded-3xl p-12 shadow-lg">
             <div className="max-w-2xl mx-auto">
               {/* Main Heading */}
-              <h1 className="text-4xl font-bold text-white text-center mb-8 font-ibm-plex-thai drop-shadow-lg">
+              <h1 className="text-5xl font-bold text-gray-900 text-center mb-8 font-ibm-plex-thai leading-tight">
                 ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?
               </h1>
 
-              {/* Custom Input Field */}
-              <div className="mb-8">
-                <input
-                  type="text"
-                  placeholder="อธิบายความท้าทายของคุณ..."
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  className="w-full px-6 py-4 bg-white rounded-full border-0 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 text-gray-700 placeholder-gray-400 text-lg shadow-sm font-ibm-plex-thai"
-                  disabled={isGenerating}
-                />
-              </div>
+              {/* Description */}
+              <p className="text-center text-gray-700 text-xl mb-12 font-ibm-plex-thai font-medium leading-relaxed">
+                เลือกประเภทไอเดียที่ต้องการ เพื่อสร้างคอนเทนต์ที่ตรงกับกลุ่มเป้าหมายของคุณ
+              </p>
 
-              {/* Template Selection Cards - Minimal with Icons */}
-              <div className="space-y-3 mb-8">
+              {/* Template Selection Cards */}
+              <div className="space-y-4">
                 <div
                   onClick={() => handleTemplateSelect('pain-point')}
-                  className={`bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer ${
-                    selectedTemplate === 'pain-point' ? 'ring-2 ring-gray-300' : ''
+                  className={`bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer ${
+                    selectedTemplate === 'pain-point' ? 'ring-4 ring-blue-500 ring-opacity-50' : ''
                   } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-gray-800 font-medium font-ibm-plex-thai">
-                        สร้างไอเดียที่เจาะจงปัญหาหลักของลูกค้า และแสดงวิธีแก้ปัญหา
-                      </p>
-                      <p className="text-gray-400 text-sm mt-1 font-ibm-plex-thai">
-                        เช่น การแก้ปัญหาที่ลูกค้าเจอบ่อย...
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-2xl">⚡</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-3 font-ibm-plex-thai">Pain Point Solutions</h3>
+                      <p className="text-gray-700 font-ibm-plex-thai leading-relaxed">
+                        สร้างไอเดียที่เจาะจงปัญหาหลักของลูกค้า และแสดงให้เห็นว่าผลิตภัณฑ์ของเราช่วยแก้ปัญหาได้อย่างไร
                       </p>
                     </div>
                   </div>
@@ -446,18 +427,18 @@ function MainContent() {
 
                 <div
                   onClick={() => handleTemplateSelect('data-driven')}
-                  className={`bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer ${
-                    selectedTemplate === 'data-driven' ? 'ring-2 ring-gray-300' : ''
+                  className={`bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer ${
+                    selectedTemplate === 'data-driven' ? 'ring-4 ring-blue-500 ring-opacity-50' : ''
                   } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-gray-800 font-medium font-ibm-plex-thai">
-                        ใช้ข้อมูล สถิติ และหลักฐานเพื่อสร้างความเชื่อมั่น
-                      </p>
-                      <p className="text-gray-400 text-sm mt-1 font-ibm-plex-thai">
-                        เช่น สถิติ ผลลัพธ์ ข้อมูลเฉพาะ...
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-2xl">📊</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-3 font-ibm-plex-thai">Data-Driven Marketing</h3>
+                      <p className="text-gray-700 font-ibm-plex-thai leading-relaxed">
+                        ใช้ข้อมูล สถิติ และหลักฐานที่น่าเชื่อถือ เพื่อสร้างความเชื่อมั่นและแสดงประสิทธิภาพของผลิตภัณฑ์
                       </p>
                     </div>
                   </div>
@@ -465,55 +446,33 @@ function MainContent() {
 
                 <div
                   onClick={() => handleTemplateSelect('unexpected')}
-                  className={`bg-white rounded-2xl p-4 shadow-sm hover:shadow-md transition-all cursor-pointer ${
-                    selectedTemplate === 'unexpected' ? 'ring-2 ring-gray-300' : ''
+                  className={`bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer ${
+                    selectedTemplate === 'unexpected' ? 'ring-4 ring-blue-500 ring-opacity-50' : ''
                   } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-gray-800 font-medium font-ibm-plex-thai">
-                        สร้างไอเดียที่แตกต่างและไม่เหมือนใคร
-                      </p>
-                      <p className="text-gray-400 text-sm mt-1 font-ibm-plex-thai">
-                        เช่น วิธีใช้ที่แปลกใหม่ มุมมองใหม่...
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-2xl">✨</span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-3 font-ibm-plex-thai">Creative Content</h3>
+                      <p className="text-gray-700 font-ibm-plex-thai leading-relaxed">
+                        สร้างไอเดียที่แตกต่าง ไม่เหมือนใคร และเน้นการใช้งานที่คู่แข่งยังไม่เคยพูดถึง
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Generate Button */}
-              <div className="text-center">
-                <Button
-                  onClick={handleGenerateTopics}
-                  disabled={isGenerating || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
-                  className="px-8 py-4 bg-white hover:bg-gray-50 text-gray-900 font-medium rounded-full font-ibm-plex-thai text-lg shadow-lg hover:shadow-xl transition-all duration-200 border border-gray-200"
-                >
-                  {isGenerating ? (
-                    <>
-                      <RefreshCcw className="w-5 h-5 mr-2 animate-spin" />
-                      กำลังสร้าง...
-                    </>
-                  ) : (
-                    <>
-                      <Lightbulb className="w-5 h-5 mr-2 text-yellow-500" />
-                      สร้างไอเดีย
-                    </>
-                  )}
-                </Button>
-              </div>
-
               {/* Loading State */}
               {isGenerating && (
                 <div className="mt-8 text-center">
                   <div className="flex items-center justify-center gap-3">
-                    <RefreshCcw className="w-6 h-6 animate-spin text-white drop-shadow" />
-                    <span className="text-white font-medium drop-shadow">กำลังสร้างไอเดีย...</span>
+                    <RefreshCcw className="w-6 h-6 animate-spin text-gray-700" />
+                    <span className="text-gray-700 font-semibold text-lg font-ibm-plex-thai">กำลังสร้างไอเดีย...</span>
                   </div>
                 </div>
               )}
-            </div>
             </div>
           </div>
 
@@ -522,8 +481,8 @@ function MainContent() {
             <div className="mt-8">
               <div className="bg-white rounded-2xl p-8 shadow-lg">
                 <div className="text-center mb-8">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Generated Ideas</h2>
-                  <p className="text-gray-600">สร้างไอเดีย {topics.length} ข้อสำเร็จแล้ว</p>
+                  <h2 className="text-4xl font-bold text-gray-900 mb-4 font-ibm-plex-thai">Generated Ideas</h2>
+                  <p className="text-gray-600 text-lg font-ibm-plex-thai font-medium">สร้างไอเดีย {topics.length} ข้อสำเร็จแล้ว</p>
                   
                   {/* Action Buttons */}
                   <div className="flex justify-center gap-4 mt-6">
@@ -578,21 +537,21 @@ function MainContent() {
 
                       <div className="space-y-4">
                         <div>
-                          <Badge variant="outline" className="text-xs bg-gray-50 mb-3">
+                          <Badge variant="outline" className="text-xs bg-gray-50 mb-3 font-ibm-plex-thai">
                             {topic.content_pillar}
                           </Badge>
-                          <h3 className="text-lg font-bold text-gray-900 leading-tight mb-2">
+                          <h3 className="text-lg font-bold text-gray-900 leading-tight mb-3 font-ibm-plex-thai">
                             {topic.concept_idea || topic.title}
                           </h3>
                         </div>
                         
-                        <p className="text-gray-600 text-sm line-clamp-4">
+                        <p className="text-gray-600 text-sm line-clamp-4 font-ibm-plex-thai leading-relaxed">
                           {topic.description}
                         </p>
                         
                         <div className="flex flex-wrap gap-2">
                           {(topic.tags || []).slice(0, 3).map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs">
+                            <Badge key={tag} variant="outline" className="text-xs font-ibm-plex-thai">
                               {tag}
                             </Badge>
                           ))}

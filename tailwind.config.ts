@@ -12,6 +12,10 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			'ibm-plex-thai': ['IBM Plex Sans Thai', 'sans-serif'],
+  			'sans': ['IBM Plex Sans Thai', 'system-ui', 'sans-serif'],
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
