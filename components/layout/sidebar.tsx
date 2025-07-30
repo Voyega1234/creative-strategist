@@ -63,7 +63,7 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
   }, [clients, activeClientName, activeProductFocus, currentPath, router])
 
   return (
-    <div className="hidden border-r border-gray-200 bg-white/80 backdrop-blur-sm md:flex md:flex-col shadow-sm">
+    <div className="hidden border-r-2 border-gray-300 bg-white/80 backdrop-blur-sm md:flex md:flex-col shadow-lg shadow-gray-200/50">
       <div className="flex h-20 items-center border-b border-gray-200 px-6">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

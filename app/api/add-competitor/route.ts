@@ -78,15 +78,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 })
     }
 
-    // Send to N8N webhook first
+    // Send to N8N webhook and process response
     try {
       console.log(`[add-competitor] Sending to N8N webhook...`)
       
-      const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook-test/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
+      const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
       
       const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
-        
         headers: {
           'Content-Type': 'application/json',
         },
@@ -97,14 +96,77 @@ export async function POST(request: NextRequest) {
         }),
       });
 
-      if (webhookResponse.ok) {
-        console.log(`[add-competitor] Successfully sent to N8N webhook`);
-      } else {
-        console.warn(`[add-competitor] N8N webhook failed with status: ${webhookResponse.status}`);
+      if (!webhookResponse.ok) {
+        throw new Error(`N8N webhook failed with status: ${webhookResponse.status}`);
       }
+
+      const n8nResponse = await webhookResponse.json();
+      console.log(`[add-competitor] N8N response:`, JSON.stringify(n8nResponse, null, 2));
+
+      // Process N8N response - handle array format
+      let competitorData;
+      if (Array.isArray(n8nResponse) && n8nResponse.length > 0 && n8nResponse[0].competitors) {
+        // Handle format: [{ competitors: [...] }]
+        competitorData = n8nResponse[0].competitors[0];
+      } else if (n8nResponse.competitors && Array.isArray(n8nResponse.competitors)) {
+        // Handle format: { competitors: [...] }
+        competitorData = n8nResponse.competitors[0];
+      } else {
+        throw new Error('Invalid N8N response format');
+      }
+
+      if (!competitorData) {
+        throw new Error('No competitor data found in N8N response');
+      }
+
+      // Generate unique ID for the competitor
+      const competitorId = uuidv4();
+      
+      // Prepare data for database insertion (matching Competitor table structure)
+      const competitorRecord = {
+        id: competitorId,
+        analysisRunId: clientId,
+        name: competitorData.name || competitorName,
+        website: competitorData.website || competitorWebsite || null,
+        facebookUrl: competitorData.facebookUrl || null,
+        services: Array.isArray(competitorData.services) ? competitorData.services : [],
+        serviceCategories: Array.isArray(competitorData.serviceCategories) ? competitorData.serviceCategories : [],
+        features: Array.isArray(competitorData.features) ? competitorData.features : [],
+        pricing: competitorData.pricing || null,
+        strengths: Array.isArray(competitorData.strengths) ? competitorData.strengths : [],
+        weaknesses: Array.isArray(competitorData.weaknesses) ? competitorData.weaknesses : [],
+        specialty: competitorData.specialty || null,
+        targetAudience: competitorData.targetAudience || null,
+        brandTone: competitorData.brandTone || null,
+        positivePerception: competitorData.brandPerception?.positive || null,
+        negativePerception: competitorData.brandPerception?.negative || null,
+        complaints: Array.isArray(competitorData.complaints) ? competitorData.complaints : [],
+        usp: competitorData.usp || null
+      };
+      
+      console.log(`[add-competitor] Prepared competitor record:`, JSON.stringify(competitorRecord, null, 2));
+
+      // Save to database
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from('Competitor')
+        .insert([competitorRecord]);
+
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error('Failed to save competitor to database');
+      }
+
+      console.log(`[add-competitor] Successfully added competitor from N8N: ${competitorData.name}`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        competitor: competitorRecord 
+      });
+
     } catch (webhookError) {
       console.error('[add-competitor] N8N webhook error:', webhookError);
-      // Continue with processing even if webhook fails
+      // Fall back to original Gemini processing if N8N fails
     }
 
     // Create comprehensive research prompt
