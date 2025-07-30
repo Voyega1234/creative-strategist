@@ -14,6 +14,7 @@ import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCc
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { SessionHistory } from "@/components/session-history"
+import { AITypingAnimation } from "@/components/ai-typing-animation"
 import { useSearchParams } from "next/navigation"
 import { sessionManager } from "@/lib/session-manager"
 
@@ -317,8 +318,14 @@ function MainContent() {
   const handleTemplateSelect = (templateId: string) => {
     const template = briefTemplates.find(t => t.id === templateId)
     if (template) {
-      setInstructions("")
-      setSelectedTemplate(templateId)
+      if (selectedTemplate === templateId) {
+        // If already selected, deselect it
+        setSelectedTemplate(null)
+      } else {
+        // Select the new template and clear custom instructions
+        setInstructions("")
+        setSelectedTemplate(templateId)
+      }
     }
   }
 
@@ -452,10 +459,20 @@ function MainContent() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
-      <div className="flex w-full bg-white">
+    <div className="flex min-h-screen bg-white relative">
+      {/* Background Image - Hidden temporarily */}
+      {/* <div 
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: 'url("/vivid-blurred-colorful-background (1).jpg")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      /> */}
+      <div className="flex w-full relative z-10">
         {/* Sidebar */}
-        <aside className="w-64 bg-[#ffffff] p-6 border-r border-[#e4e7ec] flex flex-col justify-between">
+        <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between">
           <div>
             <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist.</h1>
             <nav className="space-y-2">
@@ -601,13 +618,16 @@ function MainContent() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8">
-          {!showResults ? (
+        <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent">
+          {isGenerating ? (
+            /* AI Typing Animation */
+            <AITypingAnimation activeClientName={activeClientName} />
+          ) : !showResults ? (
             /* Input Section */
-            <div className="flex flex-col items-center justify-center text-center mb-8">
+            <div className="flex flex-col items-center text-center w-full max-w-4xl">
               <Image
-                src="/placeholder.svg?height=120&width=120"
-                alt="Meditating person with laptop"
+                src="/SCR-20250730-myam-Photoroom.png"
+                alt="Creative Strategist Logo"
                 width={120}
                 height={120}
                 className="mb-6"
@@ -636,10 +656,10 @@ function MainContent() {
                     onClick={() => handleTemplateSelect(template.id)}
                     variant="outline"
                     disabled={isGenerating}
-                    className={`h-auto py-4 px-6 flex items-center justify-start text-left border-[#e4e7ec] hover:bg-[#e9d7fe] hover:border-[#b692f6] hover:text-[#6941c6] bg-transparent shadow-lg max-w-fit transition-all ${
+                    className={`h-auto py-4 px-6 flex items-center justify-start text-left border-white/30 hover:bg-[#e9d7fe] hover:border-[#b692f6] hover:text-[#6941c6] shadow-lg max-w-fit transition-all ${
                       selectedTemplate === template.id 
                         ? 'bg-[#e9d7fe] border-[#b692f6] text-[#6941c6]' 
-                        : 'text-[#535862]'
+                        : 'bg-white text-[#535862]'
                     }`}
                   >
                     <Sparkles className={`mr-3 h-5 w-5 ${
@@ -681,8 +701,8 @@ function MainContent() {
             </div>
           ) : (
             /* Results Section */
-            <div className="flex flex-col items-center justify-center text-center mb-8">
-              <div className="bg-white rounded-2xl p-8 shadow-lg border border-[#e4e7ec] w-full">
+            <div className="flex flex-col items-center text-center w-full max-w-6xl">
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-lg border border-white/20 w-full">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-[#000000] mb-2">Generated Ideas</h3>
                   <p className="text-[#535862]">สร้างไอเดีย {topics.length} ข้อสำเร็จแล้ว</p>
@@ -731,7 +751,7 @@ function MainContent() {
                   {topics.map((topic, index) => (
                     <Card
                       key={index}
-                      className="bg-white border border-[#e4e7ec] rounded-xl p-6 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                      className="bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl p-6 hover:shadow-lg hover:bg-white/80 transition-all duration-200 cursor-pointer"
                       onClick={() => {
                         setSelectedDetailIdea(topic)
                         setDetailModalOpen(true)
