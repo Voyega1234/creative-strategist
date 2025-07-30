@@ -13,7 +13,7 @@ interface N8NImageResponse {
 export async function POST(request: Request) {
   try {
     // N8N webhook URL for image generation
-    const N8N_IMAGE_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/7d99dbe5-f303-4782-894e-c9d01f405f86';
+    const N8N_IMAGE_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/7d99dbe5-f303-4782-894e-c9d01f405f86';
 
     // Parse request body
     const body = await request.json();

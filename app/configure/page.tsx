@@ -28,14 +28,15 @@ const ITEMS_PER_PAGE = 5 // Define items per page
 async function ConfigurePageContent({
   searchParams,
 }: {
-  searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
+  searchParams: Promise<{ clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }>
 }) {
+  const params = await searchParams
   const clients = await getClients()
   const defaultClient = clients[0]
 
   // Prioritize clientName from URL params, then find matching client
-  let activeClientName = searchParams.clientName || "No Client Selected"
-  let activeClientId = searchParams.clientId || null
+  let activeClientName = params.clientName || "No Client Selected"
+  let activeClientId = params.clientId || null
   
   // If we have a clientName but no clientId, try to find the matching client
   if (activeClientName && activeClientName !== "No Client Selected" && !activeClientId) {
@@ -60,7 +61,7 @@ async function ConfigurePageContent({
   }
 
   // Get the first product focus for this client if not specified
-  let activeProductFocus = searchParams.productFocus || null
+  let activeProductFocus = params.productFocus || null
   if (!activeProductFocus && activeClientName && activeClientName !== "No Client Selected") {
     // Get clients with product focuses to find the first one for this client
     const clientsWithProductFocus = await getClientsWithProductFocus()
@@ -71,8 +72,8 @@ async function ConfigurePageContent({
     }
   }
 
-  const selectedServiceFilter = searchParams.serviceFilter || null
-  const currentPage = Number.parseInt(searchParams.page || "1") // Get current page from search params
+  const selectedServiceFilter = params.serviceFilter || null
+  const currentPage = Number.parseInt(params.page || "1") // Get current page from search params
 
   let initialClientProfileData = null
   let clientBusinessProfile = null

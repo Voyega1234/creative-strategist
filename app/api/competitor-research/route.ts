@@ -80,7 +80,7 @@ function ensureAbsoluteUrl(url: string | null | undefined): string | null {
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
 
     // Parse request body
     const body = await request.json();
