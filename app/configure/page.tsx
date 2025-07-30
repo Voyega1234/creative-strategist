@@ -3,8 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { AppSidebar } from "@/components/layout/sidebar"
-import { AppHeader } from "@/components/layout/header"
+import { ConfigureSidebar } from "@/components/configure-sidebar"
 import { ConfigureLoading } from "@/components/configure-loading"
 import { getCompetitors, getUniqueServices, getClientBusinessProfile, type Competitor } from "@/lib/data/competitors"
 import { ClientInformationSection } from "@/components/client-information-section"
@@ -34,9 +33,31 @@ async function ConfigurePageContent({
   const clients = await getClients()
   const defaultClient = clients[0]
 
-  const activeClientId = searchParams.clientId || defaultClient?.id || null
-  const activeClientName = searchParams.clientName || 
-    clients.find((c) => c.id === activeClientId)?.clientName || defaultClient?.clientName || "No Client Selected"
+  // Prioritize clientName from URL params, then find matching client
+  let activeClientName = searchParams.clientName || "No Client Selected"
+  let activeClientId = searchParams.clientId || null
+  
+  // If we have a clientName but no clientId, try to find the matching client
+  if (activeClientName && activeClientName !== "No Client Selected" && !activeClientId) {
+    const matchingClient = clients.find((c) => c.clientName === activeClientName)
+    activeClientId = matchingClient?.id || null
+  }
+  
+  // If we have clientId but it doesn't match the clientName, prioritize clientName
+  if (activeClientName && activeClientName !== "No Client Selected" && activeClientId) {
+    const clientById = clients.find((c) => c.id === activeClientId)
+    if (clientById && clientById.clientName !== activeClientName) {
+      // ClientId doesn't match clientName, find the right client by name
+      const matchingClient = clients.find((c) => c.clientName === activeClientName)
+      activeClientId = matchingClient?.id || activeClientId
+    }
+  }
+  
+  // Fallback to default client if nothing is found
+  if (!activeClientName || activeClientName === "No Client Selected") {
+    activeClientName = defaultClient?.clientName || "No Client Selected"
+    activeClientId = activeClientId || defaultClient?.id || null
+  }
 
   // Get the first product focus for this client if not specified
   let activeProductFocus = searchParams.productFocus || null
@@ -132,12 +153,11 @@ async function ConfigurePageContent({
 
   if (!initialClientProfileData) {
     return (
-      <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50">
-        <AppSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
-        <div className="flex flex-col">
-          <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
-          <main className="flex-1 p-6 overflow-auto">
-            <div className="text-center text-gray-500">
+      <div className="flex min-h-screen bg-white relative">
+        <div className="flex w-full relative z-10">
+          <ConfigureSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
+          <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent">
+            <div className="text-center text-[#535862]">
               Client profile not found for the selected client. Please ensure data is seeded or create a new client.
             </div>
           </main>
@@ -150,31 +170,24 @@ async function ConfigurePageContent({
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-gradient-to-br from-slate-50 via-white to-slate-50 animate-in fade-in-0 duration-500">
-      <AppSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
-      <div className="flex flex-col">
-        <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
-        <main className="flex-1 p-6 overflow-auto">
+    <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
+      <div className="flex w-full relative z-10">
+        <ConfigureSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
+        <main className="flex-1 p-8 overflow-auto bg-transparent">
           {/* Main Tabs */}
           <Tabs defaultValue="client" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 h-auto bg-transparent p-0 border-b border-[#d1d1d6]">
+            <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-8">
               <TabsTrigger
                 value="client"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-base font-medium py-3"
+                className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
               >
                 Client
               </TabsTrigger>
               <TabsTrigger
                 value="competitors"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-base font-medium py-3"
+                className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
               >
                 Competitors
-              </TabsTrigger>
-              <TabsTrigger
-                value="instruction"
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-base font-medium py-3"
-              >
-                Instruction
               </TabsTrigger>
             </TabsList>
 
@@ -182,18 +195,24 @@ async function ConfigurePageContent({
             <TabsContent value="client" className="mt-4">
               {/* Sub-Tabs for Client */}
               <Tabs defaultValue="information" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#d1d1d6] mb-6">
+                <TabsList className="grid w-full grid-cols-3 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-6">
                   <TabsTrigger
                     value="information"
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-sm font-medium py-2"
+                    className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
                   >
                     Information
                   </TabsTrigger>
                   <TabsTrigger
                     value="strategic-insights"
-                    className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-sm font-medium py-2"
+                    className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
                   >
                     Strategic Insights
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="manage-feedback"
+                    className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                  >
+                    Manage Feedback
                   </TabsTrigger>
                 </TabsList>
 
@@ -230,6 +249,12 @@ async function ConfigurePageContent({
                     title="Top 10 Performing Ads"
                   />
                 </TabsContent>
+
+                {/* Manage Feedback Sub-tab Content */}
+                <TabsContent value="manage-feedback" className="space-y-6">
+                  {/* Feedback Table */}
+                  <FeedbackTableWrapper initialFeedback={feedbackData} />
+                </TabsContent>
               </Tabs>
             </TabsContent>
 
@@ -255,8 +280,8 @@ async function ConfigurePageContent({
                     }
                     className={`text-sm px-3 py-1 h-auto ${
                       !selectedServiceFilter || selectedServiceFilter === "All Competitors"
-                        ? "bg-black text-white hover:bg-gray-800"
-                        : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                        ? "bg-[#7f56d9] text-white hover:bg-[#6941c6]"
+                        : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
                     }`}
                   >
                     All Competitors
@@ -274,8 +299,8 @@ async function ConfigurePageContent({
                       variant={selectedServiceFilter === service ? "default" : "outline"}
                       className={`text-sm px-3 py-1 h-auto ${
                         selectedServiceFilter === service
-                          ? "bg-black text-white hover:bg-gray-800"
-                          : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                          ? "bg-[#7f56d9] text-white hover:bg-[#6941c6]"
+                          : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
                       }`}
                     >
                       {service}
@@ -302,7 +327,7 @@ async function ConfigurePageContent({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                    className="h-8 w-8 border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
                     disabled={currentPage === 1}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -322,8 +347,8 @@ async function ConfigurePageContent({
                       size="icon"
                       className={`h-8 w-8 ${
                         page === currentPage
-                          ? "bg-black text-white hover:bg-gray-800"
-                          : "border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                          ? "bg-[#7f56d9] text-white hover:bg-[#6941c6]"
+                          : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
                       }`}
                     >
                       {page}
@@ -339,7 +364,7 @@ async function ConfigurePageContent({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent"
+                    className="h-8 w-8 border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
                     disabled={currentPage === totalPages}
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -349,19 +374,6 @@ async function ConfigurePageContent({
               </div>
             </TabsContent>
 
-            {/* Instruction Tab Content */}
-            <TabsContent value="instruction" className="mt-4">
-              <h2 className="text-lg font-semibold mb-4">Instruction</h2>
-              <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white mb-6">
-                <Textarea
-                  placeholder="Provide additional context or specific instructions..."
-                  className="min-h-[120px] border-[#999999] focus:border-black focus:ring-0 text-sm text-[#8e8e93]"
-                />
-              </Card>
-
-              {/* Feedback Table */}
-              <FeedbackTableWrapper initialFeedback={feedbackData} />
-            </TabsContent>
           </Tabs>
         </main>
       </div>

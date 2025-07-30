@@ -87,12 +87,12 @@ export function CompetitorTable({ competitors, clientName }: CompetitorTableProp
     // Handle pricing (could be array or string)
     if (column.key === 'pricing') {
       const items = normalizeToArray(value)
+      // Join all pricing items into a single text block - show full text
+      const pricingText = items.join(' ')
       return (
-        <ul className="list-disc pl-4 space-y-0.5">
-          {items.map((item: string, i: number) => (
-            <li key={i}>{item}</li>
-          ))}
-        </ul>
+        <div className="text-xs leading-relaxed">
+          {pricingText}
+        </div>
       )
     }
 

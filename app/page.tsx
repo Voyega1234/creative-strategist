@@ -15,7 +15,8 @@ import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { SessionHistory } from "@/components/session-history"
 import { AITypingAnimation } from "@/components/ai-typing-animation"
-import { useSearchParams } from "next/navigation"
+import { LoadingPopup } from "@/components/loading-popup"
+import { useSearchParams, useRouter } from "next/navigation"
 import { sessionManager } from "@/lib/session-manager"
 
 // Types for ideas
@@ -50,6 +51,7 @@ type ClientWithProductFocus = {
 // Client component that uses useSearchParams
 function MainContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [topics, setTopics] = useState<IdeaRecommendation[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [instructions, setInstructions] = useState("")
@@ -67,6 +69,7 @@ function MainContent() {
   const [showResults, setShowResults] = useState(false)
   const [sidebarHistory, setSidebarHistory] = useState<any[]>([])
   const [isLoadingSidebarHistory, setIsLoadingSidebarHistory] = useState(false)
+  const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   
   // Get URL parameters
   const activeProductFocus = searchParams.get('productFocus') || null
@@ -392,6 +395,20 @@ function MainContent() {
     }
   }
 
+  const handleConfigureNavigation = () => {
+    setIsNavigatingToConfigure(true)
+    
+    // Build configure URL with current client parameters
+    const configureUrl = `/configure${activeClientName && activeClientName !== "No Client Selected" 
+      ? `?clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
+      : ''}`
+    
+    // Small delay to show loading, then navigate
+    setTimeout(() => {
+      router.push(configureUrl)
+    }, 500)
+  }
+
   const handleCopyAllIdeas = () => {
     if (!topics.length) {
       alert('ไม่มีไอเดียที่จะคัดลอก')
@@ -554,15 +571,15 @@ function MainContent() {
                 <Bookmark className="mr-2 h-4 w-4" />
                 รายการที่บันทึก
               </Button>
-              <Link href="/configure">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  ตั้งค่าและวิเคราะห์
-                </Button>
-              </Link>
+              <Button
+                onClick={handleConfigureNavigation}
+                variant="ghost"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                disabled={isNavigatingToConfigure}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                ตั้งค่าและวิเคราะห์
+              </Button>
               <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen} className="w-full">
                 <CollapsibleTrigger asChild>
                   <Button
@@ -816,6 +833,11 @@ function MainContent() {
         isOpen={historyModalOpen}
         onClose={() => setHistoryModalOpen(false)}
         activeClientName={activeClientName}
+      />
+
+      <LoadingPopup
+        isOpen={isNavigatingToConfigure}
+        message="กำลังโหลดหน้าตั้งค่าและวิเคราะห์"
       />
     </div>
   )
