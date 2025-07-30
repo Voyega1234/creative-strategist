@@ -10,19 +10,15 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = parseInt(searchParams.get('offset') || '0')
 
-    if (!sessionId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Session ID required' 
-      }, { status: 400 })
-    }
+    // SessionId is optional - if not provided, we'll get all sessions for the client
+    console.log('🔍 Session history request:', { sessionId, clientName, limit, offset })
 
-    // Initialize Supabase client  
+    // Initialize Supabase client - using anon key since service role key is not properly configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Build optimized query
+    // Build optimized query - filter by client_name primarily
     let query = supabase
       .from('idea_sessions')
       .select(`
@@ -36,12 +32,11 @@ export async function GET(request: NextRequest) {
         created_at,
         n8n_response
       `)
-      .eq('session_id', sessionId)
       .gte('expires_at', new Date().toISOString()) // Only non-expired
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    // Add client filter if specified
+    // Add client filter - this should be the primary filter
     if (clientName) {
       query = query.eq('client_name', clientName)
     }
@@ -57,11 +52,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Get total count for pagination
-    const { count } = await supabase
+    let countQuery = supabase
       .from('idea_sessions')
       .select('id', { count: 'exact', head: true })
-      .eq('session_id', sessionId)
       .gte('expires_at', new Date().toISOString())
+    
+    if (clientName) {
+      countQuery = countQuery.eq('client_name', clientName)
+    }
+    
+    const { count } = await countQuery
 
     // Transform for frontend (minimize data transfer)
     const transformedSessions = sessions?.map(session => ({
@@ -73,12 +73,9 @@ export async function GET(request: NextRequest) {
       modelUsed: session.model_used,
       ideasCount: session.ideas_count,
       createdAt: session.created_at,
-      // Only send idea summaries for list view
-      ideas: session.n8n_response?.ideas?.map((idea: any) => ({
-        title: idea.concept_idea || idea.title,
-        category: idea.category,
-        impact: idea.impact
-      })) || []
+      // Send full ideas data for loading complete sessions
+      ideas: session.n8n_response?.ideas || [],
+      n8nResponse: session.n8n_response
     }))
 
     // Add cache headers for performance

@@ -148,13 +148,17 @@ class SessionManager {
 
     try {
       const params = new URLSearchParams({
-        sessionId: this.getSessionId(),
         limit: (options.limit || 20).toString(),
         offset: (options.offset || 0).toString()
       })
 
+      // Only add sessionId if we want sessions for a specific session
+      // For getting all client sessions, we'll use clientName only
       if (options.clientName) {
         params.append('clientName', options.clientName)
+      } else {
+        // If no clientName provided, filter by sessionId
+        params.append('sessionId', this.getSessionId())
       }
 
       const response = await fetch(`/api/session-history?${params}`)

@@ -57,12 +57,15 @@ function MainContent() {
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
-  const [selectedModel, setSelectedModel] = useState<string>("Gemini 2.5 Pro")
+  const [selectedModel] = useState<string>("Gemini 2.5 Pro")
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
   const [isSharing, setIsSharing] = useState(false)
   const [historyModalOpen, setHistoryModalOpen] = useState(false)
   const [isBrandOpen, setIsBrandOpen] = useState(true)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [sidebarHistory, setSidebarHistory] = useState<any[]>([])
+  const [isLoadingSidebarHistory, setIsLoadingSidebarHistory] = useState(false)
   
   // Get URL parameters
   const activeProductFocus = searchParams.get('productFocus') || null
@@ -179,6 +182,12 @@ function MainContent() {
     }
   }, [])
 
+  // Reset history when client changes
+  useEffect(() => {
+    setSidebarHistory([])
+    setIsHistoryOpen(false)
+  }, [activeClientName])
+
   // Function to play notification sound
   const playNotificationSound = () => {
     try {
@@ -252,6 +261,7 @@ function MainContent() {
       
       if (data.success) {
         setTopics(data.ideas)
+        setShowResults(true)
         // Save ideas to localStorage
         if (activeClientName && activeProductFocus) {
           saveIdeasToStorage(data.ideas, activeClientName, activeProductFocus)
@@ -309,6 +319,69 @@ function MainContent() {
     if (template) {
       setInstructions("")
       setSelectedTemplate(templateId)
+    }
+  }
+
+  // Load sidebar history for current client
+  const loadSidebarHistory = async () => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      setSidebarHistory([])
+      return
+    }
+
+    setIsLoadingSidebarHistory(true)
+    try {
+      const result = await sessionManager.getHistory({
+        clientName: activeClientName,
+        limit: 10 // Show last 10 sessions in dropdown
+      })
+
+      if (result.success) {
+        console.log('📋 Session history loaded:', result.sessions)
+        setSidebarHistory(result.sessions || [])
+      }
+    } catch (error) {
+      console.error('Error loading sidebar history:', error)
+    } finally {
+      setIsLoadingSidebarHistory(false)
+    }
+  }
+
+  // Handle history dropdown toggle
+  const handleHistoryToggle = () => {
+    setIsHistoryOpen(!isHistoryOpen)
+    if (!isHistoryOpen && sidebarHistory.length === 0) {
+      loadSidebarHistory()
+    }
+  }
+
+  // Load a specific session and show its ideas
+  const loadSessionIdeas = async (session: any) => {
+    try {
+      console.log('🔄 Loading session ideas:', session)
+      
+      // Set the complete ideas from the session's n8nResponse
+      if (session.n8nResponse?.ideas && session.n8nResponse.ideas.length > 0) {
+        setTopics(session.n8nResponse.ideas)
+        setShowResults(true)
+        
+        // Also update form state to match the session
+        setInstructions(session.userInput || "")
+        if (session.selectedTemplate) {
+          setSelectedTemplate(session.selectedTemplate)
+        }
+        
+        console.log('✅ Session ideas loaded:', session.n8nResponse.ideas.length, 'complete ideas with all fields')
+      } else if (session.ideas && session.ideas.length > 0) {
+        // Fallback to the simplified ideas if n8nResponse is not available
+        setTopics(session.ideas)
+        setShowResults(true)
+        console.log('✅ Session ideas loaded:', session.ideas.length, 'simplified ideas')
+      } else {
+        console.warn('⚠️ No ideas found in session:', session)
+      }
+    } catch (error) {
+      console.error('Error loading session ideas:', error)
     }
   }
 
@@ -473,20 +546,50 @@ function MainContent() {
                   ตั้งค่าและวิเคราะห์
                 </Button>
               </Link>
-              <Button
-                onClick={() => setHistoryModalOpen(true)}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
-              >
-                <History className="mr-2 h-4 w-4" />
-                ประวัติการสร้าง
-              </Button>
-              <div className="space-y-1 pl-8 pt-2 text-sm text-[#535862]">
-                <p>สร้างคอนเทนต์ที่ตรงไอธุรกิจเลือก</p>
-                <p>สร้างรูปที่ตรงใจธุรกิจคุณและลูกค้า</p>
-                <p>สร้างคอนเทนต์ที่ตรงธุรกิจอย่าลืม</p>
-                <p>สร้างคอนเทนต์ที่ตรงธุรกิจให้ได้</p>
-              </div>
+              <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen} className="w-full">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    onClick={handleHistoryToggle}
+                    variant="ghost"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  >
+                    <History className="mr-2 h-4 w-4" />
+                    ประวัติการสร้าง
+                    <ChevronUp
+                      className={`ml-auto h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-0" : "rotate-180"}`}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-1 pl-8 pt-2">
+                  <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                    {isLoadingSidebarHistory ? (
+                      <div className="text-[#535862] text-xs p-2">กำลังโหลด...</div>
+                    ) : sidebarHistory.length > 0 ? (
+                      sidebarHistory.map((session) => (
+                        <button
+                          key={session.id}
+                          onClick={() => loadSessionIdeas(session)}
+                          className="w-full text-left p-2 rounded-md hover:bg-[#e9d7fe] hover:text-[#6941c6] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1"
+                        >
+                          <div className="font-medium truncate">
+                            {session.selectedTemplate ? 
+                              briefTemplates.find(t => t.id === session.selectedTemplate)?.title?.substring(0, 40) + '...' :
+                              session.userInput?.substring(0, 40) + '...' || 'Custom Ideas'
+                            }
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {session.ideasCount || 0} ideas • {session.createdAt ? new Date(session.createdAt).toLocaleDateString('th-TH') : 'Unknown date'}
+                          </div>
+                        </button>
+                      ))
+                    ) : activeClientName !== "No Client Selected" ? (
+                      <div className="text-[#535862] text-xs p-2">ยังไม่มีประวัติการสร้างไอเดีย</div>
+                    ) : (
+                      <div className="text-[#535862] text-xs p-2">เลือกลูกค้าเพื่อดูประวัติ</div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </nav>
           </div>
           <div className="flex items-center space-x-3 p-2 border-t border-[#e4e7ec] mt-4">
@@ -499,93 +602,101 @@ function MainContent() {
 
         {/* Main Content */}
         <main className="flex-1 p-8">
-          {/* Header Section */}
-          <div className="flex flex-col items-center justify-center text-center mb-8">
-            <Image
-              src="/placeholder.svg?height=120&width=120"
-              alt="Meditating person with laptop"
-              width={120}
-              height={120}
-              className="mb-6"
-            />
-            <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
-            <p className="text-sm text-[#535862] mb-8 max-w-full w-full">
-              <span className="font-bold">เลือกคอนเทนต์แนะนำด้านล่างได้เลย</span> — อย่าลืมเลือกลูกค้าทางซ้าย ให้ได้คอนเทนต์ที่ใช่ยิ่งขึ้น
-            </p>
-
-            {/* Client/Product Focus Status */}
-            {(!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) && (
-              <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  {!activeClientName || activeClientName === "No Client Selected" 
-                    ? "กรุณาเลือกลูกค้าจากแถบด้านซ้าย" 
-                    : "กรุณาเลือก Product Focus"}
-                </p>
-              </div>
-            )}
-
-            {/* Dynamic Template Buttons */}
-            <div className="flex flex-col gap-4 mb-8 items-center">
-              {briefTemplates.map((template) => (
-                <Button
-                  key={template.id}
-                  onClick={() => handleTemplateSelect(template.id)}
-                  variant="outline"
-                  disabled={isGenerating}
-                  className={`h-auto py-4 px-6 flex items-center justify-start text-left border-[#e4e7ec] hover:bg-[#e9d7fe] hover:border-[#b692f6] hover:text-[#6941c6] bg-transparent shadow-lg max-w-fit transition-all ${
-                    selectedTemplate === template.id 
-                      ? 'bg-[#e9d7fe] border-[#b692f6] text-[#6941c6]' 
-                      : 'text-[#535862]'
-                  }`}
-                >
-                  <Sparkles className={`mr-3 h-5 w-5 ${
-                    selectedTemplate === template.id ? 'text-[#6941c6]' : 'text-[#9e77ed]'
-                  }`} />
-                  {template.title}
-                </Button>
-              ))}
-            </div>
-
-            {/* Custom Input Field */}
-            <div className="w-full relative max-w-2xl">
-              <Textarea
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-                placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
-                className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#7f56d9] focus-visible:ring-0 shadow-md"
-                style={{ backgroundColor: "#ffffff" }}
-                disabled={isGenerating}
+          {!showResults ? (
+            /* Input Section */
+            <div className="flex flex-col items-center justify-center text-center mb-8">
+              <Image
+                src="/placeholder.svg?height=120&width=120"
+                alt="Meditating person with laptop"
+                width={120}
+                height={120}
+                className="mb-6"
               />
-              <Button 
-                onClick={handleGenerateTopics}
-                disabled={isGenerating || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
-                className="absolute bottom-4 right-4 bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังสร้าง...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="mr-2 h-4 w-4 text-[#7f56d9] animate-pulse" />
-                    Generate
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+              <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
+              <p className="text-sm text-[#535862] mb-8 max-w-full w-full">
+                <span className="font-bold">เลือกคอนเทนต์แนะนำด้านล่างได้เลย</span> — อย่าลืมเลือกลูกค้าทางซ้าย ให้ได้คอนเทนต์ที่ใช่ยิ่งขึ้น
+              </p>
 
-          {/* Results Section */}
-          {topics.length > 0 && (
-            <div className="mt-8">
-              <div className="bg-white rounded-2xl p-8 shadow-lg border border-[#e4e7ec]">
+              {/* Client/Product Focus Status */}
+              {(!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) && (
+                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    {!activeClientName || activeClientName === "No Client Selected" 
+                      ? "กรุณาเลือกลูกค้าจากแถบด้านซ้าย" 
+                      : "กรุณาเลือก Product Focus"}
+                  </p>
+                </div>
+              )}
+
+              {/* Dynamic Template Buttons */}
+              <div className="flex flex-col gap-4 mb-8 items-center">
+                {briefTemplates.map((template) => (
+                  <Button
+                    key={template.id}
+                    onClick={() => handleTemplateSelect(template.id)}
+                    variant="outline"
+                    disabled={isGenerating}
+                    className={`h-auto py-4 px-6 flex items-center justify-start text-left border-[#e4e7ec] hover:bg-[#e9d7fe] hover:border-[#b692f6] hover:text-[#6941c6] bg-transparent shadow-lg max-w-fit transition-all ${
+                      selectedTemplate === template.id 
+                        ? 'bg-[#e9d7fe] border-[#b692f6] text-[#6941c6]' 
+                        : 'text-[#535862]'
+                    }`}
+                  >
+                    <Sparkles className={`mr-3 h-5 w-5 ${
+                      selectedTemplate === template.id ? 'text-[#6941c6]' : 'text-[#9e77ed]'
+                    }`} />
+                    {template.title}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Custom Input Field */}
+              <div className="w-full relative max-w-2xl">
+                <Textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
+                  className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#7f56d9] focus-visible:ring-0 shadow-md"
+                  style={{ backgroundColor: "#ffffff" }}
+                  disabled={isGenerating}
+                />
+                <Button 
+                  onClick={handleGenerateTopics}
+                  disabled={isGenerating || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
+                  className="absolute bottom-4 right-4 bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                      กำลังสร้าง...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="mr-2 h-4 w-4 text-[#7f56d9] animate-pulse" />
+                      Generate
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Results Section */
+            <div className="flex flex-col items-center justify-center text-center mb-8">
+              <div className="bg-white rounded-2xl p-8 shadow-lg border border-[#e4e7ec] w-full">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-[#000000] mb-2">Generated Ideas</h3>
                   <p className="text-[#535862]">สร้างไอเดีย {topics.length} ข้อสำเร็จแล้ว</p>
                   
                   {/* Action Buttons */}
                   <div className="flex justify-center gap-4 mt-6">
+                    <Button
+                      onClick={() => setShowResults(false)}
+                      variant="outline"
+                      className="px-6 border-[#e4e7ec] hover:bg-[#f5f5f5]"
+                    >
+                      ← กลับไปแก้ไขไอเดีย
+                    </Button>
+                    
                     <Button
                       onClick={handleCopyAllIdeas}
                       variant="outline"

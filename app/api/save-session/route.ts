@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client - using anon key since service role key is not properly configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     
     console.log('🔗 Supabase config:', {
       hasUrl: !!supabaseUrl,
