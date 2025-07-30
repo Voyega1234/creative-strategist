@@ -125,8 +125,14 @@ export async function POST(request: Request) {
   }
 }
 
+// Cache for saved ideas titles
+const savedIdeasCache = new Map();
+const SAVED_IDEAS_CACHE_TTL = 60000; // 1 minute cache
+
 // API to check if ideas are saved
 export async function GET(request: Request) {
+  const startTime = performance.now();
+  
   try {
     const url = new URL(request.url);
     const clientName = url.searchParams.get('clientName');
@@ -139,12 +145,24 @@ export async function GET(request: Request) {
       }, { status: 400 });
     }
 
+    // Check cache first
+    const cacheKey = `${clientName}:${productFocus}`;
+    const cached = savedIdeasCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < SAVED_IDEAS_CACHE_TTL) {
+      console.log(`[save-idea] Cache hit for ${cacheKey} - ${performance.now() - startTime}ms`);
+      return NextResponse.json({ 
+        success: true, 
+        savedTitles: cached.data 
+      });
+    }
+
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('savedideas')
       .select('title')
       .eq('clientname', clientName)
-      .eq('productfocus', productFocus);
+      .eq('productfocus', productFocus)
+      .limit(50); // Reasonable limit
 
     if (error) {
       console.error('Error fetching saved ideas:', error);
@@ -155,13 +173,24 @@ export async function GET(request: Request) {
     }
 
     const savedTitles = data.map(item => item.title);
+    
+    // Cache the result
+    savedIdeasCache.set(cacheKey, {
+      data: savedTitles,
+      timestamp: Date.now()
+    });
+
+    const endTime = performance.now();
+    console.log(`[save-idea] Query completed in ${endTime - startTime}ms for ${savedTitles.length} titles`);
+    
     return NextResponse.json({ 
       success: true, 
       savedTitles 
     });
 
   } catch (error) {
-    console.error('Error in save-idea GET API:', error);
+    const endTime = performance.now();
+    console.error(`[save-idea] Error after ${endTime - startTime}ms:`, error);
     return NextResponse.json({ 
       success: false, 
       error: 'Internal server error' 
