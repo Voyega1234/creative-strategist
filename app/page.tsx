@@ -10,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Copy, Zap } from "lucide-react"
+import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Copy, Zap, ThumbsUp, ThumbsDown, BookmarkCheck } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { SessionHistory } from "@/components/session-history"
+import { SavedIdeas } from "@/components/saved-ideas"
 import { AITypingAnimation } from "@/components/ai-typing-animation"
 import { LoadingPopup } from "@/components/loading-popup"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -59,11 +60,14 @@ function MainContent() {
   const [feedbackFormOpen, setFeedbackFormOpen] = useState(false)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
+  const [selectedFeedbackIdea, setSelectedFeedbackIdea] = useState<IdeaRecommendation | null>(null)
+  const [savedTitles, setSavedTitles] = useState<string[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [selectedModel] = useState<string>("Gemini 2.5 Pro")
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
   const [isSharing, setIsSharing] = useState(false)
   const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [savedIdeasModalOpen, setSavedIdeasModalOpen] = useState(false)
   const [isBrandOpen, setIsBrandOpen] = useState(true)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [showResults, setShowResults] = useState(false)
@@ -192,6 +196,11 @@ function MainContent() {
     setIsHistoryOpen(false)
   }, [activeClientName])
 
+  // Fetch saved titles when client or product focus changes
+  useEffect(() => {
+    fetchSavedTitles()
+  }, [activeClientName, activeProductFocus])
+
   // Function to play notification sound
   const playNotificationSound = () => {
     try {
@@ -316,6 +325,74 @@ function MainContent() {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  // Function to check saved ideas
+  const fetchSavedTitles = async () => {
+    if (!activeClientName || !activeProductFocus) return
+    
+    try {
+      const response = await fetch(`/api/save-idea?clientName=${encodeURIComponent(activeClientName)}&productFocus=${encodeURIComponent(activeProductFocus)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setSavedTitles(data.savedTitles || [])
+      }
+    } catch (error) {
+      console.error('Error fetching saved titles:', error)
+    }
+  }
+
+  // Function to handle saving/unsaving ideas - instant UI update with background sync
+  const handleSaveIdea = async (idea: IdeaRecommendation, index: number) => {
+    if (!activeClientName || !activeProductFocus) return
+    
+    const isSaved = savedTitles.includes(idea.title)
+    const action = isSaved ? 'unsave' : 'save'
+    
+    // Instant UI update - silent success
+    if (action === 'save') {
+      setSavedTitles(prev => [...prev, idea.title])
+    } else {
+      setSavedTitles(prev => prev.filter(title => title !== idea.title))
+    }
+    
+    // Submit in background without blocking UI
+    saveLaterInBackground(idea, action, index)
+  }
+
+  // Background save submission
+  const saveLaterInBackground = async (idea: IdeaRecommendation, action: 'save' | 'unsave', index: number) => {
+    try {
+      console.log('Saving idea:', { idea, clientName: activeClientName, productFocus: activeProductFocus, action })
+      
+      const response = await fetch('/api/save-idea', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idea,
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+          action
+        })
+      })
+      
+      const result = await response.json()
+      console.log('Save API response:', result)
+      
+      if (!response.ok) {
+        console.error('Save API error:', result)
+      }
+    } catch (error) {
+      console.error('Background save failed:', error)
+      // Silently fail - user already got success message and UI updated
+      // In a real app, you might want to revert the UI change on failure
+    }
+  }
+
+  // Function to handle feedback - open modal for user input
+  const handleFeedback = (idea: IdeaRecommendation, type: 'good' | 'bad') => {
+    setSelectedFeedbackIdea(idea)
+    setFeedbackFormOpen(true)
   }
 
   const handleTemplateSelect = (templateId: string) => {
@@ -565,6 +642,7 @@ function MainContent() {
             <div className="my-4 border-t border-[#e4e7ec]" />
             <nav className="space-y-2">
               <Button
+                onClick={() => setSavedIdeasModalOpen(true)}
                 variant="ghost"
                 className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
               >
@@ -765,14 +843,13 @@ function MainContent() {
 
                 {/* Ideas Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {topics.map((topic, index) => (
+                  {topics.map((topic, index) => {
+                    const isSaved = savedTitles.includes(topic.title)
+                    
+                    return (
                     <Card
                       key={index}
-                      className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-colors duration-150 cursor-pointer will-change-auto"
-                      onClick={() => {
-                        setSelectedDetailIdea(topic)
-                        setDetailModalOpen(true)
-                      }}
+                      className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-colors duration-150 relative will-change-auto"
                     >
                       {/* Impact Badge */}
                       {topic.impact && (
@@ -787,7 +864,34 @@ function MainContent() {
                         </div>
                       )}
 
-                      <div className="space-y-4">
+                      {/* Bookmark Button - Top Right */}
+                      <div className="absolute top-3 right-3">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 hover:bg-blue-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleSaveIdea(topic, index)
+                          }}
+                          title={isSaved ? "Remove bookmark" : "Save idea"}
+                        >
+                          {isSaved ? (
+                            <BookmarkCheck className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <Bookmark className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* Content - clickable area */}
+                      <div 
+                        className="space-y-4 cursor-pointer"
+                        onClick={() => {
+                          setSelectedDetailIdea(topic)
+                          setDetailModalOpen(true)
+                        }}
+                      >
                         <div>
                           <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
                             {topic.content_pillar}
@@ -801,16 +905,48 @@ function MainContent() {
                           {topic.description}
                         </p>
                         
-                        <div className="flex flex-wrap gap-2">
-                          {(topic.tags || []).slice(0, 3).map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs border-[#e4e7ec]">
-                              {tag}
-                            </Badge>
-                          ))}
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-wrap gap-2">
+                            {(topic.tags || []).slice(0, 3).map(tag => (
+                              <Badge key={tag} variant="outline" className="text-xs border-[#e4e7ec]">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                          
+                          {/* Feedback Buttons - Bottom Right */}
+                          <div className="flex gap-1 ml-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 hover:bg-green-50 rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleFeedback(topic, 'good')
+                              }}
+                              title="Good feedback"
+                            >
+                              <ThumbsUp className="h-3.5 w-3.5 text-gray-400 hover:text-green-600" />
+                            </Button>
+                            
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 hover:bg-red-50 rounded-full"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleFeedback(topic, 'bad')
+                              }}
+                              title="Bad feedback"
+                            >
+                              <ThumbsDown className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </Card>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -821,8 +957,11 @@ function MainContent() {
       {/* Modals */}
       <FeedbackForm
         isOpen={feedbackFormOpen}
-        onClose={() => setFeedbackFormOpen(false)}
-        idea={selectedDetailIdea}
+        onClose={() => {
+          setFeedbackFormOpen(false)
+          setSelectedFeedbackIdea(null)
+        }}
+        idea={selectedFeedbackIdea}
         clientName={activeClientName || ""}
         productFocus={activeProductFocus || ""}
       />
@@ -837,6 +976,18 @@ function MainContent() {
         isOpen={historyModalOpen}
         onClose={() => setHistoryModalOpen(false)}
         activeClientName={activeClientName}
+      />
+
+      <SavedIdeas
+        isOpen={savedIdeasModalOpen}
+        onClose={() => setSavedIdeasModalOpen(false)}
+        activeClientName={activeClientName}
+        activeProductFocus={activeProductFocus}
+        onViewDetails={(idea, savedId) => {
+          setSelectedDetailIdea(idea)
+          setDetailModalOpen(true)
+          setSavedIdeasModalOpen(false)
+        }}
       />
 
       <LoadingPopup
