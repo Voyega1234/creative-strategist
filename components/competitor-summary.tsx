@@ -108,7 +108,7 @@ export function CompetitorSummary({ clientId, productFocus, clientName, initialS
         </div>
       </div>
       
-      <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white">
+      <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600">{error}</p>

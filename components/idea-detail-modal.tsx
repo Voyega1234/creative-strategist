@@ -16,9 +16,10 @@ interface IdeaDetailModalProps {
 export function IdeaDetailModal({ isOpen, onClose, idea }: IdeaDetailModalProps) {
   if (!idea) return null
 
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl idea-detail-modal">
         <ScrollArea className="max-h-[80vh] pr-6">
           <DialogHeader>
             <DialogTitle className="text-2xl mb-2">{idea.title}</DialogTitle>

@@ -85,7 +85,7 @@ export function TopPerformingAds({ ads, title = "Top 10 Performing Ads" }: TopPe
     return (
       <div>
         <h2 className="text-lg font-semibold mb-4 mt-6">{title}</h2>
-        <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white">
+        <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
           <div className="text-center text-[#8e8e93]">
             No ads data available
           </div>
@@ -97,7 +97,7 @@ export function TopPerformingAds({ ads, title = "Top 10 Performing Ads" }: TopPe
   return (
     <div>
       <h2 className="text-lg font-semibold mb-4 mt-6">{title}</h2>
-      <Card className="border border-[#d1d1d6] shadow-sm bg-white">
+      <Card className="border-2 border-[#d1d1d6] shadow-sm bg-white">
         <div className="p-4 border-b border-[#f0f0f0]">
           <div className="flex items-center justify-between">
             <span className="text-sm text-[#8e8e93]">

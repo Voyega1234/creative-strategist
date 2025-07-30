@@ -23,7 +23,7 @@ export function BusinessProfileForm({ isEditing, formData, setFormData, clientBu
   }
 
   return (
-    <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white mb-6">
+    <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white mb-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
         <div>
           <p className="text-sm font-medium text-black mb-1">Client Name</p>

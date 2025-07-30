@@ -81,7 +81,7 @@ export function ResearchInsightsSection({ insights, clientName, productFocus }: 
   return (
     <>
       <h2 className="text-lg font-semibold mb-4 mt-6">Research Insights</h2>
-      <Card className="border border-[#d1d1d6] shadow-sm bg-white">
+      <Card className="border-2 border-[#d1d1d6] shadow-sm bg-white">
         <div className="p-4 border-b border-[#f0f0f0]">
           <div className="flex items-center justify-between">
             <span className="text-sm text-[#8e8e93]">

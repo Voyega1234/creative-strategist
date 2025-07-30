@@ -719,7 +719,7 @@ function MainContent() {
           ) : (
             /* Results Section */
             <div className="flex flex-col items-center text-center w-full max-w-6xl">
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-lg border border-white/20 w-full">
+              <div className="bg-white/95 rounded-2xl p-8 shadow-lg border border-[#e4e7ec] w-full">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-[#000000] mb-2">Generated Ideas</h3>
                   <p className="text-[#535862]">สร้างไอเดีย {topics.length} ข้อสำเร็จแล้ว</p>
@@ -768,17 +768,21 @@ function MainContent() {
                   {topics.map((topic, index) => (
                     <Card
                       key={index}
-                      className="bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl p-6 hover:shadow-lg hover:bg-white/80 transition-all duration-200 cursor-pointer"
+                      className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-colors duration-150 cursor-pointer will-change-auto"
                       onClick={() => {
                         setSelectedDetailIdea(topic)
                         setDetailModalOpen(true)
                       }}
                     >
-                      {/* High Impact Badge */}
-                      {topic.impact === 'High' && (
+                      {/* Impact Badge */}
+                      {topic.impact && (
                         <div className="mb-4">
-                          <Badge className="bg-green-500 text-white text-xs px-3 py-1 rounded-full">
-                            High Impact
+                          <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
+                            topic.impact === 'High' ? 'bg-green-500' :
+                            topic.impact === 'Medium' ? 'bg-yellow-500' :
+                            topic.impact === 'Low' ? 'bg-gray-500' : 'bg-blue-500'
+                          }`}>
+                            {topic.impact} Impact
                           </Badge>
                         </div>
                       )}

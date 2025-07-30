@@ -183,7 +183,7 @@ export function EditableStrategicInsights({
       {/* Summary Information */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Summary Information</h3>
-        <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white mb-6">
+        <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white mb-6">
           {isEditing ? (
             <Textarea
               value={editedData.summary || ''}
@@ -202,7 +202,7 @@ export function EditableStrategicInsights({
       {/* SWOT Analysis */}
       <div>
         <h3 className="text-lg font-semibold mb-4">SWOT Analysis - {clientName}</h3>
-        <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white mb-6">
+        <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
             {renderEditableArray("Strengths", "strengths", editedData.strengths)}
             {renderEditableArray("Weaknesses", "weaknesses", editedData.weaknesses)}
@@ -215,7 +215,7 @@ export function EditableStrategicInsights({
       {/* Market Analysis */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Market Analysis</h3>
-        <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white">
+        <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8">
             <div className="md:col-span-2">
               {renderEditableArray("Differentiation Strategies", "differentiation_strategies", editedData.differentiation_strategies)}

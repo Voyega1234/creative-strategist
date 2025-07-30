@@ -78,6 +78,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 })
     }
 
+    // Send to N8N webhook first
+    try {
+      console.log(`[add-competitor] Sending to N8N webhook...`)
+      
+      const N8N_WEBHOOK_URL = 'https://n8n.srv909701.hstgr.cloud/webhook-test/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
+      
+      const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          competitorName: competitorName.trim(),
+          additionalDetails: competitorDescription?.trim() || '',
+          productFocus: productFocus || 'Digital Marketing Agencie'
+        }),
+      });
+
+      if (webhookResponse.ok) {
+        console.log(`[add-competitor] Successfully sent to N8N webhook`);
+      } else {
+        console.warn(`[add-competitor] N8N webhook failed with status: ${webhookResponse.status}`);
+      }
+    } catch (webhookError) {
+      console.error('[add-competitor] N8N webhook error:', webhookError);
+      // Continue with processing even if webhook fails
+    }
+
     // Create comprehensive research prompt
     const researchPrompt = `
 You are a market research expert. Please research and analyze the competitor "${competitorName}" for client "${clientName}" in the ${productFocus || 'business'} industry.

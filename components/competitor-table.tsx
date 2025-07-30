@@ -107,7 +107,7 @@ export function CompetitorTable({ competitors, clientName }: CompetitorTableProp
   }
 
   return (
-    <Card className="p-6 border border-[#d1d1d6] shadow-sm bg-white">
+    <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
       {/* Header with Column Selector */}
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Competitors</h3>
