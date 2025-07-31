@@ -38,7 +38,12 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body>{children}</body>
+      <body style={{
+        scrollBehavior: 'smooth',
+        WebkitOverflowScrolling: 'touch',
+        backfaceVisibility: 'hidden',
+        perspective: '1000px'
+      }}>{children}</body>
     </html>
   )
 }
