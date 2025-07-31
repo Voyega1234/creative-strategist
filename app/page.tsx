@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, memo, useCallback } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -49,6 +49,118 @@ type ClientWithProductFocus = {
     productFocus: string
   }>
 }
+
+// Memoized IdeaCard component for better performance
+const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFeedback }: {
+  topic: IdeaRecommendation;
+  index: number;
+  isSaved: boolean;
+  onDetailClick: (topic: IdeaRecommendation) => void;
+  onSaveClick: (topic: IdeaRecommendation, index: number) => void;
+  onFeedback: (topic: IdeaRecommendation, type: 'good' | 'bad') => void;
+}) => {
+  return (
+    <Card className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-all duration-200 relative transform-gpu will-change-transform">
+      {/* Impact Badge */}
+      {topic.impact && (
+        <div className="mb-4">
+          <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
+            topic.impact === 'High' ? 'bg-green-500' :
+            topic.impact === 'Medium' ? 'bg-yellow-500' :
+            topic.impact === 'Low' ? 'bg-gray-500' : 'bg-blue-500'
+          }`}>
+            {topic.impact} Impact
+          </Badge>
+        </div>
+      )}
+
+      {/* Bookmark Button - Top Right */}
+      <div className="absolute top-3 right-3">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0 hover:bg-blue-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            onSaveClick(topic, index)
+          }}
+          title={isSaved ? "Remove bookmark" : "Save idea"}
+        >
+          {isSaved ? (
+            <BookmarkCheck className="h-4 w-4 text-blue-600" />
+          ) : (
+            <Bookmark className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+          )}
+        </Button>
+      </div>
+
+      {/* Content - clickable area */}
+      <div 
+        className="space-y-4 cursor-pointer"
+        onClick={() => onDetailClick(topic)}
+      >
+        <div>
+          <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
+            {topic.content_pillar}
+          </Badge>
+          <h4 className="text-lg font-bold text-[#000000] leading-tight mb-2">
+            {topic.title || topic.concept_idea}
+          </h4>
+          {topic.title && topic.concept_idea && topic.concept_idea !== topic.title && (
+            <p className="text-[#8e8e93] text-sm font-medium mb-2 italic">
+              {topic.concept_idea}
+            </p>
+          )}
+        </div>
+        
+        <p className="text-[#535862] text-sm line-clamp-4">
+          {topic.description}
+        </p>
+        
+        <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2">
+            {(topic.tags || []).slice(0, 3).map(tag => (
+              <Badge key={tag} variant="outline" className="text-xs border-[#e4e7ec]">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+          
+          {/* Feedback Buttons - Bottom Right */}
+          <div className="flex gap-1 ml-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 hover:bg-green-50 rounded-full"
+              onClick={(e) => {
+                e.stopPropagation()
+                onFeedback(topic, 'good')
+              }}
+              title="Good feedback"
+            >
+              <ThumbsUp className="h-3.5 w-3.5 text-gray-400 hover:text-green-600" />
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 hover:bg-red-50 rounded-full"
+              onClick={(e) => {
+                e.stopPropagation()
+                onFeedback(topic, 'bad')
+              }}
+              title="Bad feedback"
+            >
+              <ThumbsDown className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+})
+
+IdeaCard.displayName = 'IdeaCard'
 
 // Client component that uses useSearchParams
 function MainContent() {
@@ -599,6 +711,12 @@ function MainContent() {
     }
   }
 
+  // Memoized callbacks for better performance
+  const handleDetailClick = useCallback((topic: IdeaRecommendation) => {
+    setSelectedDetailIdea(topic)
+    setDetailModalOpen(true)
+  }, [])
+
   const handleShareIdeas = async () => {
     if (!topics.length) {
       alert('ไม่มีไอเดียที่จะแชร์')
@@ -701,7 +819,7 @@ function MainContent() {
   // Show login form if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
+      <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500" style={{ scrollBehavior: 'smooth', willChange: 'scroll-position' }}>
         <div className="flex w-full relative z-10">
           {/* Left Panel - Branding */}
           <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#7f56d9] to-[#6941c6] relative overflow-hidden">
@@ -1036,7 +1154,7 @@ function MainContent() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent">
+        <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent" style={{ scrollBehavior: 'smooth', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {isGenerating ? (
             /* AI Typing Animation */
             <AITypingAnimation activeClientName={activeClientName} />
@@ -1155,115 +1273,21 @@ function MainContent() {
                   </div>
                 </div>
 
-                {/* Ideas Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Ideas Grid - Optimized */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" style={{ willChange: 'contents' }}>
                   {topics.map((topic, index) => {
                     const isSaved = savedTitles.includes(topic.title)
                     
                     return (
-                    <Card
-                      key={index}
-                      className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-colors duration-150 relative will-change-auto"
-                    >
-                      {/* Impact Badge */}
-                      {topic.impact && (
-                        <div className="mb-4">
-                          <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
-                            topic.impact === 'High' ? 'bg-green-500' :
-                            topic.impact === 'Medium' ? 'bg-yellow-500' :
-                            topic.impact === 'Low' ? 'bg-gray-500' : 'bg-blue-500'
-                          }`}>
-                            {topic.impact} Impact
-                          </Badge>
-                        </div>
-                      )}
-
-                      {/* Bookmark Button - Top Right */}
-                      <div className="absolute top-3 right-3">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 hover:bg-blue-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSaveIdea(topic, index)
-                          }}
-                          title={isSaved ? "Remove bookmark" : "Save idea"}
-                        >
-                          {isSaved ? (
-                            <BookmarkCheck className="h-4 w-4 text-blue-600" />
-                          ) : (
-                            <Bookmark className="h-4 w-4 text-gray-400 hover:text-blue-600" />
-                          )}
-                        </Button>
-                      </div>
-
-                      {/* Content - clickable area */}
-                      <div 
-                        className="space-y-4 cursor-pointer"
-                        onClick={() => {
-                          setSelectedDetailIdea(topic)
-                          setDetailModalOpen(true)
-                        }}
-                      >
-                        <div>
-                          <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
-                            {topic.content_pillar}
-                          </Badge>
-                          <h4 className="text-lg font-bold text-[#000000] leading-tight mb-2">
-                            {topic.title || topic.concept_idea}
-                          </h4>
-                          {topic.title && topic.concept_idea && topic.concept_idea !== topic.title && (
-                            <p className="text-[#8e8e93] text-sm font-medium mb-2 italic">
-                              {topic.concept_idea}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <p className="text-[#535862] text-sm line-clamp-4">
-                          {topic.description}
-                        </p>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-wrap gap-2">
-                            {(topic.tags || []).slice(0, 3).map(tag => (
-                              <Badge key={tag} variant="outline" className="text-xs border-[#e4e7ec]">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                          
-                          {/* Feedback Buttons - Bottom Right */}
-                          <div className="flex gap-1 ml-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 hover:bg-green-50 rounded-full"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleFeedback(topic, 'good')
-                              }}
-                              title="Good feedback"
-                            >
-                              <ThumbsUp className="h-3.5 w-3.5 text-gray-400 hover:text-green-600" />
-                            </Button>
-                            
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0 hover:bg-red-50 rounded-full"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleFeedback(topic, 'bad')
-                              }}
-                              title="Bad feedback"
-                            >
-                              <ThumbsDown className="h-3.5 w-3.5 text-gray-400 hover:text-red-600" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
+                      <IdeaCard
+                        key={`${topic.title}-${index}`}
+                        topic={topic}
+                        index={index}
+                        isSaved={isSaved}
+                        onDetailClick={handleDetailClick}
+                        onSaveClick={handleSaveIdea}
+                        onFeedback={handleFeedback}
+                      />
                     )
                   })}
                 </div>
