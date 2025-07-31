@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server';
-import { v4 as uuidv4 } from 'uuid';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +36,8 @@ export async function POST(request: Request) {
         }, { status: 500 });
       }
       
-      // Save the idea
+      // Save the idea - dynamic import for UUID only
+      const { v4: uuidv4 } = await import('uuid');
       const savedIdea = {
         id: uuidv4(),
         clientname: clientName,

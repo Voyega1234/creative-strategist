@@ -45,7 +45,7 @@ export async function GET() {
       }
       
       const client = clientsMap.get(row.clientName);
-      if (!client.productFocuses.some(pf => pf.productFocus === row.productFocus)) {
+      if (!client.productFocuses.some((pf: any) => pf.productFocus === row.productFocus)) {
         client.productFocuses.push({
           id: row.id,
           productFocus: row.productFocus
