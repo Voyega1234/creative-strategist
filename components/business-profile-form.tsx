@@ -61,7 +61,23 @@ export function BusinessProfileForm({ isEditing, formData, setFormData, clientBu
               className="border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
             />
           ) : (
-            <p className="text-sm text-[#8e8e93]">{formData.clientFacebookUrl}</p>
+            <div className="text-sm text-[#8e8e93]">
+              {formData.clientFacebookUrl ? (
+                <a
+                  href={formData.clientFacebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline break-all"
+                  title={formData.clientFacebookUrl}
+                >
+                  {formData.clientFacebookUrl.length > 50 
+                    ? `${formData.clientFacebookUrl.substring(0, 50)}...` 
+                    : formData.clientFacebookUrl}
+                </a>
+              ) : (
+                'N/A'
+              )}
+            </div>
           )}
         </div>
         <div>

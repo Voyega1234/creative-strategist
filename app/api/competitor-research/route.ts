@@ -80,7 +80,7 @@ function ensureAbsoluteUrl(url: string | null | undefined): string | null {
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/8fdf1d50-9a01-4bd8-a93e-8ab57352a39b';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/6c2ebd81-8085-43d3-b315-e221f7339194';
 
     // Parse request body
     const body = await request.json();
@@ -118,7 +118,8 @@ export async function POST(request: Request) {
           market,
           additionalInfo,
           website: clientWebsiteUrl,
-          ad_account_id
+          ad_account_id,
+          known_competitors: userCompetitors
         }),
       });
 

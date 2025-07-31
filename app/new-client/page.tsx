@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, ArrowLeft } from "lucide-react"
+import { ArrowRight, ArrowLeft, HelpCircle } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { getClients } from "@/lib/data/clients"
@@ -24,6 +24,7 @@ export default function NewClientPage() {
   })
   const [isCreating, setIsCreating] = useState(false)
   const [adAccountError, setAdAccountError] = useState("")
+  const [showProductFocusTooltip, setShowProductFocusTooltip] = useState(false)
   const router = useRouter()
 
   // Function to play notification sound
@@ -110,8 +111,8 @@ export default function NewClientPage() {
   }
 
   const handleCreateNewClient = async () => {
-    if (!formData.clientName || !formData.market) {
-      alert("Please enter client name and target market.")
+    if (!formData.clientName || !formData.market || !formData.productFocus) {
+      alert("กรุณากรอกข้อมูลที่จำเป็น: ชื่อลูกค้า, ตลาดเป้าหมาย, และสินค้าหรือบริการที่สนใจ")
       return
     }
 
@@ -165,7 +166,15 @@ export default function NewClientPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
+    <>
+      <style jsx>{`
+        @keyframes progress {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+      <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
       <div className="flex w-full relative z-10">
         {/* Left Panel - Branding */}
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#7f56d9] to-[#6941c6] relative overflow-hidden">
@@ -182,7 +191,7 @@ export default function NewClientPage() {
                 Strategic Competitor<br />Research Platform
               </h1>
               <p className="text-xl text-white/90 leading-relaxed">
-                Perform deep competitor analysis, generate strategic insights, and create data-driven marketing strategies.
+                วิเคราะห์คู่แข่งเชิงลึก สร้างข้อมูลเชิงกลยุทธ์ และพัฒนากลยุทธ์การตลาดที่ขับเคลื่อนด้วยข้อมูล
               </p>
             </div>
             
@@ -191,40 +200,40 @@ export default function NewClientPage() {
                 <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
-                <span className="text-white/90">AI-powered competitor analysis</span>
+                <span className="text-white/90">การวิเคราะห์คู่แข่งด้วย AI</span>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
-                <span className="text-white/90">Strategic insights generation</span>
+                <span className="text-white/90">การสร้างข้อมูลเชิงกลยุทธ์</span>
               </div>
               <div className="flex items-center space-x-3">
                 <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
-                <span className="text-white/90">Real-time market research</span>
+                <span className="text-white/90">การวิจัยตลาดแบบเรียลไทม์</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Right Panel - Form */}
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="w-full max-w-md">
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-4xl">
             {/* Back Navigation */}
-            <div className="mb-6">
+            <div className="mb-4">
               <Link
                 href="/"
                 className="inline-flex items-center text-[#8e8e93] hover:text-[#7f56d9] transition-colors text-sm"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                กลับไปหน้าหลัก
               </Link>
             </div>
 
-            <div className="text-center mb-8">
-              <div className="lg:hidden w-12 h-12 bg-[#e9d7fe] rounded-xl flex items-center justify-center mx-auto mb-4">
+            <div className="text-center mb-6">
+              <div className="lg:hidden w-12 h-12 bg-[#e9d7fe] rounded-xl flex items-center justify-center mx-auto mb-3">
                 <div className="w-6 h-6 bg-[#7f56d9] rounded-lg flex items-center justify-center">
                   <div className="w-3 h-3 bg-white rounded-sm"></div>
                 </div>
@@ -234,32 +243,33 @@ export default function NewClientPage() {
             </div>
 
             <Tabs defaultValue="new-client" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-8">
+              <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-4">
                 <TabsTrigger
                   value="new-client"
                   className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
                 >
-                  New Client
+                  ลูกค้าใหม่
                 </TabsTrigger>
                 <TabsTrigger
                   value="select-client"
                   className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
                 >
-                  Select Client
+                  เลือกลูกค้า
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="new-client">
-                <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column */}
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-2">
-                        Client Name <span className="text-red-500">*</span>
+                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                        ชื่อลูกค้า <span className="text-red-500">*</span>
                       </label>
                       <Input
                         type="text"
-                        placeholder="Enter client name"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                        placeholder="กรอกชื่อลูกค้า"
+                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
                         value={formData.clientName}
                         onChange={(e) => setFormData(prev => ({ ...prev, clientName: e.target.value }))}
                         disabled={isCreating}
@@ -267,13 +277,13 @@ export default function NewClientPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-2">
-                        Target Market <span className="text-red-500">*</span>
+                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                        ตลาดเป้าหมาย <span className="text-red-500">*</span>
                       </label>
                       <Input
                         type="text"
-                        placeholder="Thailand, Singapore, etc."
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                        placeholder="เช่น ประเทศไทย, สิงคโปร์, มาเลเซีย"
+                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
                         value={formData.market}
                         onChange={(e) => setFormData(prev => ({ ...prev, market: e.target.value }))}
                         disabled={isCreating}
@@ -281,54 +291,72 @@ export default function NewClientPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-2">
-                        Product Focus
-                      </label>
+                      <div className="flex items-center mb-1.5">
+                        <label className="block text-sm font-medium text-[#535862]">
+                          สินค้าหรือบริการที่สนใจ <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative ml-2">
+                          <HelpCircle 
+                            className="h-4 w-4 text-[#8e8e93] cursor-help hover:text-[#7f56d9] transition-colors"
+                            onMouseEnter={() => setShowProductFocusTooltip(true)}
+                            onMouseLeave={() => setShowProductFocusTooltip(false)}
+                          />
+                          {showProductFocusTooltip && (
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg whitespace-nowrap z-10">
+                              สินค้าหรือบริการที่ต้องการวิเคราะห์คู่แข่ง
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <Input
                         type="text"
-                        placeholder="Gold trading, Investment services, etc."
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                        placeholder="เช่น การซื้อขายทอง, บริการลงทุน, กาแฟ, เสื้อผ้า"
+                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
                         value={formData.productFocus}
                         onChange={(e) => setFormData(prev => ({ ...prev, productFocus: e.target.value }))}
+                        disabled={isCreating}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                        เว็บไซต์
+                      </label>
+                      <Input
+                        type="url"
+                        placeholder="https://example.com"
+                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
+                        value={formData.websiteUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, websiteUrl: e.target.value }))}
                         disabled={isCreating}
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-[#535862] mb-2">
-                          Website URL
-                        </label>
-                        <Input
-                          type="url"
-                          placeholder="https://example.com"
-                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
-                          value={formData.websiteUrl}
-                          onChange={(e) => setFormData(prev => ({ ...prev, websiteUrl: e.target.value }))}
-                          disabled={isCreating}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[#535862] mb-2">
-                          Facebook Page
-                        </label>
-                        <Input
-                          type="url"
-                          placeholder="Facebook page URL"
-                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
-                          value={formData.facebookUrl}
-                          onChange={(e) => setFormData(prev => ({ ...prev, facebookUrl: e.target.value }))}
-                          disabled={isCreating}
-                        />
-                      </div>
-                    </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-2">
-                        Additional Information
+                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                        เพจ Facebook
+                      </label>
+                      <Input
+                        type="url"
+                        placeholder="ลิงก์เพจ Facebook"
+                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
+                        value={formData.facebookUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, facebookUrl: e.target.value }))}
+                        disabled={isCreating}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                        ข้อมูลเพิ่มเติม
                       </label>
                       <Textarea
-                        placeholder="Any additional context about the client..."
+                        placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับลูกค้า..."
                         className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
                         rows={3}
                         value={formData.additionalInfo}
@@ -338,13 +366,13 @@ export default function NewClientPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-2">
-                        Known Competitors
+                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                        คู่แข่งที่ทราบ
                       </label>
                       <Textarea
-                        placeholder="Competitor names (separate with commas)"
+                        placeholder="ชื่อคู่แข่ง (คั่นด้วยเครื่องหมายจุลภาค)"
                         className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
-                        rows={2}
+                        rows={3}
                         value={formData.userCompetitors}
                         onChange={(e) => setFormData(prev => ({ ...prev, userCompetitors: e.target.value }))}
                         disabled={isCreating}
@@ -352,13 +380,13 @@ export default function NewClientPage() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-2">
-                        Ad Account ID
+                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                        รหัสบัญชีโฆษณา
                       </label>
                       <Input
                         type="text"
-                        placeholder="act_1234567890123456 (optional)"
-                        className={`border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors ${
+                        placeholder="act_1234567890123456 (ไม่บังคับ)"
+                        className={`border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors ${
                           adAccountError ? '!border-red-500 !focus:border-red-500 !focus:ring-red-500/20' : ''
                         }`}
                         value={formData.ad_account_id}
@@ -369,32 +397,52 @@ export default function NewClientPage() {
                         <p className="text-red-500 text-sm mt-1">{adAccountError}</p>
                       )}
                     </div>
-                  </div>
 
-                  <Button
-                    className="w-full h-12 bg-[#7f56d9] text-white hover:bg-[#6941c6] text-base font-medium transition-colors shadow-sm disabled:opacity-50"
-                    onClick={handleCreateNewClient}
-                    disabled={isCreating}
-                  >
-                    {isCreating ? (
-                      <>
-                        <div className="w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Analyzing Competitors & Generating Insights...
-                      </>
-                    ) : (
-                      <>
-                        Start Competitor Analysis
-                        <ArrowRight className="ml-2 h-5 w-5" />
-                      </>
-                    )}
-                  </Button>
+                    <div className="pt-4">
+                      <Button
+                        className="w-full h-12 bg-[#7f56d9] text-white hover:bg-[#6941c6] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group"
+                        onClick={handleCreateNewClient}
+                        disabled={isCreating}
+                      >
+                        {isCreating ? (
+                          <>
+                            <div className="flex items-center justify-center">
+                              {/* Animated dots */}
+                              <div className="flex space-x-1 mr-3">
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                              </div>
+                              <span className="animate-pulse">กำลังประมวลผล</span>
+                            </div>
+                            {/* Progress bar animation */}
+                            <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
+                              <div className="h-full bg-white animate-pulse" style={{ 
+                                width: '100%',
+                                animation: 'progress 3s ease-in-out infinite'
+                              }}></div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <span className="group-hover:translate-x-1 transition-transform duration-200">
+                              เริ่มวิเคราะห์คู่แข่ง
+                            </span>
+                            <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
+                            {/* Hover effect background */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="select-client">
                 <div className="space-y-4">
                   <p className="text-[#8e8e93] text-center mb-6">
-                    Choose an existing client to view their analysis
+                    เลือกลูกค้าที่มีอยู่เพื่อดูผลการวิเคราะห์
                   </p>
                   
                   {clients.length > 0 ? (
@@ -414,7 +462,7 @@ export default function NewClientPage() {
                                 <h3 className="font-medium text-[#535862] group-hover:text-[#6941c6]">
                                   {client.clientName}
                                 </h3>
-                                <p className="text-sm text-[#8e8e93]">View analysis results</p>
+                                <p className="text-sm text-[#8e8e93]">ดูผลการวิเคราะห์</p>
                               </div>
                             </div>
                             <ArrowRight className="h-5 w-5 text-[#8e8e93] group-hover:text-[#7f56d9] transition-colors" />
@@ -427,8 +475,8 @@ export default function NewClientPage() {
                       <div className="w-16 h-16 bg-[#f1f5f9] rounded-full flex items-center justify-center mx-auto mb-4">
                         <div className="w-8 h-8 bg-[#e4e7ec] rounded-full"></div>
                       </div>
-                      <p className="text-[#8e8e93] mb-2">No clients found</p>
-                      <p className="text-sm text-[#8e8e93]">Create your first client analysis</p>
+                      <p className="text-[#8e8e93] mb-2">ไม่พบลูกค้า</p>
+                      <p className="text-sm text-[#8e8e93]">สร้างการวิเคราะห์ลูกค้าแรกของคุณ</p>
                     </div>
                   )}
                 </div>
@@ -438,5 +486,6 @@ export default function NewClientPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
