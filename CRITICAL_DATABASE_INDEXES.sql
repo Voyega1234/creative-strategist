@@ -22,8 +22,8 @@ CREATE INDEX IF NOT EXISTS idx_feedback_client_product
 ON "idea_feedback" ("client_name", "product_focus");
 
 -- 6. Index for competitor queries
-CREATE INDEX IF NOT EXISTS idx_competitor_client 
-ON "Competitor" ("client_id");
+CREATE INDEX IF NOT EXISTS idx_competitor_analysisrun 
+ON "Competitor" ("analysisRunId");
 
 -- 7. Index for research market data
 CREATE INDEX IF NOT EXISTS idx_research_client_product 

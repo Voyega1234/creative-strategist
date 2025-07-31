@@ -125,9 +125,9 @@ export async function POST(request: Request) {
   }
 }
 
-// Cache for saved ideas titles
+// Cache for saved ideas titles - increased cache time for better performance
 const savedIdeasCache = new Map();
-const SAVED_IDEAS_CACHE_TTL = 60000; // 1 minute cache
+const SAVED_IDEAS_CACHE_TTL = 300000; // 5 minutes cache (increased from 1 minute)
 
 // API to check if ideas are saved
 export async function GET(request: Request) {
@@ -157,12 +157,14 @@ export async function GET(request: Request) {
     }
 
     const supabase = getSupabase();
+    // Optimized query with better indexing support
     const { data, error } = await supabase
       .from('savedideas')
       .select('title')
       .eq('clientname', clientName)
       .eq('productfocus', productFocus)
-      .limit(50); // Reasonable limit
+      .order('savedat', { ascending: false })
+      .limit(100); // Increased limit for better caching
 
     if (error) {
       console.error('Error fetching saved ideas:', error);
