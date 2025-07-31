@@ -1211,8 +1211,13 @@ function MainContent() {
                             {topic.content_pillar}
                           </Badge>
                           <h4 className="text-lg font-bold text-[#000000] leading-tight mb-2">
-                            {topic.concept_idea || topic.title}
+                            {topic.title || topic.concept_idea}
                           </h4>
+                          {topic.title && topic.concept_idea && topic.concept_idea !== topic.title && (
+                            <p className="text-[#8e8e93] text-sm font-medium mb-2 italic">
+                              {topic.concept_idea}
+                            </p>
+                          )}
                         </div>
                         
                         <p className="text-[#535862] text-sm line-clamp-4">
