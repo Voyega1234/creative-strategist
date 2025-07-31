@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { ChevronUp, Plus, User, ArrowLeft, Settings } from "lucide-react"
+import { ChevronUp, Plus, User, ArrowLeft, Settings, Images } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { LoadingPopup } from "@/components/loading-popup"
@@ -158,6 +158,17 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
           </nav>
           <div className="my-4 border-t border-[#e4e7ec]" />
           <nav className="space-y-2">
+            <Link href={`/images${activeClientName && activeClientName !== "No Client Selected" 
+              ? `?clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
+              : ''}`}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+              >
+                <Images className="mr-2 h-4 w-4" />
+                ค้นหารูปภาพ Pinterest
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               className="w-full justify-start text-[#6941c6] bg-[#e9d7fe] hover:bg-[#e9d7fe] hover:text-[#6941c6]"

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Copy, Zap, ThumbsUp, ThumbsDown, BookmarkCheck } from "lucide-react"
+import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Copy, Zap, ThumbsUp, ThumbsDown, BookmarkCheck, Images } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { SessionHistory } from "@/components/session-history"
@@ -649,6 +649,19 @@ function MainContent() {
                 <Bookmark className="mr-2 h-4 w-4" />
                 รายการที่บันทึก
               </Button>
+              <Link
+                href={`/images${activeClientName && activeClientName !== "No Client Selected" 
+                  ? `?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
+                  : ''}`}
+              >
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                >
+                  <Images className="mr-2 h-4 w-4" />
+                  ค้นหารูปภาพ Pinterest
+                </Button>
+              </Link>
               <Button
                 onClick={handleConfigureNavigation}
                 variant="ghost"
