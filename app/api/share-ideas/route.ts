@@ -3,6 +3,8 @@ import { getSupabase } from '@/lib/supabase/server';
 import { v4 as uuidv4 } from 'uuid';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const revalidate = 0;
 
 export async function POST(request: Request) {
   try {
@@ -40,7 +42,8 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase
       .from('sharedideas')
-      .insert([sharedIdeasRecord]);
+      .insert([sharedIdeasRecord])
+      .select('id');
 
     if (error) {
       console.error('Error creating shared ideas:', error);
@@ -53,12 +56,18 @@ export async function POST(request: Request) {
     // Generate the shareable URL
     const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/shared/${shareId}`;
 
-    return NextResponse.json({ 
+    const response = NextResponse.json({ 
       success: true, 
       shareId,
       shareUrl,
       message: 'Shareable link created successfully' 
     });
+
+    // Add performance headers
+    response.headers.set('Cache-Control', 'no-cache, no-store');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    
+    return response;
 
   } catch (error) {
     console.error('Error in share-ideas API:', error);

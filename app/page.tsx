@@ -7,11 +7,36 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Zap, ThumbsUp, ThumbsDown, BookmarkCheck, Images, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react"
+// Optimize imports - only import what we need
+import {
+  ChevronUp,
+  Plus,
+  User,
+  Bookmark,
+  Settings,
+  History,
+  Sparkles,
+  RefreshCcw,
+  Share2,
+  Zap,
+  ThumbsUp,
+  ThumbsDown,
+  BookmarkCheck,
+  Images,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Link2,
+  Copy,
+  Check,
+} from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { SessionHistory } from "@/components/session-history"
@@ -76,6 +101,8 @@ function MainContent() {
   const [isLoadingSidebarHistory, setIsLoadingSidebarHistory] = useState(false)
   const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareSuccess, setShareSuccess] = useState(false)
   
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -555,6 +582,17 @@ function MainContent() {
     }
   }
 
+  // Handle product focus selection
+  const handleProductFocusChange = (clientName: string, productFocusValue: string) => {
+    const selectedClient = clients.find(client => client.clientName === clientName)
+    const selectedProductFocus = selectedClient?.productFocuses.find(pf => pf.productFocus === productFocusValue)
+    
+    if (selectedClient && selectedProductFocus) {
+      const newUrl = `?clientId=${selectedProductFocus.id}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocusValue)}`
+      router.push(newUrl)
+    }
+  }
+
   const handleNewClientNavigation = async () => {
     setIsNavigatingToNewClient(true)
     
@@ -618,7 +656,19 @@ function MainContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ideas: topics,
+          ideas: topics.map(topic => ({
+            // Only send essential fields to reduce payload
+            title: topic.title,
+            description: topic.description,
+            category: topic.category,
+            impact: topic.impact,
+            competitiveGap: topic.competitiveGap,
+            tags: topic.tags,
+            content_pillar: topic.content_pillar,
+            product_focus: topic.product_focus,
+            concept_idea: topic.concept_idea,
+            copywriting: topic.copywriting
+          })),
           clientName: activeClientName,
           productFocus: activeProductFocus,
           instructions: instructions.trim() || null,
@@ -630,7 +680,8 @@ function MainContent() {
       
       if (data.success) {
         await navigator.clipboard.writeText(data.shareUrl)
-        alert(`✅ ลิงก์แชร์ถูกสร้างและคัดลอกแล้ว!\n\n${data.shareUrl}`)
+        setShareSuccess(true)
+        // Link copied to clipboard silently
       } else {
         alert(`เกิดข้อผิดพลาด: ${data.error}`)
       }
@@ -879,35 +930,25 @@ function MainContent() {
                             </Link>
                           )}
                           
-                          {/* Show product focuses ONLY for the selected/active client */}
+                          {/* Show product focus select ONLY for the selected/active client */}
                           {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
-                            <div className="ml-4 space-y-1 mb-2">
-                              {client.productFocuses.map((pf) => (
-                                isGenerating ? (
-                                  <div
-                                    key={pf.id}
-                                    className={`block text-xs py-1 px-2 rounded-md cursor-not-allowed ${
-                                      activeProductFocus === pf.productFocus
-                                        ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
-                                        : 'text-[#535862]'
-                                    }`}
-                                  >
-                                    {pf.productFocus}
-                                  </div>
-                                ) : (
-                                  <Link
-                                    key={pf.id}
-                                    href={`?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
-                                    className={`block text-xs py-1 px-2 rounded-md ${
-                                      activeProductFocus === pf.productFocus
-                                        ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
-                                        : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
-                                    }`}
-                                  >
-                                    {pf.productFocus}
-                                  </Link>
-                                )
-                              ))}
+                            <div className="ml-4 mt-2 mb-2">
+                              <Select
+                                value={activeProductFocus || ""}
+                                onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
+                                disabled={isGenerating}
+                              >
+                                <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#7f56d9] focus:border-[#7f56d9]">
+                                  <SelectValue placeholder="เลือก Product Focus" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {client.productFocuses.map((pf) => (
+                                    <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
+                                      {pf.productFocus}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </div>
                           )}
                         </div>
@@ -1136,21 +1177,14 @@ function MainContent() {
                     </Button>
                     
                     <Button
-                      onClick={handleShareIdeas}
-                      disabled={isSharing}
+                      onClick={() => {
+                        setShareDialogOpen(true)
+                        setShareSuccess(false)
+                      }}
                       className="bg-[#7f56d9] hover:bg-[#6941c6] text-white px-6"
                     >
-                      {isSharing ? (
-                        <>
-                          <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        <>
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Share Ideas
-                        </>
-                      )}
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share Ideas
                     </Button>
                   </div>
                 </div>
@@ -1318,6 +1352,74 @@ function MainContent() {
         isOpen={isNavigatingToNewClient}
         message="กำลังโหลดหน้าเพิ่มลูกค้าใหม่"
       />
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-md bg-[#1a1a1a] text-white border-gray-700">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-base font-medium text-gray-300">Share</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Share Link Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-300">People with access</h3>
+              
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex-shrink-0"></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-white">Admin (you)</div>
+                </div>
+                <div className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-md">
+                  Owner
+                </div>
+              </div>
+            </div>
+
+            {/* Visibility Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-300">Visibility</h3>
+              
+              <div className="flex items-center space-x-2">
+                <Link2 className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-white">Anyone with the link</span>
+              </div>
+
+              <Button
+                onClick={async () => {
+                  if (!shareSuccess) {
+                    await handleShareIdeas()
+                  }
+                }}
+                disabled={isSharing}
+                className={`w-full border ${
+                  shareSuccess 
+                    ? 'bg-green-600 hover:bg-green-700 border-green-500 text-white' 
+                    : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-600'
+                }`}
+              >
+                {isSharing ? (
+                  <>
+                    <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : shareSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Link Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Link
+                  </>
+                )}
+              </Button>
+            </div>
+
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
