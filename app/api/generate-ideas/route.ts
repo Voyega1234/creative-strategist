@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     // Get base URL from request headers (reliable in any environment)
     const host = request.headers.get('host');
     const protocol = request.headers.get('x-forwarded-proto') || 'https';
-    const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000');
+    const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001');
     console.log('[generate-ideas] Detected baseUrl:', baseUrl);
 
     // Use existing google_research API instead of non-existent webhook

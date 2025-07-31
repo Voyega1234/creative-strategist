@@ -64,7 +64,7 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
       <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist.</h1>
+            <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
           </div>
           
           {/* Back to Main Button */}

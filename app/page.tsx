@@ -250,12 +250,9 @@ function MainContent() {
 
     setIsGenerating(true)
     try {
-      // Use template content if template is selected, otherwise use user input
-      const selectedTemplateContent = selectedTemplate 
-        ? briefTemplates.find(t => t.id === selectedTemplate)?.content 
-        : undefined
-      
-      const finalInstructions = selectedTemplateContent || instructions.trim() || undefined
+      // Simply use whatever is in the input box (which may be auto-filled from template)
+      // If empty, send a single space to N8N instead of undefined
+      const finalInstructions = instructions.trim() || " "
 
       const response = await fetch('/api/generate-ideas', {
         method: 'POST',
@@ -399,12 +396,13 @@ function MainContent() {
     const template = briefTemplates.find(t => t.id === templateId)
     if (template) {
       if (selectedTemplate === templateId) {
-        // If already selected, deselect it
+        // If already selected, deselect it and clear input
         setSelectedTemplate(null)
-      } else {
-        // Select the new template and clear custom instructions
         setInstructions("")
+      } else {
+        // Select the new template and auto-fill the input box
         setSelectedTemplate(templateId)
+        setInstructions(template.content)
       }
     }
   }

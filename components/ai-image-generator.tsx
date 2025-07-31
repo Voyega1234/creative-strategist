@@ -366,19 +366,21 @@ export function AIImageGenerator({
       {/* Generation Controls */}
       <Card className="p-6">
         <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <Wand2 className="w-5 h-5 text-purple-600" />
+          <div className="border-b border-gray-200 pb-4">
+            <h3 className="text-xl font-bold text-black mb-2 flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Wand2 className="w-5 h-5 text-white" />
+              </div>
               ค้นหารูปภาพอ้างอิงจาก Pinterest
             </h3>
-            <p className="text-gray-600 text-sm">ค้นหารูปภาพที่เข้ากับไอเดียและแนวคิดของคุณ</p>
+            <p className="text-[#8e8e93] text-sm">ค้นหาและรวบรวมรูปภาพโฆษณาที่เข้ากับไอเดียและแนวคิดของคุณ</p>
           </div>
 
           {/* Client and Product Focus Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Target className="w-4 h-4 text-blue-600" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-black flex items-center gap-2">
+                <Target className="w-4 h-4 text-black" />
                 เลือกลูกค้า
               </label>
               {loadingClients ? (
@@ -388,7 +390,7 @@ export function AIImageGenerator({
                 </div>
               ) : (
                 <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-[#d1d1d6] focus:border-black focus:ring-0 bg-white">
                     <SelectValue placeholder="เลือกลูกค้า" />
                   </SelectTrigger>
                   <SelectContent>
@@ -402,13 +404,13 @@ export function AIImageGenerator({
               )}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-black">
                 Product Focus
               </label>
               {selectedClientId ? (
                 <Select value={selectedProductFocus} onValueChange={setSelectedProductFocus}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-[#d1d1d6] focus:border-black focus:ring-0 bg-white">
                     <SelectValue placeholder="เลือก Product Focus" />
                   </SelectTrigger>
                   <SelectContent>
@@ -422,7 +424,7 @@ export function AIImageGenerator({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="p-3 border rounded-lg bg-gray-50 text-gray-500 text-sm">
+                <div className="p-3 border border-[#d1d1d6] rounded-lg bg-[#f2f2f7] text-[#8e8e93] text-sm">
                   เลือกลูกค้าก่อน
                 </div>
               )}
@@ -432,8 +434,8 @@ export function AIImageGenerator({
           {/* Saved Topics Selection */}
           {selectedClientId && selectedProductFocus && (
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-600" />
+              <label className="text-sm font-medium text-black flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-500" />
                 ไอเดียที่บันทึกไว้ (เลือกเพื่อใช้เป็นแรงบันดาลใจ)
               </label>
               
@@ -450,7 +452,7 @@ export function AIImageGenerator({
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         selectedTopic === topic.title
                           ? 'border-amber-500 bg-amber-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-[#d1d1d6] hover:border-black'
                       }`}
                       onClick={() => {
                         setSelectedTopic(prev => 
@@ -460,11 +462,11 @@ export function AIImageGenerator({
                     >
                       <div className="flex items-start gap-2">
                         <div className="flex-1">
-                          <h4 className="font-medium text-sm text-gray-900">{topic.title}</h4>
-                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{topic.description}</p>
+                          <h4 className="font-medium text-sm text-black">{topic.title}</h4>
+                          <p className="text-xs text-[#8e8e93] mt-1 line-clamp-2">{topic.description}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant="secondary" className="text-xs">{topic.category}</Badge>
-                            {topic.tags.slice(0, 2).map(tag => (
+                            {Array.isArray(topic.tags) && topic.tags.slice(0, 2).map(tag => (
                               <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
                             ))}
                           </div>
@@ -477,14 +479,14 @@ export function AIImageGenerator({
                   ))}
                 </div>
               ) : (
-                <div className="p-4 border rounded-lg bg-gray-50 text-center">
-                  <p className="text-gray-500 text-sm">ยังไม่มีไอเดียที่บันทึกไว้สำหรับลูกค้าและ Product Focus นี้</p>
-                  <p className="text-gray-400 text-xs mt-1">ลองสร้างไอเดียใหม่ในหน้าหลักก่อน</p>
+                <div className="p-4 border border-[#d1d1d6] rounded-lg bg-[#f2f2f7] text-center">
+                  <p className="text-[#8e8e93] text-sm">ยังไม่มีไอเดียที่บันทึกไว้สำหรับลูกค้าและ Product Focus นี้</p>
+                  <p className="text-[#8e8e93] text-xs mt-1 opacity-70">ลองสร้างไอเดียใหม่ในหน้าหลักก่อน</p>
                 </div>
               )}
               
               {selectedTopic && (
-                <div className="flex items-center gap-2 text-sm text-amber-600">
+                <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-50 p-2 rounded-lg border border-amber-200">
                   <CheckCircle className="w-4 h-4" />
                   เลือกแล้ว 1 ไอเดีย
                 </div>
@@ -493,8 +495,8 @@ export function AIImageGenerator({
           )}
 
           {/* Search Keywords Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-black">
               คำค้นหาเพิ่มเติม (ไม่บังคับ)
             </label>
             <Textarea
@@ -502,9 +504,9 @@ export function AIImageGenerator({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}
-              className="resize-none"
+              className="resize-none border-[#d1d1d6] focus:border-black focus:ring-0 bg-white text-black"
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[#8e8e93]">
               ระบุคำค้นหาเพิ่มเติม หรือใช้เฉพาะไอเดียที่บันทึกไว้ก็ได้
             </p>
           </div>
@@ -514,7 +516,7 @@ export function AIImageGenerator({
           <Button 
             onClick={generateImage}
             disabled={isGenerating}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium shadow-lg transition-all duration-200 hover:shadow-xl"
           >
             {isGenerating ? (
               <>
@@ -535,20 +537,22 @@ export function AIImageGenerator({
       {generatedImages.length > 0 && (
         <Card className="p-6">
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-purple-600" />
+            <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+              <h3 className="text-xl font-bold text-black flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <ImageIcon className="w-5 h-5 text-white" />
+                </div>
                 รูปภาพจาก Pinterest
               </h3>
-              <Badge variant="secondary">
+              <Badge variant="secondary" className="bg-[#f2f2f7] text-black border-0">
                 {generatedImages.length} รูป
               </Badge>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {(showAllResults ? generatedImages : generatedImages.slice(0, 20)).map((image) => (
-                <Card key={image.id} className="overflow-hidden">
+                <Card key={image.id} className="overflow-hidden border-[#d1d1d6] hover:border-black transition-all duration-200 hover:shadow-lg group">
                   <div className="aspect-square relative bg-gray-100">
                     {image.status === 'generating' && (
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -593,8 +597,8 @@ export function AIImageGenerator({
                     )}
                   </div>
                   
-                  <div className="p-4">
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                  <div className="p-3">
+                    <p className="text-xs text-[#8e8e93] mb-3 line-clamp-2">
                       {image.prompt}
                     </p>
                     
@@ -606,6 +610,7 @@ export function AIImageGenerator({
                             variant="outline"
                             onClick={() => saveImageToSupabase(image.url, image.id)}
                             disabled={savingImageId === image.id}
+                            className="border-[#d1d1d6] hover:border-black hover:bg-black hover:text-white transition-all duration-200"
                           >
                             {savingImageId === image.id ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
@@ -617,6 +622,7 @@ export function AIImageGenerator({
                             size="sm"
                             variant="outline"
                             onClick={() => handleDownloadImage(image.url)}
+                            className="border-[#d1d1d6] hover:border-black hover:bg-black hover:text-white transition-all duration-200"
                           >
                             <Download className="w-3 h-3" />
                           </Button>
@@ -624,6 +630,7 @@ export function AIImageGenerator({
                             size="sm"
                             variant="outline"
                             onClick={() => copyImageUrl(image.url)}
+                            className="border-[#d1d1d6] hover:border-black hover:bg-black hover:text-white transition-all duration-200"
                           >
                             <Copy className="w-3 h-3" />
                           </Button>
@@ -635,6 +642,7 @@ export function AIImageGenerator({
                           size="sm"
                           variant="outline"
                           onClick={() => retryGeneration(image.id)}
+                          className="border-[#d1d1d6] hover:border-black hover:bg-black hover:text-white transition-all duration-200"
                         >
                           <RefreshCw className="w-3 h-3 mr-1" />
                           ลองใหม่
@@ -648,11 +656,11 @@ export function AIImageGenerator({
 
               {/* Show More/Less Button */}
               {generatedImages.length > 20 && (
-                <div className="flex justify-center pt-4">
+                <div className="flex justify-center pt-6">
                   <Button
                     variant="outline"
                     onClick={() => setShowAllResults(!showAllResults)}
-                    className="text-gray-600 hover:text-gray-800"
+                    className="border-[#d1d1d6] hover:border-black hover:bg-black hover:text-white transition-all duration-200"
                   >
                     {showAllResults ? (
                       <>
@@ -674,18 +682,30 @@ export function AIImageGenerator({
       )}
 
       {/* Tips */}
-      <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-        <div className="flex items-start gap-3">
-          <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Sparkles className="w-3 h-3 text-white" />
+      <Card className="p-6 bg-gradient-to-r from-pink-50 to-purple-50 border-2 border-pink-100">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h4 className="font-medium text-purple-900 mb-1">เคล็ดลับการค้นหารูปภาพ</h4>
-            <ul className="text-sm text-purple-800 space-y-1">
-              <li>• เลือกไอเดียที่บันทึกไว้เพื่อให้ Pinterest เข้าใจแนวคิดของคุณ</li>
-              <li>• ใช้คำค้นหาภาษาอังกฤษจะได้ผลลัพธ์ที่หลากหลายกว่า</li>
-              <li>• เพิ่มคำค้นหาเฉพาะ เช่น "design", "branding", "minimal", "modern"</li>
-              <li>• ลองหลายครั้งด้วยคำค้นหาที่แตกต่างกันเพื่อได้แรงบันดาลใจมากขึ้น</li>
+            <h4 className="font-semibold text-black mb-3 text-lg">เคล็ดลับการค้นหารูปภาพ</h4>
+            <ul className="text-sm text-[#8e8e93] space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="text-pink-500 font-boldตัว">•</span>
+                <span>เลือกไอเดียที่บันทึกไว้เพื่อให้ Pinterest เข้าใจแนวคิดของคุณ</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-pink-500 font-bold">•</span>
+                <span>ใช้คำค้นหาภาษาอังกฤษจะได้ผลลัพธ์ที่หลากหลายกว่า</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-pink-500 font-bold">•</span>
+                <span>เพิ่มคำค้นหาเฉพาะ เช่น <code className="bg-white px-1 rounded text-xs">"design"</code>, <code className="bg-white px-1 rounded text-xs">"branding"</code>, <code className="bg-white px-1 rounded text-xs">"minimal"</code></span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-pink-500 font-bold">•</span>
+                <span>ลองหลายครั้งด้วยคำค้นหาที่แตกต่างกันเพื่อได้แรงบันดาลใจมากขึ้น</span>
+              </li>
             </ul>
           </div>
         </div>
