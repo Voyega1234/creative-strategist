@@ -507,7 +507,7 @@ function MainContent() {
     }
   }
 
-  const handleConfigureNavigation = () => {
+  const handleConfigureNavigation = async () => {
     setIsNavigatingToConfigure(true)
     
     // Build configure URL with current client parameters
@@ -515,10 +515,43 @@ function MainContent() {
       ? `?clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
       : ''}`
     
-    // Small delay to show loading, then navigate
-    setTimeout(() => {
-      router.push(configureUrl)
-    }, 800)
+    try {
+      // Start timing for minimum loading display
+      const startTime = Date.now()
+      const minLoadingTime = 1500 // Minimum 1.5 second loading time for smooth UX
+      
+      // Preload the configure page data while showing loading popup
+      const response = await fetch(configureUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Cache-Control': 'no-cache',
+        },
+      })
+      
+      // Wait for both preload completion and minimum loading time
+      const elapsedTime = Date.now() - startTime
+      const remainingTime = Math.max(0, minLoadingTime - elapsedTime)
+      
+      if (response.ok && response.status === 200) {
+        // Ensure the response contains actual page content
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('text/html')) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime))
+          router.push(configureUrl)
+        } else {
+          throw new Error('Invalid response type')
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Error preloading configure page:', error)
+      // If preload fails, still respect minimum loading time before navigating
+      setTimeout(() => {
+        router.push(configureUrl)
+      }, 1500)
+    }
   }
 
 

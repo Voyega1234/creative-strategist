@@ -4,7 +4,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { ConfigureSidebar } from "@/components/configure-sidebar"
-import { ConfigureLoading } from "@/components/configure-loading"
 import { getCompetitors, getUniqueServices, getClientBusinessProfile, type Competitor } from "@/lib/data/competitors"
 import { ClientInformationSection } from "@/components/client-information-section"
 import { ResearchInsightsSection } from "@/components/research-insights-section"
@@ -21,16 +20,15 @@ import { getTopPerformingAdsByMetric, type AdDetail } from "@/lib/data/ads-detai
 import { getFeedback, type FeedbackDetail } from "@/lib/data/feedback"
 import { getSupabase } from "@/lib/supabase/server"
 import Link from "next/link"
-import { Suspense } from "react"
 
 const ITEMS_PER_PAGE = 5 // Define items per page
 
 async function ConfigurePageContent({
   searchParams,
 }: {
-  searchParams: Promise<{ clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }>
+  searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
 }) {
-  const params = await searchParams
+  const params = searchParams
   const clients = await getClients()
   const defaultClient = clients[0]
 
@@ -387,9 +385,5 @@ export default function ConfigurePage({
 }: {
   searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
 }) {
-  return (
-    <Suspense fallback={<ConfigureLoading />}>
-      <ConfigurePageContent searchParams={searchParams} />
-    </Suspense>
-  )
+  return <ConfigurePageContent searchParams={searchParams} />
 }
