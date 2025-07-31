@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChevronDown, Plus, ArrowRight, Lightbulb, History, Clock, Sparkles, Images } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -113,49 +114,48 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
               return (
                 <>
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-black">Product Focuses</h3>
-                    {hasNoSelection && hasMultipleOptions && (
-                      <div className="flex items-center text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded-full">
-                        <Lightbulb className="w-3 h-3 mr-1" />
-                        เลือกหนึ่งอัน
-                      </div>
-                    )}
+                    <h3 className="text-sm font-medium text-black">Product Focus</h3>
                   </div>
                   
-                  {hasNoSelection && hasMultipleOptions && (
-                    <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <ArrowRight className="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" />
-                        <div className="text-xs text-gray-700">
-                          <p className="font-medium mb-1">กรุณาเลือก Product Focus</p>
-                          <p className="text-gray-600">เลือกผลิตภัณฑ์ที่ต้องการสร้างไอเดียด้านล่าง</p>
-                        </div>
-                      </div>
+                  {hasMultipleOptions ? (
+                    <Select
+                      value={activeProductFocus || ""}
+                      onValueChange={(value) => {
+                        const selectedPf = productFocuses.find(pf => pf.productFocus === value)
+                        if (selectedPf) {
+                          const newUrl = `${currentPath}?clientId=${selectedPf.id}&productFocus=${encodeURIComponent(selectedPf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`
+                          router.replace(newUrl)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={hasNoSelection ? "เลือก Product Focus" : activeProductFocus} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productFocuses.map((pf) => (
+                          <SelectItem key={pf.id} value={pf.productFocus}>
+                            {pf.productFocus}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="space-y-1">
+                      {productFocuses.map((pf) => (
+                        <Link
+                          key={pf.id}
+                          href={`${currentPath}?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
+                          className={`block px-3 py-2 rounded-md text-sm transition-all duration-200 relative ${
+                            activeProductFocus === pf.productFocus
+                              ? 'bg-black text-white shadow-sm'
+                              : 'text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-black'
+                          }`}
+                        >
+                          <span>{pf.productFocus}</span>
+                        </Link>
+                      ))}
                     </div>
                   )}
-                  
-                  <div className="space-y-1">
-                    {productFocuses.map((pf) => (
-                      <Link
-                        key={pf.id}
-                        href={`${currentPath}?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
-                        className={`block px-3 py-2 rounded-md text-sm transition-all duration-200 relative ${
-                          activeProductFocus === pf.productFocus
-                            ? 'bg-black text-white shadow-sm'
-                            : hasNoSelection && hasMultipleOptions
-                            ? 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border border-gray-200 hover:border-gray-300 animate-pulse hover:animate-none'
-                            : 'text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-black'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span>{pf.productFocus}</span>
-                          {hasNoSelection && hasMultipleOptions && activeProductFocus !== pf.productFocus && (
-                            <ArrowRight className="w-3 h-3 text-gray-500" />
-                          )}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
                 </>
               )
             })()}

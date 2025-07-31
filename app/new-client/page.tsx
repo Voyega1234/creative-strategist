@@ -400,20 +400,25 @@ export default function NewClientPage() {
 
                     <div className="pt-4">
                       <Button
-                        className="w-full h-12 bg-[#7f56d9] text-white hover:bg-[#6941c6] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group"
+                        className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#7f56d9] text-white hover:bg-[#6941c6] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
                         onClick={handleCreateNewClient}
                         disabled={isCreating}
                       >
                         {isCreating ? (
                           <>
-                            <div className="flex items-center justify-center">
-                              {/* Animated dots */}
-                              <div className="flex space-x-1 mr-3">
-                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="flex items-center mb-2">
+                                {/* Animated dots */}
+                                <div className="flex space-x-1 mr-3">
+                                  <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                  <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                  <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                </div>
+                                <span className="animate-pulse">กำลังประมวลผล</span>
                               </div>
-                              <span className="animate-pulse">กำลังประมวลผล</span>
+                              <span className="text-xs text-white/80">
+                                กระบวนการนี้จะใช้เวลาประมาณ 5-10 นาที
+                              </span>
                             </div>
                             {/* Progress bar animation */}
                             <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">

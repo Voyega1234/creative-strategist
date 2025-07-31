@@ -72,10 +72,13 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
           <h2 className="text-xl font-semibold text-[#000000] mb-2">
             กำลังสร้างไอเดียสำหรับ
           </h2>
-          <div className="inline-flex items-center px-4 py-2 bg-[#e9d7fe] text-[#6941c6] rounded-full font-medium">
+          <div className="inline-flex items-center px-4 py-2 bg-[#e9d7fe] text-[#6941c6] rounded-full font-medium mb-3">
             <Zap className="w-4 h-4 mr-2" />
             {activeClientName}
           </div>
+          <p className="text-sm text-[#8e8e93] font-medium">
+            จะใช้เวลาประมาณ 2-3 นาที
+          </p>
         </div>
 
         {/* Typing Animation */}

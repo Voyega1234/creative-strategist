@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Copy, Zap, ThumbsUp, ThumbsDown, BookmarkCheck, Images, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Zap, ThumbsUp, ThumbsDown, BookmarkCheck, Images, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { SessionHistory } from "@/components/session-history"
@@ -518,31 +518,9 @@ function MainContent() {
     // Small delay to show loading, then navigate
     setTimeout(() => {
       router.push(configureUrl)
-    }, 500)
+    }, 800)
   }
 
-  const handleCopyAllIdeas = () => {
-    if (!topics.length) {
-      alert('ไม่มีไอเดียที่จะคัดลอก')
-      return
-    }
-
-    const formattedText = `Creative Ideas - ${activeClientName}\nProduct Focus: ${activeProductFocus}\nCreated: ${new Date().toLocaleDateString('th-TH')}\nModel: ${selectedModel}\n${instructions ? `Instructions: ${instructions}\n` : ''}\n` +
-      topics.map((idea, index) => 
-        `${index + 1}. ${idea.concept_idea}\n` +
-        `Impact: ${idea.impact}\n` +
-        `Description: ${idea.description}\n` +
-        `Tags: ${idea.tags.join(', ')}\n` +
-        `Content Pillar: ${idea.content_pillar}\n` +
-        `Headline: ${idea.copywriting.headline}\n` +
-        `CTA: ${idea.copywriting.cta}\n` +
-        `Competitive Gap: ${idea.competitiveGap}\n` +
-        `---\n`
-      ).join('\n')
-
-    navigator.clipboard.writeText(formattedText)
-    alert('คัดลอกไอเดียทั้งหมดแล้ว')
-  }
 
   const handleShareIdeas = async () => {
     if (!topics.length) {
@@ -774,15 +752,16 @@ function MainContent() {
       /> */}
       <div className="flex w-full relative z-10">
         {/* Sidebar */}
-        <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between">
+        <aside className={`w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
           <div>
             <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist.</h1>
             <nav className="space-y-2">
-              <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
+              <Collapsible open={isBrandOpen} onOpenChange={isGenerating ? undefined : setIsBrandOpen} className="w-full">
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
                     className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                    disabled={isGenerating}
                   >
                     <User className="mr-2 h-4 w-4" />
                     แบรนด์
@@ -802,32 +781,55 @@ function MainContent() {
                       return reorderedClients.map((client) => (
                         <div key={client.id} className="space-y-1">
                           {/* Client name - always show, highlight if active */}
-                          <Link
-                            href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
-                            className={`block text-sm py-1 px-2 rounded-md font-medium ${
+                          {isGenerating ? (
+                            <div className={`block text-sm py-1 px-2 rounded-md font-medium cursor-not-allowed ${
                               client.clientName === activeClientName
                                 ? 'text-[#6941c6] bg-[#e9d7fe]'
-                                : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
-                            }`}
-                          >
-                            {client.clientName}
-                          </Link>
+                                : 'text-[#535862]'
+                            }`}>
+                              {client.clientName}
+                            </div>
+                          ) : (
+                            <Link
+                              href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
+                              className={`block text-sm py-1 px-2 rounded-md font-medium ${
+                                client.clientName === activeClientName
+                                  ? 'text-[#6941c6] bg-[#e9d7fe]'
+                                  : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                              }`}
+                            >
+                              {client.clientName}
+                            </Link>
+                          )}
                           
                           {/* Show product focuses ONLY for the selected/active client */}
                           {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
                             <div className="ml-4 space-y-1 mb-2">
                               {client.productFocuses.map((pf) => (
-                                <Link
-                                  key={pf.id}
-                                  href={`?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
-                                  className={`block text-xs py-1 px-2 rounded-md ${
-                                    activeProductFocus === pf.productFocus
-                                      ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
-                                      : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
-                                  }`}
-                                >
-                                  {pf.productFocus}
-                                </Link>
+                                isGenerating ? (
+                                  <div
+                                    key={pf.id}
+                                    className={`block text-xs py-1 px-2 rounded-md cursor-not-allowed ${
+                                      activeProductFocus === pf.productFocus
+                                        ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
+                                        : 'text-[#535862]'
+                                    }`}
+                                  >
+                                    {pf.productFocus}
+                                  </div>
+                                ) : (
+                                  <Link
+                                    key={pf.id}
+                                    href={`?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
+                                    className={`block text-xs py-1 px-2 rounded-md ${
+                                      activeProductFocus === pf.productFocus
+                                        ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
+                                        : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                                    }`}
+                                  >
+                                    {pf.productFocus}
+                                  </Link>
+                                )
                               ))}
                             </div>
                           )}
@@ -837,54 +839,78 @@ function MainContent() {
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-              <Link href="/new-client">
+              {isGenerating ? (
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  className="w-full justify-start text-[#535862] cursor-not-allowed"
+                  disabled={true}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   เพิ่มรายชื่อ
                 </Button>
-              </Link>
+              ) : (
+                <Link href="/new-client">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    เพิ่มรายชื่อ
+                  </Button>
+                </Link>
+              )}
             </nav>
             <div className="my-4 border-t border-[#e4e7ec]" />
             <nav className="space-y-2">
               <Button
-                onClick={() => setSavedIdeasModalOpen(true)}
+                onClick={() => !isGenerating && setSavedIdeasModalOpen(true)}
                 variant="ghost"
                 className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                disabled={isGenerating}
               >
                 <Bookmark className="mr-2 h-4 w-4" />
                 รายการที่บันทึก
               </Button>
-              <Link
-                href={`/images${activeClientName && activeClientName !== "No Client Selected" 
-                  ? `?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
-                  : ''}`}
-              >
+              {isGenerating ? (
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  className="w-full justify-start text-[#535862] cursor-not-allowed"
+                  disabled={true}
                 >
                   <Images className="mr-2 h-4 w-4" />
                   ค้นหารูปภาพ Pinterest
                 </Button>
-              </Link>
+              ) : (
+                <Link
+                  href={`/images${activeClientName && activeClientName !== "No Client Selected" 
+                    ? `?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
+                    : ''}`}
+                >
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  >
+                    <Images className="mr-2 h-4 w-4" />
+                    ค้นหารูปภาพ Pinterest
+                  </Button>
+                </Link>
+              )}
               <Button
-                onClick={handleConfigureNavigation}
+                onClick={!isGenerating ? handleConfigureNavigation : undefined}
                 variant="ghost"
                 className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
-                disabled={isNavigatingToConfigure}
+                disabled={isNavigatingToConfigure || isGenerating}
               >
                 <Settings className="mr-2 h-4 w-4" />
                 ตั้งค่าและวิเคราะห์
               </Button>
-              <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen} className="w-full">
+              <Collapsible open={isHistoryOpen} onOpenChange={isGenerating ? undefined : setIsHistoryOpen} className="w-full">
                 <CollapsibleTrigger asChild>
                   <Button
-                    onClick={handleHistoryToggle}
+                    onClick={!isGenerating ? handleHistoryToggle : undefined}
                     variant="ghost"
                     className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                    disabled={isGenerating}
                   >
                     <History className="mr-2 h-4 w-4" />
                     ประวัติการสร้าง
@@ -1041,15 +1067,6 @@ function MainContent() {
                       className="px-6 border-[#e4e7ec] hover:bg-[#f5f5f5]"
                     >
                       ← กลับไปแก้ไขไอเดีย
-                    </Button>
-                    
-                    <Button
-                      onClick={handleCopyAllIdeas}
-                      variant="outline"
-                      className="px-6 border-[#e4e7ec] hover:bg-[#f5f5f5]"
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy All Ideas
                     </Button>
                     
                     <Button
