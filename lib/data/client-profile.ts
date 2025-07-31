@@ -13,6 +13,13 @@ export type ClientProfile = {
   updatedAt: string | null // timestamp
   ad_account_id: string | null
   market: string | null // Added market field
+  // Business profile fields (used by business-profile-form.tsx)
+  services: string | null
+  pricing: string | null
+  usp: string | null // Unique Selling Proposition
+  specialty: string | null
+  strengths: string | null
+  weaknesses: string | null
 }
 
 export async function getClientProfile(clientId: string): Promise<ClientProfile | null> {

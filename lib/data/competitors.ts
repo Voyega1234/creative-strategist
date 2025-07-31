@@ -22,6 +22,7 @@ export type Competitor = {
   positivePercep: string | null
   negativePercep: string | null
   adThemes: string | null // Add missing field
+  usp: string | null // Add missing USP field for business profile form
 }
 
 export async function getCompetitors(
