@@ -215,6 +215,7 @@ function MainContent() {
   const [isLoadingSidebarHistory, setIsLoadingSidebarHistory] = useState(false)
   const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
+  const [isNavigatingToImages, setIsNavigatingToImages] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
   
@@ -757,6 +758,55 @@ function MainContent() {
     }
   }
 
+  const handleImagesNavigation = async () => {
+    setIsNavigatingToImages(true)
+    
+    // Build images URL with current client parameters
+    const imagesUrl = `/images${activeClientName && activeClientName !== "No Client Selected" 
+      ? `?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
+      : ''}`
+    
+    try {
+      // Start timing for minimum loading display
+      const startTime = Date.now()
+      const minLoadingTime = 1500 // Minimum 1.5 second loading time for smooth UX
+      
+      // Preload the images page data while showing loading popup
+      const response = await fetch(imagesUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Cache-Control': 'no-cache',
+        },
+      })
+      
+      // Wait for both preload completion and minimum loading time
+      const elapsedTime = Date.now() - startTime
+      const remainingTime = Math.max(0, minLoadingTime - elapsedTime)
+      
+      if (response.ok && response.status === 200) {
+        // Ensure the response contains actual page content
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('text/html')) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime))
+          router.push(imagesUrl)
+        } else {
+          throw new Error('Invalid response type')
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Error preloading images page:', error)
+      // If preload fails, still respect minimum loading time before navigating
+      setTimeout(() => {
+        router.push(imagesUrl)
+      }, 1500)
+    } finally {
+      setIsNavigatingToImages(false)
+    }
+  }
+
   // Memoized callbacks for better performance
   const handleDetailClick = useCallback((topic: IdeaRecommendation) => {
     setSelectedDetailIdea(topic)
@@ -1104,30 +1154,15 @@ function MainContent() {
                 <Bookmark className="mr-2 h-4 w-4" />
                 รายการที่บันทึก
               </Button>
-              {isGenerating ? (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-[#535862] cursor-not-allowed"
-                  disabled={true}
-                >
-                  <Images className="mr-2 h-4 w-4" />
-                  ค้นและสร้างภาพ
-                </Button>
-              ) : (
-                <Link
-                  href={`/images${activeClientName && activeClientName !== "No Client Selected" 
-                    ? `?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
-                    : ''}`}
-                >
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
-                  >
-                    <Images className="mr-2 h-4 w-4" />
-                    ค้นและสร้างภาพ
-                  </Button>
-                </Link>
-              )}
+              <Button
+                onClick={!isGenerating ? handleImagesNavigation : undefined}
+                variant="ghost"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                disabled={isNavigatingToImages || isGenerating}
+              >
+                <Images className="mr-2 h-4 w-4" />
+                ค้นและสร้างภาพ
+              </Button>
               <Button
                 onClick={!isGenerating ? handleConfigureNavigation : undefined}
                 variant="ghost"
@@ -1418,6 +1453,11 @@ function MainContent() {
       <LoadingPopup
         isOpen={isNavigatingToNewClient}
         message="กำลังโหลดหน้าเพิ่มลูกค้าใหม่"
+      />
+
+      <LoadingPopup
+        isOpen={isNavigatingToImages}
+        message="กำลังโหลดหน้าค้นหาและสร้างภาพ"
       />
 
       {/* Share Dialog */}

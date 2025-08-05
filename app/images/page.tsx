@@ -192,19 +192,13 @@ function MainContent() {
                 <Bookmark className="mr-2 h-4 w-4" />
                 รายการที่บันทึก
               </Button>
-              <Link
-                href={`/${activeClientName && activeClientName !== "No Client Selected" 
-                  ? `?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
-                  : ''}`}
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-[#6941c6] bg-[#e9d7fe] hover:bg-[#e9d7fe] hover:text-[#6941c6]"
               >
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-[#6941c6] bg-[#e9d7fe] hover:bg-[#e9d7fe] hover:text-[#6941c6]"
-                >
-                  <Images className="mr-2 h-4 w-4" />
-                  ค้นหารูปภาพ Pinterest
-                </Button>
-              </Link>
+                <Images className="mr-2 h-4 w-4" />
+                ค้นและสร้างภาพ
+              </Button>
               <Button
                 onClick={handleConfigureNavigation}
                 variant="ghost"
@@ -234,9 +228,9 @@ function MainContent() {
                   <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                     <ImageIcon className="w-5 h-5 text-white" />
                   </div>
-                  ค้นหารูปภาพที่ใช่สำหรับไอเดียคุณ
+                  ค้นหาและสร้างภาพที่ใช่สำหรับไอเดียคุณ
                 </h1>
-                <p className="text-[#8e8e93] mt-2 text-lg">จัดการและค้นหาตัวอย่างรูปภาพโฆษณาสำหรับแคมเปญ</p>
+                <p className="text-[#8e8e93] mt-2 text-lg">จัดการ ค้นหา และสร้างตัวอย่างรูปภาพโฆษณาสำหรับแคมเปญ</p>
               </div>
             </div>
 
