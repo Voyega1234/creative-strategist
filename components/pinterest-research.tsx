@@ -20,14 +20,19 @@ import {
   Target,
   X
 } from "lucide-react"
-import Image from "next/image"
 import { getStorageClient } from "@/lib/supabase/client"
+import Image from "next/image"
 
-interface ReferenceImage {
+interface AdImage {
   name: string
   url: string
   size: number
   created_at: string
+  metadata?: {
+    width?: number
+    height?: number
+    type?: string
+  }
 }
 
 interface GeneratedImage {
@@ -66,17 +71,17 @@ interface SavedTopic {
   }
 }
 
-interface AIImageGeneratorProps {
+interface PinterestResearchProps {
   activeClientId?: string | null
   activeProductFocus?: string | null  
   activeClientName?: string | null
 }
 
-export function AIImageGenerator({ 
+export function PinterestResearch({ 
   activeClientId, 
   activeProductFocus, 
   activeClientName 
-}: AIImageGeneratorProps) {
+}: PinterestResearchProps) {
   const [prompt, setPrompt] = useState('')
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
@@ -92,13 +97,7 @@ export function AIImageGenerator({
   const [selectedTopic, setSelectedTopic] = useState<string>('')
   const [loadingTopics, setLoadingTopics] = useState(false)
   
-  // Reference image selection
-  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([])
-  const [selectedReferenceImage, setSelectedReferenceImage] = useState<string>('')
-  const [showAllReferenceImages, setShowAllReferenceImages] = useState(false)
-  const [loadingReferenceImages, setLoadingReferenceImages] = useState(false)
-  
-  // AI generation results pagination
+  // Pinterest results pagination
   const [showAllResults, setShowAllResults] = useState(false)
   const [savingImageId, setSavingImageId] = useState<string | null>(null)
   
@@ -112,14 +111,13 @@ export function AIImageGenerator({
   useEffect(() => {
     if (selectedClientId && selectedProductFocus) {
       loadSavedTopics()
-      loadReferenceImages()
     }
   }, [selectedClientId, selectedProductFocus])
 
   // Update selection when props change (from URL parameters)
   useEffect(() => {
     if (activeClientId && activeProductFocus && clients.length > 0) {
-      console.log('[AI Image Generator] Props changed, updating selection:', {
+      console.log('[Pinterest Research] Props changed, updating selection:', {
         activeClientId,
         activeProductFocus
       })
@@ -136,14 +134,14 @@ export function AIImageGenerator({
       const response = await fetch(`${baseUrl}/api/clients-with-product-focus`)
       const clients = await response.json()
       
-      console.log('[AI Image Generator] Loaded clients:', clients)
+      console.log('[Pinterest Research] Loaded clients:', clients)
       
       if (Array.isArray(clients)) {
         setClients(clients)
         
         // Auto-select based on props (from URL params) or first available
         if (activeClientId && activeProductFocus) {
-          console.log('[AI Image Generator] Auto-selecting from props:', {
+          console.log('[Pinterest Research] Auto-selecting from props:', {
             activeClientId,
             activeProductFocus,
             activeClientName
@@ -159,7 +157,7 @@ export function AIImageGenerator({
           }
         }
       } else {
-        console.error('[AI Image Generator] Invalid clients response format:', clients)
+        console.error('[Pinterest Research] Invalid clients response format:', clients)
       }
     } catch (error) {
       console.error('Error loading clients:', error)
@@ -176,7 +174,7 @@ export function AIImageGenerator({
       const selectedClient = clients.find(c => c.id === selectedClientId)
       if (!selectedClient) return
 
-      console.log('[AI Image Generator] Loading saved topics for:', {
+      console.log('[Pinterest Research] Loading saved topics for:', {
         clientId: selectedClientId,
         clientName: selectedClient.clientName,
         productFocus: selectedProductFocus
@@ -186,76 +184,18 @@ export function AIImageGenerator({
       const response = await fetch(`${baseUrl}/api/saved-topics?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
       const result = await response.json()
       
-      console.log('[AI Image Generator] Saved topics response:', result)
+      console.log('[Pinterest Research] Saved topics response:', result)
       
       if (result.success) {
         setSavedTopics(result.savedTopics || [])
-        console.log('[AI Image Generator] Loaded', result.savedTopics?.length || 0, 'saved topics')
+        console.log('[Pinterest Research] Loaded', result.savedTopics?.length || 0, 'saved topics')
       } else {
-        console.error('[AI Image Generator] Failed to load saved topics:', result.error)
+        console.error('[Pinterest Research] Failed to load saved topics:', result.error)
       }
     } catch (error) {
       console.error('Error loading saved topics:', error)
     } finally {
       setLoadingTopics(false)
-    }
-  }
-
-  const loadReferenceImages = async () => {
-    try {
-      setLoadingReferenceImages(true)
-      const storageClient = getStorageClient()
-      
-      if (!storageClient) {
-        console.error('Storage client not available')
-        return
-      }
-      
-      // Get list of image files from the 'ads-creative-image' bucket, 'references' folder
-      const { data: files, error } = await storageClient
-        .from('ads-creative-image')
-        .list('references')
-
-      console.log('🔍 Reference images response:', { files, error })
-
-      if (error) {
-        console.error('Error loading reference images:', error)
-        return
-      }
-
-      if (!files || files.length === 0) {
-        console.log('No reference images found')
-        setReferenceImages([])
-        return
-      }
-
-      // Convert files to image objects with public URLs
-      const imagePromises = files.map(async (file) => {
-        const { data: urlData } = storageClient
-          .from('ads-creative-image')
-          .getPublicUrl(`references/${file.name}`)
-        
-        return {
-          name: file.name,
-          url: urlData.publicUrl,
-          size: file.metadata?.size || 0,
-          created_at: file.created_at || new Date().toISOString()
-        }
-      })
-
-      const imageList = await Promise.all(imagePromises)
-      
-      // Sort by created date (newest first)
-      const sortedImages = imageList.sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-      
-      setReferenceImages(sortedImages)
-      console.log('[AI Image Generator] Loaded', sortedImages.length, 'reference images')
-    } catch (error) {
-      console.error('Error loading reference images:', error)
-    } finally {
-      setLoadingReferenceImages(false)
     }
   }
 
@@ -265,10 +205,7 @@ export function AIImageGenerator({
       return
     }
 
-    if (!selectedTopic) {
-      alert('กรุณาเลือกไอเดียที่บันทึกไว้')
-      return
-    }
+    // User can generate with saved ideas only, no validation needed
 
     setIsGenerating(true)
     
@@ -296,48 +233,31 @@ export function AIImageGenerator({
         },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          reference_image_url: selectedReferenceImage || null,
+          reference_image_url: null,
           client_name: selectedClient?.clientName,
           product_focus: selectedProductFocus,
           selected_topics: selectedTopicData ? [selectedTopicData] : [],
-          core_concept: selectedTopicData?.concept_idea || '',
-          topic_title: selectedTopicData?.title || '',
-          topic_description: selectedTopicData?.description || '',
-          content_pillar: selectedTopicData?.content_pillar || '',
-          copywriting: selectedTopicData?.copywriting || null,
         }),
       })
 
       const result = await response.json()
 
-      if (result.success && result.image_url) {
-        // Update the loading image with the generated result
-        setGeneratedImages(prev => prev.map(img => 
-          img.id === newImageId 
-            ? { 
-                ...img, 
-                url: result.image_url, 
-                status: 'completed',
-                reference_image: selectedReferenceImage || undefined
-              }
-            : img
-        ))
-        console.log(`Generated AI image: ${result.image_url}`)
-      } else if (result.success && result.images && Array.isArray(result.images)) {
-        // Handle multiple images if the N8N returns an array
+      if (result.success && result.images && Array.isArray(result.images)) {
+        // Remove the loading placeholder
         setGeneratedImages(prev => prev.filter(img => img.id !== newImageId))
         
-        const aiImages = result.images.map((img: any, index: number) => ({
+        // Add all Pinterest images as separate items
+        const pinterestImages = result.images.map((img: any, index: number) => ({
           id: `${newImageId}-${index}`,
-          url: img.url || img.image_url || img,
+          url: img.url,
           prompt: prompt.trim(),
-          reference_image: selectedReferenceImage || undefined,
+          reference_image: undefined,
           status: 'completed' as const,
           created_at: new Date().toISOString()
         }))
         
-        setGeneratedImages(prev => [...aiImages, ...prev])
-        console.log(`Generated ${result.images.length} AI images`)
+        setGeneratedImages(prev => [...pinterestImages, ...prev])
+        console.log(`Found ${result.images.length} Pinterest images`)
       } else {
         // Mark as error
         setGeneratedImages(prev => prev.map(img => 
@@ -345,16 +265,16 @@ export function AIImageGenerator({
             ? { ...img, status: 'error' }
             : img
         ))
-        alert(`เกิดข้อผิดพลาด: ${result.error || 'ไม่สามารถสร้างภาพได้'}`)
+        alert(`เกิดข้อผิดพลาด: ${result.error || 'ไม่สามารถค้นหารูปภาพได้'}`)
       }
     } catch (error) {
-      console.error('Error generating AI images:', error)
+      console.error('Error searching Pinterest images:', error)
       setGeneratedImages(prev => prev.map(img => 
         img.id === newImageId 
           ? { ...img, status: 'error' }
           : img
       ))
-      alert('เกิดข้อผิดพลาดในการสร้างภาพด้วย AI')
+      alert('เกิดข้อผิดพลาดในการค้นหารูปภาพ')
     } finally {
       setIsGenerating(false)
     }
@@ -451,9 +371,9 @@ export function AIImageGenerator({
               <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Wand2 className="w-5 h-5 text-white" />
               </div>
-              สร้างภาพด้วย AI
+              ค้นหารูปภาพอ้างอิงจาก Pinterest
             </h3>
-            <p className="text-[#8e8e93] text-sm">สร้างภาพโฆษณาใหม่ด้วยเทคโนโลยี AI ที่เข้ากับไอเดียและแนวคิดของคุณ</p>
+            <p className="text-[#8e8e93] text-sm">ค้นหาและรวบรวมรูปภาพโฆษณาที่เข้ากับไอเดียและแนวคิดของคุณ</p>
           </div>
 
           {/* Client and Product Focus Selection */}
@@ -516,8 +436,7 @@ export function AIImageGenerator({
             <div className="space-y-3">
               <label className="text-sm font-medium text-black flex items-center gap-2">
                 <Lightbulb className="w-4 h-4 text-amber-500" />
-                ไอเดียที่บันทึกไว้ <span className="text-red-500">*</span>
-                <span className="text-xs text-gray-500">(จำเป็นต้องเลือก)</span>
+                ไอเดียที่บันทึกไว้ (เลือกเพื่อใช้เป็นแรงบันดาลใจ)
               </label>
               
               {loadingTopics ? (
@@ -530,13 +449,15 @@ export function AIImageGenerator({
                   {savedTopics.map((topic) => (
                     <div
                       key={topic.title}
-                      className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                         selectedTopic === topic.title
-                          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200'
-                          : 'border-gray-200 hover:border-amber-300 hover:bg-amber-25'
+                          ? 'border-amber-500 bg-amber-50'
+                          : 'border-[#d1d1d6] hover:border-black'
                       }`}
                       onClick={() => {
-                        setSelectedTopic(topic.title)
+                        setSelectedTopic(prev => 
+                          prev === topic.title ? '' : topic.title
+                        )
                       }}
                     >
                       <div className="flex items-start gap-2">
@@ -564,122 +485,29 @@ export function AIImageGenerator({
                 </div>
               )}
               
-              {selectedTopic ? (
-                <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border-2 border-amber-300">
+              {selectedTopic && (
+                <div className="flex items-center gap-2 text-sm text-amber-500 bg-amber-50 p-2 rounded-lg border border-amber-200">
                   <CheckCircle className="w-4 h-4" />
-                  <span className="font-medium">เลือกแล้ว: {selectedTopic}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-red-500 bg-red-50 p-3 rounded-lg border-2 border-red-200">
-                  <X className="w-4 h-4" />
-                  <span className="font-medium">กรุณาเลือกไอเดียก่อนสร้างภาพ</span>
+                  เลือกแล้ว 1 ไอเดีย
                 </div>
               )}
             </div>
           )}
 
-          {/* Reference Image Selection */}
-          {selectedClientId && selectedProductFocus && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-black flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-blue-500" />
-                รูปภาพอ้างอิง (เลือกจากคลัง - ไม่บังคับ)
-              </label>
-              
-              {loadingReferenceImages ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                  <span className="ml-2 text-gray-500">กำลังโหลดรูปภาพ...</span>
-                </div>
-              ) : referenceImages.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {(showAllReferenceImages ? referenceImages : referenceImages.slice(0, 10)).map((image) => (
-                      <Card 
-                        key={image.url} 
-                        className={`group overflow-hidden cursor-pointer transition-all ${
-                          selectedReferenceImage === image.url
-                            ? 'ring-2 ring-blue-500 shadow-lg'
-                            : 'hover:shadow-lg'
-                        }`}
-                        onClick={() => {
-                          setSelectedReferenceImage(prev => 
-                            prev === image.url ? '' : image.url
-                          )
-                        }}
-                      >
-                        <div className="relative aspect-square">
-                          <Image
-                            src={image.url}
-                            alt="Reference image"
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 20vw"
-                          />
-                          
-                          {/* Selection overlay */}
-                          {selectedReferenceImage === image.url && (
-                            <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
-                              <div className="bg-blue-500 rounded-full p-2">
-                                <CheckCircle className="w-5 h-5 text-white" />
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Hover overlay */}
-                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                  
-                  {referenceImages.length > 10 && (
-                    <div className="flex justify-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowAllReferenceImages(!showAllReferenceImages)}
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                      >
-                        {showAllReferenceImages 
-                          ? 'แสดงน้อยลง' 
-                          : `ดูทั้งหมด (${referenceImages.length} รูป)`
-                        }
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <ImageIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">ยังไม่มีรูปภาพในคลัง</p>
-                  <p className="text-xs mt-1">ลองอัปโหลดรูปภาพในแท็บ "อัปโหลดรูปภาพ" ก่อน</p>
-                </div>
-              )}
-              
-              {selectedReferenceImage && (
-                <div className="flex items-center gap-2 text-sm text-blue-500 bg-blue-50 p-2 rounded-lg border border-blue-200">
-                  <CheckCircle className="w-4 h-4" />
-                  เลือกรูปภาพอ้างอิงแล้ว
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* AI Prompt Input */}
+          {/* Search Keywords Input */}
           <div className="space-y-3">
             <label className="text-sm font-medium text-black">
-              คำอธิบายภาพที่ต้องการสร้าง (ไม่บังคับ)
+              คำค้นหาเพิ่มเติม (ไม่บังคับ)
             </label>
             <Textarea
-              placeholder="เช่น: professional advertisement for solar panels on house roof, bright sunlight, modern house, photorealistic, high quality"
+              placeholder="เช่น: modern coffee shop design, minimalist branding, cozy atmosphere, earth tones"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}
               className="resize-none border-[#d1d1d6] focus:border-black focus:ring-0 bg-white text-black"
             />
             <p className="text-xs text-[#8e8e93]">
-              อธิบายภาพที่ต้องการให้ AI สร้าง หรือใช้เฉพาะไอเดียและรูปภาพอ้างอิงก็ได้
+              ระบุคำค้นหาเพิ่มเติม หรือใช้เฉพาะไอเดียที่บันทึกไว้ก็ได้
             </p>
           </div>
 
@@ -687,18 +515,18 @@ export function AIImageGenerator({
           {/* Generate Button */}
           <Button 
             onClick={generateImage}
-            disabled={isGenerating || !selectedTopic}
-            className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isGenerating}
+            className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium shadow-lg transition-all duration-200 hover:shadow-xl"
           >
             {isGenerating ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                กำลังสร้างภาพ...
+                กำลังค้นหารูปภาพ...
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-2" />
-                สร้างภาพด้วย AI
+                ค้นหารูปภาพ
               </>
             )}
           </Button>
@@ -714,7 +542,7 @@ export function AIImageGenerator({
                 <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
                   <ImageIcon className="w-5 h-5 text-white" />
                 </div>
-                ภาพที่สร้างด้วย AI
+                รูปภาพจาก Pinterest
               </h3>
               <Badge variant="secondary" className="bg-[#f2f2f7] text-black border-0">
                 {generatedImages.length} รูป
@@ -860,23 +688,23 @@ export function AIImageGenerator({
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h4 className="font-semibold text-black mb-3 text-lg">เคล็ดลับการสร้างภาพด้วย AI</h4>
+            <h4 className="font-semibold text-black mb-3 text-lg">เคล็ดลับการค้นหารูปภาพ</h4>
             <ul className="text-sm text-[#8e8e93] space-y-2">
               <li className="flex items-start gap-2">
                 <span className="text-pink-500 font-boldตัว">•</span>
-                <span>เลือกไอเดียที่บันทึกไว้เพื่อให้ AI เข้าใจแนวคิดของคุณ</span>
+                <span>เลือกไอเดียที่บันทึกไว้เพื่อให้ Pinterest เข้าใจแนวคิดของคุณ</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-pink-500 font-bold">•</span>
-                <span>ใช้คำอธิบายภาษาอังกฤษจะได้ผลลัพธ์ที่ดีกว่า</span>
+                <span>ใช้คำค้นหาภาษาอังกฤษจะได้ผลลัพธ์ที่หลากหลายกว่า</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-pink-500 font-bold">•</span>
-                <span>เพิ่มรายละเอียดเฉพาะ เช่น <code className="bg-white px-1 rounded text-xs">"photorealistic"</code>, <code className="bg-white px-1 rounded text-xs">"high quality"</code>, <code className="bg-white px-1 rounded text-xs">"professional"</code></span>
+                <span>เพิ่มคำค้นหาเฉพาะ เช่น <code className="bg-white px-1 rounded text-xs">"design"</code>, <code className="bg-white px-1 rounded text-xs">"branding"</code>, <code className="bg-white px-1 rounded text-xs">"minimal"</code></span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-pink-500 font-bold">•</span>
-                <span>ลองสร้างหลายครั้งด้วยคำอธิบายที่แตกต่างกันเพื่อได้ผลลัพธ์ที่หลากหลาย</span>
+                <span>ลองหลายครั้งด้วยคำค้นหาที่แตกต่างกันเพื่อได้แรงบันดาลใจมากขึ้น</span>
               </li>
             </ul>
           </div>
@@ -890,7 +718,7 @@ export function AIImageGenerator({
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-purple-600" />
-                ภาพที่สร้างด้วย AI
+                รูปภาพจาก Pinterest
               </span>
               <Button
                 variant="ghost"
@@ -908,7 +736,7 @@ export function AIImageGenerator({
               <div className="relative w-full" style={{ aspectRatio: '1/1', maxHeight: '70vh' }}>
                 <Image
                   src={selectedImageForPreview}
-                  alt="AI generated image preview"
+                  alt="Pinterest image preview"
                   fill
                   className="object-contain"
                   sizes="(max-width: 768px) 100vw, 80vw"
@@ -933,7 +761,7 @@ export function AIImageGenerator({
                   ) : (
                     <CheckCircle className="w-4 h-4 mr-2" />
                   )}
-                  บันทึกภาพที่สร้าง
+                  บันทึกรูปภาพ
                 </Button>
                 <Button
                   variant="outline"

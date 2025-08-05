@@ -1103,7 +1103,7 @@ function MainContent() {
                   disabled={true}
                 >
                   <Images className="mr-2 h-4 w-4" />
-                  ค้นหารูปภาพ Pinterest
+                  ค้นและสร้างภาพ
                 </Button>
               ) : (
                 <Link
@@ -1116,7 +1116,7 @@ function MainContent() {
                     className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
                   >
                     <Images className="mr-2 h-4 w-4" />
-                    ค้นหารูปภาพ Pinterest
+                    ค้นและสร้างภาพ
                   </Button>
                 </Link>
               )}

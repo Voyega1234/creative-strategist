@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const revalidate = 0;
+export const fetchCache = 'force-cache';
 
 // Cache for saved topics to reduce DB queries
 const savedTopicsCache = new Map();
@@ -35,33 +38,14 @@ export async function GET(request: Request) {
 
     const supabase = getSupabase();
     
-    // Optimized query - only select needed fields for display
+    // Optimized query - only select essential fields for faster loading
     const { data, error } = await supabase
       .from('savedideas')
-      .select(`
-        id,
-        clientname,
-        productfocus,
-        title,
-        description,
-        category,
-        impact,
-        competitivegap,
-        tags,
-        content_pillar,
-        product_focus,
-        concept_idea,
-        copywriting_headline,
-        copywriting_sub_headline_1,
-        copywriting_sub_headline_2,
-        copywriting_bullets,
-        copywriting_cta,
-        savedat
-      `)
+      .select('id, title, description, category, content_pillar, savedat')
       .eq('clientname', clientName)
       .eq('productfocus', productFocus)
       .order('savedat', { ascending: false })
-      .limit(50); // Limit results for performance
+      .limit(5); // Further reduced limit for faster loading
 
     if (error) {
       console.error('Error fetching saved topics:', error);
@@ -71,29 +55,15 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
-    // Optimized transformation - return raw data as-is for EditableSavedIdeaModal
-    const savedTopics = data.map(item => {
-      return {
-        id: item.id,
-        clientname: item.clientname,
-        productfocus: item.productfocus,
-        title: item.title,
-        description: item.description,
-        category: item.category,
-        impact: item.impact,
-        competitivegap: item.competitivegap,
-        tags: item.tags, // Keep as raw string for EditableSavedIdeaModal
-        content_pillar: item.content_pillar,
-        product_focus: item.product_focus,
-        concept_idea: item.concept_idea,
-        copywriting_headline: item.copywriting_headline,
-        copywriting_sub_headline_1: item.copywriting_sub_headline_1,
-        copywriting_sub_headline_2: item.copywriting_sub_headline_2,
-        copywriting_bullets: item.copywriting_bullets, // Keep as raw string for EditableSavedIdeaModal
-        copywriting_cta: item.copywriting_cta,
-        savedat: item.savedat
-      };
-    });
+    // Minimal transformation for fast loading
+    const savedTopics = data.map(item => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      category: item.category,
+      content_pillar: item.content_pillar,
+      savedat: item.savedat
+    }));
 
     // Cache the result
     savedTopicsCache.set(cacheKey, {

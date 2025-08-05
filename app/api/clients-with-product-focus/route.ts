@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const revalidate = 0;
+export const fetchCache = 'force-cache';
 
 // In-memory cache for clients data
 let clientsCache: any = null;
@@ -20,12 +23,12 @@ export async function GET() {
 
     const supabase = getSupabase();
     
-    // OPTIMIZED: Use direct aggregated query instead of fetching all records
+    // OPTIMIZED: Use direct aggregated query with distinct values
     const { data, error } = await supabase
       .from('AnalysisRun')
       .select('id, clientName, productFocus')
-      .order('clientName')
-      .limit(100); // Reasonable limit
+      .order('clientName, productFocus')
+      .limit(50); // Reduced limit for faster queries
 
     if (error) {
       console.error('Error fetching clients with product focus:', error);

@@ -11,6 +11,7 @@ import { ChevronUp, Plus, User, Bookmark, Settings, Upload, Image as ImageIcon, 
 import { useSearchParams, useRouter } from "next/navigation"
 import { ImageGallery } from "@/components/image-gallery"
 import { ImageUpload } from "@/components/image-upload"
+import { PinterestResearch } from "@/components/pinterest-research"
 import { AIImageGenerator } from "@/components/ai-image-generator"
 import { LoadingPopup } from "@/components/loading-popup"
 
@@ -240,8 +241,8 @@ function MainContent() {
             </div>
 
             {/* Main Content Tabs */}
-            <Tabs defaultValue="generate" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
+            <Tabs defaultValue="reference" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
                 <TabsTrigger value="reference" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Grid3x3 className="w-4 h-4" />
                   รูปภาพอ้างอิง
@@ -250,9 +251,13 @@ function MainContent() {
                   <Upload className="w-4 h-4" />
                   อัปโหลดรูปภาพ
                 </TabsTrigger>
+                <TabsTrigger value="pinterest" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
+                  <Images className="w-4 h-4" />
+                  ค้นหารูปภาพ Pinterest
+                </TabsTrigger>
                 <TabsTrigger value="generate" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Sparkles className="w-4 h-4" />
-                  ค้นหารูปภาพ Pinterest
+                  สร้างภาพด้วย AI
                 </TabsTrigger>
               </TabsList>
 
@@ -294,13 +299,46 @@ function MainContent() {
                 </Card>
               </TabsContent>
 
+              {/* Pinterest Search Tab */}
+              <TabsContent value="pinterest" className="space-y-6">
+                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
+                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
+                        <Images className="w-6 h-6 text-[#7f56d9]" />
+                        ค้นหารูปภาพ Pinterest
+                      </h2>
+                      <p className="text-[#8e8e93] text-sm mt-1">ค้นหาและเก็บภาพอ้างอิงจาก Pinterest</p>
+                    </div>
+                  </div>
+                  
+                  <PinterestResearch 
+                    activeClientId={clients.find(c => c.clientName === activeClientName)?.id || null}
+                    activeProductFocus={activeProductFocus}
+                    activeClientName={activeClientName}
+                  />
+                </Card>
+              </TabsContent>
+
               {/* Generate Images Tab */}
               <TabsContent value="generate" className="space-y-6">
-                <AIImageGenerator 
-                  activeClientId={clients.find(c => c.clientName === activeClientName)?.id || null}
-                  activeProductFocus={activeProductFocus}
-                  activeClientName={activeClientName}
-                />
+                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
+                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
+                        <Sparkles className="w-6 h-6 text-[#7f56d9]" />
+                        สร้างภาพด้วย AI
+                      </h2>
+                      <p className="text-[#8e8e93] text-sm mt-1">สร้างภาพใหม่ด้วยเทคโนโลยี AI ผ่าน N8N</p>
+                    </div>
+                  </div>
+                  
+                  <AIImageGenerator 
+                    activeClientId={clients.find(c => c.clientName === activeClientName)?.id || null}
+                    activeProductFocus={activeProductFocus}
+                    activeClientName={activeClientName}
+                  />
+                </Card>
               </TabsContent>
             </Tabs>
           </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // Allow up to 60 seconds for image generation
+export const maxDuration = 180; // Allow up to 60 seconds for image generation
 
 // Types for the n8n image generation response
 interface N8NImageResponse {
@@ -12,8 +12,8 @@ interface N8NImageResponse {
 
 export async function POST(request: Request) {
   try {
-    // N8N webhook URL for image generation
-    const N8N_IMAGE_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/7d99dbe5-f303-4782-894e-c9d01f405f86';
+    // N8N webhook URL for AI image generation
+    const N8N_AI_IMAGE_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook-test/b8d3f40f-a718-4260-a773-662e898c7d7f';
 
     // Parse request body
     const body = await request.json();
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     
     // Prompt is now optional - user can generate from saved ideas and reference image only
     
-    console.log('[generate-image] Searching Pinterest images with prompt:', prompt);
+    console.log('[generate-image] Generating AI images with prompt:', prompt);
     console.log('[generate-image] Client:', client_name);
     console.log('[generate-image] Product Focus:', product_focus);
     console.log('[generate-image] Selected Topics:', selected_topics?.length || 0);
@@ -29,29 +29,9 @@ export async function POST(request: Request) {
       console.log('[generate-image] Using reference image:', reference_image_url);
     }
 
-    // Set timeout for external API calls (55 seconds to stay under our 60s limit)
-    const TIMEOUT_MS = 55000;
-    
-    const fetchWithTimeout = async (url: string, options: RequestInit) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      
-      try {
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        return response;
-      } catch (error) {
-        clearTimeout(timeoutId);
-        throw error;
-      }
-    };
-    
     try {
-      // Call N8N image generation webhook
-      const webhookResponse = await fetchWithTimeout(N8N_IMAGE_WEBHOOK_URL, {
+      // Call N8N AI image generation webhook (no timeout)
+      const webhookResponse = await fetch(N8N_AI_IMAGE_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
