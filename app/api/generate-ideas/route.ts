@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
 
     const body = await request.json();
-    const { clientName, productFocus, instructions, targetMarket, model } = body;
+    const { clientName, productFocus, instructions, targetMarket, model, productDetails, hasProductDetails } = body;
     
     if (!clientName || !productFocus) {
       return NextResponse.json({ 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    console.log('[generate-ideas] Generating ideas and strategic insights for:', { clientName, productFocus, instructions, targetMarket, model });
+    console.log('[generate-ideas] Generating ideas and strategic insights for:', { clientName, productFocus, instructions, targetMarket, model, productDetails, hasProductDetails });
 
     // Debug: Check environment variable value
     console.log('[generate-ideas] NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL);
@@ -75,6 +75,8 @@ export async function POST(request: Request) {
             productFocus,
             instructions,
             targetMarket,
+            productDetails,
+            hasProductDetails,
             model: model || "gemini-2.5-flash"
           }),
         }),

@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 // Optimize imports - only import what we need
 import {
   ChevronUp,
@@ -85,7 +87,7 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
   onFeedback: (topic: IdeaRecommendation, type: 'good' | 'bad') => void;
 }) => {
   return (
-    <Card className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-all duration-200 relative transform-gpu will-change-transform">
+    <Card className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-all duration-200 relative">
       {/* Impact Badge */}
       {topic.impact && (
         <div className="mb-4">
@@ -215,6 +217,10 @@ function MainContent() {
   const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
+  
+  // Product details state
+  const [showProductDetails, setShowProductDetails] = useState(false)
+  const [productDetails, setProductDetails] = useState("")
   
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -440,6 +446,8 @@ function MainContent() {
           clientName: activeClientName,
           productFocus: activeProductFocus,
           instructions: finalInstructions,
+          productDetails: showProductDetails ? productDetails.trim() : undefined,
+          hasProductDetails: showProductDetails,
           model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
         }),
       })
@@ -870,7 +878,7 @@ function MainContent() {
   // Show login form if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500" style={{ scrollBehavior: 'smooth', willChange: 'scroll-position' }}>
+      <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
         <div className="flex w-full relative z-10">
           {/* Left Panel - Branding */}
           <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#7f56d9] to-[#6941c6] relative overflow-hidden">
@@ -1195,7 +1203,7 @@ function MainContent() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent" style={{ scrollBehavior: 'smooth', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent overflow-y-auto">
           {isGenerating ? (
             /* AI Typing Animation */
             <AITypingAnimation activeClientName={activeClientName} />
@@ -1245,6 +1253,41 @@ function MainContent() {
                     {template.title}
                   </Button>
                 ))}
+              </div>
+
+              {/* Product Details Toggle */}
+              <div className="w-full max-w-2xl mb-6">
+                <div className="flex items-center space-x-3 justify-center">
+                  <Label htmlFor="product-details-toggle" className="text-sm font-medium text-[#535862]">
+                    เพิ่มรายละเอียดสินค้า
+                  </Label>
+                  <Switch
+                    id="product-details-toggle"
+                    checked={showProductDetails}
+                    onCheckedChange={setShowProductDetails}
+                    disabled={isGenerating}
+                  />
+                </div>
+                
+                <Collapsible open={showProductDetails} className="mt-4">
+                  <CollapsibleContent className="space-y-4">
+                    <div className="bg-[#f3f0ff] border border-[#d8ccf1] rounded-lg p-4">
+                      <Label className="text-sm font-medium text-[#6941c6] mb-2 block">
+                        รายละเอียดสินค้าและบริการ
+                      </Label>
+                      <Textarea
+                        value={productDetails}
+                        onChange={(e) => setProductDetails(e.target.value)}
+                        placeholder="อธิบายรายละเอียดเกี่ยวกับสินค้าหรือบริการของคุณ เช่น คุณสมบัติเด่น จุดขาย กลุ่มเป้าหมาย ความพิเศษ ฯลฯ"
+                        className="min-h-[100px] p-3 text-[#000000] border-[#d8ccf1] focus:border-[#7f56d9] focus-visible:ring-0 bg-white"
+                        disabled={isGenerating}
+                      />
+                      <p className="text-xs text-[#7f56d9] mt-2">
+                        💡 ข้อมูลนี้จะช่วยให้ AI สร้างไอเดียที่เหมาะกับสินค้าที่คุณต้องการมากขึ้น
+                      </p>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
 
               {/* Custom Input Field */}
@@ -1308,7 +1351,7 @@ function MainContent() {
                 </div>
 
                 {/* Ideas Grid - Optimized */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" style={{ willChange: 'contents' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {topics.map((topic, index) => {
                     const isSaved = savedTitles.includes(topic.title)
                     
