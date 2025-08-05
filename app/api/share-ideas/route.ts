@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     }
 
     // Generate the shareable URL
-    const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/shared/${shareId}`;
+    const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'}/shared/${shareId}`;
 
     const response = NextResponse.json({ 
       success: true, 
