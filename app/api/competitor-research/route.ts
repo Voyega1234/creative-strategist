@@ -222,7 +222,7 @@ export async function POST(request: Request) {
     try {
         const supabase = getSupabase();
         
-        // 1. Insert AnalysisRun 
+        // 1. Insert Clients 
         const analysisRunData = {
             id: uuidv4(),
             clientName: analysisInput.clientName,
@@ -236,28 +236,28 @@ export async function POST(request: Request) {
             updatedAt: analysisInput.timestamp
         };
 
-        const { data: savedAnalysisRun, error: runInsertError } = await supabase
-            .from('AnalysisRun')
+        const { data: savedClients, error: runInsertError } = await supabase
+            .from('Clients')
             .insert(analysisRunData)
             .select()
             .single();
 
         if (runInsertError) {
-            console.error('[competitor-research] Supabase error inserting AnalysisRun:', runInsertError);
+            console.error('[competitor-research] Supabase error inserting Clients:', runInsertError);
             throw new Error(runInsertError.message || 'Failed to save analysis run data.');
         }
 
-        if (!savedAnalysisRun || !savedAnalysisRun.id) {
-            throw new Error('Failed to retrieve ID after inserting AnalysisRun.');
+        if (!savedClients || !savedClients.id) {
+            throw new Error('Failed to retrieve ID after inserting Clients.');
         }
 
-        newRunId = savedAnalysisRun.id;
-        console.log(`[competitor-research] Successfully saved AnalysisRun (ID: ${newRunId}) to database.`);
+        newRunId = savedClients.id;
+        console.log(`[competitor-research] Successfully saved Clients (ID: ${newRunId}) to database.`);
 
         // Update with competitor summary if provided by n8n
         if (parsedData.summary_competitor) {
             const { error: summaryError } = await supabase
-                .from('AnalysisRun')
+                .from('Clients')
                 .update({
                     competitor_summary: parsedData.summary_competitor,
                     competitor_summary_generated_at: new Date().toISOString()

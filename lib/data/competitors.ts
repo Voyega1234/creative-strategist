@@ -37,7 +37,7 @@ export async function getCompetitors(
 
   // Optimized: Get client name first
   const analysisRunResult = await supabase
-    .from("AnalysisRun")
+    .from("Clients")
     .select("clientName")
     .eq("id", analysisRunId)
     .maybeSingle()
@@ -116,7 +116,7 @@ export async function getClientBusinessProfile(analysisRunId: string): Promise<C
   
   // First, get the client name
   const { data: analysisRun } = await supabase
-    .from("AnalysisRun")
+    .from("Clients")
     .select("clientName")
     .eq("id", analysisRunId)
     .maybeSingle()

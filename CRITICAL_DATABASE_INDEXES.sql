@@ -3,7 +3,7 @@
 
 -- 1. MOST CRITICAL: Index for clients-with-product-focus API (was taking 2568ms)
 CREATE INDEX IF NOT EXISTS idx_analysisrun_client_product 
-ON "AnalysisRun" ("clientName", "productFocus");
+ON "Clients" ("clientName", "productFocus");
 
 -- 2. Index for saved ideas queries (was taking 1527ms)
 CREATE INDEX IF NOT EXISTS idx_savedideas_client_product 
@@ -11,7 +11,7 @@ ON "savedideas" ("clientname", "productfocus");
 
 -- 3. Index for client ordering (frequently used)
 CREATE INDEX IF NOT EXISTS idx_analysisrun_clientname 
-ON "AnalysisRun" ("clientName");
+ON "Clients" ("clientName");
 
 -- 4. Index for saved ideas by date (for faster lookups)
 CREATE INDEX IF NOT EXISTS idx_savedideas_savedat 

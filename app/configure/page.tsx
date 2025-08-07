@@ -92,7 +92,7 @@ async function ConfigurePageContent({
     ] = await Promise.all([
       getClientProfile(activeClientId),
       getSupabase()
-        .from('AnalysisRun')
+        .from('Clients')
         .select('competitor_summary')
         .eq('id', activeClientId)
         .single(),

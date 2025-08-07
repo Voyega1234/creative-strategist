@@ -46,9 +46,9 @@ export async function getResearchMarketData(clientName: string, productFocus: st
 export async function getResearchMarketDataByRunId(analysisRunId: string): Promise<ResearchMarketData | null> {
   const supabase = getSupabase()
   
-  // First get the client name and product focus from AnalysisRun
+  // First get the client name and product focus from Clients
   const { data: analysisRun, error: analysisError } = await supabase
-    .from("AnalysisRun")
+    .from("Clients")
     .select("clientName, productFocus")
     .eq("id", analysisRunId)
     .single()

@@ -20,9 +20,9 @@ export async function POST(request: Request) {
     // Get Supabase client
     const supabase = getSupabase();
 
-    // Get the current related_news_ids from AnalysisRun
+    // Get the current related_news_ids from Clients
     const { data: analysisData, error: analysisError } = await supabase
-      .from('AnalysisRun')
+      .from('Clients')
       .select('related_news_ids')
       .eq('clientName', clientName)
       .eq('productFocus', productFocus)
@@ -40,9 +40,9 @@ export async function POST(request: Request) {
     const currentIds = analysisData?.related_news_ids || [];
     const updatedIds = currentIds.filter((id: string) => id !== articleId);
 
-    // Update the AnalysisRun with the new related_news_ids
+    // Update the Clients with the new related_news_ids
     const { error: updateError } = await supabase
-      .from('AnalysisRun')
+      .from('Clients')
       .update({ related_news_ids: updatedIds })
       .eq('clientName', clientName)
       .eq('productFocus', productFocus);

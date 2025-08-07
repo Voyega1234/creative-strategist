@@ -79,11 +79,11 @@ ${competitorSummary}
     // Call Gemini API
     const summary = await callGeminiAPI(prompt, GEMINI_API_KEY)
     
-    // Save summary to AnalysisRun table
+    // Save summary to Clients table
     try {
       const supabase = getSupabase()
       await supabase
-        .from('AnalysisRun')
+        .from('Clients')
         .update({
           competitor_summary: summary,
           competitor_summary_generated_at: new Date().toISOString()

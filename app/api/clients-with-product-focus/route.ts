@@ -25,7 +25,7 @@ export async function GET() {
     
     // OPTIMIZED: Use direct aggregated query with distinct values
     const { data, error } = await supabase
-      .from('AnalysisRun')
+      .from('Clients')
       .select('id, clientName, productFocus')
       .order('clientName, productFocus')
       .limit(50); // Reduced limit for faster queries

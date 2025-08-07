@@ -2,13 +2,13 @@
 -- These are the most critical indexes with verified column names
 -- Run these first, then add others as needed
 
--- 1. MOST CRITICAL: Index for AnalysisRun queries (clients-with-product-focus API)
+-- 1. MOST CRITICAL: Index for Clients queries (clients-with-product-focus API)
 CREATE INDEX IF NOT EXISTS idx_analysisrun_client_product 
-ON "AnalysisRun" ("clientName", "productFocus");
+ON "Clients" ("clientName", "productFocus");
 
--- 2. Index for AnalysisRun client ordering (frequently used)
+-- 2. Index for Clients client ordering (frequently used)
 CREATE INDEX IF NOT EXISTS idx_analysisrun_clientname 
-ON "AnalysisRun" ("clientName");
+ON "Clients" ("clientName");
 
 -- 3. Index for savedideas queries (save-idea API)
 CREATE INDEX IF NOT EXISTS idx_savedideas_client_product 

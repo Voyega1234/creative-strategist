@@ -1,7 +1,7 @@
 import { getSupabase } from "@/lib/supabase/server"
 // import { cachedQuery } from "@/lib/utils/server-cache"
 
-// Type for client list, based on AnalysisRun table
+// Type for client list, based on Clients table
 export type ClientListItem = {
   id: string
   clientName: string
@@ -10,7 +10,7 @@ export type ClientListItem = {
 export async function getClients(): Promise<ClientListItem[]> {
   // Temporarily disabled caching
   const supabase = getSupabase()
-  const { data, error } = await supabase.from("AnalysisRun").select("id, clientName").order("clientName")
+  const { data, error } = await supabase.from("Clients").select("id, clientName").order("clientName")
   
   if (error) {
     console.error("Error fetching clients:", error)
@@ -44,7 +44,7 @@ export async function getClientsWithProductFocus(): Promise<ClientWithProductFoc
   // Temporarily disabled caching
   const supabase = getSupabase()
   const { data, error } = await supabase
-    .from("AnalysisRun")
+    .from("Clients")
     .select("id, clientName, productFocus")
     .order("clientName")
 
@@ -70,7 +70,7 @@ export async function getClientsWithProductFocus(): Promise<ClientWithProductFoc
     // Only add if productFocus is not already in the list
     if (!client.productFocuses.some(pf => pf.productFocus === row.productFocus)) {
       client.productFocuses.push({
-        id: row.id, // Each product focus keeps its unique AnalysisRun ID
+        id: row.id, // Each product focus keeps its unique Clients ID
         productFocus: row.productFocus
       })
     }

@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     // Check if related news already processed for this client/product focus
     const { data: existingData, error: checkError } = await supabase
-      .from('AnalysisRun')
+      .from('Clients')
       .select('related_news_ids')
       .eq('clientName', clientName)
       .eq('productFocus', productFocus)
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
 
       // Save the related news IDs to database
       const { error: saveError } = await supabase
-        .from('AnalysisRun')
+        .from('Clients')
         .update({ related_news_ids: newsIds })
         .eq('clientName', clientName)
         .eq('productFocus', productFocus);

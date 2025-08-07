@@ -9,10 +9,10 @@
 **Recommended Indexes to Add**:
 
 ```sql
--- AnalysisRun table indexes
-CREATE INDEX idx_analysisrun_clientname ON "AnalysisRun" ("clientName");
-CREATE INDEX idx_analysisrun_productfocus ON "AnalysisRun" ("productFocus");
-CREATE INDEX idx_analysisrun_client_product ON "AnalysisRun" ("clientName", "productFocus");
+-- Clients table indexes
+CREATE INDEX idx_analysisrun_clientname ON "Clients" ("clientName");
+CREATE INDEX idx_analysisrun_productfocus ON "Clients" ("productFocus");
+CREATE INDEX idx_analysisrun_client_product ON "Clients" ("clientName", "productFocus");
 
 -- Competitor table indexes  
 CREATE INDEX idx_competitor_analysisrunid ON "Competitor" ("analysisRunId");
@@ -50,7 +50,7 @@ SELECT
     JSON_BUILD_OBJECT('id', id, 'productFocus', "productFocus")
     ORDER BY "productFocus"
   ) as product_focuses
-FROM "AnalysisRun" 
+FROM "Clients" 
 GROUP BY "clientName" 
 ORDER BY "clientName";
 ```
@@ -101,7 +101,7 @@ const supabase = createServerClient(
 ```typescript
 // Instead of multiple calls, use Supabase's batch functionality:
 const batchResults = await Promise.all([
-  supabase.from('AnalysisRun').select('competitor_summary').eq('id', id),
+  supabase.from('Clients').select('competitor_summary').eq('id', id),
   supabase.from('Competitor').select('*').eq('analysisRunId', id),
   supabase.from('UniqueServices').select('services').eq('analysisRunId', id)
 ]);
