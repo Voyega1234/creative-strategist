@@ -327,7 +327,7 @@ export default function NewClientPage() {
       <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
       <div className="flex w-full relative z-10">
         {/* Left Panel - Branding */}
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#7f56d9] to-[#6941c6] relative overflow-hidden">
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#7f56d9] to-[#063def] relative overflow-hidden">
           <div className="absolute inset-0 bg-white/5 opacity-20"></div>
           
           <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
@@ -383,7 +383,7 @@ export default function NewClientPage() {
             </div>
 
             <div className="text-center mb-6">
-              <div className="lg:hidden w-12 h-12 bg-[#e9d7fe] rounded-xl flex items-center justify-center mx-auto mb-3">
+              <div className="lg:hidden w-12 h-12 bg-[#dbeafe] rounded-xl flex items-center justify-center mx-auto mb-3">
                 <div className="w-6 h-6 bg-[#7f56d9] rounded-lg flex items-center justify-center">
                   <div className="w-3 h-3 bg-white rounded-sm"></div>
                 </div>
@@ -396,13 +396,13 @@ export default function NewClientPage() {
               <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-4">
                 <TabsTrigger
                   value="new-client"
-                  className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                  className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                 >
                   ลูกค้าใหม่
                 </TabsTrigger>
                 <TabsTrigger
                   value="select-client"
-                  className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                  className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                 >
                   เลือกลูกค้า
                 </TabsTrigger>
@@ -410,7 +410,7 @@ export default function NewClientPage() {
 
               <TabsContent value="new-client">
                 {/* Mode Toggle */}
-                <div className="flex items-center justify-center mb-6 p-4 bg-[#f8f6ff] rounded-lg border border-[#e9d7fe]">
+                <div className="flex items-center justify-center mb-6 p-4 bg-[#eff6ff] rounded-lg border border-[#dbeafe]">
                   <Label htmlFor="advanced-mode" className="text-sm font-medium text-[#535862] mr-3">
                     โหมดง่าย (Facebook)
                   </Label>
@@ -456,7 +456,7 @@ export default function NewClientPage() {
                             <Button
                               onClick={handleAnalyzeFacebook}
                               disabled={isAnalyzingFacebook || isCreating || !simpleFacebookUrl.trim()}
-                              className="bg-[#7f56d9] text-white hover:bg-[#6941c6] px-6 h-12 whitespace-nowrap"
+                              className="bg-[#7f56d9] text-white hover:bg-[#063def] px-6 h-12 whitespace-nowrap"
                             >
                               {isAnalyzingFacebook ? (
                                 <>
@@ -477,9 +477,9 @@ export default function NewClientPage() {
                         {facebookAnalysisData && (
                           <div className="space-y-6 animate-in fade-in-0 slide-in-from-top-4 duration-300">
                             {/* Company Info Display */}
-                            <Card className="border-[#e9d7fe] bg-[#f8f6ff]">
+                            <Card className="border-[#dbeafe] bg-[#eff6ff]">
                               <CardContent className="p-6">
-                                <h4 className="text-lg font-semibold text-[#6941c6] mb-2">
+                                <h4 className="text-lg font-semibold text-[#063def] mb-2">
                                   ข้อมูลบริษัทที่วิเคราะห์ได้
                                 </h4>
                                 <p className="text-[#535862] text-base">
@@ -515,7 +515,7 @@ export default function NewClientPage() {
                                   <Button
                                     onClick={handleAddCustomProduct}
                                     disabled={!customProductInput.trim()}
-                                    className="bg-[#7f56d9] text-white hover:bg-[#6941c6] px-4 h-10"
+                                    className="bg-[#7f56d9] text-white hover:bg-[#063def] px-4 h-10"
                                   >
                                     <Plus className="w-4 h-4" />
                                   </Button>
@@ -537,7 +537,7 @@ export default function NewClientPage() {
                                       key={`${isCustomProduct ? 'custom' : 'facebook'}-${index}`}
                                       className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
                                         selectedProduct === product
-                                          ? 'border-[#7f56d9] bg-[#f8f6ff] shadow-sm'
+                                          ? 'border-[#7f56d9] bg-[#eff6ff] shadow-sm'
                                           : 'border-[#e4e7ec] hover:border-[#b692f6]'
                                       }`}
                                       onClick={() => setSelectedProduct(product)}
@@ -557,7 +557,7 @@ export default function NewClientPage() {
                                             <div className="flex-1">
                                               <span className={`text-base ${
                                                 selectedProduct === product
-                                                  ? 'text-[#6941c6] font-medium'
+                                                  ? 'text-[#063def] font-medium'
                                                   : 'text-[#535862]'
                                               }`}>
                                                 {product}
@@ -594,7 +594,7 @@ export default function NewClientPage() {
                             {/* Submit Button */}
                             <div className="pt-4">
                               <Button
-                                className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#7f56d9] text-white hover:bg-[#6941c6] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
+                                className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#7f56d9] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
                                 onClick={handleCreateNewClient}
                                 disabled={isCreating || !selectedProduct}
                               >
@@ -779,7 +779,7 @@ export default function NewClientPage() {
 
                     <div className="pt-4">
                       <Button
-                        className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#7f56d9] text-white hover:bg-[#6941c6] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
+                        className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#7f56d9] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
                         onClick={handleCreateNewClient}
                         disabled={isCreating}
                       >
@@ -838,13 +838,13 @@ export default function NewClientPage() {
                           href={`/configure?clientId=${client.id}`}
                           className="group"
                         >
-                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#7f56d9] hover:bg-[#f8f6ff] transition-all duration-200 cursor-pointer">
+                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#7f56d9] hover:bg-[#eff6ff] transition-all duration-200 cursor-pointer">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-[#e9d7fe] rounded-lg flex items-center justify-center group-hover:bg-[#7f56d9] transition-colors">
+                              <div className="w-10 h-10 bg-[#dbeafe] rounded-lg flex items-center justify-center group-hover:bg-[#7f56d9] transition-colors">
                                 <div className="w-5 h-5 bg-[#7f56d9] rounded-sm group-hover:bg-white transition-colors"></div>
                               </div>
                               <div>
-                                <h3 className="font-medium text-[#535862] group-hover:text-[#6941c6]">
+                                <h3 className="font-medium text-[#535862] group-hover:text-[#063def]">
                                   {client.clientName}
                                 </h3>
                                 <p className="text-sm text-[#8e8e93]">ดูผลการวิเคราะห์</p>

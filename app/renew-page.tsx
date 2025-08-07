@@ -392,7 +392,7 @@ function MainContent() {
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                   >
                     <User className="mr-2 h-4 w-4" />
                     แบรนด์
@@ -404,7 +404,7 @@ function MainContent() {
                 <CollapsibleContent className="space-y-1 pl-8 pt-2">
                   {/* Current active client */}
                   {activeClientName !== "No Client Selected" && (
-                    <div className="block text-sm text-[#6941c6] bg-[#e9d7fe] py-1 px-2 rounded-md font-medium">
+                    <div className="block text-sm text-[#063def] bg-[#dbeafe] py-1 px-2 rounded-md font-medium">
                       {activeClientName}
                     </div>
                   )}
@@ -415,7 +415,7 @@ function MainContent() {
                       {client.clientName !== activeClientName && (
                         <Link
                           href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}`}
-                          className="block text-sm text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe] py-1 px-2 rounded-md"
+                          className="block text-sm text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe] py-1 px-2 rounded-md"
                         >
                           {client.clientName}
                         </Link>
@@ -430,8 +430,8 @@ function MainContent() {
                               href={`?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
                               className={`block text-xs py-1 px-2 rounded-md ${
                                 activeProductFocus === pf.productFocus
-                                  ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
-                                  : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                                  ? 'text-[#063def] bg-[#dbeafe] font-medium'
+                                  : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
                               }`}
                             >
                               {pf.productFocus}
@@ -447,7 +447,7 @@ function MainContent() {
                     <Button
                       onClick={() => setHistoryModalOpen(true)}
                       variant="ghost"
-                      className="w-full justify-between text-sm text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe] py-1 px-2 rounded-md mt-2 h-auto"
+                      className="w-full justify-between text-sm text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe] py-1 px-2 rounded-md mt-2 h-auto"
                     >
                       ดูการสร้างที่ผ่านมา
                       <ArrowRight className="h-4 w-4" />
@@ -458,7 +458,7 @@ function MainContent() {
               <Link href="/new-client">
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   เพิ่มรายชื่อ
@@ -469,14 +469,14 @@ function MainContent() {
             <nav className="space-y-2">
               <Button
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               >
                 <Bookmark className="mr-2 h-4 w-4" />
                 รายการที่บันทึก
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               >
                 <Settings className="mr-2 h-4 w-4" />
                 ตั้งค่าและวิเคราะห์
@@ -484,7 +484,7 @@ function MainContent() {
               <Button
                 onClick={() => setHistoryModalOpen(true)}
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               >
                 <History className="mr-2 h-4 w-4" />
                 ประวัติการสร้าง
@@ -498,7 +498,7 @@ function MainContent() {
             </nav>
           </div>
           <div className="flex items-center space-x-3 p-2 border-t border-[#e4e7ec] mt-4">
-            <Avatar className="h-8 w-8 bg-[#7f56d9] text-[#ffffff] font-bold">
+            <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
               <AvatarFallback>A</AvatarFallback>
             </Avatar>
             <span className="text-[#000000] font-medium">Admin</span>
@@ -540,14 +540,14 @@ function MainContent() {
                   onClick={() => handleTemplateSelect(template.id)}
                   variant="outline"
                   disabled={isGenerating}
-                  className={`h-auto py-4 px-6 flex items-center justify-start text-left border-[#e4e7ec] hover:bg-[#e9d7fe] hover:border-[#b692f6] hover:text-[#6941c6] bg-transparent shadow-lg max-w-fit transition-all ${
+                  className={`h-auto py-4 px-6 flex items-center justify-start text-left border-[#e4e7ec] hover:bg-[#dbeafe] hover:border-[#b692f6] hover:text-[#063def] bg-transparent shadow-lg max-w-fit transition-all ${
                     selectedTemplate === template.id 
-                      ? 'bg-[#e9d7fe] border-[#b692f6] text-[#6941c6]' 
+                      ? 'bg-[#dbeafe] border-[#b692f6] text-[#063def]' 
                       : 'text-[#535862]'
                   }`}
                 >
                   <Sparkles className={`mr-3 h-5 w-5 ${
-                    selectedTemplate === template.id ? 'text-[#6941c6]' : 'text-[#9e77ed]'
+                    selectedTemplate === template.id ? 'text-[#063def]' : 'text-[#3b82f6]'
                   }`} />
                   {template.title}
                 </Button>
@@ -560,7 +560,7 @@ function MainContent() {
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
-                className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#7f56d9] focus-visible:ring-0 shadow-md"
+                className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#1d4ed8] focus-visible:ring-0 shadow-md"
                 style={{ backgroundColor: "#ffffff" }}
                 disabled={isGenerating}
               />
@@ -606,7 +606,7 @@ function MainContent() {
                     <Button
                       onClick={handleShareIdeas}
                       disabled={isSharing}
-                      className="bg-[#7f56d9] hover:bg-[#6941c6] text-white px-6"
+                      className="bg-[#1d4ed8] hover:bg-[#063def] text-white px-6"
                     >
                       {isSharing ? (
                         <>

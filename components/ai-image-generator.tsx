@@ -448,7 +448,7 @@ export function AIImageGenerator({
         <div className="space-y-6">
           <div className="border-b border-gray-200 pb-4">
             <h3 className="text-xl font-bold text-black mb-2 flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                 <Wand2 className="w-5 h-5 text-white" />
               </div>
               สร้างภาพด้วย AI
@@ -460,7 +460,7 @@ export function AIImageGenerator({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
               <label className="text-sm font-medium text-black flex items-center gap-2">
-                <Target className="w-4 h-4 text-black" />
+                <Target className="w-4 h-4 text-blue-600" />
                 เลือกลูกค้า
               </label>
               {loadingClients ? (
@@ -688,7 +688,7 @@ export function AIImageGenerator({
           <Button 
             onClick={generateImage}
             disabled={isGenerating || !selectedTopic}
-            className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? (
               <>
@@ -711,7 +711,7 @@ export function AIImageGenerator({
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4">
               <h3 className="text-xl font-bold text-black flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                   <ImageIcon className="w-5 h-5 text-white" />
                 </div>
                 ภาพที่สร้างด้วย AI
@@ -729,7 +729,7 @@ export function AIImageGenerator({
                     {image.status === 'generating' && (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="text-center">
-                          <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-2" />
+                          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
                           <p className="text-sm text-gray-600">กำลังสร้าง...</p>
                         </div>
                       </div>
@@ -854,9 +854,9 @@ export function AIImageGenerator({
       )}
 
       {/* Tips */}
-      <Card className="p-6 bg-gradient-to-r from-pink-50 to-purple-50 border-2 border-pink-100">
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-100">
         <div className="flex items-start gap-4">
-          <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -889,7 +889,7 @@ export function AIImageGenerator({
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-purple-600" />
+                <ImageIcon className="w-5 h-5 text-blue-600" />
                 ภาพที่สร้างด้วย AI
               </span>
               <Button

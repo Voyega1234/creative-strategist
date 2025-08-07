@@ -251,7 +251,7 @@ export function RealAIImageGenerator({
       <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
         <div className="space-y-4">
           <h3 className="font-semibold text-blue-900 flex items-center gap-2">
-            <Target className="w-4 h-4" />
+            <Target className="w-4 h-4 text-blue-600" />
             เลือกลูกค้า
           </h3>
           
@@ -303,15 +303,15 @@ export function RealAIImageGenerator({
 
       {/* Saved Ideas Selection */}
       {selectedClientId && selectedProductFocus && (
-        <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
+        <Card className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
           <div className="space-y-4">
-            <h3 className="font-semibold text-purple-900 flex items-center gap-2">
+            <h3 className="font-semibold text-blue-900 flex items-center gap-2">
               <Lightbulb className="w-4 h-4" />
               ไอเดียที่บันทึกไว้ (เลือกเพื่อใช้เป็นแรงบันดาลใจ)
             </h3>
             
             {loadingTopics ? (
-              <div className="flex items-center gap-2 text-purple-600">
+              <div className="flex items-center gap-2 text-blue-600">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 กำลังโหลดไอเดีย...
               </div>
@@ -322,15 +322,15 @@ export function RealAIImageGenerator({
                     key={topic.title}
                     className={`p-3 rounded-lg border cursor-pointer transition-all ${
                       selectedTopic === topic.title
-                        ? 'bg-purple-100 border-purple-300 shadow-md'
-                        : 'bg-white border-purple-200 hover:bg-purple-50'
+                        ? 'bg-blue-100 border-blue-300 shadow-md'
+                        : 'bg-white border-blue-200 hover:bg-blue-50'
                     }`}
                     onClick={() => handleTopicSelect(topic.title)}
                   >
-                    <h4 className="font-medium text-purple-900 mb-1">{topic.title}</h4>
-                    <p className="text-sm text-purple-700 line-clamp-2">{topic.description}</p>
+                    <h4 className="font-medium text-blue-900 mb-1">{topic.title}</h4>
+                    <p className="text-sm text-blue-700 line-clamp-2">{topic.description}</p>
                     <div className="flex gap-2 mt-2">
-                      <Badge variant="outline" className="text-xs border-purple-300 text-purple-600">
+                      <Badge variant="outline" className="text-xs border-blue-300 text-blue-600">
                         {topic.content_pillar}
                       </Badge>
                     </div>
@@ -338,7 +338,7 @@ export function RealAIImageGenerator({
                 ))}
               </div>
             ) : (
-              <p className="text-purple-600 text-sm">ยังไม่มีไอเดียที่บันทึกไว้</p>
+              <p className="text-blue-600 text-sm">ยังไม่มีไอเดียที่บันทึกไว้</p>
             )}
           </div>
         </Card>
@@ -368,7 +368,7 @@ export function RealAIImageGenerator({
           <Button 
             onClick={handleGenerateImage}
             disabled={isGenerating || !prompt.trim() || !selectedClientId || !selectedProductFocus}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
           >
             {isGenerating ? (
               <>
@@ -400,7 +400,7 @@ export function RealAIImageGenerator({
                   {image.status === 'generating' ? (
                     <div className="w-full h-full flex items-center justify-center">
                       <div className="text-center">
-                        <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-2" />
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">กำลังสร้างภาพ...</p>
                       </div>
                     </div>

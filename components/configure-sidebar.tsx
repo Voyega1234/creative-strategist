@@ -72,7 +72,7 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
             <Button
               onClick={handleBackToMain}
               variant="ghost"
-              className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+              className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               disabled={isNavigatingToMain}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -85,7 +85,7 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
               <CollapsibleTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 >
                   <User className="mr-2 h-4 w-4" />
                   แบรนด์
@@ -112,8 +112,8 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
                           }}
                           className={`block w-full text-left text-sm py-1 px-2 rounded-md font-medium ${
                             client.clientName === activeClientName
-                              ? 'text-[#6941c6] bg-[#e9d7fe]'
-                              : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                              ? 'text-[#063def] bg-[#dbeafe]'
+                              : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
                           }`}
                         >
                           {client.clientName}
@@ -131,8 +131,8 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
                                 }}
                                 className={`block w-full text-left text-xs py-1 px-2 rounded-md ${
                                   activeProductFocus === pf.productFocus
-                                    ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
-                                    : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                                    ? 'text-[#063def] bg-[#dbeafe] font-medium'
+                                    : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
                                 }`}
                               >
                                 {pf.productFocus}
@@ -149,7 +149,7 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
             <Link href="/new-client">
               <Button
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 เพิ่มรายชื่อ
@@ -163,7 +163,7 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
               : ''}`}>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               >
                 <Images className="mr-2 h-4 w-4" />
                 ค้นหารูปภาพ Pinterest
@@ -171,7 +171,7 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
             </Link>
             <Button
               variant="ghost"
-              className="w-full justify-start text-[#6941c6] bg-[#e9d7fe] hover:bg-[#e9d7fe] hover:text-[#6941c6]"
+              className="w-full justify-start text-[#063def] bg-[#dbeafe] hover:bg-[#dbeafe] hover:text-[#063def]"
             >
               <Settings className="mr-2 h-4 w-4" />
               ตั้งค่าและวิเคราะห์
@@ -179,7 +179,7 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
           </nav>
         </div>
         <div className="flex items-center space-x-3 p-2 border-t border-[#e4e7ec] mt-4">
-          <Avatar className="h-8 w-8 bg-[#7f56d9] text-[#ffffff] font-bold">
+          <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
             <AvatarFallback>A</AvatarFallback>
           </Avatar>
           <span className="text-[#000000] font-medium">Admin</span>

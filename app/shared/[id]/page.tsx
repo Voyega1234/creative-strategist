@@ -124,9 +124,9 @@ export default function SharedIdeasPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-purple-600" />
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
           <p className="text-gray-600">กำลังโหลดไอเดียที่แชร์...</p>
         </div>
       </div>
@@ -135,13 +135,13 @@ export default function SharedIdeasPage() {
 
   if (error || !sharedData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex items-center justify-center">
         <Card className="p-8 max-w-md mx-auto text-center">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">ไม่พบไอเดียที่แชร์</h1>
           <p className="text-gray-600 mb-4">{error || 'ลิงก์นี้อาจหมดอายุหรือไม่ถูกต้อง'}</p>
           <Link href="/">
-            <Button className="bg-purple-600 hover:bg-purple-700">
+            <Button className="bg-blue-600 hover:bg-blue-700">
               <ArrowLeft className="w-4 h-4 mr-2" />
               กลับหน้าหลัก
             </Button>
@@ -152,15 +152,15 @@ export default function SharedIdeasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="p-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl">
+            <div className="p-3 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl">
               <Share2 className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
               Shared Creative Ideas
             </h1>
           </div>
@@ -173,7 +173,7 @@ export default function SharedIdeasPage() {
         <Card className="p-6 mb-8 border-0 shadow-xl bg-white/70 backdrop-blur-sm">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <div className="flex items-center gap-3">
-              <User className="w-5 h-5 text-purple-600" />
+              <User className="w-5 h-5 text-blue-600" />
               <div>
                 <p className="text-sm text-gray-600">ลูกค้า</p>
                 <p className="font-semibold text-gray-900">{sharedData.clientName}</p>
@@ -215,7 +215,7 @@ export default function SharedIdeasPage() {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+              <Badge className="bg-blue-100 text-blue-800 border-blue-200">
                 {sharedData.totalIdeas} ไอเดีย
               </Badge>
               <Link href="/">
@@ -265,7 +265,7 @@ export default function SharedIdeasPage() {
 
               {/* Title and Description */}
               <div className="mb-4">
-                <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-purple-600 transition-colors">
+                <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
                   {idea.title}
                 </h3>
                 <p className="text-gray-600 text-sm leading-relaxed">
@@ -370,7 +370,7 @@ export default function SharedIdeasPage() {
                           )}
                         </Button>
                       </div>
-                      <p className="text-sm text-purple-700 bg-purple-50 p-3 rounded-lg border border-purple-200">
+                      <p className="text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-200">
                         {idea.copywriting.cta}
                       </p>
                     </div>
@@ -394,7 +394,7 @@ export default function SharedIdeasPage() {
         </div>
 
         {/* Footer */}
-        <Card className="p-6 border-0 shadow-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white text-center">
+        <Card className="p-6 border-0 shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white text-center">
           <div className="max-w-2xl mx-auto">
             <Sparkles className="w-8 h-8 mx-auto mb-3" />
             <h3 className="text-xl font-semibold mb-2">ต้องการสร้างไอเดียของคุณเอง?</h3>
@@ -402,7 +402,7 @@ export default function SharedIdeasPage() {
               ใช้ AI Creative Strategist เพื่อสร้างไอเดียการตลาดที่สร้างสรรค์และมีประสิทธิภาพ
             </p>
             <Link href="/">
-              <Button className="bg-white text-purple-600 hover:bg-gray-100">
+              <Button className="bg-white text-blue-600 hover:bg-gray-100">
                 <ExternalLink className="w-4 h-4 mr-2" />
                 เริ่มสร้างไอเดีย
               </Button>

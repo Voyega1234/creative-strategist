@@ -168,14 +168,14 @@ export default function NewClientPage() {
     <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
       <div className="flex w-full relative z-10">
         {/* Left Panel - Branding */}
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#7f56d9] to-[#6941c6] relative overflow-hidden">
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1d4ed8] to-[#063def] relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%23ffffff\" fill-opacity=\"0.05\"%3E%3Ccircle cx=\"30\" cy=\"30\" r=\"1\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20"></div>
           
           <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
             <div className="mb-8">
               <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
                 <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                  <div className="w-4 h-4 bg-[#7f56d9] rounded-sm"></div>
+                  <div className="w-4 h-4 bg-[#1d4ed8] rounded-sm"></div>
                 </div>
               </div>
               <h1 className="text-4xl font-bold mb-4 leading-tight">
@@ -216,7 +216,7 @@ export default function NewClientPage() {
             <div className="mb-6">
               <Link
                 href="/"
-                className="inline-flex items-center text-[#8e8e93] hover:text-[#7f56d9] transition-colors text-sm"
+                className="inline-flex items-center text-[#8e8e93] hover:text-[#1d4ed8] transition-colors text-sm"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Dashboard
@@ -224,8 +224,8 @@ export default function NewClientPage() {
             </div>
 
             <div className="text-center mb-8">
-              <div className="lg:hidden w-12 h-12 bg-[#e9d7fe] rounded-xl flex items-center justify-center mx-auto mb-4">
-                <div className="w-6 h-6 bg-[#7f56d9] rounded-lg flex items-center justify-center">
+              <div className="lg:hidden w-12 h-12 bg-[#dbeafe] rounded-xl flex items-center justify-center mx-auto mb-4">
+                <div className="w-6 h-6 bg-[#1d4ed8] rounded-lg flex items-center justify-center">
                   <div className="w-3 h-3 bg-white rounded-sm"></div>
                 </div>
               </div>
@@ -237,13 +237,13 @@ export default function NewClientPage() {
               <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-8">
                 <TabsTrigger
                   value="new-client"
-                  className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                  className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                 >
                   New Client
                 </TabsTrigger>
                 <TabsTrigger
                   value="select-client"
-                  className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                  className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                 >
                   Select Client
                 </TabsTrigger>
@@ -259,7 +259,7 @@ export default function NewClientPage() {
                       <Input
                         type="text"
                         placeholder="Enter client name"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                        className="border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 h-12 text-base transition-colors"
                         value={formData.clientName}
                         onChange={(e) => setFormData(prev => ({ ...prev, clientName: e.target.value }))}
                         disabled={isCreating}
@@ -273,7 +273,7 @@ export default function NewClientPage() {
                       <Input
                         type="text"
                         placeholder="Thailand, Singapore, etc."
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                        className="border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 h-12 text-base transition-colors"
                         value={formData.market}
                         onChange={(e) => setFormData(prev => ({ ...prev, market: e.target.value }))}
                         disabled={isCreating}
@@ -287,7 +287,7 @@ export default function NewClientPage() {
                       <Input
                         type="text"
                         placeholder="Gold trading, Investment services, etc."
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                        className="border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 h-12 text-base transition-colors"
                         value={formData.productFocus}
                         onChange={(e) => setFormData(prev => ({ ...prev, productFocus: e.target.value }))}
                         disabled={isCreating}
@@ -302,7 +302,7 @@ export default function NewClientPage() {
                         <Input
                           type="url"
                           placeholder="https://example.com"
-                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                          className="border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 h-12 text-base transition-colors"
                           value={formData.websiteUrl}
                           onChange={(e) => setFormData(prev => ({ ...prev, websiteUrl: e.target.value }))}
                           disabled={isCreating}
@@ -315,7 +315,7 @@ export default function NewClientPage() {
                         <Input
                           type="url"
                           placeholder="Facebook page URL"
-                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                          className="border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 h-12 text-base transition-colors"
                           value={formData.facebookUrl}
                           onChange={(e) => setFormData(prev => ({ ...prev, facebookUrl: e.target.value }))}
                           disabled={isCreating}
@@ -329,7 +329,7 @@ export default function NewClientPage() {
                       </label>
                       <Textarea
                         placeholder="Any additional context about the client..."
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
+                        className="border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 text-base resize-none transition-colors"
                         rows={3}
                         value={formData.additionalInfo}
                         onChange={(e) => setFormData(prev => ({ ...prev, additionalInfo: e.target.value }))}
@@ -343,7 +343,7 @@ export default function NewClientPage() {
                       </label>
                       <Textarea
                         placeholder="Competitor names (separate with commas)"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
+                        className="border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 text-base resize-none transition-colors"
                         rows={2}
                         value={formData.userCompetitors}
                         onChange={(e) => setFormData(prev => ({ ...prev, userCompetitors: e.target.value }))}
@@ -358,7 +358,7 @@ export default function NewClientPage() {
                       <Input
                         type="text"
                         placeholder="act_1234567890123456 (optional)"
-                        className={`border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors ${
+                        className={`border-[#e4e7ec] focus:border-[#1d4ed8] focus:ring-1 focus:ring-[#1d4ed8]/20 h-12 text-base transition-colors ${
                           adAccountError ? '!border-red-500 !focus:border-red-500 !focus:ring-red-500/20' : ''
                         }`}
                         value={formData.ad_account_id}
@@ -372,7 +372,7 @@ export default function NewClientPage() {
                   </div>
 
                   <Button
-                    className="w-full h-12 bg-[#7f56d9] text-white hover:bg-[#6941c6] text-base font-medium transition-colors shadow-sm disabled:opacity-50"
+                    className="w-full h-12 bg-[#1d4ed8] text-white hover:bg-[#063def] text-base font-medium transition-colors shadow-sm disabled:opacity-50"
                     onClick={handleCreateNewClient}
                     disabled={isCreating}
                   >
@@ -405,19 +405,19 @@ export default function NewClientPage() {
                           href={`/configure?clientId=${client.id}`}
                           className="group"
                         >
-                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#7f56d9] hover:bg-[#f8f6ff] transition-all duration-200 cursor-pointer">
+                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#1d4ed8] hover:bg-[#eff6ff] transition-all duration-200 cursor-pointer">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-[#e9d7fe] rounded-lg flex items-center justify-center group-hover:bg-[#7f56d9] transition-colors">
-                                <div className="w-5 h-5 bg-[#7f56d9] rounded-sm group-hover:bg-white transition-colors"></div>
+                              <div className="w-10 h-10 bg-[#dbeafe] rounded-lg flex items-center justify-center group-hover:bg-[#1d4ed8] transition-colors">
+                                <div className="w-5 h-5 bg-[#1d4ed8] rounded-sm group-hover:bg-white transition-colors"></div>
                               </div>
                               <div>
-                                <h3 className="font-medium text-[#535862] group-hover:text-[#6941c6]">
+                                <h3 className="font-medium text-[#535862] group-hover:text-[#063def]">
                                   {client.clientName}
                                 </h3>
                                 <p className="text-sm text-[#8e8e93]">View analysis results</p>
                               </div>
                             </div>
-                            <ArrowRight className="h-5 w-5 text-[#8e8e93] group-hover:text-[#7f56d9] transition-colors" />
+                            <ArrowRight className="h-5 w-5 text-[#8e8e93] group-hover:text-[#1d4ed8] transition-colors" />
                           </div>
                         </Link>
                       ))}

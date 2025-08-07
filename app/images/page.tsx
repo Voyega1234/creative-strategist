@@ -109,7 +109,7 @@ function MainContent() {
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                   >
                     <User className="mr-2 h-4 w-4" />
                     แบรนด์
@@ -133,8 +133,8 @@ function MainContent() {
                             href={`/images?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
                             className={`block text-sm py-1 px-2 rounded-md font-medium ${
                               client.clientName === activeClientName
-                                ? 'text-[#6941c6] bg-[#e9d7fe]'
-                                : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                                ? 'text-[#063def] bg-[#dbeafe]'
+                                : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
                             }`}
                           >
                             {client.clientName}
@@ -149,8 +149,8 @@ function MainContent() {
                                   href={`/images?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
                                   className={`block text-xs py-1 px-2 rounded-md ${
                                     activeProductFocus === pf.productFocus
-                                      ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
-                                      : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                                      ? 'text-[#063def] bg-[#dbeafe] font-medium'
+                                      : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
                                   }`}
                                 >
                                   {pf.productFocus}
@@ -167,7 +167,7 @@ function MainContent() {
               <Link href="/new-client">
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   เพิ่มรายชื่อ
@@ -179,7 +179,7 @@ function MainContent() {
               <Button
                 onClick={handleHomeNavigation}
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 disabled={isNavigatingToHome}
               >
                 <Home className="mr-2 h-4 w-4" />
@@ -187,14 +187,14 @@ function MainContent() {
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               >
                 <Bookmark className="mr-2 h-4 w-4" />
                 รายการที่บันทึก
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-[#6941c6] bg-[#e9d7fe] hover:bg-[#e9d7fe] hover:text-[#6941c6]"
+                className="w-full justify-start text-[#063def] bg-[#dbeafe] hover:bg-[#dbeafe] hover:text-[#063def]"
               >
                 <Images className="mr-2 h-4 w-4" />
                 ค้นและสร้างภาพ
@@ -202,7 +202,7 @@ function MainContent() {
               <Button
                 onClick={handleConfigureNavigation}
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 disabled={isNavigatingToConfigure}
               >
                 <Settings className="mr-2 h-4 w-4" />
@@ -211,7 +211,7 @@ function MainContent() {
             </nav>
           </div>
           <div className="flex items-center space-x-3 p-2 border-t border-[#e4e7ec] mt-4">
-            <Avatar className="h-8 w-8 bg-[#7f56d9] text-[#ffffff] font-bold">
+            <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
               <AvatarFallback>A</AvatarFallback>
             </Avatar>
             <span className="text-[#000000] font-medium">Admin</span>
@@ -225,7 +225,7 @@ function MainContent() {
             <div className="flex items-center justify-between border-b border-[#d1d1d6] pb-6">
               <div>
                 <h1 className="text-2xl font-bold text-black flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gradient-to-r from-pink-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                     <ImageIcon className="w-5 h-5 text-white" />
                   </div>
                   ค้นหาและสร้างภาพที่ใช่สำหรับไอเดียคุณ
@@ -299,7 +299,7 @@ function MainContent() {
                   <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                     <div>
                       <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <Images className="w-6 h-6 text-[#7f56d9]" />
+                        <Images className="w-6 h-6 text-[#1d4ed8]" />
                         ค้นหารูปภาพ Pinterest
                       </h2>
                       <p className="text-[#8e8e93] text-sm mt-1">ค้นหาและเก็บภาพอ้างอิงจาก Pinterest</p>
@@ -320,7 +320,7 @@ function MainContent() {
                   <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                     <div>
                       <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <Sparkles className="w-6 h-6 text-[#7f56d9]" />
+                        <Sparkles className="w-6 h-6 text-[#1d4ed8]" />
                         สร้างภาพด้วย AI
                       </h2>
                       <p className="text-[#8e8e93] text-sm mt-1">สร้างภาพใหม่ด้วยเทคโนโลยี AI ผ่าน N8N</p>

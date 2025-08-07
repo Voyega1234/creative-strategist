@@ -60,8 +60,8 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
         {/* Animated Icon */}
         <div className="flex justify-center mb-8">
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#7f56d9] to-[#9e77ed] rounded-full animate-pulse opacity-20 scale-110"></div>
-            <div className="relative bg-gradient-to-r from-[#7f56d9] to-[#9e77ed] p-6 rounded-full">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] rounded-full animate-pulse opacity-20 scale-110"></div>
+            <div className="relative bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] p-6 rounded-full">
               <Sparkles className="h-8 w-8 text-white animate-spin" />
             </div>
           </div>
@@ -72,7 +72,7 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
           <h2 className="text-xl font-semibold text-[#000000] mb-2">
             กำลังสร้างไอเดียสำหรับ
           </h2>
-          <div className="inline-flex items-center px-4 py-2 bg-[#e9d7fe] text-[#6941c6] rounded-full font-medium mb-3">
+          <div className="inline-flex items-center px-4 py-2 bg-[#dbeafe] text-[#063def] rounded-full font-medium mb-3">
             <Zap className="w-4 h-4 mr-2" />
             {activeClientName}
           </div>
@@ -85,7 +85,7 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
         <div className="mb-8">
           <div className="text-lg text-[#535862] font-medium min-h-[1.5rem] flex items-center justify-center">
             <span>{currentText}</span>
-            <span className={`ml-1 text-[#7f56d9] ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>
+            <span className={`ml-1 text-[#1d4ed8] ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity`}>
               |
             </span>
           </div>
@@ -98,7 +98,7 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
               key={index}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
                 (currentIndex + index) % 3 === 0
-                  ? 'bg-[#7f56d9] scale-125'
+                  ? 'bg-[#1d4ed8] scale-125'
                   : 'bg-[#e4e7ec]'
               }`}
             />

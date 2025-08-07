@@ -87,7 +87,7 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
   onFeedback: (topic: IdeaRecommendation, type: 'good' | 'bad') => void;
 }) => {
   return (
-    <Card className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#7f56d9] transition-all duration-200 relative">
+    <Card className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
       {/* Impact Badge */}
       {topic.impact && (
         <div className="mb-4">
@@ -1031,7 +1031,7 @@ function MainContent() {
     return (
       <div className="flex min-h-screen bg-white items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#7f56d9] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-[#1d4ed8] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-[#8e8e93]">กำลังตรวจสอบการเข้าสู่ระบบ...</p>
         </div>
       </div>
@@ -1044,7 +1044,7 @@ function MainContent() {
       <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
         <div className="flex w-full relative z-10">
           {/* Left Panel - Branding */}
-          <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#7f56d9] to-[#6941c6] relative overflow-hidden">
+          <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1d4ed8] to-[#063def] relative overflow-hidden">
             <div className="absolute inset-0 bg-white/5 opacity-20"></div>
             
             <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
@@ -1093,8 +1093,8 @@ function MainContent() {
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="w-full max-w-md">
               <div className="text-center mb-8">
-                <div className="lg:hidden w-12 h-12 bg-[#e9d7fe] rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Lock className="w-6 h-6 text-[#7f56d9]" />
+                <div className="lg:hidden w-12 h-12 bg-[#dbeafe] rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <Lock className="w-6 h-6 text-[#1d4ed8]" />
                 </div>
                 <h2 className="text-3xl font-bold text-[#535862] mb-2">เข้าสู่ระบบ</h2>
                 <p className="text-[#8e8e93]">กรุณาใส่รหัสผ่านเพื่อเข้าสู่ Creative Strategist</p>
@@ -1111,7 +1111,7 @@ function MainContent() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="ใส่รหัสผ่าน"
-                      className="pr-10 border-[#d1d1d6] focus:border-[#7f56d9] focus:ring-0"
+                      className="pr-10 border-[#d1d1d6] focus:border-[#1d4ed8] focus:ring-0"
                       required
                       disabled={isAuthenticating}
                     />
@@ -1132,7 +1132,7 @@ function MainContent() {
                 <Button
                   type="submit"
                   disabled={isAuthenticating || !password.trim()}
-                  className="w-full bg-[#7f56d9] hover:bg-[#6941c6] text-white py-3 rounded-lg font-medium transition-colors"
+                  className="w-full bg-[#1d4ed8] hover:bg-[#063def] text-white py-3 rounded-lg font-medium transition-colors"
                 >
                   {isAuthenticating ? (
                     <>
@@ -1177,7 +1177,7 @@ function MainContent() {
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                     disabled={isGenerating}
                   >
                     <User className="mr-2 h-4 w-4" />
@@ -1195,7 +1195,7 @@ function MainContent() {
                           {isGenerating ? (
                             <div className={`block text-sm py-1 px-2 rounded-md font-medium cursor-not-allowed ${
                               client.clientName === activeClientName
-                                ? 'text-[#6941c6] bg-[#e9d7fe]'
+                                ? 'text-[#063def] bg-[#dbeafe]'
                                 : 'text-[#535862]'
                             }`}>
                               {client.clientName}
@@ -1205,8 +1205,8 @@ function MainContent() {
                               href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
                               className={`block text-sm py-1 px-2 rounded-md font-medium ${
                                 client.clientName === activeClientName
-                                  ? 'text-[#6941c6] bg-[#e9d7fe]'
-                                  : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                                  ? 'text-[#063def] bg-[#dbeafe]'
+                                  : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
                               }`}
                             >
                               {client.clientName}
@@ -1221,7 +1221,7 @@ function MainContent() {
                                 onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
                                 disabled={isGenerating}
                               >
-                                <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#7f56d9] focus:border-[#7f56d9]">
+                                <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
                                   <SelectValue placeholder="เลือก Product Focus" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1242,7 +1242,7 @@ function MainContent() {
               <Button
                 onClick={!isGenerating ? handleNewClientNavigation : undefined}
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 disabled={isGenerating || isNavigatingToNewClient}
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -1254,7 +1254,7 @@ function MainContent() {
               <Button
                 onClick={() => !isGenerating && setSavedIdeasModalOpen(true)}
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 disabled={isGenerating}
               >
                 <Bookmark className="mr-2 h-4 w-4" />
@@ -1263,7 +1263,7 @@ function MainContent() {
               <Button
                 onClick={!isGenerating ? handleImagesNavigation : undefined}
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 disabled={isNavigatingToImages || isGenerating}
               >
                 <Images className="mr-2 h-4 w-4" />
@@ -1272,7 +1272,7 @@ function MainContent() {
               <Button
                 onClick={!isGenerating ? handleConfigureNavigation : undefined}
                 variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 disabled={isNavigatingToConfigure || isGenerating}
               >
                 <Settings className="mr-2 h-4 w-4" />
@@ -1283,7 +1283,7 @@ function MainContent() {
                   <Button
                     onClick={!isGenerating ? handleHistoryToggle : undefined}
                     variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                     disabled={isGenerating}
                   >
                     <History className="mr-2 h-4 w-4" />
@@ -1302,7 +1302,7 @@ function MainContent() {
                         <button
                           key={session.id}
                           onClick={() => loadSessionIdeas(session)}
-                          className="w-full text-left p-2 rounded-md hover:bg-[#e9d7fe] hover:text-[#6941c6] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1"
+                          className="w-full text-left p-2 rounded-md hover:bg-[#dbeafe] hover:text-[#063def] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1"
                         >
                           <div className="font-medium truncate">
                             {session.selectedTemplate ? 
@@ -1327,7 +1327,7 @@ function MainContent() {
           </div>
           <div className="border-t border-[#e4e7ec] mt-4 pt-4">
             <div className="flex items-center space-x-3 p-2 mb-2">
-              <Avatar className="h-8 w-8 bg-[#7f56d9] text-[#ffffff] font-bold">
+              <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
                 <AvatarFallback>A</AvatarFallback>
               </Avatar>
               <span className="text-[#000000] font-medium">Admin</span>
@@ -1382,14 +1382,14 @@ function MainContent() {
                     onClick={() => handleTemplateSelect(template.id)}
                     variant="outline"
                     disabled={isGenerating}
-                    className={`h-auto py-4 px-6 flex items-center justify-start text-left border-white/30 hover:bg-[#e9d7fe] hover:border-[#b692f6] hover:text-[#6941c6] shadow-lg max-w-fit transition-all ${
+                    className={`h-auto py-4 px-6 flex items-center justify-start text-left border-white/30 hover:bg-[#dbeafe] hover:border-[#b692f6] hover:text-[#063def] shadow-lg max-w-fit transition-all ${
                       selectedTemplate === template.id 
-                        ? 'bg-[#e9d7fe] border-[#b692f6] text-[#6941c6]' 
+                        ? 'bg-[#dbeafe] border-[#b692f6] text-[#063def]' 
                         : 'bg-white text-[#535862]'
                     }`}
                   >
                     <Sparkles className={`mr-3 h-5 w-5 ${
-                      selectedTemplate === template.id ? 'text-[#6941c6]' : 'text-[#9e77ed]'
+                      selectedTemplate === template.id ? 'text-[#063def]' : 'text-[#3b82f6]'
                     }`} />
                     {template.title}
                   </Button>
@@ -1413,17 +1413,17 @@ function MainContent() {
                 <Collapsible open={showProductDetails} className="mt-4">
                   <CollapsibleContent className="space-y-4">
                     <div className="bg-[#f3f0ff] border border-[#d8ccf1] rounded-lg p-4">
-                      <Label className="text-sm font-medium text-[#6941c6] mb-2 block">
+                      <Label className="text-sm font-medium text-[#063def] mb-2 block">
                         รายละเอียดสินค้าและบริการ
                       </Label>
                       <Textarea
                         value={productDetails}
                         onChange={(e) => setProductDetails(e.target.value)}
                         placeholder="อธิบายรายละเอียดเกี่ยวกับสินค้าหรือบริการของคุณ เช่น คุณสมบัติเด่น จุดขาย กลุ่มเป้าหมาย ความพิเศษ ฯลฯ"
-                        className="min-h-[100px] p-3 text-[#000000] border-[#d8ccf1] focus:border-[#7f56d9] focus-visible:ring-0 bg-white"
+                        className="min-h-[100px] p-3 text-[#000000] border-[#d8ccf1] focus:border-[#1d4ed8] focus-visible:ring-0 bg-white"
                         disabled={isGenerating}
                       />
-                      <p className="text-xs text-[#7f56d9] mt-2">
+                      <p className="text-xs text-[#1d4ed8] mt-2">
                         💡 ข้อมูลนี้จะช่วยให้ AI สร้างไอเดียที่เหมาะกับสินค้าที่คุณต้องการมากขึ้น
                       </p>
                     </div>
@@ -1437,7 +1437,7 @@ function MainContent() {
                   value={instructions}
                   onChange={(e) => setInstructions(e.target.value)}
                   placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
-                  className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#7f56d9] focus-visible:ring-0 shadow-md"
+                  className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#1d4ed8] focus-visible:ring-0 shadow-md"
                   style={{ backgroundColor: "#ffffff" }}
                   disabled={isGenerating}
                 />
@@ -1453,7 +1453,7 @@ function MainContent() {
                     </>
                   ) : (
                     <>
-                      <Zap className="mr-2 h-4 w-4 text-[#7f56d9] animate-pulse" />
+                      <Zap className="mr-2 h-4 w-4 text-[#1d4ed8] animate-pulse" />
                       Generate
                     </>
                   )}
@@ -1483,7 +1483,7 @@ function MainContent() {
                         setShareDialogOpen(true)
                         setShareSuccess(false)
                       }}
-                      className="bg-[#7f56d9] hover:bg-[#6941c6] text-white px-6"
+                      className="bg-[#1d4ed8] hover:bg-[#063def] text-white px-6"
                     >
                       <Share2 className="w-4 h-4 mr-2" />
                       Share Ideas
@@ -1579,7 +1579,7 @@ function MainContent() {
               <h3 className="text-sm font-medium text-gray-300">People with access</h3>
               
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex-shrink-0"></div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex-shrink-0"></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-white">Admin (you)</div>
                 </div>

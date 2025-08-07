@@ -228,7 +228,7 @@ export function ImageUpload() {
       >
         <div className="p-12 text-center">
           <div className="flex flex-col items-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center mb-4">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mb-4">
               <Cloud className="w-8 h-8 text-blue-600" />
             </div>
             
@@ -241,7 +241,7 @@ export function ImageUpload() {
             
             <Button 
               onClick={() => fileInputRef.current?.click()}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
             >
               <Upload className="w-4 h-4 mr-2" />
               เลือกรูปภาพ

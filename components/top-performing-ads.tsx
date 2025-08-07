@@ -49,7 +49,7 @@ export function TopPerformingAds({ ads, title = "Top 10 Performing Ads" }: TopPe
       case 'OUTCOME_TRAFFIC':
         return 'bg-green-100 text-green-800'
       case 'OUTCOME_AWARENESS':
-        return 'bg-purple-100 text-purple-800'
+        return 'bg-blue-100 text-blue-800'
       case 'OUTCOME_SALES':
         return 'bg-orange-100 text-orange-800'
       default:

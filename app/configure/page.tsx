@@ -178,13 +178,13 @@ async function ConfigurePageContent({
             <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-8">
               <TabsTrigger
                 value="client"
-                className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
               >
                 Client
               </TabsTrigger>
               <TabsTrigger
                 value="competitors"
-                className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-base font-medium py-3 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
               >
                 Competitors
               </TabsTrigger>
@@ -197,19 +197,19 @@ async function ConfigurePageContent({
                 <TabsList className="grid w-full grid-cols-3 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-6">
                   <TabsTrigger
                     value="information"
-                    className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                    className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                   >
                     Information
                   </TabsTrigger>
                   <TabsTrigger
                     value="strategic-insights"
-                    className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                    className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                   >
                     Strategic Insights
                   </TabsTrigger>
                   <TabsTrigger
                     value="manage-feedback"
-                    className="data-[state=active]:bg-[#e9d7fe] data-[state=active]:text-[#6941c6] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#6941c6] hover:bg-[#f5f5f5]"
+                    className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                   >
                     Manage Feedback
                   </TabsTrigger>
@@ -281,8 +281,8 @@ async function ConfigurePageContent({
                     }
                     className={`text-sm px-3 py-1 h-auto ${
                       !selectedServiceFilter || selectedServiceFilter === "All Competitors"
-                        ? "bg-[#7f56d9] text-white hover:bg-[#6941c6]"
-                        : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
+                        ? "bg-[#1d4ed8] text-white hover:bg-[#063def]"
+                        : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-transparent"
                     }`}
                   >
                     All Competitors
@@ -300,8 +300,8 @@ async function ConfigurePageContent({
                       variant={selectedServiceFilter === service ? "default" : "outline"}
                       className={`text-sm px-3 py-1 h-auto ${
                         selectedServiceFilter === service
-                          ? "bg-[#7f56d9] text-white hover:bg-[#6941c6]"
-                          : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
+                          ? "bg-[#1d4ed8] text-white hover:bg-[#063def]"
+                          : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-transparent"
                       }`}
                     >
                       {service}
@@ -328,7 +328,7 @@ async function ConfigurePageContent({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
+                    className="h-8 w-8 border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-transparent"
                     disabled={currentPage === 1}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -348,8 +348,8 @@ async function ConfigurePageContent({
                       size="icon"
                       className={`h-8 w-8 ${
                         page === currentPage
-                          ? "bg-[#7f56d9] text-white hover:bg-[#6941c6]"
-                          : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
+                          ? "bg-[#1d4ed8] text-white hover:bg-[#063def]"
+                          : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-transparent"
                       }`}
                     >
                       {page}
@@ -365,7 +365,7 @@ async function ConfigurePageContent({
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-8 w-8 border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#6941c6] bg-transparent"
+                    className="h-8 w-8 border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-transparent"
                     disabled={currentPage === totalPages}
                   >
                     <ChevronRight className="h-4 w-4" />

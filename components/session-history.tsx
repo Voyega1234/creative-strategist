@@ -134,10 +134,10 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
                   </span>
                 </div>
               </Card>
-              <Card className="p-4 bg-purple-50">
+              <Card className="p-4 bg-blue-50">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-purple-600" />
-                  <span className="text-sm font-medium text-purple-900">
+                  <TrendingUp className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">
                     {Object.keys(groupedSessions).length} วัน
                   </span>
                 </div>
@@ -239,7 +239,7 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
           <DialogContent className="max-w-3xl max-h-[90vh]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
+                <Sparkles className="w-5 h-5 text-blue-600" />
                 ไอเดียจาก {format(new Date(selectedSession.createdAt), 'dd MMM yyyy HH:mm', { locale: th })}
               </DialogTitle>
             </DialogHeader>
