@@ -380,10 +380,12 @@ function MainContent() {
     setIsHistoryOpen(false)
   }, [activeClientName])
 
-  // Fetch saved titles when client or product focus changes
+  // Lazy load saved titles - only fetch when results are shown
   useEffect(() => {
-    fetchSavedTitles()
-  }, [activeClientName, activeProductFocus])
+    if (showResults && topics.length > 0 && activeClientName && activeProductFocus) {
+      fetchSavedTitles()
+    }
+  }, [showResults, topics.length, activeClientName, activeProductFocus])
 
   // Function to play notification sound
   const playNotificationSound = () => {
@@ -1076,14 +1078,8 @@ function MainContent() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-1 pl-8 pt-2">
                   <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                    {(() => {
-                      // Reorder clients: selected client first, then others
-                      const activeClient = clients.find(client => client.clientName === activeClientName)
-                      const otherClients = clients.filter(client => client.clientName !== activeClientName)
-                      const reorderedClients = activeClient ? [activeClient, ...otherClients] : clients
-                      
-                      return reorderedClients.map((client) => (
-                        <div key={client.id} className="space-y-1">
+                    {clients.map((client) => (
+                      <div key={client.id} className="space-y-1">
                           {/* Client name - always show, highlight if active */}
                           {isGenerating ? (
                             <div className={`block text-sm py-1 px-2 rounded-md font-medium cursor-not-allowed ${
@@ -1127,9 +1123,8 @@ function MainContent() {
                               </Select>
                             </div>
                           )}
-                        </div>
-                      ))
-                    })()}
+                      </div>
+                    ))}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
