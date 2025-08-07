@@ -232,8 +232,25 @@ function MainContent() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   
   // Get URL parameters
-  const activeProductFocus = searchParams.get('productFocus') || null
-  const activeClientName = searchParams.get('clientName') || "No Client Selected"
+  const urlProductFocus = searchParams.get('productFocus') || null
+  const urlClientName = searchParams.get('clientName') || null
+  const urlClientId = searchParams.get('clientId') || null
+  
+  // State to track resolved client info
+  const [resolvedClientInfo, setResolvedClientInfo] = useState<{
+    clientName: string;
+    productFocus: string | null;
+    clientId: string | null;
+  }>({
+    clientName: "No Client Selected",
+    productFocus: null,
+    clientId: null
+  })
+
+  // Derive active values from resolved info
+  const activeClientName = resolvedClientInfo.clientName
+  const activeProductFocus = resolvedClientInfo.productFocus
+  const activeClientId = resolvedClientInfo.clientId
   
   // Model options and templates
   const modelOptions = [
@@ -331,21 +348,115 @@ function MainContent() {
     checkAuthStatus()
   }, [])
 
+  // Function to load/refresh clients
+  const loadClients = async (forceRefresh = false) => {
+    try {
+      console.log(`[main-page] Loading clients - forceRefresh: ${forceRefresh}`)
+      
+      if (forceRefresh) {
+        // Clear cache first using POST method
+        await fetch('/api/clients-with-product-focus', { method: 'POST' })
+        // Small delay to ensure cache is cleared
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      const response = await fetch('/api/clients-with-product-focus')
+      if (response.ok) {
+        const clientsData = await response.json()
+        console.log(`[main-page] Loaded ${clientsData.length} clients:`, clientsData.map(c => c.clientName))
+        setClients(clientsData)
+      } else {
+        console.error('[main-page] Failed to load clients:', response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error('[main-page] Error loading clients:', error)
+    }
+  }
+
   // Load clients on mount
   useEffect(() => {
-    const loadClients = async () => {
-      try {
-        const response = await fetch('/api/clients-with-product-focus')
-        if (response.ok) {
-          const clientsData = await response.json()
-          setClients(clientsData)
-        }
-      } catch (error) {
-        console.error('Error loading clients:', error)
-      }
-    }
     loadClients()
   }, [])
+
+  // Refresh clients when page becomes visible (handles returning from other pages)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, refresh clients to get any new ones
+        loadClients(true)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  // Resolve client info from URL parameters and clients list
+  useEffect(() => {
+    if (clients.length === 0) return
+
+    console.log('[main-page] Resolving client info from URL:', {
+      urlClientId,
+      urlClientName,
+      urlProductFocus
+    })
+
+    let resolvedInfo = {
+      clientName: "No Client Selected",
+      productFocus: null as string | null,
+      clientId: null as string | null
+    }
+
+    if (urlClientId) {
+      // Find client by clientId (could be client.id or productFocus.id)
+      const clientByMainId = clients.find(client => client.id === urlClientId)
+      if (clientByMainId) {
+        resolvedInfo = {
+          clientName: clientByMainId.clientName,
+          productFocus: urlProductFocus || (clientByMainId.productFocuses[0]?.productFocus || null),
+          clientId: urlClientId
+        }
+      } else {
+        // Check if it's a productFocus id
+        for (const client of clients) {
+          const productFocus = client.productFocuses.find(pf => pf.id === urlClientId)
+          if (productFocus) {
+            resolvedInfo = {
+              clientName: client.clientName,
+              productFocus: productFocus.productFocus,
+              clientId: urlClientId
+            }
+            break
+          }
+        }
+      }
+    } else if (urlClientName) {
+      // Find client by name
+      const clientByName = clients.find(client => client.clientName === urlClientName)
+      if (clientByName) {
+        const productFocus = urlProductFocus ? 
+          clientByName.productFocuses.find(pf => pf.productFocus === urlProductFocus) :
+          clientByName.productFocuses[0]
+        
+        resolvedInfo = {
+          clientName: clientByName.clientName,
+          productFocus: productFocus?.productFocus || null,
+          clientId: productFocus?.id || clientByName.id
+        }
+      }
+    }
+
+    console.log('[main-page] Resolved client info:', resolvedInfo)
+    setResolvedClientInfo(resolvedInfo)
+
+    // If we couldn't resolve the client, try refreshing cache
+    if (urlClientId && resolvedInfo.clientName === "No Client Selected") {
+      console.log(`[main-page] ClientId ${urlClientId} not found in current clients, refreshing cache...`)
+      console.log('[main-page] Current client IDs:', clients.map(c => `${c.clientName}:${c.id}`))
+      loadClients(true)
+    }
+  }, [clients, urlClientId, urlClientName, urlProductFocus])
+
 
   // Load ideas from localStorage when component mounts or client/product focus changes
   useEffect(() => {

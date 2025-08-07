@@ -36,18 +36,20 @@ export type AdDetail = {
 
 // Function to get top performing ads by ROAS
 export async function getTopPerformingAds(adAccount?: string, limit: number = 10): Promise<AdDetail[]> {
+  // If no ad account provided, return empty array instead of showing all ads
+  if (!adAccount) {
+    console.log("No ad account provided to getTopPerformingAds, returning empty array")
+    return []
+  }
+
   const supabase = getSupabase()
   
   let query = supabase
     .from("ads_details")
     .select("*")
+    .eq("ad_account", adAccount)
     .order("roas", { ascending: false })
     .limit(limit)
-
-  // Filter by ad account if provided
-  if (adAccount) {
-    query = query.eq("ad_account", adAccount)
-  }
 
   const { data, error } = await query
 
@@ -61,18 +63,20 @@ export async function getTopPerformingAds(adAccount?: string, limit: number = 10
 
 // Function to get top performing ads by CTR
 export async function getTopPerformingAdsByCTR(adAccount?: string, limit: number = 10): Promise<AdDetail[]> {
+  // If no ad account provided, return empty array instead of showing all ads
+  if (!adAccount) {
+    console.log("No ad account provided to getTopPerformingAdsByCTR, returning empty array")
+    return []
+  }
+
   const supabase = getSupabase()
   
   let query = supabase
     .from("ads_details")
     .select("*")
+    .eq("ad_account", adAccount)
     .order("ctr", { ascending: false })
     .limit(limit)
-
-  // Filter by ad account if provided
-  if (adAccount) {
-    query = query.eq("ad_account", adAccount)
-  }
 
   const { data, error } = await query
 
@@ -90,18 +94,20 @@ export async function getTopPerformingAdsByMetric(
   adAccount?: string,
   limit: number = 10
 ): Promise<AdDetail[]> {
+  // If no ad account provided, return empty array instead of showing all ads
+  if (!adAccount) {
+    console.log("No ad account provided to getTopPerformingAdsByMetric, returning empty array")
+    return []
+  }
+
   const supabase = getSupabase()
   
   let query = supabase
     .from("ads_details")
     .select("*")
+    .eq("ad_account", adAccount)
     .order(metric, { ascending: false })
     .limit(limit)
-
-  // Filter by ad account if provided
-  if (adAccount) {
-    query = query.eq("ad_account", adAccount)
-  }
 
   const { data, error } = await query
 

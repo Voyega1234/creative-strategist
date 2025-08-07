@@ -84,6 +84,8 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json();
+    console.log('[competitor-research] Received request body:', body);
+    
     const { clientName, facebookUrl: clientFacebookUrl, websiteUrl: clientWebsiteUrl, market, productFocus, additionalInfo, userCompetitors, ad_account_id } = body;
     
     const analysisInput = {
@@ -96,6 +98,8 @@ export async function POST(request: Request) {
       userCompetitors,
       timestamp: new Date().toISOString(),
     };
+    
+    console.log('[competitor-research] Processed analysis input:', analysisInput);
     
     if (!clientName || !market) {
       console.error('Client name and market are required from form data');
@@ -329,6 +333,10 @@ export async function POST(request: Request) {
       // Use the existing google_research API logic internally instead of webhook
       const googleResearchUrl = `${baseUrl}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`;
       console.log('[competitor-research] GOOGLE_RESEARCH_URL:', googleResearchUrl);
+      console.log('[competitor-research] Raw parameters - clientName:', clientName, 'productFocus:', productFocus);
+      console.log('[competitor-research] Encoded parameters - clientName:', encodeURIComponent(clientName), 'productFocus:', encodeURIComponent(productFocus));
+      
+      console.log('[competitor-research] Calling Google research API with URL:', googleResearchUrl);
       
       const googleResearchResponse = await fetch(googleResearchUrl, {
         method: 'GET',
@@ -337,13 +345,21 @@ export async function POST(request: Request) {
         },
       });
 
+      console.log('[competitor-research] Google research API response status:', googleResearchResponse.status);
+
       if (googleResearchResponse.ok) {
-        await googleResearchResponse.json(); // Process response but don't need to store data
+        const responseData = await googleResearchResponse.json();
+        console.log('[competitor-research] Google research API response:', responseData);
         console.log('[competitor-research] Successfully generated strategic insights via google_research API');
         strategicInsightsGenerated = true;
       } else {
         const errorText = await googleResearchResponse.text();
-        console.error('[competitor-research] Strategic insights generation failed:', googleResearchResponse.status, errorText);
+        console.error('[competitor-research] Strategic insights generation failed:', {
+          status: googleResearchResponse.status,
+          statusText: googleResearchResponse.statusText,
+          error: errorText,
+          url: googleResearchUrl
+        });
       }
     } catch (strategicInsightsError: any) {
       console.error('[competitor-research] Error generating strategic insights:', strategicInsightsError);

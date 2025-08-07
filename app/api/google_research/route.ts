@@ -119,7 +119,7 @@ async function fetchMarketTrendsWithGrounding(clientName: string, competitors: C
             
             // Find all analysis runs for this client
             const { data: analysisRuns } = await getSupabase()
-                .from('AnalysisRun')
+                .from('Clients')
                 .select('id')
                 .eq('clientName', clientName);
                 
@@ -155,10 +155,10 @@ async function fetchMarketTrendsWithGrounding(clientName: string, competitors: C
 
     // Thai prompt for market trends and news search with competitor information
     const prompt = `ช่วยหาข้อมูล, ข่าว หรือเทรนกระแสที่เกี่ยวข้องกับประเภทของธุรกิจ ${clientName} ในไทย
-    พยายามหาข้อมูลที่ล่าสุด ณ วันที่ ${Date.now()} ถ้าเป็นไปได้ โดย Search หาข้อมูลดังนี้โดยโฟกัสหาข้อมูลของ ${clientName} ให้ครบถ้วนก่อนหาของคู่แข่ง 
+    พยายามหาข้อมูลที่ล่าสุด ณ วันที่ ${Date.now()} 
     ขออย่างน้อย 20-30 Useful bullet data
     * เข้าใจธุรกิจหรือสินค้าโดยเปรียบเสมือนเราเป็นผู้ใช้งานหรือลูกค้าจริงๆ คัดสรรมาแค่ข้อมูลสำคัญ
-    * Social proof, ทำไมต้องใช้งาน ${clientName} ทำไมต้องซื้อ ${clientName} ทำไมเพราะอะไร มีเหตุผลอะไรรองรับ
+    * รู้ข้อมูลพื้นฐานเกี่ยวกับธุรกิจหรือสินค้า เช่น ราคา ค่าธรรมเนียม โปรโมชั่นล่าสุด ฟีเจอร์สำคัญ
     * หาข่าวสดรายวันทั่วไปที่เกี่ยวข้องกับแวดวงธุรกิจของ ${clientName} ที่สามารถคิดไอเดียใหม่ๆ หรือข้อเสนอแนะใหม่ๆ อาจจะเอามาจาก Facebook, Pantip, Social Medias ณ วันที่ ${Date.now()}
     อยากได้ข้อมูลในหลายแง่มุมมากที่สุด เพื่อให้สามารถผลิตข้อมูลที่มีคุณภาพและครบถ้วน ทุกข้อมูลควรมีตัวเลขรองรับถ้าเป็นไปได้
     สำคัญมาก ไม่ต้องมีข้อความแนะนำหรือคำอธิบายใดๆ ไม่ต้องมีหัวข้อหรือ Bold text ที่ไม่ใช่ JSON
@@ -256,55 +256,42 @@ async function analyzeCompetitorsWithGemini(competitors: Competitor[], clientNam
 
     // Ask Gemini for JSON output with clear structure for UI rendering (in Thai) - FOCUS ON CLIENT
     const prompt = `
-You are a Thai marketing strategy expert with access to Google Search. Please create a SWOT analysis SPECIFICALLY FOR "${clientName}" using both competitor data and current market information from Google Search.
+คุณเป็นผู้เชี่ยวชาญด้านกลยุทธ์การตลาดไทย โปรดทำการวิเคราะห์ SWOT สำหรับ ${clientName} โดยใช้เฉพาะข้อมูลคู่แข่งที่ให้มาเป็นบริบท:
 
-**CRITICAL REQUIREMENTS:**
-- Search Google for latest information about "${clientName}" and market trends
-- Analyze ONLY "${clientName}" - NOT the competitors
-- Answer in Thai language ONLY - NO English words
-- Use competitor data only for comparison context
-- Focus on "${clientName}" strengths, weaknesses, opportunities, and threats
-- Include current market conditions and recent developments from Google Search
-
-Competitor data for context (DO NOT analyze these companies):
+รายชื่อคู่แข่งที่ต้องวิเคราะห์:
 ${JSON.stringify(competitorData, null, 2)}
 
-**TASK:** 
-1. Search Google for current information about "${clientName}", its market position, recent news, and industry trends
-2. Create SWOT analysis for "${clientName}" using Google Search results and competitor comparison
-3. Include recent developments, market conditions, and current business situation
+**ข้อกำหนดสำคัญ:**
+1. วิเคราะห์เฉพาะ ${clientName} เป็นหลัก
+2. ใช้เฉพาะข้อมูลคู่แข่งที่ระบุไว้ข้างต้นเท่านั้น ห้ามเพิ่มคู่แข่งอื่นๆ
+3. ตอบเป็นภาษาไทยทั้งหมด สามารถมีคำทับศัพท์ได้
+4. เปรียบเทียบ ${clientName} กับคู่แข่งที่มีในรายการเท่านั้น
+5. เน้นเนื้อหากระชับ ได้ใจความ ไม่ยาวจนเกินไป
 
-Return ONLY this JSON structure with Thai content:
+ต้องการผลลัพธ์เป็น JSON ที่ถูกต้องตามโครงสร้างต่อไปนี้:
 
 {
-  "strengths": ["${clientName} มีจุดแข็งในด้าน...", "${clientName} โดดเด่นเรื่อง..."],
-  "weaknesses": ["${clientName} มีจุดอ่อนในด้าน...", "${clientName} ควรปรับปรุง..."],
-  "shared_patterns": ["${clientName} อาจประสบปัญหา...", "อุปสรรคที่ ${clientName} อาจเจอ..."],
-  "market_gaps": ["${clientName} มีโอกาสในการ...", "ช่องทางที่ ${clientName} สามารถ..."],
-  "differentiation_strategies": ["${clientName} ควรแตกต่างด้วย...", "กลยุทธ์ที่ ${clientName} ควรใช้..."],
-  "summary": "${clientName} เป็นบริษัทที่มีจุดแข็ง... จุดอ่อน... โอกาส... และอุปสรรค..."
+  "strengths": ["จุดแข็งของ ${clientName} เป็นภาษาไทย", "จุดแข็งอื่นๆ เป็นภาษาไทย"],
+  "weaknesses": ["จุดอ่อนของ ${clientName} เป็นภาษาไทย", "จุดอ่อนอื่นๆ เป็นภาษาไทย"],
+  "shared_patterns": ["อุปสรรคของ ${clientName} เป็นภาษาไทย", "อุปสรรคอื่นๆ เป็นภาษาไทย"],
+  "market_gaps": ["โอกาสของ ${clientName} เป็นภาษาไทย", "โอกาสอื่นๆ เป็นภาษาไทย"],
+  "differentiation_strategies": ["กลยุทธ์ของ ${clientName} เป็นภาษาไทย", "กลยุทธ์อื่นๆ เป็นภาษาไทย"],
+  "summary": "บทสรุปการวิเคราะห์ SWOT ของ ${clientName} เป็นภาษาไทยทั้งหมด"
 }
 
-**STRICT RULES:**
-1. Write in Thai language ONLY
-2. Focus on "${clientName}" ONLY 
-3. Do NOT analyze competitors
-4. Return pure JSON without markdown
-
-ตอบเป็นภาษาไทยเท่านั้น วิเคราะห์เฉพาะ ${clientName} เท่านั้น`;
+**คำเตือน:**
+- ตอบเป็นภาษาไทยเท่านั้น
+- ห้ามใช้ข้อมูลคู่แข่งอื่นๆ ที่ไม่ได้ระบุไว้
+- ส่งเฉพาะ JSON ไม่ต้องมีคำอธิบายเพิ่มเติม
+- ห้ามใส่ markdown หรือ code block ใดๆ`;
 
     try {
-        console.log("[API /competitor-analysis] Calling Gemini with Google Grounding Search for SWOT analysis...");
-        const geminiResult = await callGeminiAPI(prompt, GEMINI_API_KEY, "gemini-2.5-flash", true);
+        console.log("[API /competitor-analysis] Calling Gemini for competitor analysis via HTTP API...");
+        const geminiResult = await callGeminiAPI(prompt, GEMINI_API_KEY, "gemini-2.5-flash");
         // Use new return shape: { text, groundingChunks }
         let cleanedText = geminiResult.text ? cleanGeminiResponse(geminiResult.text) : '';
         let groundingMetadata = { groundingChunks: geminiResult.groundingChunks };
         let rawGemini = geminiResult;
-        
-        console.log(`[SWOT Analysis] Google Grounding Search used: ${groundingMetadata.groundingChunks?.length || 0} sources found`);
-        if (groundingMetadata.groundingChunks?.length > 0) {
-            console.log("[SWOT Analysis] Grounding sources:", groundingMetadata.groundingChunks.slice(0, 3).map(chunk => chunk.web?.title || 'Unknown').join(', '));
-        }
         // No need to extract from candidates/content anymore
         
         // Try to parse JSON
@@ -331,14 +318,14 @@ Return ONLY this JSON structure with Thai content:
             let productFocus = 'N/A';
             try {
                 const { data: analysisRun } = await getSupabase()
-                    .from('AnalysisRun')
+                    .from('Clients')
                     .select('productFocus')
                     .eq('clientName', clientName)
                     .limit(1)
                     .single();
                 productFocus = analysisRun?.productFocus || 'N/A';
             } catch (e) {
-                console.log('[analyzeCompetitorsWithGemini] Could not get productFocus from AnalysisRun');
+                console.log('[analyzeCompetitorsWithGemini] Could not get productFocus from Clients');
             }
             
             await saveAnalysisToDatabase(clientName, productFocus, combinedResults);
@@ -354,7 +341,7 @@ Return ONLY this JSON structure with Thai content:
     }
 }
 
-// --- Helper: Find AnalysisRun and Competitors ---
+// --- Helper: Find Clients and Competitors ---
 async function findCompetitors(clientName: string, productFocus?: string, runId?: string) {
     // If runId is provided, use it directly
     if (runId) {
@@ -365,16 +352,16 @@ async function findCompetitors(clientName: string, productFocus?: string, runId?
         if (competitorError) throw new Error(competitorError.message || 'Failed to fetch competitor data');
         return { competitorsData, analysisRunId: runId };
     }
-    // Try to find AnalysisRun by clientName and productFocus (with trailing comma fallback)
+    // Try to find Clients by clientName and productFocus (with trailing comma fallback)
     let { data: analysisRunRows, error: analysisRunError } = await getSupabase()
-        .from('AnalysisRun')
+        .from('Clients')
         .select('id')
         .eq('clientName', clientName)
         .eq('productFocus', productFocus)
         .limit(1);
     if ((!analysisRunRows || analysisRunRows.length === 0) && productFocus) {
         ({ data: analysisRunRows, error: analysisRunError } = await getSupabase()
-            .from('AnalysisRun')
+            .from('Clients')
             .select('id')
             .eq('clientName', clientName)
             .eq('productFocus', `${productFocus},`)
@@ -392,7 +379,7 @@ async function findCompetitors(clientName: string, productFocus?: string, runId?
     // If no competitors found, try all runs for this client
     if (!competitorsData || competitorsData.length === 0) {
         const { data: allClientRuns, error: clientRunsError } = await getSupabase()
-            .from('AnalysisRun')
+            .from('Clients')
             .select('id')
             .eq('clientName', clientName);
         if (!clientRunsError && allClientRuns && allClientRuns.length > 0) {

@@ -28,7 +28,7 @@ async function ConfigurePageContent({
 }: {
   searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
 }) {
-  const params = searchParams
+  const params = await searchParams
   const clients = await getClients()
   const defaultClient = clients[0]
 
@@ -242,11 +242,13 @@ async function ConfigurePageContent({
                     productFocus={activeProductFocus || undefined}
                   />
 
-                  {/* Top Performing Ads Section */}
-                  <TopPerformingAds 
-                    ads={topPerformingAds}
-                    title="Top 10 Performing Ads"
-                  />
+                  {/* Top Performing Ads Section - Only show if there are ads */}
+                  {topPerformingAds.length > 0 && (
+                    <TopPerformingAds 
+                      ads={topPerformingAds}
+                      title="Top 10 Performing Ads"
+                    />
+                  )}
                 </TabsContent>
 
                 {/* Manage Feedback Sub-tab Content */}

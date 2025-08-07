@@ -9,7 +9,8 @@ export const fetchCache = 'force-cache';
 // In-memory cache for clients data
 let clientsCache: any = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 300000; // 5 minutes cache
+// const CACHE_TTL = 300000; // 5 minutes cache
+const CACHE_TTL = 0; // 5 minutes cache
 
 export async function GET() {
   const startTime = performance.now();
@@ -27,8 +28,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('Clients')
       .select('id, clientName, productFocus')
-      .order('clientName, productFocus')
-      .limit(50); // Reduced limit for faster queries
+      .order('clientName, productFocus');
 
     if (error) {
       console.error('Error fetching clients with product focus:', error);
