@@ -1,15 +1,15 @@
 "use client"
 
+// Performance optimization for client-side rendering
 import Link from "next/link"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ChevronUp, Plus, User, Bookmark, Settings, Upload, Image as ImageIcon, Sparkles, Grid3x3, Images, Home } from "lucide-react"
+import { ChevronUp, Plus, User, Bookmark, Settings, Upload, Image as ImageIcon, Sparkles, Images, Home } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { ImageGallery } from "@/components/image-gallery"
 import { ImageUpload } from "@/components/image-upload"
 import { PinterestResearch } from "@/components/pinterest-research"
 import { AIImageGenerator } from "@/components/ai-image-generator"
@@ -77,7 +77,6 @@ function MainContent() {
     try {
       router.push(`/configure?clientId=${productFocusId}`)
     } catch (error) {
-      console.error('Navigation error:', error)
       setIsNavigatingToConfigure(false)
     }
   }
@@ -92,7 +91,6 @@ function MainContent() {
       
       router.push(homeUrl)
     } catch (error) {
-      console.error('Navigation error:', error)
       setIsNavigatingToHome(false)
     }
   }
@@ -327,9 +325,5 @@ function MainContent() {
 }
 
 export default function ImagesPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <MainContent />
-    </Suspense>
-  )
+  return <MainContent />
 }

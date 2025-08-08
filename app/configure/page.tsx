@@ -1,7 +1,4 @@
-import { Suspense } from "react"
-import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { MainSidebar } from "@/components/main-sidebar"
@@ -23,6 +20,10 @@ import { getSupabase } from "@/lib/supabase/server"
 import Link from "next/link"
 
 const ITEMS_PER_PAGE = 5 // Define items per page
+
+// Add caching and performance optimization
+export const revalidate = 60 // Cache for 1 minute for faster updates
+export const dynamic = 'force-dynamic' // Ensure fresh data for user-specific content
 
 async function ConfigurePageContent({
   searchParams,
@@ -67,7 +68,6 @@ async function ConfigurePageContent({
     const currentClient = clientsWithProductFocus.find(c => c.clientName === activeClientName)
     if (currentClient && currentClient.productFocuses.length > 0) {
       activeProductFocus = currentClient.productFocuses[0].productFocus
-      console.log(`Auto-selected first product focus for ${activeClientName}: ${activeProductFocus}`)
     }
   }
 
@@ -85,11 +85,18 @@ async function ConfigurePageContent({
   let existingCompetitorSummary = ''
 
   if (activeClientId) {
-    // Execute all independent queries in parallel for better performance
+    // Execute ALL queries in parallel for maximum performance
+    const effectiveProductFocus = activeProductFocus || "default"
+    
     const [
       clientProfileResult,
       analysisRunResult,
       clientBusinessProfileResult,
+      researchMarketDataResult,
+      researchMarketDataByRunIdResult,
+      competitorsResult,
+      uniqueServicesResult,
+      feedbackDataResult,
     ] = await Promise.all([
       getClientProfile(activeClientId),
       getSupabase()
@@ -98,57 +105,29 @@ async function ConfigurePageContent({
         .eq('id', activeClientId)
         .single(),
       getClientBusinessProfile(activeClientId),
-    ])
-
-    initialClientProfileData = clientProfileResult
-    existingCompetitorSummary = analysisRunResult.data?.competitor_summary || ''
-    clientBusinessProfile = clientBusinessProfileResult
-    
-    // Use the actual productFocus or fall back to "default" only if really needed
-    const effectiveProductFocus = activeProductFocus || "default"
-    
-    // Get research market data with fallback - these need to be sequential as fallback depends on first result
-    if (activeClientName) {
-      researchMarketData = await getResearchMarketData(activeClientName, effectiveProductFocus)
-      console.log(`Fetching research data for: ${activeClientName} - ${effectiveProductFocus}`)
-    }
-    
-    // If no data found and we have activeClientId, try the fallback method
-    if (!researchMarketData && activeClientId) {
-      console.log(`No data found, trying fallback with activeClientId: ${activeClientId}`)
-      researchMarketData = await getResearchMarketDataByRunId(activeClientId)
-    }
-
-    // Execute remaining queries in parallel - these can run independently
-    const [
-      competitorsResult,
-      uniqueServicesResult,
-      topPerformingAdsResult,
-      feedbackDataResult,
-    ] = await Promise.all([
+      activeClientName ? getResearchMarketData(activeClientName, effectiveProductFocus).catch(() => null) : Promise.resolve(null),
+      getResearchMarketDataByRunId(activeClientId).catch(() => null),
       getCompetitors(activeClientId, selectedServiceFilter, currentPage, ITEMS_PER_PAGE),
       getUniqueServices(activeClientId),
-      getTopPerformingAdsByMetric('roas', initialClientProfileData?.ad_account_id || undefined, 10),
       getFeedback(activeClientName, activeProductFocus || undefined, 'all'),
     ])
 
+    // Assign results
+    initialClientProfileData = clientProfileResult
+    existingCompetitorSummary = analysisRunResult.data?.competitor_summary || ''
+    clientBusinessProfile = clientBusinessProfileResult
+    researchMarketData = researchMarketDataResult || researchMarketDataByRunIdResult
     competitorsData = competitorsResult.data
     totalCompetitorsCount = competitorsResult.count
     uniqueServices = uniqueServicesResult
-    topPerformingAds = topPerformingAdsResult
     feedbackData = feedbackDataResult
 
-    console.log("Ad Account ID:", initialClientProfileData?.ad_account_id)
-    console.log("Top Performing Ads fetched:", topPerformingAds.length)
-    console.log("Client Business Profile found:", !!clientBusinessProfile)
-    console.log("Feedback data fetched:", feedbackData.length)
-    console.log("Active Client ID in ConfigurePage:", activeClientId)
-    console.log("Active Product Focus:", activeProductFocus)
-    console.log("Client Business Profile:", clientBusinessProfile)
-    console.log("Research Market Data:", researchMarketData)
-    console.log("Competitors Data fetched in ConfigurePage:", competitorsData)
-    console.log("Total Competitors Count:", totalCompetitorsCount)
-    console.log("Unique Services fetched in ConfigurePage:", uniqueServices)
+    // Get top performing ads if we have ad account ID (this depends on client profile)
+    if (initialClientProfileData?.ad_account_id) {
+      topPerformingAds = await getTopPerformingAdsByMetric('roas', initialClientProfileData.ad_account_id, 10)
+    }
+
+
   }
 
   if (!initialClientProfileData) {
@@ -393,14 +372,10 @@ async function ConfigurePageContent({
   )
 }
 
-export default function ConfigurePage({
-  searchParams,
-}: {
+interface ConfigurePageProps {
   searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
-}) {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ConfigurePageContent searchParams={searchParams} />
-    </Suspense>
-  )
+}
+
+export default function ConfigurePage({ searchParams }: ConfigurePageProps) {
+  return <ConfigurePageContent searchParams={searchParams} />
 }
