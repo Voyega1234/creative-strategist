@@ -9,8 +9,7 @@ export const fetchCache = 'force-cache';
 // In-memory cache for clients data
 let clientsCache: any = null;
 let cacheTimestamp = 0;
-// const CACHE_TTL = 300000; // 5 minutes cache
-const CACHE_TTL = 0; // 5 minutes cache
+const CACHE_TTL = 60000; // 1 minute cache (was 0 - causing excessive calls)
 
 export async function GET() {
   const startTime = performance.now();
@@ -70,5 +69,21 @@ export async function GET() {
     const endTime = performance.now();
     console.error(`[clients-with-product-focus] Error after ${endTime - startTime}ms:`, error);
     return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
+  }
+}
+
+// POST method to clear cache
+export async function POST() {
+  try {
+    clientsCache = null;
+    cacheTimestamp = 0;
+    console.log('[clients-with-product-focus] Cache cleared successfully');
+    return NextResponse.json({ success: true, message: 'Cache cleared' });
+  } catch (error) {
+    console.error('[clients-with-product-focus] Error clearing cache:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Failed to clear cache' 
+    }, { status: 500 });
   }
 }

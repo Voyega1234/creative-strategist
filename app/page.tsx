@@ -223,6 +223,10 @@ function MainContent() {
   const [showProductDetails, setShowProductDetails] = useState(false)
   const [productDetails, setProductDetails] = useState("")
   
+  // Negative prompts state
+  const [negativePrompts, setNegativePrompts] = useState<string[]>([])
+  const [negativePromptInput, setNegativePromptInput] = useState("")
+  
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
@@ -378,18 +382,8 @@ function MainContent() {
     loadClients()
   }, [])
 
-  // Refresh clients when page becomes visible (handles returning from other pages)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // Page became visible, refresh clients to get any new ones
-        loadClients(true)
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [])
+  // Removed automatic refresh on visibility change to prevent excessive API calls
+  // The 1-minute cache will handle data freshness
 
   // Resolve client info from URL parameters and clients list
   useEffect(() => {
@@ -449,9 +443,9 @@ function MainContent() {
     console.log('[main-page] Resolved client info:', resolvedInfo)
     setResolvedClientInfo(resolvedInfo)
 
-    // If we couldn't resolve the client, try refreshing cache
-    if (urlClientId && resolvedInfo.clientName === "No Client Selected") {
-      console.log(`[main-page] ClientId ${urlClientId} not found in current clients, refreshing cache...`)
+    // If we couldn't resolve the client, try refreshing cache ONLY ONCE to prevent infinite loop
+    if (urlClientId && resolvedInfo.clientName === "No Client Selected" && !isLoadingClients) {
+      console.log(`[main-page] ClientId ${urlClientId} not found in current clients, refreshing cache once...`)
       console.log('[main-page] Current client IDs:', clients.map(c => `${c.clientName}:${c.id}`))
       loadClients(true)
     }
@@ -561,6 +555,7 @@ function MainContent() {
           productFocus: activeProductFocus,
           instructions: finalInstructions,
           productDetails: showProductDetails ? productDetails.trim() : undefined,
+          negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
           hasProductDetails: showProductDetails,
           model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
         }),
@@ -1425,6 +1420,76 @@ function MainContent() {
                       />
                       <p className="text-xs text-[#1d4ed8] mt-2">
                         💡 ข้อมูลนี้จะช่วยให้ AI สร้างไอเดียที่เหมาะกับสินค้าที่คุณต้องการมากขึ้น
+                      </p>
+                    </div>
+                    
+                    {/* Negative Prompts Section */}
+                    <div className="bg-[#fff3f3] border border-[#f1cccc] rounded-lg p-4">
+                      <Label className="text-sm font-medium text-[#dc2626] mb-2 block">
+                        Negative Prompts (สิ่งที่ไม่ต้องการ)
+                      </Label>
+                      
+                      {/* Input field to add new negative prompt */}
+                      <div className="flex gap-2 mb-3">
+                        <Input
+                          value={negativePromptInput}
+                          onChange={(e) => setNegativePromptInput(e.target.value)}
+                          placeholder="เช่น whey protein, gym supplements, ฟิตเนส"
+                          className="flex-1 border-[#f1cccc] focus:border-[#dc2626] focus-visible:ring-0"
+                          disabled={isGenerating}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && negativePromptInput.trim()) {
+                              const newPrompt = negativePromptInput.trim()
+                              if (!negativePrompts.includes(newPrompt)) {
+                                setNegativePrompts([...negativePrompts, newPrompt])
+                              }
+                              setNegativePromptInput("")
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="bg-[#dc2626] hover:bg-[#b91c1c] text-white"
+                          disabled={!negativePromptInput.trim() || isGenerating}
+                          onClick={() => {
+                            const newPrompt = negativePromptInput.trim()
+                            if (newPrompt && !negativePrompts.includes(newPrompt)) {
+                              setNegativePrompts([...negativePrompts, newPrompt])
+                              setNegativePromptInput("")
+                            }
+                          }}
+                        >
+                          เพิ่ม
+                        </Button>
+                      </div>
+                      
+                      {/* Bubble tags display */}
+                      {negativePrompts.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {negativePrompts.map((prompt, index) => (
+                            <div
+                              key={index}
+                              className="inline-flex items-center gap-1 bg-[#dc2626] text-white text-xs px-3 py-1 rounded-full"
+                            >
+                              <span>{prompt}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNegativePrompts(negativePrompts.filter((_, i) => i !== index))
+                                }}
+                                className="hover:bg-[#b91c1c] rounded-full p-0.5 ml-1"
+                                disabled={isGenerating}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-[#dc2626]">
+                        🚫 AI จะหลีกเลี่ยงการสร้างไอเดียที่เกี่ยวข้องกับคำเหล่านี้
                       </p>
                     </div>
                   </CollapsibleContent>
