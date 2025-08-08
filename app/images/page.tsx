@@ -2,7 +2,7 @@
 
 // Performance optimization for client-side rendering
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -325,5 +325,9 @@ function MainContent() {
 }
 
 export default function ImagesPage() {
-  return <MainContent />
+  return (
+    <Suspense fallback={<div className="flex min-h-screen bg-white" />}>
+      <MainContent />
+    </Suspense>
+  )
 }
