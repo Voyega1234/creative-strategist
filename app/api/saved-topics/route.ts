@@ -80,7 +80,7 @@ export async function GET(request: Request) {
         tags = item.tags ? JSON.parse(item.tags) : [];
       } catch (e) {
         // Fallback to comma-separated if not JSON
-        tags = item.tags ? item.tags.split(',').map(tag => tag.trim()) : [];
+        tags = item.tags ? item.tags.split(',').map((tag: string) => tag.trim()) : [];
       }
 
       // Parse bullets from JSON array format  
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
         bullets = item.copywriting_bullets ? JSON.parse(item.copywriting_bullets) : [];
       } catch (e) {
         // Fallback to newline-separated if not JSON
-        bullets = item.copywriting_bullets ? item.copywriting_bullets.split('\n').filter(b => b.trim()) : [];
+        bullets = item.copywriting_bullets ? item.copywriting_bullets.split('\n').filter((b: string) => b.trim()) : [];
       }
 
       return {
