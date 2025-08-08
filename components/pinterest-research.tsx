@@ -181,6 +181,26 @@ export function PinterestResearch({
       })
 
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+      
+      // First, clear the cache for this client/productFocus to get fresh data
+      try {
+        await fetch(`${baseUrl}/api/saved-topics`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'clearCache',
+            clientName: selectedClient.clientName,
+            productFocus: selectedProductFocus
+          }),
+        })
+        console.log('[Pinterest Research] Cache cleared for fresh data')
+      } catch (cacheError) {
+        console.warn('[Pinterest Research] Failed to clear cache:', cacheError)
+      }
+
+      // Now fetch fresh data
       const response = await fetch(`${baseUrl}/api/saved-topics?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
       const result = await response.json()
       
@@ -209,6 +229,9 @@ export function PinterestResearch({
 
     setIsGenerating(true)
     
+    // Clear existing gallery before new search
+    setGeneratedImages([])
+    
     const selectedClient = clients.find(c => c.id === selectedClientId)
     const selectedTopicData = savedTopics.find(topic => topic.title === selectedTopic)
     
@@ -222,18 +245,17 @@ export function PinterestResearch({
       created_at: new Date().toISOString()
     }
 
-    setGeneratedImages(prev => [newImage, ...prev])
+    setGeneratedImages([newImage])
 
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/generate-image`, {
+      const response = await fetch(`${baseUrl}/api/pinterest-research`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          reference_image_url: null,
           client_name: selectedClient?.clientName,
           product_focus: selectedProductFocus,
           selected_topics: selectedTopicData ? [selectedTopicData] : [],

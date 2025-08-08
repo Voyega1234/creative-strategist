@@ -334,7 +334,7 @@ export default function NewClientPage() {
             <div className="mb-8">
               <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
                 <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                  <div className="w-4 h-4 bg-[#7f56d9] rounded-sm"></div>
+                  <div className="w-4 h-4 bg-[#1d4ed8] rounded-sm"></div>
                 </div>
               </div>
               <h1 className="text-4xl font-bold mb-4 leading-tight">
@@ -384,7 +384,7 @@ export default function NewClientPage() {
 
             <div className="text-center mb-6">
               <div className="lg:hidden w-12 h-12 bg-[#dbeafe] rounded-xl flex items-center justify-center mx-auto mb-3">
-                <div className="w-6 h-6 bg-[#7f56d9] rounded-lg flex items-center justify-center">
+                <div className="w-6 h-6 bg-[#1d4ed8] rounded-lg flex items-center justify-center">
                   <div className="w-3 h-3 bg-white rounded-sm"></div>
                 </div>
               </div>
@@ -456,7 +456,7 @@ export default function NewClientPage() {
                             <Button
                               onClick={handleAnalyzeFacebook}
                               disabled={isAnalyzingFacebook || isCreating || !simpleFacebookUrl.trim()}
-                              className="bg-[#7f56d9] text-white hover:bg-[#063def] px-6 h-12 whitespace-nowrap"
+                              className="bg-[#1d4ed8] text-white hover:bg-[#063def] px-6 h-12 whitespace-nowrap"
                             >
                               {isAnalyzingFacebook ? (
                                 <>
@@ -515,7 +515,7 @@ export default function NewClientPage() {
                                   <Button
                                     onClick={handleAddCustomProduct}
                                     disabled={!customProductInput.trim()}
-                                    className="bg-[#7f56d9] text-white hover:bg-[#063def] px-4 h-10"
+                                    className="bg-[#1d4ed8] text-white hover:bg-[#063def] px-4 h-10"
                                   >
                                     <Plus className="w-4 h-4" />
                                   </Button>
@@ -547,7 +547,7 @@ export default function NewClientPage() {
                                           <div className="flex items-center space-x-3 flex-1">
                                             <div className={`w-4 h-4 rounded-full border-2 transition-colors ${
                                               selectedProduct === product
-                                                ? 'border-[#7f56d9] bg-[#7f56d9]'
+                                                ? 'border-[#7f56d9] bg-[#1d4ed8]'
                                                 : 'border-[#d1d1d6]'
                                             }`}>
                                               {selectedProduct === product && (
@@ -594,7 +594,7 @@ export default function NewClientPage() {
                             {/* Submit Button */}
                             <div className="pt-4">
                               <Button
-                                className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#7f56d9] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
+                                className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#1d4ed8] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
                                 onClick={handleCreateNewClient}
                                 disabled={isCreating || !selectedProduct}
                               >
@@ -779,7 +779,7 @@ export default function NewClientPage() {
 
                     <div className="pt-4">
                       <Button
-                        className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#7f56d9] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
+                        className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#1d4ed8] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
                         onClick={handleCreateNewClient}
                         disabled={isCreating}
                       >
@@ -838,10 +838,10 @@ export default function NewClientPage() {
                           href={`/configure?clientId=${client.id}`}
                           className="group"
                         >
-                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#7f56d9] hover:bg-[#eff6ff] transition-all duration-200 cursor-pointer">
+                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#1d4ed8] hover:bg-[#eff6ff] transition-all duration-200 cursor-pointer">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-[#dbeafe] rounded-lg flex items-center justify-center group-hover:bg-[#7f56d9] transition-colors">
-                                <div className="w-5 h-5 bg-[#7f56d9] rounded-sm group-hover:bg-white transition-colors"></div>
+                              <div className="w-10 h-10 bg-[#dbeafe] rounded-lg flex items-center justify-center group-hover:bg-[#1d4ed8] transition-colors">
+                                <div className="w-5 h-5 bg-[#1d4ed8] rounded-sm group-hover:bg-white transition-colors"></div>
                               </div>
                               <div>
                                 <h3 className="font-medium text-[#535862] group-hover:text-[#063def]">
@@ -850,7 +850,7 @@ export default function NewClientPage() {
                                 <p className="text-sm text-[#8e8e93]">ดูผลการวิเคราะห์</p>
                               </div>
                             </div>
-                            <ArrowRight className="h-5 w-5 text-[#8e8e93] group-hover:text-[#7f56d9] transition-colors" />
+                            <ArrowRight className="h-5 w-5 text-[#8e8e93] group-hover:text-[#1d4ed8] transition-colors" />
                           </div>
                         </Link>
                       ))}

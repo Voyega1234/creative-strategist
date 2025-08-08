@@ -16,7 +16,7 @@ export function LoadingPopup({ isOpen, message = "กำลังโหลด...
         <div className="flex flex-col items-center text-center space-y-6">
           {/* Loading Icon */}
           <div className="relative">
-            <RefreshCcw className="h-12 w-12 text-[#7f56d9] animate-spin" />
+            <RefreshCcw className="h-12 w-12 text-[#1d4ed8] animate-spin" />
           </div>
           
           {/* Loading Message */}

@@ -235,63 +235,18 @@ function MainContent() {
             </div>
 
             {/* Main Content Tabs */}
-            <Tabs defaultValue="reference" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
-                <TabsTrigger value="reference" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
-                  <Grid3x3 className="w-4 h-4" />
-                  รูปภาพอ้างอิง
-                </TabsTrigger>
-                <TabsTrigger value="upload" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
-                  <Upload className="w-4 h-4" />
-                  อัปโหลดรูปภาพ
-                </TabsTrigger>
+            <Tabs defaultValue="pinterest" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
                 <TabsTrigger value="pinterest" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Images className="w-4 h-4" />
                   ค้นหารูปภาพ Pinterest
                 </TabsTrigger>
                 <TabsTrigger value="generate" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Sparkles className="w-4 h-4" />
-                  สร้างภาพด้วย AI
+                  สร้างภาพและอัปโหลด
                 </TabsTrigger>
               </TabsList>
 
-              {/* Reference Images Tab */}
-              <TabsContent value="reference" className="space-y-6">
-                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
-                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                          <Grid3x3 className="w-5 h-5 text-white" />
-                        </div>
-                        รูปภาพอ้างอิงจากคลัง
-                      </h2>
-                      <p className="text-[#8e8e93] text-sm mt-1">รูปภาพโฆษณาที่เก็บไว้เป็นแรงบันดาลใจ</p>
-                    </div>
-                  </div>
-                  
-                  <ImageGallery />
-                </Card>
-              </TabsContent>
-
-              {/* Upload Images Tab */}
-              <TabsContent value="upload" className="space-y-6">
-                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
-                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                          <Upload className="w-5 h-5 text-white" />
-                        </div>
-                        อัปโหลดรูปภาพใหม่
-                      </h2>
-                      <p className="text-[#8e8e93] text-sm mt-1">เพิ่มรูปภาพโฆษณาใหม่เข้าสู่คลัง</p>
-                    </div>
-                  </div>
-                  
-                  <ImageUpload />
-                </Card>
-              </TabsContent>
 
               {/* Pinterest Search Tab */}
               <TabsContent value="pinterest" className="space-y-6">
@@ -314,8 +269,26 @@ function MainContent() {
                 </Card>
               </TabsContent>
 
-              {/* Generate Images Tab */}
+              {/* Generate and Upload Images Tab */}
               <TabsContent value="generate" className="space-y-6">
+                {/* Upload Images Section */}
+                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
+                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                          <Upload className="w-5 h-5 text-white" />
+                        </div>
+                        อัปโหลดรูปภาพอ้างอิง
+                      </h2>
+                      <p className="text-[#8e8e93] text-sm mt-1">เพิ่มรูปภาพโฆษณาใหม่เข้าสู่คลัง</p>
+                    </div>
+                  </div>
+                  
+                  <ImageUpload />
+                </Card>
+                
+                {/* AI Image Generation Section */}
                 <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
                   <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                     <div>

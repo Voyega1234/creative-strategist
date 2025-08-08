@@ -1,9 +1,10 @@
+import { Suspense } from "react"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { ConfigureSidebar } from "@/components/configure-sidebar"
+import { MainSidebar } from "@/components/main-sidebar"
 import { getCompetitors, getUniqueServices, getClientBusinessProfile, type Competitor } from "@/lib/data/competitors"
 import { ClientInformationSection } from "@/components/client-information-section"
 import { ResearchInsightsSection } from "@/components/research-insights-section"
@@ -30,6 +31,7 @@ async function ConfigurePageContent({
 }) {
   const params = await searchParams
   const clients = await getClients()
+  const clientsWithProductFocus = await getClientsWithProductFocus()
   const defaultClient = clients[0]
 
   // Prioritize clientName from URL params, then find matching client
@@ -61,8 +63,7 @@ async function ConfigurePageContent({
   // Get the first product focus for this client if not specified
   let activeProductFocus = params.productFocus || null
   if (!activeProductFocus && activeClientName && activeClientName !== "No Client Selected") {
-    // Get clients with product focuses to find the first one for this client
-    const clientsWithProductFocus = await getClientsWithProductFocus()
+    // Use already loaded clientsWithProductFocus to find the first one for this client
     const currentClient = clientsWithProductFocus.find(c => c.clientName === activeClientName)
     if (currentClient && currentClient.productFocuses.length > 0) {
       activeProductFocus = currentClient.productFocuses[0].productFocus
@@ -154,7 +155,12 @@ async function ConfigurePageContent({
     return (
       <div className="flex min-h-screen bg-white relative">
         <div className="flex w-full relative z-10">
-          <ConfigureSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
+          <MainSidebar 
+            clients={clientsWithProductFocus} 
+            activeClientName={activeClientName} 
+            activeProductFocus={activeProductFocus} 
+            activeClientId={activeClientId} 
+          />
           <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent">
             <div className="text-center text-[#535862]">
               Client profile not found for the selected client. Please ensure data is seeded or create a new client.
@@ -171,7 +177,12 @@ async function ConfigurePageContent({
   return (
     <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
       <div className="flex w-full relative z-10">
-        <ConfigureSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
+        <MainSidebar 
+          clients={clientsWithProductFocus} 
+          activeClientName={activeClientName} 
+          activeProductFocus={activeProductFocus} 
+          activeClientId={activeClientId} 
+        />
         <main className="flex-1 p-8 overflow-auto bg-transparent">
           {/* Main Tabs */}
           <Tabs defaultValue="client" className="w-full">
@@ -387,5 +398,9 @@ export default function ConfigurePage({
 }: {
   searchParams: { clientId?: string; productFocus?: string; serviceFilter?: string; page?: string; clientName?: string }
 }) {
-  return <ConfigurePageContent searchParams={searchParams} />
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ConfigurePageContent searchParams={searchParams} />
+    </Suspense>
+  )
 }
