@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
 import { getClients } from "@/lib/data/clients"
 import { useRouter } from "next/navigation"
+import { LoadingPopup } from "@/components/loading-popup"
 
 type FacebookAnalysisData = {
   clientName: string;
@@ -43,6 +44,7 @@ export default function NewClientPage() {
   const [facebookAnalysisError, setFacebookAnalysisError] = useState("")
   const [customProductInput, setCustomProductInput] = useState("")
   const [customProducts, setCustomProducts] = useState<string[]>([])
+  const [isNavigatingToClient, setIsNavigatingToClient] = useState(false)
   
   const router = useRouter()
 
@@ -313,6 +315,52 @@ export default function NewClientPage() {
     }
     
     setIsCreating(false)
+  }
+
+  const handleClientSelection = async (clientId: string) => {
+    setIsNavigatingToClient(true)
+    
+    const configureUrl = `/configure?clientId=${clientId}`
+    
+    try {
+      // Start timing for minimum loading display
+      const startTime = Date.now()
+      const minLoadingTime = 1500 // Minimum 1.5 second loading time for smooth UX
+      
+      // Preload the configure page data while showing loading popup
+      const response = await fetch(configureUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Cache-Control': 'no-cache',
+        },
+      })
+      
+      // Wait for both preload completion and minimum loading time
+      const elapsedTime = Date.now() - startTime
+      const remainingTime = Math.max(0, minLoadingTime - elapsedTime)
+      
+      if (response.ok && response.status === 200) {
+        // Ensure the response contains actual page content
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('text/html')) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime))
+          router.push(configureUrl)
+        } else {
+          throw new Error('Invalid response type')
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Error preloading configure page:', error)
+      // If preload fails, still respect minimum loading time before navigating
+      setTimeout(() => {
+        router.push(configureUrl)
+      }, 1500)
+    } finally {
+      setIsNavigatingToClient(false)
+    }
   }
 
   return (
@@ -833,26 +881,27 @@ export default function NewClientPage() {
                   {clients.length > 0 ? (
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {clients.map((client) => (
-                        <Link
+                        <button
                           key={client.id}
-                          href={`/configure?clientId=${client.id}`}
-                          className="group"
+                          onClick={() => handleClientSelection(client.id)}
+                          disabled={isNavigatingToClient}
+                          className="group w-full"
                         >
-                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#1d4ed8] hover:bg-[#eff6ff] transition-all duration-200 cursor-pointer">
+                          <div className="flex items-center justify-between p-4 border border-[#e4e7ec] rounded-lg hover:border-[#1d4ed8] hover:bg-[#eff6ff] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                             <div className="flex items-center space-x-3">
                               <div className="w-10 h-10 bg-[#dbeafe] rounded-lg flex items-center justify-center group-hover:bg-[#1d4ed8] transition-colors">
                                 <div className="w-5 h-5 bg-[#1d4ed8] rounded-sm group-hover:bg-white transition-colors"></div>
                               </div>
                               <div>
-                                <h3 className="font-medium text-[#535862] group-hover:text-[#063def]">
+                                <h3 className="font-medium text-[#535862] group-hover:text-[#063def] text-left">
                                   {client.clientName}
                                 </h3>
-                                <p className="text-sm text-[#8e8e93]">ดูผลการวิเคราะห์</p>
+                                <p className="text-sm text-[#8e8e93] text-left">ดูผลการวิเคราะห์</p>
                               </div>
                             </div>
                             <ArrowRight className="h-5 w-5 text-[#8e8e93] group-hover:text-[#1d4ed8] transition-colors" />
                           </div>
-                        </Link>
+                        </button>
                       ))}
                     </div>
                   ) : (
@@ -871,6 +920,11 @@ export default function NewClientPage() {
         </div>
       </div>
     </div>
+
+    <LoadingPopup
+      isOpen={isNavigatingToClient}
+      message="กำลังโหลดหน้าตั้งค่าและวิเคราะห์"
+    />
     </>
   )
 }

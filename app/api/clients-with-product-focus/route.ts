@@ -6,38 +6,57 @@ export const runtime = 'nodejs';
 export const revalidate = 0;
 export const fetchCache = 'force-cache';
 
-// In-memory cache for clients data
+// In-memory cache for clients data with better structure
 let clientsCache: any = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 60000; // 1 minute cache (was 0 - causing excessive calls)
+const CACHE_TTL = 60000; // 1 minute cache
+const MAX_CACHE_AGE = 300000; // 5 minutes max before forced refresh
 
 export async function GET() {
   const startTime = performance.now();
   
   try {
-    // Check cache first
-    if (clientsCache && (Date.now() - cacheTimestamp) < CACHE_TTL) {
-      console.log(`[clients-with-product-focus] Cache hit - ${performance.now() - startTime}ms`);
+    const cacheAge = Date.now() - cacheTimestamp;
+    
+    // Check cache first - return immediately if fresh
+    if (clientsCache && cacheAge < CACHE_TTL) {
+      console.log(`[clients-with-product-focus] Cache hit (${cacheAge}ms old) - ${performance.now() - startTime}ms`);
       return NextResponse.json(clientsCache);
+    }
+    
+    // Force refresh if cache is too old
+    if (cacheAge > MAX_CACHE_AGE) {
+      console.log(`[clients-with-product-focus] Cache expired (${cacheAge}ms old), forcing refresh`);
+      clientsCache = null;
     }
 
     const supabase = getSupabase();
     
-    // OPTIMIZED: Use direct aggregated query with distinct values
+    // OPTIMIZED: Use select with specific fields and better ordering
     const { data, error } = await supabase
       .from('Clients')
       .select('id, clientName, productFocus')
-      .order('clientName, productFocus');
+      .not('clientName', 'is', null)
+      .not('productFocus', 'is', null)
+      .order('clientName')
+      .order('productFocus');
 
     if (error) {
       console.error('Error fetching clients with product focus:', error);
       return NextResponse.json({ error: 'Failed to fetch clients' }, { status: 500 });
     }
 
-    // OPTIMIZED: Faster grouping algorithm
+    // OPTIMIZED: Ultra-fast grouping with Set for deduplication
     const clientsMap = new Map();
+    const seenProducts = new Set();
     
     data?.forEach(row => {
+      const productKey = `${row.clientName}:${row.productFocus}`;
+      
+      // Skip if we've already seen this client-product combination
+      if (seenProducts.has(productKey)) return;
+      seenProducts.add(productKey);
+      
       if (!clientsMap.has(row.clientName)) {
         clientsMap.set(row.clientName, {
           id: row.id,
@@ -46,13 +65,10 @@ export async function GET() {
         });
       }
       
-      const client = clientsMap.get(row.clientName);
-      if (!client.productFocuses.some((pf: any) => pf.productFocus === row.productFocus)) {
-        client.productFocuses.push({
-          id: row.id,
-          productFocus: row.productFocus
-        });
-      }
+      clientsMap.get(row.clientName).productFocuses.push({
+        id: row.id,
+        productFocus: row.productFocus
+      });
     });
 
     const clients = Array.from(clientsMap.values());
@@ -64,7 +80,15 @@ export async function GET() {
     const endTime = performance.now();
     console.log(`[clients-with-product-focus] Query completed in ${endTime - startTime}ms for ${clients.length} clients`);
     
-    return NextResponse.json(clients);
+    // Return with optimized headers for client-side caching
+    return NextResponse.json(clients, {
+      headers: {
+        'Cache-Control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=120',
+        'X-Query-Time': `${endTime - startTime}ms`,
+        'X-Client-Count': clients.length.toString(),
+        'X-Cache-Status': cacheAge > 0 ? 'refreshed' : 'fresh'
+      }
+    });
   } catch (error) {
     const endTime = performance.now();
     console.error(`[clients-with-product-focus] Error after ${endTime - startTime}ms:`, error);
