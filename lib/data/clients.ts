@@ -10,7 +10,11 @@ export type ClientListItem = {
 export async function getClients(): Promise<ClientListItem[]> {
   // Temporarily disabled caching
   const supabase = getSupabase()
-  const { data, error } = await supabase.from("Clients").select("id, clientName").order("clientName")
+  const { data, error } = await supabase
+    .from("Clients")
+    .select("id, clientName")
+    .not('clientName', 'is', null)
+    .order("clientName")
   
   if (error) {
     console.error("Error fetching clients:", error)
@@ -46,7 +50,10 @@ export async function getClientsWithProductFocus(): Promise<ClientWithProductFoc
   const { data, error } = await supabase
     .from("Clients")
     .select("id, clientName, productFocus")
+    .not('clientName', 'is', null)
+    .not('productFocus', 'is', null)
     .order("clientName")
+    .order("productFocus")
 
   if (error) {
     console.error("Error fetching clients with product focus:", error)
