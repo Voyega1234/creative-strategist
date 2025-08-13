@@ -479,10 +479,19 @@ function MainContent() {
     }
   }, [])
 
-  // Reset history when client changes
+  // Auto-load session history and latest ideas when client changes
   useEffect(() => {
     setSidebarHistory([])
     setIsHistoryOpen(false)
+    
+    // Automatically load session history for the new client
+    if (activeClientName && activeClientName !== "No Client Selected") {
+      console.log(`🔄 Auto-loading session history and latest ideas for client: ${activeClientName}`)
+      loadSidebarHistory()
+      
+      // Also automatically load the latest session ideas
+      loadLatestSessionIdeas()
+    }
   }, [activeClientName])
 
   // Lazy load saved titles - only fetch when results are shown
@@ -726,11 +735,43 @@ function MainContent() {
     }
   }
 
-  // Handle history dropdown toggle
+  // Handle history dropdown toggle - simplified since we auto-load
   const handleHistoryToggle = () => {
     setIsHistoryOpen(!isHistoryOpen)
-    if (!isHistoryOpen && sidebarHistory.length === 0) {
-      loadSidebarHistory()
+    // No need to load here since we auto-load when client changes
+  }
+
+  // Load the latest session ideas automatically
+  const loadLatestSessionIdeas = async () => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      return
+    }
+
+    try {
+      console.log(`🎯 Auto-loading latest session ideas for client: ${activeClientName}`)
+      
+      const result = await sessionManager.getHistory({
+        clientName: activeClientName,
+        limit: 1 // Get only the most recent session
+      })
+
+      if (result.success && result.sessions && result.sessions.length > 0) {
+        const latestSession = result.sessions[0]
+        console.log('📖 Found latest session:', latestSession)
+        
+        // Load the ideas from the latest session
+        loadSessionIdeas(latestSession)
+      } else {
+        console.log('ℹ️ No recent sessions found for client:', activeClientName)
+        // Keep the input form visible if no recent sessions
+        setShowResults(false)
+        setTopics([])
+      }
+    } catch (error) {
+      console.error('Error loading latest session ideas:', error)
+      // Keep the input form visible on error
+      setShowResults(false)
+      setTopics([])
     }
   }
 
@@ -1281,8 +1322,15 @@ function MainContent() {
                     className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                     disabled={isGenerating}
                   >
-                    <History className="mr-2 h-4 w-4" />
+                    {isLoadingSidebarHistory ? (
+                      <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <History className="mr-2 h-4 w-4" />
+                    )}
                     ประวัติการสร้าง
+                    {isLoadingSidebarHistory && (
+                      <span className="ml-1 text-xs text-[#1d4ed8]">(กำลังโหลด...)</span>
+                    )}
                     <ChevronUp
                       className={`ml-auto h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-0" : "rotate-180"}`}
                     />

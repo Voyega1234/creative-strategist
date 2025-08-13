@@ -3,11 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 
 // High-performance session history with pagination and caching
 export async function GET(request: NextRequest) {
+  const startTime = performance.now()
+  
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
     const clientName = searchParams.get('clientName')
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50) // Cap at 50 for performance
     const offset = parseInt(searchParams.get('offset') || '0')
 
     // SessionId is optional - if not provided, we'll get all sessions for the client
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Build optimized query - filter by client_name primarily
+    // Build optimized query - filter by client_name primarily for better performance
     let query = supabase
       .from('idea_sessions')
       .select(`
@@ -78,24 +80,36 @@ export async function GET(request: NextRequest) {
       n8nResponse: session.n8n_response
     }))
 
+    const endTime = performance.now()
+    const queryTime = endTime - startTime
+    
+    console.log(`📊 Session history query completed in ${queryTime.toFixed(2)}ms for client: ${clientName}, sessions: ${transformedSessions?.length || 0}`)
+
     // Add cache headers for performance
     const response = NextResponse.json({ 
       success: true, 
       sessions: transformedSessions,
       totalCount: count || 0,
-      hasMore: (offset + limit) < (count || 0)
+      hasMore: (offset + limit) < (count || 0),
+      queryTime: `${queryTime.toFixed(2)}ms`
     })
 
-    // Cache for 1 minute
-    response.headers.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=30')
+    // Optimized cache headers
+    response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120')
+    response.headers.set('X-Query-Time', `${queryTime.toFixed(2)}ms`)
+    response.headers.set('X-Client-Name', clientName || 'unknown')
     
     return response
 
   } catch (error) {
-    console.error('Session history error:', error)
+    const endTime = performance.now()
+    const errorTime = endTime - startTime
+    
+    console.error(`❌ Session history error after ${errorTime.toFixed(2)}ms:`, error)
     return NextResponse.json({ 
       success: false, 
-      error: 'Internal server error' 
+      error: 'Internal server error',
+      queryTime: `${errorTime.toFixed(2)}ms`
     }, { status: 500 })
   }
 }
