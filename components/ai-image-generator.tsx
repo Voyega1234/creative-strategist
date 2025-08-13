@@ -362,19 +362,77 @@ export function AIImageGenerator({
 
   const handleDownloadImage = async (imageUrl: string) => {
     try {
-      const response = await fetch(imageUrl)
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `generated-${Date.now()}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      console.log('🔄 Starting image download from:', imageUrl)
+      
+      // Try direct download first (for same-origin or CORS-enabled URLs)
+      try {
+        const response = await fetch(imageUrl, {
+          mode: 'cors',
+          headers: {
+            'Accept': 'image/*'
+          }
+        })
+        
+        if (response.ok) {
+          const blob = await response.blob()
+          const url = window.URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `ai-generated-${Date.now()}.png`
+          link.style.display = 'none'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+          console.log('✅ Image downloaded successfully')
+          return
+        }
+      } catch (corsError) {
+        console.log('⚠️ CORS download failed, trying proxy method:', corsError)
+      }
+
+      // Fallback: Use proxy API to download the image
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+      const proxyResponse = await fetch(`${baseUrl}/api/download-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image_url: imageUrl
+        }),
+      })
+
+      if (proxyResponse.ok) {
+        const blob = await proxyResponse.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `ai-generated-${Date.now()}.png`
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        console.log('✅ Image downloaded via proxy')
+      } else {
+        // Last fallback: Open in new tab
+        console.log('⚠️ Proxy download failed, opening in new tab')
+        window.open(imageUrl, '_blank')
+        alert('ไม่สามารถดาวน์โหลดอัตโนมัติได้ กรุณาคลิกขวาที่รูปภาพแล้วเลือก "บันทึกรูปภาพ"')
+      }
+      
     } catch (error) {
-      console.error('Error downloading image:', error)
-      alert('เกิดข้อผิดพลาดในการดาวน์โหลด')
+      console.error('❌ Error downloading image:', error)
+      
+      // Ultimate fallback: Open image in new tab
+      try {
+        window.open(imageUrl, '_blank')
+        alert('ไม่สามารถดาวน์โหลดอัตโนมัติได้ กรุณาคลิกขวาที่รูปภาพแล้วเลือก "บันทึกรูปภาพ"')
+      } catch (openError) {
+        console.error('❌ Cannot open image in new tab:', openError)
+        alert('เกิดข้อผิดพลาดในการดาวน์โหลด กรุณาคัดลอก URL แล้วเปิดในแท็บใหม่')
+      }
     }
   }
 

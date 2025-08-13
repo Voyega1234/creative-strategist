@@ -1644,6 +1644,8 @@ function MainContent() {
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
         idea={selectedDetailIdea}
+        clientName={activeClientName}
+        productFocus={activeProductFocus}
       />
       
       <SessionHistory
