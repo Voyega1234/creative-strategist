@@ -106,46 +106,32 @@ export function FeedbackForm({
                 <Button
                   type="button"
                   variant="outline"
-                  className={`flex-1 relative overflow-hidden transition-all duration-300 ease-in-out transform ${
+                  className={`flex-1 ${
                     vote === 'good' 
-                      ? 'bg-green-600 border-green-600 text-white shadow-lg scale-105 hover:bg-green-700 hover:border-green-700' 
-                      : 'border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:scale-102'
+                      ? 'bg-green-600 border-green-600 text-white hover:bg-green-700 hover:border-green-700' 
+                      : 'border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400'
                   }`}
                   onClick={() => setVote('good')}
                 >
-                  <div className={`flex items-center justify-center transition-all duration-200 ${
-                    vote === 'good' ? 'animate-pulse' : ''
-                  }`}>
-                    <ThumbsUp className={`w-4 h-4 mr-2 transition-all duration-200 ${
-                      vote === 'good' ? 'scale-110' : ''
-                    }`} />
+                  <div className="flex items-center justify-center">
+                    <ThumbsUp className="w-4 h-4 mr-2" />
                     Good
                   </div>
-                  {vote === 'good' && (
-                    <div className="absolute inset-0 bg-green-500 opacity-20 animate-ping" />
-                  )}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className={`flex-1 relative overflow-hidden transition-all duration-300 ease-in-out transform ${
+                  className={`flex-1 ${
                     vote === 'bad' 
-                      ? 'bg-red-600 border-red-600 text-white shadow-lg scale-105 hover:bg-red-700 hover:border-red-700' 
-                      : 'border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 hover:scale-102'
+                      ? 'bg-red-600 border-red-600 text-white hover:bg-red-700 hover:border-red-700' 
+                      : 'border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400'
                   }`}
                   onClick={() => setVote('bad')}
                 >
-                  <div className={`flex items-center justify-center transition-all duration-200 ${
-                    vote === 'bad' ? 'animate-pulse' : ''
-                  }`}>
-                    <ThumbsDown className={`w-4 h-4 mr-2 transition-all duration-200 ${
-                      vote === 'bad' ? 'scale-110' : ''
-                    }`} />
+                  <div className="flex items-center justify-center">
+                    <ThumbsDown className="w-4 h-4 mr-2" />
                     Bad
                   </div>
-                  {vote === 'bad' && (
-                    <div className="absolute inset-0 bg-red-500 opacity-20 animate-ping" />
-                  )}
                 </Button>
               </div>
             </div>
