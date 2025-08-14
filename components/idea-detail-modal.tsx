@@ -51,7 +51,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
 
       console.log('🔄 Generating Facebook post with payload:', payload)
 
-      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook-test/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
+      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
