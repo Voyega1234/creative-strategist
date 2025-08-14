@@ -79,13 +79,14 @@ type ClientWithProductFocus = {
 }
 
 // Memoized IdeaCard component for better performance
-const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFeedback }: {
+const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFeedback, onShare }: {
   topic: IdeaRecommendation;
   index: number;
   isSaved: boolean;
   onDetailClick: (topic: IdeaRecommendation) => void;
   onSaveClick: (topic: IdeaRecommendation, index: number) => void;
   onFeedback: (topic: IdeaRecommendation, type: 'good' | 'bad') => void;
+  onShare: (topic: IdeaRecommendation, index: number) => void;
 }) => {
   return (
     <Card className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
@@ -102,8 +103,21 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
         </div>
       )}
 
-      {/* Bookmark Button - Top Right */}
-      <div className="absolute top-3 right-3">
+      {/* Action Buttons - Top Right */}
+      <div className="absolute top-3 right-3 flex gap-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0 hover:bg-purple-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            onShare(topic, index)
+          }}
+          title="Share idea"
+        >
+          <Share2 className="h-4 w-4 text-gray-400 hover:text-purple-600" />
+        </Button>
+        
         <Button
           size="sm"
           variant="ghost"
@@ -220,6 +234,13 @@ function MainContent() {
   const [isNavigatingToImages, setIsNavigatingToImages] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
+  
+  // Individual idea share state
+  const [individualShareDialogOpen, setIndividualShareDialogOpen] = useState(false)
+  const [individualShareSuccess, setIndividualShareSuccess] = useState(false)
+  const [selectedShareIdea, setSelectedShareIdea] = useState<IdeaRecommendation | null>(null)
+  const [isIndividualSharing, setIsIndividualSharing] = useState(false)
+  const [currentShareUrl, setCurrentShareUrl] = useState<string | null>(null)
   
   // Product details state
   const [showProductDetails, setShowProductDetails] = useState(false)
@@ -1102,6 +1123,14 @@ function MainContent() {
     setDetailModalOpen(true)
   }, [])
 
+  // Handle individual idea sharing
+  const handleIndividualShare = useCallback((topic: IdeaRecommendation, index: number) => {
+    setSelectedShareIdea(topic)
+    setIndividualShareDialogOpen(true)
+    setIndividualShareSuccess(false)
+    setCurrentShareUrl(null) // Reset share URL for new idea
+  }, [])
+
   const handleShareIdeas = async () => {
     if (!topics.length) {
       alert('ไม่มีไอเดียที่จะแชร์')
@@ -1157,6 +1186,65 @@ function MainContent() {
       setIsSharing(false)
     }
   }
+
+  // Handle individual idea sharing - create link AND copy to clipboard in one action
+  const handleIndividualShareIdea = async () => {
+    if (!selectedShareIdea) {
+      alert('ไม่มีไอเดียที่เลือก')
+      return
+    }
+
+    if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
+      alert('กรุณาเลือกลูกค้าและ Product Focus ก่อนแชร์')
+      return
+    }
+
+    setIsIndividualSharing(true)
+    try {
+      const response = await fetch('/api/share-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ideas: [{
+            title: selectedShareIdea.title,
+            description: selectedShareIdea.description,
+            category: selectedShareIdea.category,
+            impact: selectedShareIdea.impact,
+            competitiveGap: selectedShareIdea.competitiveGap,
+            tags: selectedShareIdea.tags,
+            content_pillar: selectedShareIdea.content_pillar,
+            product_focus: selectedShareIdea.product_focus,
+            concept_idea: selectedShareIdea.concept_idea,
+            copywriting: selectedShareIdea.copywriting
+          }],
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+          instructions: `Individual idea: ${selectedShareIdea.title}`,
+          model: selectedModel
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        // Auto-copy the link to clipboard immediately
+        await navigator.clipboard.writeText(data.shareUrl)
+        setCurrentShareUrl(data.shareUrl)
+        setIndividualShareSuccess(true)
+        console.log('Share URL created and copied:', data.shareUrl)
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sharing individual idea:', error)
+      alert('เกิดข้อผิดพลาดในการสร้างลิงก์แชร์')
+    } finally {
+      setIsIndividualSharing(false)
+    }
+  }
+
 
   // Authentication function
   const handleLogin = async (e: React.FormEvent) => {
@@ -1787,6 +1875,7 @@ function MainContent() {
                         onDetailClick={handleDetailClick}
                         onSaveClick={handleSaveIdea}
                         onFeedback={handleFeedback}
+                        onShare={handleIndividualShare}
                       />
                     )
                   })}
@@ -1902,6 +1991,70 @@ function MainContent() {
                     Creating...
                   </>
                 ) : shareSuccess ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Link Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Link
+                  </>
+                )}
+              </Button>
+            </div>
+
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Individual Idea Share Dialog */}
+      <Dialog open={individualShareDialogOpen} onOpenChange={setIndividualShareDialogOpen}>
+        <DialogContent className="max-w-md bg-[#1a1a1a] text-white border-gray-700">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-base font-medium text-gray-300">Share</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Share Link Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-300">People with access</h3>
+              
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex-shrink-0"></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-white">Admin (you)</div>
+                </div>
+                <div className="text-sm text-gray-400 bg-gray-800 px-3 py-1 rounded-md">
+                  Owner
+                </div>
+              </div>
+            </div>
+
+            {/* Visibility Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-300">Visibility</h3>
+              
+              <div className="flex items-center space-x-2">
+                <Link2 className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-white">Anyone with the link</span>
+              </div>
+
+              <Button
+                onClick={handleIndividualShareIdea}
+                disabled={isIndividualSharing}
+                className={`w-full border ${
+                  individualShareSuccess 
+                    ? 'bg-green-600 hover:bg-green-700 border-green-500 text-white' 
+                    : 'bg-gray-800 hover:bg-gray-700 text-white border-gray-600'
+                }`}
+              >
+                {isIndividualSharing ? (
+                  <>
+                    <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : individualShareSuccess ? (
                   <>
                     <Check className="w-4 h-4 mr-2" />
                     Link Copied!

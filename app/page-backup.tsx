@@ -1,20 +1,22 @@
-'use client'
+"use client"
 
+import Image from "next/image"
+import Link from "next/link"
 import { useState, useEffect, Suspense } from "react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Textarea } from "@/components/ui/textarea"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, RefreshCcw, Bookmark, Sparkles, Share2, Copy, Link as LinkIcon, CheckSquare, ThumbsUp, ThumbsDown, X, MessageCircle, Save, Loader2, Info } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AppSidebar } from "@/components/layout/sidebar"
-import { AppHeader } from "@/components/layout/header"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ChevronUp, Plus, User, Bookmark, Settings, History, Sparkles, RefreshCcw, Share2, Copy, Zap } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
+import { SessionHistory } from "@/components/session-history"
+import { AITypingAnimation } from "@/components/ai-typing-animation"
 import { useSearchParams } from "next/navigation"
-import { Skeleton } from "@/components/ui/skeleton"
+import { sessionManager } from "@/lib/session-manager"
 
 // Types for ideas
 export interface IdeaRecommendation {
@@ -36,26 +38,69 @@ export interface IdeaRecommendation {
   };
 }
 
+type ClientWithProductFocus = {
+  id: string
+  clientName: string
+  productFocuses: Array<{
+    id: string
+    productFocus: string
+  }>
+}
+
 // Client component that uses useSearchParams
 function MainContent() {
   const searchParams = useSearchParams()
   const [topics, setTopics] = useState<IdeaRecommendation[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [instructions, setInstructions] = useState("")
-  const [clients, setClients] = useState<any[]>([])
-  const [savedIdeas, setSavedIdeas] = useState<Set<string>>(new Set())
-  const [isSaving, setIsSaving] = useState<Set<number>>(new Set())
-  const [savedTopics, setSavedTopics] = useState<IdeaRecommendation[]>([])
-  const [isLoadingSaved, setIsLoadingSaved] = useState(false)
-  const [activeTopicTab, setActiveTopicTab] = useState<"generate" | "saved">("generate")
+  const [clients, setClients] = useState<ClientWithProductFocus[]>([])
   const [feedbackFormOpen, setFeedbackFormOpen] = useState(false)
+  const [detailModalOpen, setDetailModalOpen] = useState(false)
+  const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [selectedModel] = useState<string>("Gemini 2.5 Pro")
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+  const [isSharing, setIsSharing] = useState(false)
+  const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [isBrandOpen, setIsBrandOpen] = useState(true)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+  const [sidebarHistory, setSidebarHistory] = useState<any[]>([])
+  const [isLoadingSidebarHistory, setIsLoadingSidebarHistory] = useState(false)
   
-  // New state for card selection and feedback
-  const [selectedCards, setSelectedCards] = useState<Set<number>>(new Set())
-  const [ideaFeedback, setIdeaFeedback] = useState<Record<number, {vote?: 'good' | 'bad', comment?: string, showTemplates?: boolean}>>({})
-  const [editingFeedbackId, setEditingFeedbackId] = useState<number | null>(null)
-  const [isRegeneratingIdea, setIsRegeneratingIdea] = useState(false)
-  const [regeneratingIdeaId, setRegeneratingIdeaId] = useState<number | null>(null)
+  // Get URL parameters
+  const activeProductFocus = searchParams.get('productFocus') || null
+  const activeClientName = searchParams.get('clientName') || "No Client Selected"
+  
+  // Model options and templates
+  const modelOptions = [
+    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
+    { id: "gpt-4o", name: "GPT-4o" }
+  ]
+  
+  const briefTemplates = [
+    {
+      id: "pain-point",
+      title: "เขียนคอนเทนต์โปรโมชั่น เพื่อกระตุ้นยอดขายแบบเพลิดเพลิน",
+      content: "I want you to generate ideas that directly address a key pain point of our target customers, and clearly show how our product or service uniquely solves this problem."
+    },
+    {
+      id: "brand-engagement",
+      title: "คิดไอเดียคอนเทนต์เพื่อสร้างการตอบรับแบรนด์",
+      content: "Please create ideas that leverage real or hypothetical testimonials—showing authentic customer voices and how their lives improved after using our product or service."
+    },
+    {
+      id: "content-planning",
+      title: "ช่วยวางแผนคอนเทนต์รายสัปดาห์ / อีสีลีพอด 5 วัน สำหรับสินค้าของ",
+      content: "Develop ideas that use 'before and after' scenarios, direct comparisons, or transformation stories to vividly illustrate the difference our product or service makes."
+    },
+    {
+      id: "tiktok-ideas",
+      title: "คิดไอเดียสมุด TikTok โปรโมชันแบรนด์สินค้า",
+      content: "I want you to come up with ideas that highlight unusual, overlooked, or unexpected ways our product or service can be used, providing fresh perspectives that competitors aren't talking about."
+    }
+  ]
 
   // Helper functions for localStorage
   const getStorageKey = (clientName: string, productFocus: string) => {
@@ -94,54 +139,37 @@ function MainContent() {
     }
     return []
   }
-  const [selectedIdea, setSelectedIdea] = useState<IdeaRecommendation | null>(null)
-  const [detailModalOpen, setDetailModalOpen] = useState(false)
-  const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
-  const [selectedModel, setSelectedModel] = useState<string>("Gemini 2.5 Pro")
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
-  const [showReturnNotification, setShowReturnNotification] = useState(false)
-  const [returnNotificationData, setReturnNotificationData] = useState<any>(null)
-  const [isSharing, setIsSharing] = useState(false)
-  const [showBriefTemplates, setShowBriefTemplates] = useState(false)
-  
-  const modelOptions = [
-    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-    { id: "gpt-4o", name: "GPT-4o" }
-  ]
-  
-  const briefTemplates = [
-    {
-      id: "pain-point",
-      title: "Pain Point Solution Focus",
-      content: "I want you to generate ideas that directly address a key pain point of our target customers, and clearly show how our product or service uniquely solves this problem."
-    },
-    {
-      id: "testimonial",
-      title: "Emotional Testimonial Leverage",
-      content: "Please create ideas that leverage real or hypothetical testimonials—showing authentic customer voices and how their lives improved after using our product or service."
-    },
-    {
-      id: "data-driven",
-      title: "Data-Driven Proof",
-      content: "Develop ideas that use surprising, compelling, or quantifiable proof points (e.g., statistics, results, or proprietary data) to demonstrate the effectiveness of our product or service in a way that builds trust."
-    },
-    {
-      id: "comparison",
-      title: "Comparison/Before-After Stories",
-      content: "Generate ideas that use 'before and after' scenarios, direct comparisons, or transformation stories to vividly illustrate the difference our product or service makes."
-    },
-    {
-      id: "unexpected",
-      title: "Unexpected Use Cases or Benefits",
-      content: "I want you to come up with ideas that highlight unusual, overlooked, or unexpected ways our product or service can be used, providing fresh perspectives that competitors aren't talking about."
+
+  // Load clients on mount
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const response = await fetch('/api/clients-with-product-focus')
+        if (response.ok) {
+          const clientsData = await response.json()
+          setClients(clientsData)
+        }
+      } catch (error) {
+        console.error('Error loading clients:', error)
+      }
     }
-  ]
-  
-  const activeClientId = searchParams.get('clientId') || null
-  const activeProductFocus = searchParams.get('productFocus') || null
-  const activeClientName = searchParams.get('clientName') || "No Client Selected"
+    loadClients()
+  }, [])
+
+  // Load ideas from localStorage when component mounts or client/product focus changes
+  useEffect(() => {
+    if (activeClientName && activeProductFocus && activeClientName !== 'No Client Selected') {
+      const storedIdeas = loadIdeasFromStorage(activeClientName, activeProductFocus)
+      if (storedIdeas.length > 0) {
+        setTopics(storedIdeas)
+        console.log(`Loaded ${storedIdeas.length} ideas from localStorage for ${activeClientName} - ${activeProductFocus}`)
+      } else {
+        setTopics([])
+      }
+    } else {
+      setTopics([])
+    }
+  }, [activeClientName, activeProductFocus])
 
   // Request notification permission on component mount
   useEffect(() => {
@@ -155,101 +183,21 @@ function MainContent() {
     }
   }, [])
 
-  // Load ideas from localStorage when component mounts or client/product focus changes
+  // Reset history when client changes
   useEffect(() => {
-    if (activeClientName && activeProductFocus && activeClientName !== 'No Client Selected') {
-      const storedIdeas = loadIdeasFromStorage(activeClientName, activeProductFocus)
-      if (storedIdeas.length > 0) {
-        setTopics(storedIdeas)
-        console.log(`Loaded ${storedIdeas.length} ideas from localStorage for ${activeClientName} - ${activeProductFocus}`)
-      } else {
-        // Clear topics if no stored ideas for this client/product focus
-        setTopics([])
-      }
-    } else {
-      // Clear topics if no valid client/product focus
-      setTopics([])
-    }
-  }, [activeClientName, activeProductFocus])
-
-  // Check for return notification on mount
-  useEffect(() => {
-    const checkReturnNotification = () => {
-      try {
-        const lastGeneration = localStorage.getItem('lastGenerationComplete')
-        if (lastGeneration) {
-          const data = JSON.parse(lastGeneration)
-          const now = Date.now()
-          const timeDiff = now - data.timestamp
-          
-          // Show return notification if:
-          // 1. Generation completed within last 30 minutes
-          // 2. Not already shown
-          // 3. Current page matches the generation context
-          if (
-            timeDiff < 30 * 60 * 1000 && // 30 minutes
-            !data.shown &&
-            data.clientName === activeClientName &&
-            data.productFocus === activeProductFocus
-          ) {
-            setReturnNotificationData(data)
-            setShowReturnNotification(true)
-            
-            // Mark as shown
-            localStorage.setItem('lastGenerationComplete', JSON.stringify({
-              ...data,
-              shown: true
-            }))
-          }
-        }
-      } catch (error) {
-        console.log('Error checking return notification:', error)
-      }
-    }
-
-    // Check after a small delay to ensure URL params are loaded
-    if (activeClientName && activeProductFocus) {
-      setTimeout(checkReturnNotification, 1000)
-    }
-  }, [activeClientName, activeProductFocus])
+    setSidebarHistory([])
+    setIsHistoryOpen(false)
+  }, [activeClientName])
 
   // Function to play notification sound
   const playNotificationSound = () => {
     try {
-      // Use the new notification sound file
       const audio = new Audio('/new-notification-011-364050.mp3')
-      audio.volume = 0.5 // Set volume to 50%
-      
-      // Log for debugging
-      console.log('Attempting to play notification sound...')
-      
+      audio.volume = 0.5
       audio.play().then(() => {
         console.log('Notification sound played successfully')
       }).catch(error => {
         console.error('Could not play notification sound:', error)
-        // Fallback to Web Audio API beep
-        try {
-          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-          const oscillator = audioContext.createOscillator()
-          const gainNode = audioContext.createGain()
-          
-          oscillator.connect(gainNode)
-          gainNode.connect(audioContext.destination)
-          
-          oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
-          oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1)
-          oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2)
-          
-          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
-          
-          oscillator.start(audioContext.currentTime)
-          oscillator.stop(audioContext.currentTime + 0.3)
-          
-          console.log('Played fallback beep sound')
-        } catch (fallbackError) {
-          console.error('Fallback sound also failed:', fallbackError)
-        }
       })
     } catch (error) {
       console.error('Could not initialize notification sound:', error)
@@ -261,7 +209,7 @@ function MainContent() {
     if (notificationPermission === 'granted') {
       const notification = new Notification(title, {
         body: message,
-        icon: '/favicon.ico', // You can add a custom icon
+        icon: '/favicon.ico',
         badge: '/favicon.ico',
         tag: 'idea-generation',
         requireInteraction: true,
@@ -273,45 +221,9 @@ function MainContent() {
         notification.close()
       }
 
-      // Auto close after 10 seconds
       setTimeout(() => notification.close(), 10000)
     }
   }
-
-  // Load clients on mount
-  useEffect(() => {
-    const loadClients = async () => {
-      try {
-        const response = await fetch('/api/clients')
-        if (response.ok) {
-          const clientsData = await response.json()
-          setClients(clientsData)
-        }
-      } catch (error) {
-        console.error('Error loading clients:', error)
-      }
-    }
-    loadClients()
-  }, [])
-
-  // Load saved ideas when client/product focus changes
-  useEffect(() => {
-    const loadSavedIdeas = async () => {
-      if (activeClientName && activeClientName !== "No Client Selected" && activeProductFocus) {
-        try {
-          const response = await fetch(`/api/save-idea?clientName=${encodeURIComponent(activeClientName)}&productFocus=${encodeURIComponent(activeProductFocus)}`)
-          const data = await response.json()
-          
-          if (data.success) {
-            setSavedIdeas(new Set(data.savedTitles))
-          }
-        } catch (error) {
-          console.error('Error loading saved ideas:', error)
-        }
-      }
-    }
-    loadSavedIdeas()
-  }, [activeClientName, activeProductFocus])
 
   const handleGenerateTopics = async () => {
     if (!activeClientName || activeClientName === "No Client Selected") {
@@ -326,6 +238,13 @@ function MainContent() {
 
     setIsGenerating(true)
     try {
+      // Use template content if template is selected, otherwise use user input
+      const selectedTemplateContent = selectedTemplate 
+        ? briefTemplates.find(t => t.id === selectedTemplate)?.content 
+        : undefined
+      
+      const finalInstructions = selectedTemplateContent || instructions.trim() || undefined
+
       const response = await fetch('/api/generate-ideas', {
         method: 'POST',
         headers: {
@@ -334,7 +253,7 @@ function MainContent() {
         body: JSON.stringify({
           clientName: activeClientName,
           productFocus: activeProductFocus,
-          instructions: instructions.trim() || undefined,
+          instructions: finalInstructions,
           model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
         }),
       })
@@ -343,14 +262,39 @@ function MainContent() {
       
       if (data.success) {
         setTopics(data.ideas)
+        setShowResults(true)
         // Save ideas to localStorage
         if (activeClientName && activeProductFocus) {
           saveIdeasToStorage(data.ideas, activeClientName, activeProductFocus)
         }
-        // Clear saved ideas state when new topics are generated
-        setSavedIdeas(new Set())
-        // Load saved ideas for new topics
-        setTimeout(loadSavedIdeas, 100)
+        
+        // Save to database session history (non-blocking)
+        if (activeClientName && activeProductFocus) {
+          console.log('🎯 Initiating session save for:', {
+            activeClientName,
+            activeProductFocus,
+            hasData: !!data,
+            ideasCount: data?.ideas?.length || 0,
+            finalInstructions,
+            selectedTemplate,
+            selectedModel
+          })
+          
+          sessionManager.saveSession({
+            clientName: activeClientName,
+            productFocus: activeProductFocus,
+            n8nResponse: data,
+            userInput: finalInstructions,
+            selectedTemplate: selectedTemplate || undefined,
+            modelUsed: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro"
+          }).then(success => {
+            console.log(success ? '✅ Session save initiated successfully' : '❌ Session save failed')
+          }).catch(error => {
+            console.error('❌ Session save failed (non-critical):', error)
+          })
+        }
+        
+        // Ideas generated successfully
         
         // Show completion notifications
         const ideaCount = data.ideas.length
@@ -360,15 +304,6 @@ function MainContent() {
           `สร้างไอเดีย ${ideaCount} ข้อสำเร็จแล้วสำหรับ ${activeClientName}`,
           ideaCount
         )
-        
-        // Store completion info in localStorage for return notification
-        localStorage.setItem('lastGenerationComplete', JSON.stringify({
-          timestamp: Date.now(),
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          ideaCount,
-          shown: false
-        }))
       } else {
         alert(`เกิดข้อผิดพลาด: ${data.error}`)
       }
@@ -380,251 +315,106 @@ function MainContent() {
     }
   }
 
-  const loadSavedIdeas = async () => {
-    if (activeClientName && activeClientName !== "No Client Selected" && activeProductFocus) {
-      try {
-        const response = await fetch(`/api/save-idea?clientName=${encodeURIComponent(activeClientName)}&productFocus=${encodeURIComponent(activeProductFocus)}`)
-        const data = await response.json()
-        
-        if (data.success) {
-          setSavedIdeas(new Set(data.savedTitles))
-        }
-      } catch (error) {
-        console.error('Error loading saved ideas:', error)
-      }
-    }
-  }
-
-  const handleSaveIdea = async (topic: IdeaRecommendation, index: number) => {
-    if (!activeClientName || !activeProductFocus) {
-      alert('กรุณาเลือกลูกค้าและ Product Focus ก่อน')
-      return
-    }
-
-    const isSaved = savedIdeas.has(topic.title)
-    const action = isSaved ? 'unsave' : 'save'
-
-    // Add to saving state
-    setIsSaving(prev => new Set(prev.add(index)))
-
-    try {
-      const response = await fetch('/api/save-idea', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          idea: topic,
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          action
-        }),
-      })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        if (action === 'save') {
-          setSavedIdeas(prev => new Set(prev.add(topic.title)))
-          // Show success message (you can replace with toast)
-          console.log('Idea saved successfully!')
-        } else {
-          setSavedIdeas(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(topic.title)
-            return newSet
-          })
-          console.log('Idea removed successfully!')
-        }
-      } else {
-        alert(`เกิดข้อผิดพลาด: ${data.error}`)
-      }
-    } catch (error) {
-      console.error('Error saving idea:', error)
-      alert('เกิดข้อผิดพลาดในการบันทึก กรุณาลองใหม่อีกครั้ง')
-    } finally {
-      // Remove from saving state
-      setIsSaving(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(index)
-        return newSet
-      })
-    }
-  }
-
-  const handleOpenFeedback = (idea: IdeaRecommendation) => {
-    setSelectedIdea(idea)
-    setFeedbackFormOpen(true)
-  }
-
-  const handleCloseFeedback = () => {
-    setFeedbackFormOpen(false)
-    setSelectedIdea(null)
-  }
-
-  const handleOpenDetail = (idea: IdeaRecommendation) => {
-    setSelectedDetailIdea(idea)
-    setDetailModalOpen(true)
-  }
-
-  const handleCloseDetail = () => {
-    setDetailModalOpen(false)
-    setSelectedDetailIdea(null)
-  }
-
   const handleTemplateSelect = (templateId: string) => {
     const template = briefTemplates.find(t => t.id === templateId)
     if (template) {
-      setInstructions(template.content)
-      setSelectedTemplate(templateId)
-    }
-  }
-
-  // Feedback templates
-  const FEEDBACK_TEMPLATES = {
-    good: [
-      "Great concept! Very relevant to our target audience.",
-      "This has strong potential for engagement.",
-      "Excellent alignment with brand values.",
-      "Clear competitive advantage identified."
-    ],
-    bad: [
-      "Doesn't align with our brand positioning.",
-      "Too similar to existing competitor content.",
-      "Target audience mismatch.",
-      "Execution complexity too high."
-    ]
-  }
-
-  // Card click handler - open modal
-  const handleCardClick = (idea: IdeaRecommendation, index: number) => {
-    setSelectedDetailIdea(idea)
-    setDetailModalOpen(true)
-  }
-
-
-  // Feedback functions
-  const handleFeedbackVote = (index: number, vote: 'good' | 'bad') => {
-    setIdeaFeedback(prev => ({
-      ...prev,
-      [index]: {
-        ...prev[index],
-        vote,
-        showTemplates: true
-      }
-    }))
-  }
-
-  const handleFeedbackComment = (index: number, comment: string) => {
-    setIdeaFeedback(prev => ({
-      ...prev,
-      [index]: {
-        ...prev[index],
-        comment
-      }
-    }))
-  }
-
-  const toggleFeedbackEditing = (index: number | null) => {
-    setEditingFeedbackId(index)
-  }
-
-  const toggleTemplates = (index: number, show: boolean) => {
-    setIdeaFeedback(prev => ({
-      ...prev,
-      [index]: {
-        ...prev[index],
-        showTemplates: show
-      }
-    }))
-  }
-
-  const applyTemplate = (index: number, template: string) => {
-    setIdeaFeedback(prev => ({
-      ...prev,
-      [index]: {
-        ...prev[index],
-        comment: template,
-        showTemplates: false
-      }
-    }))
-    setEditingFeedbackId(index)
-  }
-
-  const saveFeedbackToDatabase = async () => {
-    // Placeholder function - implement actual database saving logic here
-    console.log('Saving feedback to database:', ideaFeedback)
-    alert('Feedback saved!')
-    setEditingFeedbackId(null)
-  }
-
-  const regenerateIdea = async (index: number) => {
-    setIsRegeneratingIdea(true)
-    setRegeneratingIdeaId(index)
-    
-    try {
-      // Placeholder for regeneration logic
-      setTimeout(() => {
-        alert('Idea regenerated!')
-        setIsRegeneratingIdea(false)
-        setRegeneratingIdeaId(null)
-      }, 2000)
-    } catch (error) {
-      console.error('Error regenerating idea:', error)
-      setIsRegeneratingIdea(false)
-      setRegeneratingIdeaId(null)
-    }
-  }
-
-  const handleOpenDetails = (idea: IdeaRecommendation, e: React.MouseEvent, index?: number) => {
-    e.stopPropagation()
-    // Placeholder for opening details dialog
-    console.log('Opening details for idea:', idea.title, 'at index:', index)
-  }
-
-  // Clear template selection when user manually edits instructions
-  const handleInstructionsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInstructions(e.target.value)
-    // Clear selected template if user manually edits
-    if (selectedTemplate) {
-      const selectedTemplateContent = briefTemplates.find(t => t.id === selectedTemplate)?.content
-      if (e.target.value !== selectedTemplateContent) {
+      if (selectedTemplate === templateId) {
+        // If already selected, deselect it
         setSelectedTemplate(null)
+      } else {
+        // Select the new template and clear custom instructions
+        setInstructions("")
+        setSelectedTemplate(templateId)
       }
     }
   }
 
-  const loadSavedTopics = async () => {
-    if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
-      setSavedTopics([])
+  // Load sidebar history for current client
+  const loadSidebarHistory = async () => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      setSidebarHistory([])
       return
     }
-    
-    setIsLoadingSaved(true)
+
+    setIsLoadingSidebarHistory(true)
     try {
-      const response = await fetch(`/api/saved-topics?clientName=${encodeURIComponent(activeClientName)}&productFocus=${encodeURIComponent(activeProductFocus)}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        setSavedTopics(data.savedTopics)
-      } else {
-        console.error('Error loading saved topics:', data.error)
+      const result = await sessionManager.getHistory({
+        clientName: activeClientName,
+        limit: 10 // Show last 10 sessions in dropdown
+      })
+
+      if (result.success) {
+        console.log('📋 Session history loaded:', result.sessions)
+        setSidebarHistory(result.sessions || [])
       }
     } catch (error) {
-      console.error('Error loading saved topics:', error)
+      console.error('Error loading sidebar history:', error)
     } finally {
-      setIsLoadingSaved(false)
+      setIsLoadingSidebarHistory(false)
     }
   }
 
-  // Load saved topics when tab is switched to saved or when client/product changes
-  useEffect(() => {
-    if (activeTopicTab === "saved") {
-      loadSavedTopics()
+  // Handle history dropdown toggle
+  const handleHistoryToggle = () => {
+    setIsHistoryOpen(!isHistoryOpen)
+    if (!isHistoryOpen && sidebarHistory.length === 0) {
+      loadSidebarHistory()
     }
-  }, [activeTopicTab, activeClientName, activeProductFocus])
+  }
 
-  // Sharing functions
+  // Load a specific session and show its ideas
+  const loadSessionIdeas = async (session: any) => {
+    try {
+      console.log('🔄 Loading session ideas:', session)
+      
+      // Set the complete ideas from the session's n8nResponse
+      if (session.n8nResponse?.ideas && session.n8nResponse.ideas.length > 0) {
+        setTopics(session.n8nResponse.ideas)
+        setShowResults(true)
+        
+        // Also update form state to match the session
+        setInstructions(session.userInput || "")
+        if (session.selectedTemplate) {
+          setSelectedTemplate(session.selectedTemplate)
+        }
+        
+        console.log('✅ Session ideas loaded:', session.n8nResponse.ideas.length, 'complete ideas with all fields')
+      } else if (session.ideas && session.ideas.length > 0) {
+        // Fallback to the simplified ideas if n8nResponse is not available
+        setTopics(session.ideas)
+        setShowResults(true)
+        console.log('✅ Session ideas loaded:', session.ideas.length, 'simplified ideas')
+      } else {
+        console.warn('⚠️ No ideas found in session:', session)
+      }
+    } catch (error) {
+      console.error('Error loading session ideas:', error)
+    }
+  }
+
+  const handleCopyAllIdeas = () => {
+    if (!topics.length) {
+      alert('ไม่มีไอเดียที่จะคัดลอก')
+      return
+    }
+
+    const formattedText = `Creative Ideas - ${activeClientName}\nProduct Focus: ${activeProductFocus}\nCreated: ${new Date().toLocaleDateString('th-TH')}\nModel: ${selectedModel}\n${instructions ? `Instructions: ${instructions}\n` : ''}\n` +
+      topics.map((idea, index) => 
+        `${index + 1}. ${idea.concept_idea}\n` +
+        `Impact: ${idea.impact}\n` +
+        `Description: ${idea.description}\n` +
+        `Tags: ${idea.tags.join(', ')}\n` +
+        `Content Pillar: ${idea.content_pillar}\n` +
+        `Headline: ${idea.copywriting.headline}\n` +
+        `CTA: ${idea.copywriting.cta}\n` +
+        `Competitive Gap: ${idea.competitiveGap}\n` +
+        `---\n`
+      ).join('\n')
+
+    navigator.clipboard.writeText(formattedText)
+    alert('คัดลอกไอเดียทั้งหมดแล้ว')
+  }
+
   const handleShareIdeas = async () => {
     if (!topics.length) {
       alert('ไม่มีไอเดียที่จะแชร์')
@@ -655,7 +445,6 @@ function MainContent() {
       const data = await response.json()
       
       if (data.success) {
-        // Copy URL to clipboard
         await navigator.clipboard.writeText(data.shareUrl)
         alert(`✅ ลิงก์แชร์ถูกสร้างและคัดลอกแล้ว!\n\n${data.shareUrl}`)
       } else {
@@ -669,696 +458,361 @@ function MainContent() {
     }
   }
 
-  const handleCopyAllIdeas = () => {
-    if (!topics.length) {
-      alert('ไม่มีไอเดียที่จะคัดลอก')
-      return
-    }
-
-    const formattedText = `Creative Ideas - ${activeClientName}\nProduct Focus: ${activeProductFocus}\nCreated: ${new Date().toLocaleDateString('th-TH')}\nModel: ${selectedModel}\n${instructions ? `Instructions: ${instructions}\n` : ''}\n` +
-      topics.map((idea, index) => 
-        `${index + 1}. ${idea.concept_idea}\n` +
-        `Impact: ${idea.impact}\n` +
-        `Description: ${idea.description}\n` +
-        `Tags: ${idea.tags.join(', ')}\n` +
-        `Content Pillar: ${idea.content_pillar}\n` +
-        `Headline: ${idea.copywriting.headline}\n` +
-        `CTA: ${idea.copywriting.cta}\n` +
-        `Competitive Gap: ${idea.competitiveGap}\n` +
-        `---\n`
-      ).join('\n')
-
-    navigator.clipboard.writeText(formattedText)
-    alert('คัดลอกไอเดียทั้งหมดแล้ว')
-  }
-
-  const handleShareSingleIdea = async (idea: IdeaRecommendation) => {
-    if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
-      alert('กรุณาเลือกลูกค้าและ Product Focus ก่อนแชร์')
-      return
-    }
-
-    setIsSharing(true)
-    try {
-      const response = await fetch('/api/share-ideas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ideas: [idea],
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          instructions: instructions.trim() || null,
-          model: selectedModel
-        }),
-      })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        await navigator.clipboard.writeText(data.shareUrl)
-        alert(`✅ ไอเดีย "${idea.concept_idea}" ถูกแชร์แล้ว!\n\nลิงก์ถูกคัดลอกไปยังคลิปบอร์ด:\n${data.shareUrl}`)
-      } else {
-        alert(`เกิดข้อผิดพลาด: ${data.error}`)
-      }
-    } catch (error) {
-      console.error('Error sharing single idea:', error)
-      alert('เกิดข้อผิดพลาดในการแชร์ไอเดีย')
-    } finally {
-      setIsSharing(false)
-    }
-  }
-
-  const handleCopySingleIdea = (idea: IdeaRecommendation) => {
-    const formattedText = `${idea.concept_idea}\n` +
-      `Impact: ${idea.impact}\n` +
-      `${idea.description}\n` +
-      `Tags: ${idea.tags.join(', ')}\n` +
-      `Content Pillar: ${idea.content_pillar}\n` +
-      `Headline: ${idea.copywriting.headline}\n` +
-      `CTA: ${idea.copywriting.cta}\n` +
-      `Gap: ${idea.competitiveGap}\n` +
-      `\nClient: ${activeClientName}\nProduct Focus: ${activeProductFocus}`
-
-    navigator.clipboard.writeText(formattedText)
-    alert('คัดลอกไอเดียแล้ว')
-  }
-
-  const renderTabButtons = (refreshAction?: () => void, isLoading?: boolean) => (
-    <div className="relative flex justify-center mb-4">
-      <div className="flex bg-[#f8f9fa] border border-[#d1d1d6] rounded-xl p-1 shadow-sm">
-        <Button
-          variant="ghost"
-          className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
-            activeTopicTab === "generate" 
-              ? "bg-white text-black shadow-sm border border-white" 
-              : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
-          }`}
-          onClick={() => setActiveTopicTab("generate")}
-        >
-          Generate Topic
-        </Button>
-        <Button
-          variant="ghost"
-          className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${
-            activeTopicTab === "saved" 
-              ? "bg-white text-black shadow-sm border border-white" 
-              : "bg-transparent text-[#666666] hover:text-black hover:bg-white/50"
-          }`}
-          onClick={() => setActiveTopicTab("saved")}
-        >
-          Saved Topic
-        </Button>
-      </div>
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="absolute right-0 text-[#8e8e93] hover:text-black"
-        onClick={refreshAction}
-        disabled={isLoading}
-      >
-        <RefreshCcw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
-        <span className="sr-only">Refresh</span>
-      </Button>
-    </div>
-  )
-
-
-
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[280px_1fr] bg-white">
-      <AppSidebar activeClientId={activeClientId} activeClientName={activeClientName} activeProductFocus={activeProductFocus} />
-      <div className="flex flex-col">
-        <AppHeader activeClientId={activeClientId} activeProductFocus={activeProductFocus} activeClientName={activeClientName} />
-        <main className="flex-1 p-6 overflow-auto">
-
-          {/* Product Focus Selection Guide */}
-          {(!activeProductFocus || activeClientName === "No Client Selected") && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center mt-0.5">
-                  <span className="text-white text-sm font-bold">!</span>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-amber-800 font-medium mb-1">เริ่มต้นสร้างไอเดีย</h3>
-                  <div className="text-sm text-amber-700 space-y-1">
-                    {activeClientName === "No Client Selected" ? (
-                      <p>1. เลือกลูกค้าจากแถบด้านซ้าย</p>
+    <div className="flex min-h-screen bg-white relative">
+      
+      <div className="flex w-full relative z-10">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist</h1>
+            <nav className="space-y-2">
+              <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    แบรนด์
+                    <ChevronUp
+                      className={`ml-auto h-4 w-4 transition-transform ${isBrandOpen ? "rotate-0" : "rotate-180"}`}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-1 pl-8 pt-2">
+                  <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                    {(() => {
+                      // Reorder clients: selected client first, then others
+                      const activeClient = clients.find(client => client.clientName === activeClientName)
+                      const otherClients = clients.filter(client => client.clientName !== activeClientName)
+                      const reorderedClients = activeClient ? [activeClient, ...otherClients] : clients
+                      
+                      return reorderedClients.map((client) => (
+                        <div key={client.id} className="space-y-1">
+                          {/* Client name - always show, highlight if active */}
+                          <Link
+                            href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
+                            className={`block text-sm py-1 px-2 rounded-md font-medium ${
+                              client.clientName === activeClientName
+                                ? 'text-[#6941c6] bg-[#e9d7fe]'
+                                : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                            }`}
+                          >
+                            {client.clientName}
+                          </Link>
+                          
+                          {/* Show product focuses ONLY for the selected/active client */}
+                          {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
+                            <div className="ml-4 space-y-1 mb-2">
+                              {client.productFocuses.map((pf) => (
+                                <Link
+                                  key={pf.id}
+                                  href={`?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
+                                  className={`block text-xs py-1 px-2 rounded-md ${
+                                    activeProductFocus === pf.productFocus
+                                      ? 'text-[#6941c6] bg-[#e9d7fe] font-medium'
+                                      : 'text-[#535862] hover:text-[#6941c6] hover:bg-[#e9d7fe]'
+                                  }`}
+                                >
+                                  {pf.productFocus}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+              <Link href="/new-client">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  เพิ่มรายชื่อ
+                </Button>
+              </Link>
+            </nav>
+            <div className="my-4 border-t border-[#e4e7ec]" />
+            <nav className="space-y-2">
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+              >
+                <Bookmark className="mr-2 h-4 w-4" />
+                รายการที่บันทึก
+              </Button>
+              <Link href="/configure">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  ตั้งค่าและวิเคราะห์
+                </Button>
+              </Link>
+              <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen} className="w-full">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    onClick={handleHistoryToggle}
+                    variant="ghost"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#7f56d9]"
+                  >
+                    <History className="mr-2 h-4 w-4" />
+                    ประวัติการสร้าง
+                    <ChevronUp
+                      className={`ml-auto h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-0" : "rotate-180"}`}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-1 pl-8 pt-2">
+                  <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                    {isLoadingSidebarHistory ? (
+                      <div className="text-[#535862] text-xs p-2">กำลังโหลด...</div>
+                    ) : sidebarHistory.length > 0 ? (
+                      sidebarHistory.map((session) => (
+                        <button
+                          key={session.id}
+                          onClick={() => loadSessionIdeas(session)}
+                          className="w-full text-left p-2 rounded-md hover:bg-[#e9d7fe] hover:text-[#6941c6] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1"
+                        >
+                          <div className="font-medium truncate">
+                            {session.selectedTemplate ? 
+                              briefTemplates.find(t => t.id === session.selectedTemplate)?.title?.substring(0, 40) + '...' :
+                              session.userInput?.substring(0, 40) + '...' || 'Custom Ideas'
+                            }
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {session.ideasCount || 0} ideas • {session.createdAt ? new Date(session.createdAt).toLocaleDateString('th-TH') : 'Unknown date'}
+                          </div>
+                        </button>
+                      ))
+                    ) : activeClientName !== "No Client Selected" ? (
+                      <div className="text-[#535862] text-xs p-2">ยังไม่มีประวัติการสร้างไอเดีย</div>
                     ) : (
-                      <>
-                        <p>1. เลือกลูกค้าแล้ว: <span className="font-medium">{activeClientName}</span></p>
-                        <p>2. เลือก Product Focus จากแถบด้านซ้าย</p>
-                      </>
+                      <div className="text-[#535862] text-xs p-2">เลือกลูกค้าเพื่อดูประวัติ</div>
                     )}
-                    <p>{activeProductFocus ? "3." : "3."} กดปุ่ม Generate Topics เพื่อสร้างไอเดีย</p>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
+                </CollapsibleContent>
+              </Collapsible>
+            </nav>
+          </div>
+          <div className="flex items-center space-x-3 p-2 border-t border-[#e4e7ec] mt-4">
+            <Avatar className="h-8 w-8 bg-[#7f56d9] text-[#ffffff] font-bold">
+              <AvatarFallback>A</AvatarFallback>
+            </Avatar>
+            <span className="text-[#000000] font-medium">Admin</span>
+          </div>
+        </aside>
 
-          {/* Section 1: Generate Topics */}
-          <section className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">1. Generate Topics</h2>
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-[#d1d1d6]">
-              {/* FYI Warning */}
-              <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <div className="flex-shrink-0 w-5 h-5 bg-gray-500 rounded-full flex items-center justify-center mt-0.5">
-                    <span className="text-white text-xs font-bold">i</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-800">
-                      <span className="font-medium">FYI:</span> กรุณาตรวจสอบการตั้งค่าลูกค้าและ Product Focus ให้ถูกต้องก่อนกดสร้างไอเดีย
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="hidden flex items-center gap-4 mb-4">
-                <label htmlFor="models" className="text-sm font-medium text-[#000000]">
-                  Select Models to Run:
-                </label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="flex items-center gap-2 border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent min-w-[160px]"
-                    >
-                      {selectedModel}
-                      <ChevronDown className="ml-auto h-4 w-4 text-[#8e8e93]" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {modelOptions.map((model) => (
-                      <DropdownMenuItem 
-                        key={model.id}
-                        onClick={() => setSelectedModel(model.name)}
-                      >
-                        {model.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              
-              
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="instructions" className="text-sm font-medium text-[#000000]">
-                      Optional instructions
-                    </label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowBriefTemplates(!showBriefTemplates)}
-                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 text-xs h-auto py-1 px-2"
-                    >
-                      {showBriefTemplates ? 'Hide Templates' : 'Show Templates'}
-                      <ChevronDown className={`ml-1 h-3 w-3 transition-transform ${showBriefTemplates ? 'rotate-180' : ''}`} />
-                    </Button>
-                  </div>
-                  {instructions && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setInstructions('')
-                        setSelectedTemplate(null)
-                      }}
-                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 text-xs h-auto py-1 px-2"
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <Textarea
-                  id="instructions"
-                  value={instructions}
-                  onChange={handleInstructionsChange}
-                  placeholder="Provide additional context or specific instructions, or click one of the buttons below to auto-fill..."
-                  className="min-h-[80px] border-[#999999] focus:border-black focus:ring-0"
-                />
-              </div>
-              {showBriefTemplates && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {briefTemplates.map((template) => (
-                    <Button
-                      key={template.id}
-                      variant="outline"
-                      onClick={() => handleTemplateSelect(template.id)}
-                      className={`text-sm px-3 py-1 h-auto transition-all duration-200 ${
-                        selectedTemplate === template.id
-                          ? 'border-black bg-black text-white hover:bg-gray-800'
-                          : 'border-[#999999] text-[#000000] hover:bg-[#eeeeee] bg-transparent'
-                      }`}
-                    >
-                      {template.title}
-                    </Button>
-                  ))}
+        {/* Main Content */}
+        <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent">
+          {isGenerating ? (
+            /* AI Typing Animation */
+            <AITypingAnimation activeClientName={activeClientName} />
+          ) : !showResults ? (
+            /* Input Section */
+            <div className="flex flex-col items-center text-center w-full max-w-4xl">
+              <Image
+                src="/SCR-20250730-myam-Photoroom.png"
+                alt="Creative Strategist Logo"
+                width={120}
+                height={120}
+                className="mb-6"
+              />
+              <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
+              <p className="text-sm text-[#535862] mb-8 max-w-full w-full">
+                <span className="font-bold">เลือกคอนเทนต์แนะนำด้านล่างได้เลย</span> — อย่าลืมเลือกลูกค้าทางซ้าย ให้ได้คอนเทนต์ที่ใช่ยิ่งขึ้น
+              </p>
+
+              {/* Client/Product Focus Status */}
+              {(!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) && (
+                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    {!activeClientName || activeClientName === "No Client Selected" 
+                      ? "กรุณาเลือกลูกค้าจากแถบด้านซ้าย" 
+                      : "กรุณาเลือก Product Focus"}
+                  </p>
                 </div>
               )}
-              
-              {/* Generate Topic Button */}
-              <div className="mb-4">
+
+              {/* Dynamic Template Buttons */}
+              <div className="flex flex-col gap-4 mb-8 items-center">
+                {briefTemplates.map((template) => (
+                  <Button
+                    key={template.id}
+                    onClick={() => handleTemplateSelect(template.id)}
+                    variant="outline"
+                    disabled={isGenerating}
+                    className={`h-auto py-4 px-6 flex items-center justify-start text-left border-white/30 hover:bg-[#e9d7fe] hover:border-[#b692f6] hover:text-[#6941c6] shadow-lg max-w-fit transition-all ${
+                      selectedTemplate === template.id 
+                        ? 'bg-[#e9d7fe] border-[#b692f6] text-[#6941c6]' 
+                        : 'bg-white text-[#535862]'
+                    }`}
+                  >
+                    <Sparkles className={`mr-3 h-5 w-5 ${
+                      selectedTemplate === template.id ? 'text-[#6941c6]' : 'text-[#9e77ed]'
+                    }`} />
+                    {template.title}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Custom Input Field */}
+              <div className="w-full relative max-w-2xl">
+                <Textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
+                  className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#7f56d9] focus-visible:ring-0 shadow-md"
+                  style={{ backgroundColor: "#ffffff" }}
+                  disabled={isGenerating}
+                />
                 <Button 
                   onClick={handleGenerateTopics}
-                  disabled={isGenerating}
-                  className="w-full bg-black text-white hover:bg-gray-800"
+                  disabled={isGenerating || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
+                  className="absolute bottom-4 right-4 bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
                 >
                   {isGenerating ? (
                     <>
-                      <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing Competitors...
+                      <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                      กำลังสร้าง...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Generate Topics
+                      <Zap className="mr-2 h-4 w-4 text-[#7f56d9] animate-pulse" />
+                      Generate
                     </>
                   )}
                 </Button>
               </div>
-
-{activeTopicTab === "generate" ? (
-                <Tabs defaultValue="openai" className="w-full">
-                  <TabsList className="grid w-full grid-cols-1 h-auto bg-transparent p-0 border-b border-[#d1d1d6]">
-                    <TabsTrigger
-                      value="openai"
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-black rounded-none text-sm font-medium py-2"
+            </div>
+          ) : (
+            /* Results Section */
+            <div className="flex flex-col items-center text-center w-full max-w-6xl">
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-8 shadow-lg border border-white/20 w-full">
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold text-[#000000] mb-2">Generated Ideas</h3>
+                  <p className="text-[#535862]">สร้างไอเดีย {topics.length} ข้อสำเร็จแล้ว</p>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex justify-center gap-4 mt-6">
+                    <Button
+                      onClick={() => setShowResults(false)}
+                      variant="outline"
+                      className="px-6 border-[#e4e7ec] hover:bg-[#f5f5f5]"
                     >
-                      Ideas Result
-                    </TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="openai" className="mt-4">
-                    {renderTabButtons()}
+                      ← กลับไปแก้ไขไอเดีย
+                    </Button>
                     
-                    {/* Share Actions Bar */}
-                    {topics.length > 0 && (
-                      <div className="flex justify-between items-center mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-gray-900">Generated Ideas</h3>
-                          <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300 text-xs">
-                            {topics.length} ideas
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={handleCopyAllIdeas}
-                            variant="outline"
-                            size="sm"
-                            className="gap-2 text-xs h-8"
-                          >
-                            <Copy className="w-3 h-3" />
-                            Copy All
-                          </Button>
-                          
-                          <Button
-                            onClick={handleShareIdeas}
-                            disabled={isSharing}
-                            className="gap-2 bg-black hover:bg-gray-800 text-white text-xs h-8"
-                            size="sm"
-                          >
-                            {isSharing ? (
-                              <>
-                                <RefreshCcw className="w-3 h-3 animate-spin" />
-                                Creating...
-                              </>
-                            ) : (
-                              <>
-                                <Share2 className="w-3 h-3" />
-                                Share All Ideas
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                    <Button
+                      onClick={handleCopyAllIdeas}
+                      variant="outline"
+                      className="px-6 border-[#e4e7ec] hover:bg-[#f5f5f5]"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy All Ideas
+                    </Button>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {topics.length > 0 ? topics.map((topic, index) => {
-                        const hasCompetitors = true; // Assuming all ideas have competitor research
-                        const displayName = topic.content_pillar;
-                        
-                        return (
-                          <Card
-                            key={index}
-                            onClick={() => handleCardClick(topic, index)}
-                            className={cn(
-                              "cursor-pointer hover:shadow-md transition-shadow duration-200 flex flex-col h-full relative",
-                              "border border-gray-200",
-                              (topic.impact === 'High' || topic.impact === 'high') ? 'border-gray-400' :
-                              (topic.impact === 'Medium' || topic.impact === 'medium') ? 'border-gray-300' :
-                              'border-gray-200',
-                              hasCompetitors ? 'border-l-4 border-l-gray-500' : ''
-                            )}
-                          >
-                            {/* Bookmark/Save Icon */}
-                            <div className="absolute top-2 right-2 z-10">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                  "h-8 w-8 p-0 hover:bg-gray-100",
-                                  savedIdeas.has(topic.title) ? "bg-gray-100" : ""
-                                )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSaveIdea(topic, index);
-                                }}
-                              >
-                                <Bookmark className={cn(
-                                  "h-4 w-4 hover:text-black",
-                                  savedIdeas.has(topic.title) ? "text-black fill-black" : "text-gray-400"
-                                )} />
-                              </Button>
-                            </div>
-                            <CardHeader className="pb-2">
-                              <div className="flex justify-between items-start mb-1">
-                                <div>
-                                  <Badge variant="outline" className={cn(
-                                    "text-xs mb-1",
-                                    hasCompetitors ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-muted'
-                                  )}>
-                                    {displayName}
-                                  </Badge>
-                                </div>
-                                <Badge variant={
-                                  (topic.impact === 'High' || topic.impact === 'high') ? 'default' : 
-                                  (topic.impact === 'Medium' || topic.impact === 'medium') ? 'outline' : 
-                                  'secondary'
-                                } className={cn(
-                                  "text-xs mr-6",
-                                  (topic.impact === 'High' || topic.impact === 'high') ? 'bg-green-500 text-white' :
-                                  (topic.impact === 'Medium' || topic.impact === 'medium') ? 'bg-yellow-500 text-white' :
-                                  ''
-                                )}>{topic.impact || 'Low'} Impact</Badge>
-                              </div>
-                              <CardTitle className="text-base leading-tight pr-8">
-                                {topic.concept_idea || topic.title}
-                              </CardTitle>
-                              <CardDescription className="pt-1 text-sm">
-                                <span className="block font-semibold text-muted-foreground">{topic.title}</span>
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-grow text-sm text-muted-foreground pb-3">
-                              <p className="line-clamp-4 mb-2">{topic.description}</p>
-                              
-                              {/* Idea Evaluation UI */}
-                              <div className="mt-3 pt-3 border-t border-dashed">
-                                <p className="text-xs font-medium mb-2 text-gray-600">Rate this idea:</p>
-                                <div className="space-y-2">
-                                  <div className="flex space-x-2">
-                                    <Button 
-                                      variant={ideaFeedback[index]?.vote === 'good' ? 'default' : 'outline'}
-                                      size="sm"
-                                      className={ideaFeedback[index]?.vote === 'good' ? 'bg-black hover:bg-gray-800' : ''}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleFeedbackVote(index, 'good');
-                                      }}
-                                    >
-                                      <ThumbsUp className="h-4 w-4 mr-1" />
-                                      Good
-                                    </Button>
-                                    <Button 
-                                      variant={ideaFeedback[index]?.vote === 'bad' ? 'default' : 'outline'}
-                                      size="sm"
-                                      className={ideaFeedback[index]?.vote === 'bad' ? 'bg-gray-800 hover:bg-gray-900' : ''}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleFeedbackVote(index, 'bad');
-                                      }}
-                                    >
-                                      <ThumbsDown className="h-4 w-4 mr-1" />
-                                      Bad
-                                    </Button>
-                                  </div>
-                                  
-                                  {/* Template suggestions */}
-                                  {ideaFeedback[index]?.showTemplates && (
-                                    <div className="bg-muted/50 p-2 rounded-md border border-border">
-                                      <div className="text-xs text-muted-foreground mb-1">
-                                        Quick feedback:
-                                      </div>
-                                      <div className="space-y-1">
-                                        {FEEDBACK_TEMPLATES[ideaFeedback[index]?.vote === 'good' ? 'good' : 'bad']?.map((template: string, templateIndex: number) => (
-                                          <div 
-                                            key={`${index}-template-${templateIndex}`}
-                                            className="text-xs p-1.5 hover:bg-muted rounded cursor-pointer"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              applyTemplate(index, template);
-                                            }}
-                                          >
-                                            "{template}"
-                                          </div>
-                                        ))}
-                                      </div>
-                                      <div className="flex justify-end mt-1">
-                                        <Button 
-                                          variant="ghost" 
-                                          className="h-6 text-xs"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleTemplates(index, false);
-                                          }}
-                                        >
-                                          <X className="h-3 w-3 mr-1" /> Close
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                {/* Feedback textarea */}
-                                {(editingFeedbackId === index || ideaFeedback[index]?.comment) && (
-                                  <div className="mb-3">
-                                    {editingFeedbackId === index ? (
-                                      <>
-                                        <Textarea 
-                                          placeholder="Why do you like/dislike this idea?"
-                                          className="w-full text-xs"
-                                          value={ideaFeedback[index]?.comment || ''}
-                                          onChange={(e) => {
-                                            e.stopPropagation();
-                                            handleFeedbackComment(index, e.target.value);
-                                          }}
-                                          onClick={(e) => e.stopPropagation()}
-                                        />
-                                        <div className="flex flex-wrap gap-2">
-                                          {Object.keys(ideaFeedback).length > 0 && (
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              className="text-xs h-7 mt-1"
-                                              onClick={async (e) => {
-                                                e.stopPropagation();
-                                                await saveFeedbackToDatabase();
-                                                toggleFeedbackEditing(null);
-                                              }}
-                                              disabled={!ideaFeedback[index]?.comment?.trim()}
-                                            >
-                                              <Save className="h-3 w-3 mr-1" />
-                                              Save
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <div 
-                                        className="p-2 bg-muted rounded-md text-xs cursor-pointer hover:bg-muted/80"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          toggleFeedbackEditing(index);
-                                        }}
-                                      >
-                                        <p>{ideaFeedback[index]?.comment}</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                {/* Add feedback or regenerate buttons */}
-                                <div className="flex space-x-2">
-                                  {!ideaFeedback[index]?.comment && ideaFeedback[index]?.vote && (
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      className="text-xs"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleFeedbackEditing(index);
-                                      }}
-                                    >
-                                      <MessageCircle className="h-3 w-3 mr-1" />
-                                      Add Feedback
-                                    </Button>
-                                  )}
-                                  
-                                  {/* Regenerate button - only visible if feedback exists */}
-                                  {ideaFeedback[index]?.comment && (
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      className="text-xs"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        regenerateIdea(index);
-                                      }}
-                                      disabled={isRegeneratingIdea && regeneratingIdeaId === index}
-                                    >
-                                      {isRegeneratingIdea && regeneratingIdeaId === index ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                          Regenerating...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <RefreshCcw className="h-3 w-3 mr-1" />
-                                          Regenerate
-                                        </>
-                                      )}
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </CardContent>
-                            <CardFooter className="flex justify-between items-center pt-2 pb-3">
-                              <div className="flex flex-wrap gap-1 items-center">
-                                {(topic.tags || []).map(tag => (
-                                  <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                                ))}
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7" 
-                                onClick={(e) => handleOpenDetails(topic, e, index)}
-                              >
-                                <Info size={16} />
-                                <span className="sr-only">View Details / Generate Image</span>
-                              </Button>
-                            </CardFooter>
-                          </Card>
-                        );
-                      }) : (
-                        <div className="col-span-full text-center py-8 text-gray-500">
-                          {isGenerating ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <RefreshCcw className="w-5 h-5 animate-spin" />
-                              Analyzing Competitors...
-                            </div>
-                          ) : (
-                            "คลิก Generate Topics เพื่อสร้างหัวข้อใหม่"
-                          )}
-                        </div>
+                    <Button
+                      onClick={handleShareIdeas}
+                      disabled={isSharing}
+                      className="bg-[#7f56d9] hover:bg-[#6941c6] text-white px-6"
+                    >
+                      {isSharing ? (
+                        <>
+                          <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Share Ideas
+                        </>
                       )}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              ) : (
-                <div className="mt-4">
-                  {renderTabButtons(loadSavedTopics, isLoadingSaved)}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {isLoadingSaved ? (
-                      <div className="col-span-2 text-center py-8 text-gray-500">
-                        <div className="flex items-center justify-center gap-2">
-                          <RefreshCcw className="w-5 h-5 animate-spin" />
-                          กำลังโหลดหัวข้อที่บันทึกไว้...
-                        </div>
-                      </div>
-                    ) : savedTopics.length > 0 ? (
-                      savedTopics.map((topic, index) => (
-                        <Card 
-                          key={index} 
-                          className="p-4 border border-[#d1d1d6] shadow-sm relative cursor-pointer hover:shadow-md transition-shadow duration-200"
-                          onClick={() => handleOpenDetail(topic)}
-                        >
-                          <Badge className={`text-white text-xs font-normal px-2 py-0.5 rounded-sm mb-2 ${
-                            topic.impact === 'High' ? 'bg-[#34c759]' : 
-                            topic.impact === 'Medium' ? 'bg-[#f59e0b]' : 'bg-[#ef4444]'
-                          }`}>
-                            {topic.impact} Impact
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSaveIdea(topic, index)
-                            }}
-                            disabled={isSaving.has(index)}
-                            className="absolute top-4 right-4 h-6 w-6 text-[#8e8e93] hover:text-black"
-                          >
-                            <Bookmark className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span className="sr-only">Remove bookmark</span>
-                          </Button>
-                          <h3 className="text-lg font-semibold mb-2">{topic.concept_idea}</h3>
-                          <p className="text-sm text-[#000000] mb-4">{topic.description}</p>
-                          <div className="flex flex-wrap gap-2 mb-4">
-                            {topic.tags.map((tag, i) => (
-                              <Button
-                                key={i}
-                                variant="outline"
-                                className="border-[#999999] text-[#000000] hover:bg-[#eeeeee] text-xs px-2 py-0.5 h-auto bg-transparent"
-                              >
-                                {tag}
-                              </Button>
-                            ))}
-                          </div>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenFeedback(topic)
-                            }}
-                            className="text-sm text-[#000000] hover:underline cursor-pointer bg-transparent border-none p-0"
-                          >
-                            Add feedback
-                          </button>
-                        </Card>
-                      ))
-                    ) : (
-                      <div className="col-span-2 text-center py-8 text-gray-500">
-                        {!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus ? (
-                          "กรุณาเลือกลูกค้าและ Product Focus เพื่อดูหัวข้อที่บันทึกไว้"
-                        ) : (
-                          "ยังไม่มีหัวข้อที่บันทึกไว้สำหรับลูกค้าและ Product Focus นี้"
-                        )}
-                      </div>
-                    )}
+                    </Button>
                   </div>
                 </div>
-              )}
+
+                {/* Ideas Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {topics.map((topic, index) => (
+                    <Card
+                      key={index}
+                      className="bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl p-6 hover:shadow-lg hover:bg-white/80 transition-all duration-200 cursor-pointer"
+                      onClick={() => {
+                        setSelectedDetailIdea(topic)
+                        setDetailModalOpen(true)
+                      }}
+                    >
+                      {/* High Impact Badge */}
+                      {topic.impact === 'High' && (
+                        <div className="mb-4">
+                          <Badge className="bg-green-500 text-white text-xs px-3 py-1 rounded-full">
+                            High Impact
+                          </Badge>
+                        </div>
+                      )}
+
+                      <div className="space-y-4">
+                        <div>
+                          <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
+                            {topic.content_pillar}
+                          </Badge>
+                          <h4 className="text-lg font-bold text-[#000000] leading-tight mb-2">
+                            {topic.concept_idea || topic.title}
+                          </h4>
+                        </div>
+                        
+                        <p className="text-[#535862] text-sm line-clamp-4">
+                          {topic.description}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          {(topic.tags || []).slice(0, 3).map(tag => (
+                            <Badge key={tag} variant="outline" className="text-xs border-[#e4e7ec]">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             </div>
-          </section>
-
-
+          )}
         </main>
       </div>
       
-      {/* Feedback Form Modal */}
+      {/* Modals */}
       <FeedbackForm
         isOpen={feedbackFormOpen}
-        onClose={handleCloseFeedback}
-        idea={selectedIdea}
-        clientName={activeClientName}
-        productFocus={activeProductFocus || ''}
+        onClose={() => setFeedbackFormOpen(false)}
+        idea={selectedDetailIdea}
+        clientName={activeClientName || ""}
+        productFocus={activeProductFocus || ""}
       />
 
-      {/* Idea Detail Modal */}
       <IdeaDetailModal
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
         idea={selectedDetailIdea}
       />
+      
+      <SessionHistory
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        activeClientName={activeClientName}
+      />
     </div>
   )
 }
 
-export default function Page() {
+export default function HomePage() {
   return (
     <Suspense fallback={
       <div className="flex flex-col space-y-4 p-4">
