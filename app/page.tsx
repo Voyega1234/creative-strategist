@@ -38,6 +38,7 @@ import {
   Link2,
   Copy,
   Check,
+  X,
 } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
@@ -197,6 +198,7 @@ function MainContent() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [instructions, setInstructions] = useState("")
   const [clients, setClients] = useState<ClientWithProductFocus[]>([])
+  const [isLoadingClients, setIsLoadingClients] = useState(false)
   const [feedbackFormOpen, setFeedbackFormOpen] = useState(false)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
@@ -355,28 +357,24 @@ function MainContent() {
     checkAuthStatus()
   }, [])
 
-  // Function to load/refresh clients
-  const loadClients = async (forceRefresh = false) => {
+  // Function to load clients - simplified to match configure-sidebar exactly
+  const loadClients = async () => {
     try {
-      console.log(`[main-page] Loading clients - forceRefresh: ${forceRefresh}`)
-      
-      if (forceRefresh) {
-        // Clear cache first using POST method
-        await fetch('/api/clients-with-product-focus', { method: 'POST' })
-        // Small delay to ensure cache is cleared
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
+      setIsLoadingClients(true)
+      console.log('[main-page] Loading clients...')
       
       const response = await fetch('/api/clients-with-product-focus')
       if (response.ok) {
         const clientsData = await response.json()
-        console.log(`[main-page] Loaded ${clientsData.length} clients:`, clientsData.map(c => c.clientName))
+        console.log(`[main-page] Loaded ${clientsData.length} clients:`, clientsData.map((c: any) => c.clientName))
         setClients(clientsData)
       } else {
         console.error('[main-page] Failed to load clients:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('[main-page] Error loading clients:', error)
+    } finally {
+      setIsLoadingClients(false)
     }
   }
 
@@ -455,11 +453,11 @@ function MainContent() {
       fetchClientAdAccount(resolvedInfo.clientId)
     }
 
-    // If we couldn't resolve the client, try refreshing cache ONLY ONCE to prevent infinite loop
+    // If we couldn't resolve the client, try refreshing once
     if (urlClientId && resolvedInfo.clientName === "No Client Selected" && !isLoadingClients) {
-      console.log(`[main-page] ClientId ${urlClientId} not found in current clients, refreshing cache once...`)
+      console.log(`[main-page] ClientId ${urlClientId} not found in current clients, refreshing once...`)
       console.log('[main-page] Current client IDs:', clients.map(c => `${c.clientName}:${c.id}`))
-      loadClients(true)
+      loadClients()
     }
   }, [clients, urlClientId, urlClientName, urlProductFocus])
 
@@ -1367,7 +1365,13 @@ function MainContent() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-1 pl-8 pt-2">
                   <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                    {clients.map((client) => (
+                    {(() => {
+                      // Reorder clients: selected client first, then others (same as configure-sidebar)
+                      const activeClient = clients.find(client => client.clientName === activeClientName)
+                      const otherClients = clients.filter(client => client.clientName !== activeClientName)
+                      const reorderedClients = activeClient ? [activeClient, ...otherClients] : clients
+                      
+                      return reorderedClients.map((client) => (
                       <div key={client.id} className="space-y-1">
                           {/* Client name - always show, highlight if active */}
                           {isGenerating ? (
@@ -1413,7 +1417,8 @@ function MainContent() {
                             </div>
                           )}
                       </div>
-                    ))}
+                      ))
+                    })()}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
@@ -1809,8 +1814,8 @@ function MainContent() {
         onClose={() => setDetailModalOpen(false)}
         idea={selectedDetailIdea}
         clientName={activeClientName}
-        productFocus={activeProductFocus}
-        adAccount={activeAdAccount}
+        productFocus={activeProductFocus || undefined}
+        adAccount={activeAdAccount || undefined}
       />
       
       <SessionHistory
@@ -1823,7 +1828,7 @@ function MainContent() {
         isOpen={savedIdeasModalOpen}
         onClose={() => setSavedIdeasModalOpen(false)}
         activeClientName={activeClientName}
-        activeProductFocus={activeProductFocus}
+        activeProductFocus={activeProductFocus || undefined}
         onViewDetails={(idea, savedId) => {
           setSelectedDetailIdea(idea)
           setDetailModalOpen(true)

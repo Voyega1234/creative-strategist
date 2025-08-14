@@ -4,7 +4,7 @@ import { getSupabase } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
-export const fetchCache = 'force-cache';
+export const fetchCache = 'force-no-store';
 
 // In-memory cache for clients data with better structure
 let clientsCache: any = null;
