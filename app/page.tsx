@@ -245,16 +245,19 @@ function MainContent() {
     clientName: string;
     productFocus: string | null;
     clientId: string | null;
+    adAccount: string | null;
   }>({
     clientName: "No Client Selected",
     productFocus: null,
-    clientId: null
+    clientId: null,
+    adAccount: null
   })
 
   // Derive active values from resolved info
   const activeClientName = resolvedClientInfo.clientName
   const activeProductFocus = resolvedClientInfo.productFocus
   const activeClientId = resolvedClientInfo.clientId
+  const activeAdAccount = resolvedClientInfo.adAccount
   
   // Model options and templates
   const modelOptions = [
@@ -398,7 +401,8 @@ function MainContent() {
     let resolvedInfo = {
       clientName: "No Client Selected",
       productFocus: null as string | null,
-      clientId: null as string | null
+      clientId: null as string | null,
+      adAccount: null as string | null
     }
 
     if (urlClientId) {
@@ -408,7 +412,8 @@ function MainContent() {
         resolvedInfo = {
           clientName: clientByMainId.clientName,
           productFocus: urlProductFocus || (clientByMainId.productFocuses[0]?.productFocus || null),
-          clientId: urlClientId
+          clientId: urlClientId,
+          adAccount: null
         }
       } else {
         // Check if it's a productFocus id
@@ -418,7 +423,8 @@ function MainContent() {
             resolvedInfo = {
               clientName: client.clientName,
               productFocus: productFocus.productFocus,
-              clientId: urlClientId
+              clientId: urlClientId,
+              adAccount: null
             }
             break
           }
@@ -435,13 +441,19 @@ function MainContent() {
         resolvedInfo = {
           clientName: clientByName.clientName,
           productFocus: productFocus?.productFocus || null,
-          clientId: productFocus?.id || clientByName.id
+          clientId: productFocus?.id || clientByName.id,
+          adAccount: null
         }
       }
     }
 
     console.log('[main-page] Resolved client info:', resolvedInfo)
     setResolvedClientInfo(resolvedInfo)
+
+    // Fetch ad account if we have a clientId
+    if (resolvedInfo.clientId && resolvedInfo.clientName !== "No Client Selected") {
+      fetchClientAdAccount(resolvedInfo.clientId)
+    }
 
     // If we couldn't resolve the client, try refreshing cache ONLY ONCE to prevent infinite loop
     if (urlClientId && resolvedInfo.clientName === "No Client Selected" && !isLoadingClients) {
@@ -739,6 +751,30 @@ function MainContent() {
   const handleHistoryToggle = () => {
     setIsHistoryOpen(!isHistoryOpen)
     // No need to load here since we auto-load when client changes
+  }
+
+  // Fetch client ad account data
+  const fetchClientAdAccount = async (clientId: string) => {
+    try {
+      console.log('🔄 Fetching ad account for clientId:', clientId)
+      
+      const response = await fetch(`/api/client-profile?clientId=${clientId}`)
+      const result = await response.json()
+      
+      if (result.success && result.client?.ad_account_id) {
+        console.log('✅ Found ad account:', result.client.ad_account_id)
+        
+        // Update the resolved client info with ad account
+        setResolvedClientInfo(prev => ({
+          ...prev,
+          adAccount: result.client.ad_account_id
+        }))
+      } else {
+        console.log('ℹ️ No ad account found for client')
+      }
+    } catch (error) {
+      console.error('❌ Error fetching client ad account:', error)
+    }
   }
 
   // Load the latest session ideas automatically
@@ -1646,6 +1682,7 @@ function MainContent() {
         idea={selectedDetailIdea}
         clientName={activeClientName}
         productFocus={activeProductFocus}
+        adAccount={activeAdAccount}
       />
       
       <SessionHistory

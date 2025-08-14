@@ -16,9 +16,10 @@ interface IdeaDetailModalProps {
   idea: IdeaRecommendation | null
   clientName?: string
   productFocus?: string
+  adAccount?: string
 }
 
-export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocus }: IdeaDetailModalProps) {
+export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocus, adAccount }: IdeaDetailModalProps) {
   const [isGeneratingFacebook, setIsGeneratingFacebook] = useState(false)
   const [facebookPostData, setFacebookPostData] = useState<{ [key: string]: any }>({})
   const [showFacebookPost, setShowFacebookPost] = useState<{ [key: string]: boolean }>({})
@@ -35,6 +36,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
       const payload = {
         clientName: clientName,
         productFocus: productFocus,
+        adAccount: adAccount,
         title: idea.title,
         description: idea.description,
         category: idea.category,
@@ -49,7 +51,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
 
       console.log('🔄 Generating Facebook post with payload:', payload)
 
-      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
+      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook-test/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
