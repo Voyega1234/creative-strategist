@@ -513,18 +513,122 @@ function MainContent() {
     }
   }, [showResults, topics.length, activeClientName, activeProductFocus])
 
-  // Function to play notification sound
-  const playNotificationSound = () => {
+  // Enhanced notification sound with background tab support
+  const [pendingNotification, setPendingNotification] = useState<boolean>(false)
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null)
+  
+  // Initialize Web Audio API for reliable background audio
+  useEffect(() => {
+    const initAudio = async () => {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+        setAudioContext(ctx)
+        
+        // Preload audio buffer
+        const response = await fetch('/new-notification-011-364050.mp3')
+        const arrayBuffer = await response.arrayBuffer()
+        const buffer = await ctx.decodeAudioData(arrayBuffer)
+        setAudioBuffer(buffer)
+        
+        console.log('✅ Audio system initialized')
+      } catch (error) {
+        console.error('❌ Failed to initialize audio:', error)
+      }
+    }
+    
+    initAudio()
+  }, [])
+
+  // Handle page visibility change for pending notifications
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && pendingNotification) {
+        console.log('🔔 Tab is now visible, clearing pending notification visual indicator')
+        // Audio was already played, just clear the visual notification
+        setPendingNotification(false)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [pendingNotification])
+
+  // Update page title when notification is pending
+  useEffect(() => {
+    const originalTitle = document.title
+    
+    if (pendingNotification) {
+      document.title = '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Strategist'
+      
+      // Flash title for attention
+      const flashInterval = setInterval(() => {
+        document.title = document.title.startsWith('🔔') 
+          ? 'Creative Strategist' 
+          : '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Strategist'
+      }, 1000)
+      
+      return () => {
+        clearInterval(flashInterval)
+        document.title = originalTitle
+      }
+    } else {
+      document.title = originalTitle
+    }
+  }, [pendingNotification])
+
+  // Immediate audio playback function
+  const playNotificationSoundImmediate = async () => {
     try {
+      // Method 1: Web Audio API (works better in background)
+      if (audioContext && audioBuffer) {
+        // Resume audio context if suspended (required by browsers)
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume()
+          console.log('📢 Audio context resumed')
+        }
+        
+        const source = audioContext.createBufferSource()
+        const gainNode = audioContext.createGain()
+        
+        source.buffer = audioBuffer
+        gainNode.gain.value = 0.5
+        
+        source.connect(gainNode)
+        gainNode.connect(audioContext.destination)
+        
+        source.start(0)
+        console.log('🔊 Notification sound played via Web Audio API')
+        return
+      }
+      
+      // Method 2: HTML5 Audio fallback
       const audio = new Audio('/new-notification-011-364050.mp3')
       audio.volume = 0.5
       audio.play().then(() => {
-        console.log('Notification sound played successfully')
+        console.log('🔊 Notification sound played via HTML5 Audio')
       }).catch(error => {
-        console.error('Could not play notification sound:', error)
+        console.error('❌ Could not play notification sound:', error)
       })
+      
     } catch (error) {
-      console.error('Could not initialize notification sound:', error)
+      console.error('❌ Could not initialize notification sound:', error)
+    }
+  }
+
+  // Smart notification function that handles background tabs
+  const playNotificationSound = async () => {
+    console.log('🔔 Notification triggered, tab hidden:', document.hidden)
+    
+    // Always play sound immediately, regardless of tab visibility
+    await playNotificationSoundImmediate()
+    
+    if (document.hidden) {
+      // Tab is in background, also set pending notification for visual feedback
+      setPendingNotification(true)
+      console.log('📝 Audio played immediately, pending notification set for visual feedback')
+    } else {
+      console.log('🔊 Audio played immediately on visible tab')
     }
   }
 
@@ -543,6 +647,8 @@ function MainContent() {
       notification.onclick = () => {
         window.focus()
         notification.close()
+        // Clear pending notification when user clicks
+        setPendingNotification(false)
       }
 
       setTimeout(() => notification.close(), 10000)
@@ -1424,6 +1530,28 @@ function MainContent() {
 
         {/* Main Content */}
         <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent overflow-y-auto">
+          {/* Pending Notification Banner */}
+          {pendingNotification && (
+            <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border-l-4 border-green-600 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 bg-white rounded-full animate-ping"></div>
+                <div>
+                  <p className="font-medium">🎉 ไอเดียสร้างเสร็จแล้ว!</p>
+                  <p className="text-sm opacity-90">คลิกแท็บนี้เพื่อดูผลลัพธ์และฟังเสียงแจ้งเตือน</p>
+                </div>
+                <button
+                  onClick={() => {
+                    playNotificationSoundImmediate()
+                    setPendingNotification(false)
+                  }}
+                  className="ml-2 bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+          
           {isGenerating ? (
             /* AI Typing Animation */
             <AITypingAnimation activeClientName={activeClientName} />
