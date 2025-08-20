@@ -1839,24 +1839,13 @@ function MainContent() {
                   <p className="text-[#535862]">สร้างไอเดีย {topics.length} ข้อสำเร็จแล้ว</p>
                   
                   {/* Action Buttons */}
-                  <div className="flex justify-center gap-4 mt-6">
+                  <div className="flex justify-center mt-6">
                     <Button
                       onClick={() => setShowResults(false)}
                       variant="outline"
                       className="px-6 border-[#e4e7ec] hover:bg-[#f5f5f5]"
                     >
                       ← กลับไปแก้ไขไอเดีย
-                    </Button>
-                    
-                    <Button
-                      onClick={() => {
-                        setShareDialogOpen(true)
-                        setShareSuccess(false)
-                      }}
-                      className="bg-[#1d4ed8] hover:bg-[#063def] text-white px-6"
-                    >
-                      <Share2 className="w-4 h-4 mr-2" />
-                      Share Ideas
                     </Button>
                   </div>
                 </div>
