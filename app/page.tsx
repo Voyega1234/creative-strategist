@@ -1137,6 +1137,14 @@ function MainContent() {
     textarea.style.height = Math.min(Math.max(textarea.scrollHeight, 120), 400) + 'px'
   }, [])
 
+  // Effect to auto-resize textarea when instructions change (from session loading, etc.)
+  useEffect(() => {
+    const textarea = document.querySelector('textarea[placeholder*="หรือใส่ความต้องการเฉพาะของคุณ"]') as HTMLTextAreaElement
+    if (textarea && instructions) {
+      autoResizeTextarea(textarea)
+    }
+  }, [instructions, autoResizeTextarea])
+
   const handleShareIdeas = async () => {
     if (!topics.length) {
       alert('ไม่มีไอเดียที่จะแชร์')
@@ -1821,12 +1829,10 @@ function MainContent() {
                   onChange={(e) => {
                     setInstructions(e.target.value)
                     // Auto-resize textarea
-                    const textarea = e.target as HTMLTextAreaElement
-                    textarea.style.height = 'auto'
-                    textarea.style.height = Math.min(Math.max(textarea.scrollHeight, 120), 400) + 'px'
+                    autoResizeTextarea(e.target as HTMLTextAreaElement)
                   }}
                   placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
-                  className="w-full min-h-[120px] max-h-[400px] p-4 text-[#000000] border border-[#e4e7ec] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 shadow-md resize-none overflow-hidden rounded-md"
+                  className="w-full min-h-[120px] max-h-[400px] p-4 text-[#000000] border border-[#e4e7ec] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 shadow-md resize-none overflow-y-auto rounded-md"
                   style={{ backgroundColor: "#ffffff", height: "120px" }}
                   disabled={isGenerating}
                 />

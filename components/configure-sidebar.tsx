@@ -107,7 +107,9 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
                         {/* Client name - always show, highlight if active */}
                         <button
                           onClick={() => {
-                            const url = `/configure?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`
+                            const productFocus = client.productFocuses[0]?.productFocus
+                            const url = `/configure?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}${productFocus ? `&productFocus=${encodeURIComponent(productFocus)}` : ''}`
+                            console.log('🔄 Navigating to configure page:', url)
                             window.location.href = url
                           }}
                           className={`block w-full text-left text-sm py-1 px-2 rounded-md font-medium ${
@@ -126,7 +128,8 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
                               <button
                                 key={pf.id}
                                 onClick={() => {
-                                  const url = `/configure?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`
+                                  const url = `/configure?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName || client.clientName)}`
+                                  console.log('🔄 Navigating to product focus:', url)
                                   window.location.href = url
                                 }}
                                 className={`block w-full text-left text-xs py-1 px-2 rounded-md ${
