@@ -11,6 +11,7 @@ import { FeedbackTableWrapper } from "@/components/feedback-table-wrapper"
 import { CompetitorSummary } from "@/components/competitor-summary"
 import { AddCompetitorModal } from "@/components/add-competitor-modal"
 import { CompetitorTable } from "@/components/competitor-table"
+import { FacebookAdsForm } from "@/components/facebook-ads-form"
 import { getClientProfile } from "@/lib/data/client-profile"
 import { getClients, getClientsWithProductFocus } from "@/lib/data/clients"
 import { getResearchMarketDataByRunId, getResearchMarketData, type ResearchMarketData } from "@/lib/data/research-market"
@@ -195,7 +196,7 @@ async function ConfigurePageContent({
                     value="strategic-insights"
                     className="data-[state=active]:bg-[#dbeafe] data-[state=active]:text-[#063def] data-[state=active]:shadow-sm rounded-md text-sm font-medium py-2 text-[#535862] hover:text-[#063def] hover:bg-[#f5f5f5]"
                   >
-                    Strategic Insights
+                    Facebook Ads
                   </TabsTrigger>
                   <TabsTrigger
                     value="manage-feedback"
@@ -206,12 +207,10 @@ async function ConfigurePageContent({
                 </TabsList>
 
                 {/* Information Sub-tab Content */}
-                <TabsContent value="information">
+                <TabsContent value="information" className="space-y-6">
                   <ClientInformationSection initialClientProfileData={initialClientProfileData} clientBusinessProfile={clientBusinessProfile} />
-                </TabsContent>
-
-                {/* Strategic Insights Sub-tab Content */}
-                <TabsContent value="strategic-insights" className="space-y-6">
+                  
+                  {/* Strategic Insights moved here */}
                   <StrategicInsightsWrapper
                     data={{
                       summary: researchMarketData?.analysis_data?.analysis?.summary,
@@ -225,18 +224,26 @@ async function ConfigurePageContent({
                     productFocus={activeProductFocus || undefined}
                   />
 
-                  {/* Research Insights Section */}
+                  {/* Research Insights Section moved here */}
                   <ResearchInsightsSection 
                     insights={researchMarketData?.analysis_data?.analysis?.research || []}
                     clientName={activeClientName}
                     productFocus={activeProductFocus || undefined}
                   />
+                </TabsContent>
 
-                  {/* Top Performing Ads Section - Only show if there are ads */}
-                  {topPerformingAds.length > 0 && (
+                {/* Facebook Ads Sub-tab Content */}
+                <TabsContent value="strategic-insights" className="space-y-6">
+                  {/* Only Top Performing Ads Section */}
+                  {topPerformingAds.length > 0 ? (
                     <TopPerformingAds 
                       ads={topPerformingAds}
-                      title="Top 10 Performing Ads"
+                      title="Top 10 Performing Facebook Ads"
+                    />
+                  ) : (
+                    <FacebookAdsForm 
+                      activeClientId={activeClientId}
+                      activeClientName={activeClientName}
                     />
                   )}
                 </TabsContent>
