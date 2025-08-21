@@ -17,9 +17,10 @@ interface IdeaDetailModalProps {
   clientName?: string
   productFocus?: string
   adAccount?: string
+  instructions?: string
 }
 
-export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocus, adAccount }: IdeaDetailModalProps) {
+export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocus, adAccount, instructions }: IdeaDetailModalProps) {
   const [isGeneratingFacebook, setIsGeneratingFacebook] = useState(false)
   const [facebookPostData, setFacebookPostData] = useState<{ [key: string]: any }>({})
   const [showFacebookPost, setShowFacebookPost] = useState<{ [key: string]: boolean }>({})
@@ -37,6 +38,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
         clientName: clientName,
         productFocus: productFocus,
         adAccount: adAccount,
+        instructions: instructions,
         title: idea.title,
         description: idea.description,
         category: idea.category,

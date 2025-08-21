@@ -858,7 +858,7 @@ function MainContent() {
     try {
       const result = await sessionManager.getHistory({
         clientName: activeClientName,
-        limit: 10 // Show last 10 sessions in dropdown
+        limit: 30 // Show last 30 sessions in dropdown
       })
 
       if (result.success) {
@@ -1129,6 +1129,12 @@ function MainContent() {
     setIndividualShareDialogOpen(true)
     setIndividualShareSuccess(false)
     setCurrentShareUrl(null) // Reset share URL for new idea
+  }, [])
+
+  // Auto-resize textarea function
+  const autoResizeTextarea = useCallback((textarea: HTMLTextAreaElement) => {
+    textarea.style.height = 'auto'
+    textarea.style.height = Math.min(Math.max(textarea.scrollHeight, 120), 400) + 'px'
   }, [])
 
   const handleShareIdeas = async () => {
@@ -1674,8 +1680,8 @@ function MainContent() {
                 </div>
               )}
 
-              {/* Dynamic Template Buttons */}
-              <div className="flex flex-col gap-4 mb-8 items-center">
+              {/* Dynamic Template Buttons - HIDDEN */}
+              {/* <div className="flex flex-col gap-4 mb-8 items-center">
                 {briefTemplates.map((template) => (
                   <Button
                     key={template.id}
@@ -1694,7 +1700,7 @@ function MainContent() {
                     {template.title}
                   </Button>
                 ))}
-              </div>
+              </div> */}
 
               {/* Product Details Toggle */}
               <div className="w-full max-w-2xl mb-6">
@@ -1716,11 +1722,18 @@ function MainContent() {
                       <Label className="text-sm font-medium text-[#063def] mb-2 block">
                         รายละเอียดสินค้าและบริการ
                       </Label>
-                      <Textarea
+                      <textarea
                         value={productDetails}
-                        onChange={(e) => setProductDetails(e.target.value)}
+                        onChange={(e) => {
+                          setProductDetails(e.target.value)
+                          // Auto-resize textarea
+                          const textarea = e.target as HTMLTextAreaElement
+                          textarea.style.height = 'auto'
+                          textarea.style.height = Math.min(Math.max(textarea.scrollHeight, 100), 300) + 'px'
+                        }}
                         placeholder="อธิบายรายละเอียดเกี่ยวกับสินค้าหรือบริการของคุณ เช่น คุณสมบัติเด่น จุดขาย กลุ่มเป้าหมาย ความพิเศษ ฯลฯ"
-                        className="min-h-[100px] p-3 text-[#000000] border-[#d8ccf1] focus:border-[#1d4ed8] focus-visible:ring-0 bg-white"
+                        className="w-full min-h-[100px] max-h-[300px] p-3 text-[#000000] border border-[#d8ccf1] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 bg-white resize-none overflow-hidden rounded-md"
+                        style={{ height: "100px" }}
                         disabled={isGenerating}
                       />
                       <p className="text-xs text-[#1d4ed8] mt-2">
@@ -1802,32 +1815,41 @@ function MainContent() {
               </div>
 
               {/* Custom Input Field */}
-              <div className="w-full relative max-w-2xl">
-                <Textarea
+              <div className="w-full max-w-2xl space-y-4">
+                <textarea
                   value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
+                  onChange={(e) => {
+                    setInstructions(e.target.value)
+                    // Auto-resize textarea
+                    const textarea = e.target as HTMLTextAreaElement
+                    textarea.style.height = 'auto'
+                    textarea.style.height = Math.min(Math.max(textarea.scrollHeight, 120), 400) + 'px'
+                  }}
                   placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
-                  className="min-h-[120px] p-4 text-[#000000] border-[#e4e7ec] focus:border-[#1d4ed8] focus-visible:ring-0 shadow-md"
-                  style={{ backgroundColor: "#ffffff" }}
+                  className="w-full min-h-[120px] max-h-[400px] p-4 text-[#000000] border border-[#e4e7ec] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 shadow-md resize-none overflow-hidden rounded-md"
+                  style={{ backgroundColor: "#ffffff", height: "120px" }}
                   disabled={isGenerating}
                 />
-                <Button 
-                  onClick={handleGenerateTopics}
-                  disabled={isGenerating || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
-                  className="absolute bottom-4 right-4 bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
-                >
-                  {isGenerating ? (
-                    <>
-                      <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
-                      กำลังสร้าง...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="mr-2 h-4 w-4 text-[#1d4ed8] animate-pulse" />
-                      Generate
-                    </>
-                  )}
-                </Button>
+                
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleGenerateTopics}
+                    disabled={isGenerating || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
+                    className="bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                        กำลังสร้าง...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="mr-2 h-4 w-4 text-[#1d4ed8] animate-pulse" />
+                        Generate
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (
@@ -1894,6 +1916,7 @@ function MainContent() {
         clientName={activeClientName}
         productFocus={activeProductFocus || undefined}
         adAccount={activeAdAccount || undefined}
+        instructions={instructions}
       />
       
       <SessionHistory
