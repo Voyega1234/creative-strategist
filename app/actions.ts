@@ -9,21 +9,42 @@ import { v4 as uuidv4 } from "uuid" // For generating unique IDs
 export async function updateClientProfile(profile: ClientProfile) {
   const supabase = getSupabase()
 
-  const { id, ...updates } = profile
+  const { id, services, pricing, usp, specialty, strengths, weaknesses, ...clientUpdates } = profile
 
-  const { data, error } = await supabase
+  // Update Clients table (fields that belong to Clients table)
+  const { data: clientData, error: clientError } = await supabase
     .from("Clients")
-    .update({ ...updates, updatedAt: new Date().toISOString() })
+    .update({ ...clientUpdates, updatedAt: new Date().toISOString() })
     .eq("id", id)
     .select()
 
-  if (error) {
-    console.error("Error updating client profile:", error)
-    return { success: false, message: error.message }
+  if (clientError) {
+    console.error("Error updating client profile:", clientError)
+    return { success: false, message: clientError.message }
+  }
+
+  // Update Competitor table (business profile fields) if any business profile fields are provided
+  const businessProfileFields = { services, pricing, usp, specialty, strengths, weaknesses }
+  const hasBusinessProfileUpdates = Object.values(businessProfileFields).some(value => value !== undefined && value !== null)
+
+  if (hasBusinessProfileUpdates) {
+    // Find the client's business profile in Competitor table
+    const { data: competitorData, error: competitorError } = await supabase
+      .from("Competitor")
+      .update(businessProfileFields)
+      .eq("analysisRunId", id)
+      .ilike("name", `%${clientData[0].clientName}%`)
+      .select()
+
+    if (competitorError) {
+      console.error("Error updating competitor business profile:", competitorError)
+      // Don't fail the entire operation if competitor update fails
+      console.log("Continuing with client update despite competitor update failure")
+    }
   }
 
   revalidatePath("/configure") // Revalidate the page to show updated data
-  return { success: true, message: "Client profile updated successfully!", data: data[0] }
+  return { success: true, message: "Client profile updated successfully!", data: clientData[0] }
 }
 
 export async function createClients(clientFacebookUrl: string) {
