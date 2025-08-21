@@ -4,7 +4,7 @@ import { getSupabase } from "@/lib/supabase/server"
 export type ClientProfile = {
   id: string
   clientName: string | null
-  clientWebsite: string | null
+  clientWebsiteUrl: string | null
   clientFacebookUrl: string | null
   productFocus: string | null
   additionalInfo: string | null

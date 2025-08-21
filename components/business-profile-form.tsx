@@ -42,13 +42,29 @@ export function BusinessProfileForm({ isEditing, formData, setFormData, clientBu
           <p className="text-sm font-medium text-black mb-1">Client Website</p>
           {isEditing ? (
             <Input
-              name="clientWebsite"
-              value={formData.clientWebsite || ""}
+              name="clientWebsiteUrl"
+              value={formData.clientWebsiteUrl || ""}
               onChange={handleChange}
               className="border-[#999999] focus:border-black focus:ring-0 text-sm text-[#000000]"
             />
           ) : (
-            <p className="text-sm text-[#8e8e93]">{formData.clientWebsite}</p>
+            <div className="text-sm text-[#8e8e93]">
+              {formData.clientWebsiteUrl ? (
+                <a
+                  href={formData.clientWebsiteUrl.startsWith('http') ? formData.clientWebsiteUrl : `https://${formData.clientWebsiteUrl}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline break-all"
+                  title={formData.clientWebsiteUrl}
+                >
+                  {formData.clientWebsiteUrl.length > 50 
+                    ? `${formData.clientWebsiteUrl.substring(0, 50)}...` 
+                    : formData.clientWebsiteUrl}
+                </a>
+              ) : (
+                'N/A'
+              )}
+            </div>
           )}
         </div>
         <div>

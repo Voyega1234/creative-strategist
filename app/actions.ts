@@ -59,7 +59,7 @@ export async function createClients(clientFacebookUrl: string) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       clientName: `New Client (${newId.substring(0, 4)})`, // Default name
-      clientWebsite: null,
+      clientWebsiteUrl: null,
       productFocus: null,
       additionalInfo: null,
       userCompetitor: null,
