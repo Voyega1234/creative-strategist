@@ -107,18 +107,16 @@ export default function SharedIdeasPage() {
 
   const getImpactColor = (impact: string) => {
     switch (impact) {
-      case 'High': return 'bg-green-500 text-white'
-      case 'Medium': return 'bg-yellow-500 text-white'
-      case 'Low': return 'bg-gray-500 text-white'
-      default: return 'bg-blue-500 text-white'
+      case 'Proven Concept': return 'bg-blue-500 text-white'
+      case 'New Concept': return 'bg-purple-500 text-white'
+      default: return 'bg-gray-500 text-white'
     }
   }
 
   const getImpactIcon = (impact: string) => {
     switch (impact) {
-      case 'High': return <Zap className="w-3 h-3" />
-      case 'Medium': return <TrendingUp className="w-3 h-3" />
-      case 'Low': return <Target className="w-3 h-3" />
+      case 'Proven Concept': return <Target className="w-3 h-3" />
+      case 'New Concept': return <Zap className="w-3 h-3" />
       default: return null
     }
   }

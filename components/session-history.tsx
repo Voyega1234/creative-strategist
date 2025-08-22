@@ -281,10 +281,14 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
                               {idea.category}
                             </Badge>
                             <Badge 
-                              variant={idea.impact === 'High' ? 'default' : 'secondary'} 
-                              className="text-xs"
+                              variant="default" 
+                              className={`text-xs ${
+                                idea.impact === 'Proven Concept' ? 'bg-blue-500 text-white' :
+                                idea.impact === 'New Concept' ? 'bg-purple-500 text-white' :
+                                'bg-gray-500 text-white'
+                              }`}
                             >
-                              {idea.impact} Impact
+                              {idea.impact}
                             </Badge>
                           </div>
                         </div>

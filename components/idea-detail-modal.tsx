@@ -53,7 +53,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
 
       console.log('🔄 Generating Facebook post with payload:', payload)
 
-      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
+      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook-test/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,15 +90,11 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
           </DialogHeader>
           <div className="space-x-2 mb-4">
             <Badge variant="secondary" className="mr-1">{idea.category}</Badge>
-            <Badge variant={
-              idea.impact === 'High' ? 'default' : 
-              idea.impact === 'Medium' ? 'outline' : 
-              'secondary'
-            } className={cn(
-              idea.impact === 'High' ? 'bg-green-500 text-white' :
-              idea.impact === 'Medium' ? 'bg-yellow-500 text-white' :
-              ''
-            )}>{idea.impact} Impact</Badge>
+            <Badge variant="default" className={cn(
+              idea.impact === 'Proven Concept' ? 'bg-blue-500 text-white' :
+              idea.impact === 'New Concept' ? 'bg-purple-500 text-white' :
+              'bg-gray-500 text-white'
+            )}>{idea.impact}</Badge>
             {(idea.tags || []).map(tag => (
               <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
             ))}

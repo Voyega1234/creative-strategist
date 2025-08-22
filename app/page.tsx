@@ -54,7 +54,7 @@ export interface IdeaRecommendation {
   title: string;
   description: string;
   category: string;
-  impact: 'High' | 'Medium' | 'Low';
+  impact: 'Proven Concept' | 'New Concept';
   competitiveGap: string;
   tags: string[];
   content_pillar: string;
@@ -94,11 +94,10 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
       {topic.impact && (
         <div className="mb-4">
           <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
-            topic.impact === 'High' ? 'bg-green-500' :
-            topic.impact === 'Medium' ? 'bg-yellow-500' :
-            topic.impact === 'Low' ? 'bg-gray-500' : 'bg-blue-500'
+            topic.impact === 'Proven Concept' ? 'bg-blue-500' :
+            topic.impact === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
           }`}>
-            {topic.impact} Impact
+            {topic.impact}
           </Badge>
         </div>
       )}

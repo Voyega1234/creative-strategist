@@ -139,7 +139,7 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
       title: idea.title,
       description: idea.description,
       category: idea.category,
-      impact: idea.impact as 'High' | 'Medium' | 'Low',
+      impact: idea.impact as 'Proven Concept' | 'New Concept',
       competitiveGap: idea.competitivegap,
       tags: (() => {
         try {
