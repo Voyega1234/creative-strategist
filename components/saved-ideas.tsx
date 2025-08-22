@@ -137,7 +137,27 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
     // Convert SavedIdea to IdeaRecommendation format for the existing modal
     const convertedIdea = {
       title: idea.title,
-      description: idea.description,
+      description: (() => {
+        try {
+          // Try to parse as JSON first (new format)
+          const parsed = JSON.parse(idea.description)
+          if (Array.isArray(parsed)) {
+            return parsed
+          }
+        } catch {
+          // If parsing fails, it's probably an old string format
+          // Convert string to new format with a generic label
+          return [{
+            label: 'Description' as const,
+            text: idea.description
+          }]
+        }
+        // Fallback
+        return [{
+          label: 'Description' as const,
+          text: idea.description
+        }]
+      })(),
       category: idea.category,
       impact: idea.impact as 'Proven Concept' | 'New Concept',
       competitiveGap: idea.competitivegap,
@@ -248,11 +268,10 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className={`text-white text-xs px-2 py-1 rounded-full ${
-                            idea.impact === 'High' ? 'bg-green-500' :
-                            idea.impact === 'Medium' ? 'bg-yellow-500' :
-                            idea.impact === 'Low' ? 'bg-gray-500' : 'bg-blue-500'
+                            idea.impact === 'Proven Concept' ? 'bg-blue-500' :
+                            idea.impact === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
                           }`}>
-                            {idea.impact} Impact
+                            {idea.impact}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
                             {idea.content_pillar}
@@ -263,9 +282,27 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
                           {idea.concept_idea || idea.title}
                         </h4>
                         
-                        <p className="text-gray-600 text-sm mb-3 line-clamp-3">
-                          {idea.description}
-                        </p>
+                        <div className="text-gray-600 text-sm mb-3 space-y-1">
+                          {(() => {
+                            try {
+                              // Try to parse as JSON first (new format)
+                              const parsed = JSON.parse(idea.description)
+                              if (Array.isArray(parsed)) {
+                                return parsed.slice(0, 2).map((item: any, index: number) => (
+                                  <div key={index} className="text-xs">
+                                    <span className="font-medium text-[#1d4ed8]">{item.label}:</span>
+                                    <span className="ml-1 line-clamp-1">{item.text}</span>
+                                  </div>
+                                ))
+                              }
+                            } catch {
+                              // If parsing fails, it's probably an old string format
+                              return <span className="line-clamp-3">{idea.description}</span>
+                            }
+                            // Fallback
+                            return <span className="line-clamp-3">{idea.description}</span>
+                          })()}
+                        </div>
                         
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <div className="flex items-center gap-1">

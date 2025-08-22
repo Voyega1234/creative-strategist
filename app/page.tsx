@@ -52,7 +52,10 @@ import { sessionManager } from "@/lib/session-manager"
 // Types for ideas
 export interface IdeaRecommendation {
   title: string;
-  description: string;
+  description: Array<{
+    label: 'Pain' | 'Insight' | 'Solution/Product fit' | 'Why this converts' | 'Evidence/Counterpoint';
+    text: string;
+  }> | string; // Support both old and new formats
   category: string;
   impact: 'Proven Concept' | 'New Concept';
   competitiveGap: string;
@@ -67,6 +70,23 @@ export interface IdeaRecommendation {
     bullets: string[];
     cta: string;
   };
+}
+
+// Utility function to normalize description to array format
+const normalizeDescription = (description: any): Array<{label: string; text: string}> => {
+  if (Array.isArray(description)) {
+    return description;
+  }
+  if (typeof description === 'string') {
+    return [{
+      label: 'Description',
+      text: description
+    }];
+  }
+  return [{
+    label: 'Description',
+    text: 'No description available'
+  }];
 }
 
 type ClientWithProductFocus = {
@@ -154,9 +174,23 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
           )}
         </div>
         
-        <p className="text-[#535862] text-sm line-clamp-4">
-          {topic.description}
-        </p>
+        <div className="text-[#535862] text-sm space-y-2">
+          {normalizeDescription(topic.description).slice(0, 2).map((item, index) => (
+            <div key={index} className="flex gap-2">
+              <span className="font-medium text-[#1d4ed8] text-xs min-w-fit">
+                {item.label}:
+              </span>
+              <span className="text-xs line-clamp-2">
+                {item.text}
+              </span>
+            </div>
+          ))}
+          {normalizeDescription(topic.description).length > 2 && (
+            <p className="text-xs text-[#8e8e93] italic">
+              +{normalizeDescription(topic.description).length - 2} more insights...
+            </p>
+          )}
+        </div>
         
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap gap-2">

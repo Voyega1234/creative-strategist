@@ -7,6 +7,23 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { IdeaRecommendation } from "@/app/page"
+
+// Utility function to normalize description to array format
+const normalizeDescription = (description: any): Array<{label: string; text: string}> => {
+  if (Array.isArray(description)) {
+    return description;
+  }
+  if (typeof description === 'string') {
+    return [{
+      label: 'Description',
+      text: description
+    }];
+  }
+  return [{
+    label: 'Description',
+    text: 'No description available'
+  }];
+}
 import { RefreshCcw } from "lucide-react"
 import { FacebookPost } from "./facebook-post"
 
@@ -102,11 +119,21 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
 
           <div className="py-4 space-y-6">
             <section>
-              <h4 className="font-semibold mb-2">Description</h4>
-              <p className="text-sm">{idea.description}</p>
+              <h4 className="font-semibold mb-3">Description</h4>
+              <div className="space-y-3">
+                {normalizeDescription(idea.description).map((item, index) => (
+                  <div key={index} className="border-l-4 border-[#1d4ed8] pl-4 py-2 bg-gray-50 rounded-r">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-block w-2 h-2 bg-[#1d4ed8] rounded-full"></span>
+                      <h5 className="font-semibold text-sm text-[#1d4ed8]">{item.label}</h5>
+                    </div>
+                    <p className="text-sm text-gray-700">{item.text}</p>
+                  </div>
+                ))}
+              </div>
               {idea.competitiveGap && (
                 <>
-                  <h5 className="mt-3 font-semibold text-sm">Competitive Gap Addressed</h5>
+                  <h5 className="mt-4 font-semibold text-sm">Competitive Gap Addressed</h5>
                   <p className="text-sm">{idea.competitiveGap}</p>
                 </>
               )}

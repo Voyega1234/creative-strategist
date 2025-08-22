@@ -1,6 +1,23 @@
 'use client'
 
 import { useState, useEffect } from "react"
+
+// Utility function to normalize description to array format
+const normalizeDescription = (description: any): Array<{label: string; text: string}> => {
+  if (Array.isArray(description)) {
+    return description;
+  }
+  if (typeof description === 'string') {
+    return [{
+      label: 'Description',
+      text: description
+    }];
+  }
+  return [{
+    label: 'Description',
+    text: 'No description available'
+  }];
+}
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -277,9 +294,17 @@ export default function SharedIdeasPage() {
                     {idea.concept_idea}
                   </p>
                 )}
-                <p className="text-[#535862] text-sm leading-relaxed">
-                  {idea.description}
-                </p>
+                <div className="space-y-3">
+                  {normalizeDescription(idea.description).map((item, index) => (
+                    <div key={index} className="border-l-4 border-[#1d4ed8] pl-4 py-2 bg-blue-50 rounded-r">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="inline-block w-2 h-2 bg-[#1d4ed8] rounded-full"></span>
+                        <h5 className="font-semibold text-sm text-[#1d4ed8]">{item.label}</h5>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Tags */}
