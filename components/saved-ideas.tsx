@@ -141,22 +141,34 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
         try {
           // Try to parse as JSON first (new format)
           const parsed = JSON.parse(idea.description)
-          if (Array.isArray(parsed)) {
+          
+          // New format with summary and sections
+          if (parsed && typeof parsed === 'object' && parsed.summary && parsed.sections) {
             return parsed
+          }
+          
+          // Old array format
+          if (Array.isArray(parsed)) {
+            return {
+              summary: parsed.length > 0 ? parsed[0].text : 'No description available',
+              sections: parsed.map((item: any) => ({
+                group: item.label || 'Description',
+                bullets: [item.text || '']
+              }))
+            }
           }
         } catch {
           // If parsing fails, it's probably an old string format
-          // Convert string to new format with a generic label
-          return [{
-            label: 'Description' as const,
-            text: idea.description
-          }]
+          return {
+            summary: idea.description,
+            sections: []
+          }
         }
         // Fallback
-        return [{
-          label: 'Description' as const,
-          text: idea.description
-        }]
+        return {
+          summary: idea.description,
+          sections: []
+        }
       })(),
       category: idea.category,
       impact: idea.impact as 'Proven Concept' | 'New Concept',
@@ -282,11 +294,34 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
                           {idea.concept_idea || idea.title}
                         </h4>
                         
-                        <div className="text-gray-600 text-sm mb-3 space-y-1">
+                        <div className="text-gray-600 text-sm mb-3 space-y-2">
                           {(() => {
                             try {
                               // Try to parse as JSON first (new format)
                               const parsed = JSON.parse(idea.description)
+                              
+                              // New format with summary and sections
+                              if (parsed && typeof parsed === 'object' && parsed.summary && parsed.sections) {
+                                return (
+                                  <>
+                                    <p className="text-xs font-medium text-[#000000] line-clamp-2">
+                                      {parsed.summary}
+                                    </p>
+                                    {parsed.sections.length > 0 && (
+                                      <div className="text-xs">
+                                        <span className="font-medium text-[#1d4ed8]">
+                                          {parsed.sections[0].group}:
+                                        </span>
+                                        <span className="ml-1 line-clamp-1">
+                                          {parsed.sections[0].bullets[0]}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                )
+                              }
+                              
+                              // Old array format
                               if (Array.isArray(parsed)) {
                                 return parsed.slice(0, 2).map((item: any, index: number) => (
                                   <div key={index} className="text-xs">

@@ -52,10 +52,16 @@ import { sessionManager } from "@/lib/session-manager"
 // Types for ideas
 export interface IdeaRecommendation {
   title: string;
-  description: Array<{
+  description: {
+    summary: string;
+    sections: Array<{
+      group: 'pain' | 'insight_solution' | 'why_evidence';
+      bullets: string[];
+    }>;
+  } | Array<{
     label: 'Pain' | 'Insight' | 'Solution/Product fit' | 'Why this converts' | 'Evidence/Counterpoint';
     text: string;
-  }> | string; // Support both old and new formats
+  }> | string; // Support old, intermediate, and new formats
   category: string;
   impact: 'Proven Concept' | 'New Concept';
   competitiveGap: string;
@@ -72,21 +78,53 @@ export interface IdeaRecommendation {
   };
 }
 
-// Utility function to normalize description to array format
-const normalizeDescription = (description: any): Array<{label: string; text: string}> => {
+// Utility function to normalize description to consistent format
+const normalizeDescription = (description: any): {summary: string; sections: Array<{group: string; bullets: string[]}>} => {
+  // New format with summary and sections
+  if (description && typeof description === 'object' && description.summary && description.sections) {
+    return {
+      summary: description.summary,
+      sections: description.sections.map((section: any) => ({
+        group: getGroupLabel(section.group),
+        bullets: Array.isArray(section.bullets) ? section.bullets : []
+      }))
+    };
+  }
+  
+  // Old array format
   if (Array.isArray(description)) {
-    return description;
+    return {
+      summary: description.length > 0 ? description[0].text : 'No description available',
+      sections: description.map((item: any) => ({
+        group: item.label || 'Description',
+        bullets: [item.text || '']
+      }))
+    };
   }
+  
+  // String format (oldest)
   if (typeof description === 'string') {
-    return [{
-      label: 'Description',
-      text: description
-    }];
+    return {
+      summary: description,
+      sections: []
+    };
   }
-  return [{
-    label: 'Description',
-    text: 'No description available'
-  }];
+  
+  // Fallback
+  return {
+    summary: 'No description available',
+    sections: []
+  };
+}
+
+// Helper function to get readable labels for groups
+const getGroupLabel = (group: string): string => {
+  switch (group) {
+    case 'pain': return 'Pain Point';
+    case 'insight_solution': return 'Insight / Solution';
+    case 'why_evidence': return 'Why this converts / Evidence';
+    default: return group || 'Description';
+  }
 }
 
 type ClientWithProductFocus = {
@@ -174,22 +212,38 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
           )}
         </div>
         
-        <div className="text-[#535862] text-sm space-y-2">
-          {normalizeDescription(topic.description).slice(0, 2).map((item, index) => (
-            <div key={index} className="flex gap-2">
-              <span className="font-medium text-[#1d4ed8] text-xs min-w-fit">
-                {item.label}:
-              </span>
-              <span className="text-xs line-clamp-2">
-                {item.text}
-              </span>
-            </div>
-          ))}
-          {normalizeDescription(topic.description).length > 2 && (
-            <p className="text-xs text-[#8e8e93] italic">
-              +{normalizeDescription(topic.description).length - 2} more insights...
-            </p>
-          )}
+        <div className="text-[#535862] text-sm space-y-3">
+          {(() => {
+            const normalized = normalizeDescription(topic.description);
+            return (
+              <>
+                {/* Summary */}
+                <p className="text-sm line-clamp-2 font-medium text-[#000000]">
+                  {normalized.summary}
+                </p>
+                
+                {/* First section preview */}
+                {normalized.sections.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="font-medium text-[#1d4ed8] text-xs">
+                      {normalized.sections[0].group}:
+                    </span>
+                    {normalized.sections[0].bullets.slice(0, 2).map((bullet, index) => (
+                      <div key={index} className="flex gap-2">
+                        <span className="text-[#1d4ed8] text-xs">•</span>
+                        <span className="text-xs line-clamp-1">{bullet}</span>
+                      </div>
+                    ))}
+                    {normalized.sections.length > 1 && (
+                      <p className="text-xs text-[#8e8e93] italic">
+                        +{normalized.sections.length - 1} more sections...
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
         
         <div className="flex items-center justify-between">
