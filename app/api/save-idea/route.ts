@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         clientname: clientName,
         productfocus: productFocus,
         title: idea.title,
-        description: idea.description,
+        description: typeof idea.description === 'string' ? idea.description : JSON.stringify(idea.description),
         category: idea.category,
         impact: idea.impact,
         competitivegap: idea.competitiveGap,
@@ -152,19 +152,37 @@ export async function GET(request: Request) {
       console.log(`[save-idea] Cache hit for ${cacheKey} - ${performance.now() - startTime}ms`);
       return NextResponse.json({ 
         success: true, 
-        savedTitles: cached.data 
+        savedTitles: cached.data,
+        topics: cached.topics || []
       });
     }
 
     const supabase = getSupabase();
-    // Optimized query with better indexing support
+    // Query to get full saved ideas data for the AI Image Generator
     const { data, error } = await supabase
       .from('savedideas')
-      .select('title')
+      .select(`
+        id,
+        title,
+        description,
+        category,
+        impact,
+        competitivegap,
+        tags,
+        content_pillar,
+        product_focus,
+        concept_idea,
+        copywriting_headline,
+        copywriting_sub_headline_1,
+        copywriting_sub_headline_2,
+        copywriting_bullets,
+        copywriting_cta,
+        savedat
+      `)
       .eq('clientname', clientName)
       .eq('productfocus', productFocus)
       .order('savedat', { ascending: false })
-      .limit(100); // Increased limit for better caching
+      .limit(100);
 
     if (error) {
       console.error('Error fetching saved ideas:', error);
@@ -174,20 +192,54 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
+    // Transform data for AI Image Generator
+    const topics = data.map(item => ({
+      title: item.title,
+      description: item.description,
+      category: item.category,
+      impact: item.impact,
+      competitiveGap: item.competitivegap,
+      tags: (() => {
+        try {
+          return JSON.parse(item.tags || '[]');
+        } catch {
+          return [];
+        }
+      })(),
+      content_pillar: item.content_pillar,
+      product_focus: item.product_focus,
+      concept_idea: item.concept_idea,
+      copywriting: {
+        headline: item.copywriting_headline,
+        sub_headline_1: item.copywriting_sub_headline_1,
+        sub_headline_2: item.copywriting_sub_headline_2,
+        bullets: (() => {
+          try {
+            return JSON.parse(item.copywriting_bullets || '[]');
+          } catch {
+            return [];
+          }
+        })(),
+        cta: item.copywriting_cta
+      }
+    }));
+
     const savedTitles = data.map(item => item.title);
     
-    // Cache the result
+    // Cache the result (cache both formats)
     savedIdeasCache.set(cacheKey, {
       data: savedTitles,
+      topics: topics,
       timestamp: Date.now()
     });
 
     const endTime = performance.now();
-    console.log(`[save-idea] Query completed in ${endTime - startTime}ms for ${savedTitles.length} titles`);
+    console.log(`[save-idea] Query completed in ${endTime - startTime}ms for ${topics.length} topics`);
     
     return NextResponse.json({ 
       success: true, 
-      savedTitles 
+      savedTitles,
+      topics
     });
 
   } catch (error) {
