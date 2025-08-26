@@ -145,17 +145,17 @@ export async function GET(request: Request) {
       }, { status: 400 });
     }
 
-    // Check cache first
-    const cacheKey = `${clientName}:${productFocus}`;
-    const cached = savedIdeasCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < SAVED_IDEAS_CACHE_TTL) {
-      console.log(`[save-idea] Cache hit for ${cacheKey} - ${performance.now() - startTime}ms`);
-      return NextResponse.json({ 
-        success: true, 
-        savedTitles: cached.data,
-        topics: cached.topics || []
-      });
-    }
+    // Cache disabled for production reliability - Vercel serverless functions don't maintain memory
+    // const cacheKey = `${clientName}:${productFocus}`;
+    // const cached = savedIdeasCache.get(cacheKey);
+    // if (cached && (Date.now() - cached.timestamp) < SAVED_IDEAS_CACHE_TTL) {
+    //   console.log(`[save-idea] Cache hit for ${cacheKey} - ${performance.now() - startTime}ms`);
+    //   return NextResponse.json({ 
+    //     success: true, 
+    //     savedTitles: cached.data,
+    //     topics: cached.topics || []
+    //   });
+    // }
 
     const supabase = getSupabase();
     // Query to get full saved ideas data for the AI Image Generator
@@ -226,12 +226,12 @@ export async function GET(request: Request) {
 
     const savedTitles = data.map(item => item.title);
     
-    // Cache the result (cache both formats)
-    savedIdeasCache.set(cacheKey, {
-      data: savedTitles,
-      topics: topics,
-      timestamp: Date.now()
-    });
+    // Cache disabled for production reliability
+    // savedIdeasCache.set(cacheKey, {
+    //   data: savedTitles,
+    //   topics: topics,
+    //   timestamp: Date.now()
+    // });
 
     const endTime = performance.now();
     console.log(`[save-idea] Query completed in ${endTime - startTime}ms for ${topics.length} topics`);
