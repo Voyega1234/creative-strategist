@@ -21,7 +21,7 @@ import {
   X
 } from "lucide-react"
 import Image from "next/image"
-import { getStorageClient } from "@/lib/supabase/client"
+import { getStorageClient, getSupabase } from "@/lib/supabase/client"
 
 interface ReferenceImage {
   name: string
@@ -176,26 +176,93 @@ export function AIImageGenerator({
       const selectedClient = clients.find(c => c.id === selectedClientId)
       if (!selectedClient) return
 
-      console.log('[AI Image Generator] Loading saved topics for:', {
-        clientId: selectedClientId,
+      console.log('[AI Image Generator] Direct Supabase query for:', {
         clientName: selectedClient.clientName,
-        productFocus: selectedProductFocus
+        productFocus: selectedProductFocus,
+        selectedClientId
       })
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/saved-topics?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
-      const result = await response.json()
-      
-      console.log('[AI Image Generator] Saved topics response:', result)
-      
-      if (result.success) {
-        setSavedTopics(result.savedTopics || [])
-        console.log('[AI Image Generator] Loaded', result.savedTopics?.length || 0, 'saved topics')
-      } else {
-        console.error('[AI Image Generator] Failed to load saved topics:', result.error)
+      const supabase = getSupabase()
+      const startTime = performance.now()
+
+      const { data, error } = await supabase
+        .from('savedideas')
+        .select(`
+          id,
+          title,
+          description,
+          category,
+          impact,
+          competitivegap,
+          tags,
+          content_pillar,
+          product_focus,
+          concept_idea,
+          copywriting_headline,
+          copywriting_sub_headline_1,
+          copywriting_sub_headline_2,
+          copywriting_bullets,
+          copywriting_cta,
+          savedat
+        `)
+        .eq('clientname', selectedClient.clientName)
+        .eq('productfocus', selectedProductFocus)
+        .order('savedat', { ascending: false })
+        .limit(50)
+
+      const endTime = performance.now()
+      console.log(`[AI Image Generator] Direct Supabase query completed in ${endTime - startTime}ms for ${data?.length || 0} items`)
+
+      if (error) {
+        console.error('[AI Image Generator] Supabase error:', error)
+        return
       }
+
+      // Transform data to match SavedTopic interface
+      const savedTopics = data.map(item => {
+        // Parse tags from JSON array format
+        let tags = [];
+        try {
+          tags = item.tags ? JSON.parse(item.tags) : [];
+        } catch (e) {
+          // Fallback to comma-separated if not JSON
+          tags = item.tags ? item.tags.split(',').map((tag: string) => tag.trim()) : [];
+        }
+
+        // Parse bullets from JSON array format  
+        let bullets = [];
+        try {
+          bullets = item.copywriting_bullets ? JSON.parse(item.copywriting_bullets) : [];
+        } catch (e) {
+          // Fallback to newline-separated if not JSON
+          bullets = item.copywriting_bullets ? item.copywriting_bullets.split('\n').filter((b: string) => b.trim()) : [];
+        }
+
+        return {
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          impact: item.impact,
+          competitiveGap: item.competitivegap,
+          tags: tags,
+          content_pillar: item.content_pillar,
+          product_focus: item.product_focus,
+          concept_idea: item.concept_idea,
+          copywriting: {
+            headline: item.copywriting_headline || '',
+            sub_headline_1: item.copywriting_sub_headline_1 || '',
+            sub_headline_2: item.copywriting_sub_headline_2 || '',
+            bullets: bullets,
+            cta: item.copywriting_cta || ''
+          }
+        };
+      });
+
+      setSavedTopics(savedTopics)
+      console.log('[AI Image Generator] Loaded saved topics:', savedTopics.length)
+
     } catch (error) {
-      console.error('Error loading saved topics:', error)
+      console.error('[AI Image Generator] Error loading saved topics:', error)
     } finally {
       setLoadingTopics(false)
     }
@@ -600,7 +667,29 @@ export function AIImageGenerator({
                       <div className="flex items-start gap-2">
                         <div className="flex-1">
                           <h4 className="font-medium text-sm text-black">{topic.title}</h4>
-                          <p className="text-xs text-[#8e8e93] mt-1 line-clamp-2">{topic.description}</p>
+                          <div className="text-xs text-[#8e8e93] mt-1 line-clamp-2">
+                            {(() => {
+                              try {
+                                // Try to parse as JSON first (new format)
+                                const parsed = JSON.parse(topic.description)
+                                
+                                // New format with summary and sections
+                                if (parsed && typeof parsed === 'object' && parsed.summary && parsed.sections) {
+                                  return parsed.summary
+                                }
+                                
+                                // Old array format
+                                if (Array.isArray(parsed)) {
+                                  return parsed.length > 0 ? parsed[0].text : 'No description available'
+                                }
+                              } catch {
+                                // If parsing fails, it's probably an old string format
+                                return topic.description
+                              }
+                              // Fallback
+                              return topic.description
+                            })()}
+                          </div>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant="secondary" className="text-xs">{topic.category}</Badge>
                             {Array.isArray(topic.tags) && topic.tags.slice(0, 2).map(tag => (

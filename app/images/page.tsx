@@ -14,6 +14,8 @@ import { ImageUpload } from "@/components/image-upload"
 import { PinterestResearch } from "@/components/pinterest-research"
 import { AIImageGenerator } from "@/components/ai-image-generator"
 import { LoadingPopup } from "@/components/loading-popup"
+import { SavedIdeas } from "@/components/saved-ideas"
+import { IdeaDetailModal } from "@/components/idea-detail-modal"
 
 type ClientWithProductFocus = {
   id: string
@@ -32,6 +34,11 @@ function MainContent() {
   const [isBrandOpen, setIsBrandOpen] = useState(true)
   const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false)
+  
+  // Saved Ideas modal state
+  const [savedIdeasOpen, setSavedIdeasOpen] = useState(false)
+  const [selectedDetailIdea, setSelectedDetailIdea] = useState<any>(null)
+  const [selectedDetailSavedId, setSelectedDetailSavedId] = useState<string>('')
   
   // Get URL parameters
   const activeProductFocus = searchParams.get('productFocus') || null
@@ -93,6 +100,24 @@ function MainContent() {
     } catch (error) {
       setIsNavigatingToHome(false)
     }
+  }
+
+  const handleViewSavedIdeas = () => {
+    if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
+      alert('กรุณาเลือกลูกค้าและ Product Focus ก่อน')
+      return
+    }
+    setSavedIdeasOpen(true)
+  }
+
+  const handleViewDetails = (idea: any, savedId: string) => {
+    setSelectedDetailIdea(idea)
+    setSelectedDetailSavedId(savedId)
+  }
+
+  const handleCloseDetail = () => {
+    setSelectedDetailIdea(null)
+    setSelectedDetailSavedId('')
   }
 
   return (
@@ -184,6 +209,7 @@ function MainContent() {
                 กลับหน้าหลัก
               </Button>
               <Button
+                onClick={handleViewSavedIdeas}
                 variant="ghost"
                 className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
               >
@@ -320,6 +346,24 @@ function MainContent() {
         isOpen={isNavigatingToConfigure}
         message="กำลังโหลดหน้าตั้งค่าและวิเคราะห์"
       />
+
+      {/* Saved Ideas Modal */}
+      <SavedIdeas 
+        isOpen={savedIdeasOpen}
+        onClose={() => setSavedIdeasOpen(false)}
+        activeClientName={activeClientName || undefined}
+        activeProductFocus={activeProductFocus || undefined}
+        onViewDetails={handleViewDetails}
+      />
+
+      {/* Idea Detail Modal */}
+      {selectedDetailIdea && (
+        <IdeaDetailModal
+          isOpen={true}
+          onClose={handleCloseDetail}
+          idea={selectedDetailIdea}
+        />
+      )}
     </div>
   )
 }
