@@ -25,16 +25,16 @@ export async function GET(request: Request) {
       }, { status: 400 });
     }
 
-    // Check cache first
-    const cacheKey = `${clientName}:${productFocus}`;
-    const cached = savedTopicsCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-      console.log(`[saved-topics] Cache hit for ${cacheKey} - ${performance.now() - startTime}ms`);
-      return NextResponse.json({ 
-        success: true, 
-        savedTopics: cached.data 
-      });
-    }
+    // Cache disabled for production reliability - Vercel serverless functions don't maintain memory
+    // const cacheKey = `${clientName}:${productFocus}`;
+    // const cached = savedTopicsCache.get(cacheKey);
+    // if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    //   console.log(`[saved-topics] Cache hit for ${cacheKey} - ${performance.now() - startTime}ms`);
+    //   return NextResponse.json({ 
+    //     success: true, 
+    //     savedTopics: cached.data 
+    //   });
+    // }
 
     const supabase = getSupabase();
     
@@ -112,11 +112,11 @@ export async function GET(request: Request) {
       };
     });
 
-    // Cache the result
-    savedTopicsCache.set(cacheKey, {
-      data: savedTopics,
-      timestamp: Date.now()
-    });
+    // Cache disabled for production reliability
+    // savedTopicsCache.set(cacheKey, {
+    //   data: savedTopics,
+    //   timestamp: Date.now()
+    // });
 
     const endTime = performance.now();
     console.log(`[saved-topics] Query completed in ${endTime - startTime}ms for ${savedTopics.length} items`);
@@ -129,6 +129,35 @@ export async function GET(request: Request) {
   } catch (error) {
     const endTime = performance.now();
     console.error(`[saved-topics] Error after ${endTime - startTime}ms:`, error);
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Internal server error' 
+    }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { action, clientName, productFocus } = body;
+    
+    if (action === 'clearCache' && clientName && productFocus) {
+      // Cache disabled for production reliability, but return success for compatibility
+      console.log(`[saved-topics] Cache clear requested for ${clientName}:${productFocus} (cache disabled)`);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Cache clear acknowledged (cache disabled for production)' 
+      });
+    }
+    
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Invalid action or missing parameters' 
+    }, { status: 400 });
+
+  } catch (error) {
+    console.error('[saved-topics] POST error:', error);
     return NextResponse.json({ 
       success: false, 
       error: 'Internal server error' 
