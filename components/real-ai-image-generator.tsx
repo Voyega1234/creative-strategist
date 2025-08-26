@@ -111,8 +111,7 @@ export function RealAIImageGenerator({
   const loadClients = async () => {
     try {
       setLoadingClients(true)
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/clients-with-product-focus`)
+      const response = await fetch('/api/clients-with-product-focus')
       const clients = await response.json()
       
       console.log('[Real AI Image Generator] Loaded clients:', clients)
@@ -149,8 +148,7 @@ export function RealAIImageGenerator({
       const selectedClient = clients.find(c => c.id === selectedClientId)
       if (!selectedClient) return
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/save-idea?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
+      const response = await fetch(`/api/save-idea?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -190,8 +188,7 @@ export function RealAIImageGenerator({
       setGeneratedImages(prev => [tempImage, ...prev])
 
       // Call N8N API for image generation
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/generate-image`, {
+      const response = await fetch('/api/generate-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

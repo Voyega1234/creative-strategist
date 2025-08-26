@@ -130,8 +130,7 @@ export function PinterestResearch({
   const loadClients = async () => {
     try {
       setLoadingClients(true)
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/clients-with-product-focus`)
+      const response = await fetch('/api/clients-with-product-focus')
       const clients = await response.json()
       
       console.log('[Pinterest Research] Loaded clients:', clients)
@@ -180,11 +179,11 @@ export function PinterestResearch({
         productFocus: selectedProductFocus
       })
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+      // Use relative URLs for better compatibility between localhost and production
       
       // First, clear the cache for this client/productFocus to get fresh data
       try {
-        await fetch(`${baseUrl}/api/saved-topics`, {
+        await fetch('/api/saved-topics', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -201,7 +200,7 @@ export function PinterestResearch({
       }
 
       // Now fetch fresh data
-      const response = await fetch(`${baseUrl}/api/saved-topics?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
+      const response = await fetch(`/api/saved-topics?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
       const result = await response.json()
       
       console.log('[Pinterest Research] Saved topics response:', result)
@@ -248,8 +247,7 @@ export function PinterestResearch({
     setGeneratedImages([newImage])
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/pinterest-research`, {
+      const response = await fetch('/api/pinterest-research', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -343,8 +341,7 @@ export function PinterestResearch({
       const urlParts = imageUrl.split('/')
       const filename = urlParts[urlParts.length - 1] || `pinterest-${Date.now()}.jpg`
       
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-      const response = await fetch(`${baseUrl}/api/save-pinterest-image`, {
+      const response = await fetch('/api/save-pinterest-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
