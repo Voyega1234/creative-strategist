@@ -138,7 +138,15 @@ export async function GET(request: Request) {
     const clientName = url.searchParams.get('clientName');
     const productFocus = url.searchParams.get('productFocus');
     
+    console.log('[save-idea] GET request params:', {
+      clientName,
+      productFocus,
+      rawClientName: url.searchParams.get('clientName'),
+      rawProductFocus: url.searchParams.get('productFocus')
+    });
+    
     if (!clientName || !productFocus) {
+      console.log('[save-idea] Missing parameters - clientName:', !!clientName, 'productFocus:', !!productFocus);
       return NextResponse.json({ 
         success: false, 
         error: 'Missing clientName or productFocus' 
@@ -183,6 +191,16 @@ export async function GET(request: Request) {
       .eq('productfocus', productFocus)
       .order('savedat', { ascending: false })
       .limit(100);
+
+    console.log('[save-idea] Supabase query result:', {
+      dataCount: data?.length || 0,
+      error: error?.message,
+      firstItem: data?.[0] ? {
+        clientname: data[0].clientname,
+        productfocus: data[0].productfocus,
+        title: data[0].title
+      } : null
+    });
 
     if (error) {
       console.error('Error fetching saved ideas:', error);

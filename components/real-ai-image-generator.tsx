@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { getSupabase } from "@/lib/supabase/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -148,13 +149,91 @@ export function RealAIImageGenerator({
       const selectedClient = clients.find(c => c.id === selectedClientId)
       if (!selectedClient) return
 
-      const response = await fetch(`/api/save-idea?clientName=${encodeURIComponent(selectedClient.clientName)}&productFocus=${encodeURIComponent(selectedProductFocus)}`)
-      
-      if (response.ok) {
-        const data = await response.json()
-        setSavedTopics(data.topics || [])
-        console.log('[Real AI Image Generator] Loaded saved topics:', data.topics?.length || 0)
+      console.log('[Real AI Image Generator] Direct Supabase query for:', {
+        clientName: selectedClient.clientName,
+        productFocus: selectedProductFocus,
+        selectedClientId
+      })
+
+      const supabase = getSupabase()
+      const startTime = performance.now()
+
+      const { data, error } = await supabase
+        .from('savedideas')
+        .select(`
+          id,
+          title,
+          description,
+          category,
+          impact,
+          competitivegap,
+          tags,
+          content_pillar,
+          product_focus,
+          concept_idea,
+          copywriting_headline,
+          copywriting_sub_headline_1,
+          copywriting_sub_headline_2,
+          copywriting_bullets,
+          copywriting_cta,
+          savedat
+        `)
+        .eq('clientname', selectedClient.clientName)
+        .eq('productfocus', selectedProductFocus)
+        .order('savedat', { ascending: false })
+        .limit(50)
+
+      const endTime = performance.now()
+      console.log(`[Real AI Image Generator] Direct Supabase query completed in ${endTime - startTime}ms for ${data?.length || 0} items`)
+
+      if (error) {
+        console.error('[Real AI Image Generator] Supabase error:', error)
+        return
       }
+
+      // Transform data to match SavedTopic interface
+      const savedTopics = data.map(item => {
+        // Parse tags from JSON array format
+        let tags = [];
+        try {
+          tags = item.tags ? JSON.parse(item.tags) : [];
+        } catch (e) {
+          // Fallback to comma-separated if not JSON
+          tags = item.tags ? item.tags.split(',').map((tag: string) => tag.trim()) : [];
+        }
+
+        // Parse bullets from JSON array format  
+        let bullets = [];
+        try {
+          bullets = item.copywriting_bullets ? JSON.parse(item.copywriting_bullets) : [];
+        } catch (e) {
+          // Fallback to newline-separated if not JSON
+          bullets = item.copywriting_bullets ? item.copywriting_bullets.split('\n').filter((b: string) => b.trim()) : [];
+        }
+
+        return {
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          impact: item.impact,
+          competitiveGap: item.competitivegap,
+          tags: tags,
+          content_pillar: item.content_pillar,
+          product_focus: item.product_focus,
+          concept_idea: item.concept_idea,
+          copywriting: {
+            headline: item.copywriting_headline || '',
+            sub_headline_1: item.copywriting_sub_headline_1 || '',
+            sub_headline_2: item.copywriting_sub_headline_2 || '',
+            bullets: bullets,
+            cta: item.copywriting_cta || ''
+          }
+        };
+      });
+
+      setSavedTopics(savedTopics)
+      console.log('[Real AI Image Generator] Loaded saved topics:', savedTopics.length)
+
     } catch (error) {
       console.error('[Real AI Image Generator] Error loading saved topics:', error)
     } finally {
