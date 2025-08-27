@@ -13,11 +13,22 @@ interface N8NImageResponse {
 export async function POST(request: Request) {
   try {
     // N8N webhook URL for AI image generation
-    const N8N_AI_IMAGE_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/b8d3f40f-a718-4260-a773-662e898c7d7f';
+    const N8N_AI_IMAGE_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook-test/b8d3f40f-a718-4260-a773-662e898c7d7f';
 
     // Parse request body
     const body = await request.json();
-    const { prompt, reference_image_url, client_name, product_focus, selected_topics } = body;
+    const { 
+      prompt, 
+      reference_image_url, 
+      client_name, 
+      product_focus, 
+      selected_topics,
+      core_concept,
+      topic_title,
+      topic_description,
+      content_pillar,
+      copywriting
+    } = body;
     
     // Prompt is now optional - user can generate from saved ideas and reference image only
     
@@ -25,6 +36,8 @@ export async function POST(request: Request) {
     console.log('[generate-image] Client:', client_name);
     console.log('[generate-image] Product Focus:', product_focus);
     console.log('[generate-image] Selected Topics:', selected_topics?.length || 0);
+    console.log('[generate-image] Core Concept:', core_concept);
+    console.log('[generate-image] Topic Title:', topic_title);
     if (reference_image_url) {
       console.log('[generate-image] Using reference image:', reference_image_url);
     }
@@ -41,7 +54,12 @@ export async function POST(request: Request) {
           saved_ideas: selected_topics || [],
           reference_image_url: reference_image_url || null,
           client: client_name || "",
-          productFocus: product_focus || ""
+          productFocus: product_focus || "",
+          core_concept: core_concept || "",
+          topic_title: topic_title || "",
+          topic_description: topic_description || "",
+          content_pillar: content_pillar || "",
+          copywriting: copywriting || null
         }),
       });
 

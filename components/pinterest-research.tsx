@@ -803,19 +803,9 @@ export function PinterestResearch({
       <Dialog open={!!selectedImageForPreview} onOpenChange={() => setSelectedImageForPreview(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0">
           <DialogHeader className="p-6 pb-2">
-            <DialogTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-blue-600" />
-                รูปภาพจาก Pinterest
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedImageForPreview(null)}
-                className="h-6 w-6 p-0"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+            <DialogTitle className="flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-blue-600" />
+              รูปภาพจาก Pinterest
             </DialogTitle>
           </DialogHeader>
           

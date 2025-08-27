@@ -38,7 +38,6 @@ function MainContent() {
   // Saved Ideas modal state
   const [savedIdeasOpen, setSavedIdeasOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<any>(null)
-  const [selectedDetailSavedId, setSelectedDetailSavedId] = useState<string>('')
   
   // Get URL parameters
   const activeProductFocus = searchParams.get('productFocus') || null
@@ -112,12 +111,10 @@ function MainContent() {
 
   const handleViewDetails = (idea: any, savedId: string) => {
     setSelectedDetailIdea(idea)
-    setSelectedDetailSavedId(savedId)
   }
 
   const handleCloseDetail = () => {
     setSelectedDetailIdea(null)
-    setSelectedDetailSavedId('')
   }
 
   return (
