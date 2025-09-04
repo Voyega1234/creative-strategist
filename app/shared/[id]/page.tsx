@@ -71,6 +71,7 @@ import {
   ArrowLeft,
   ExternalLink
 } from "lucide-react"
+import { FacebookPost } from "@/components/facebook-post"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useParams } from "next/navigation"
@@ -114,6 +115,11 @@ export default function SharedIdeasPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copiedText, setCopiedText] = useState<string | null>(null)
+  
+  // Facebook mockup generation state
+  const [isGeneratingFacebook, setIsGeneratingFacebook] = useState(false)
+  const [facebookPostData, setFacebookPostData] = useState<{ [key: string]: any }>({})
+  const [showFacebookPost, setShowFacebookPost] = useState<{ [key: string]: boolean }>({})
 
   useEffect(() => {
     const fetchSharedIdeas = async () => {
@@ -152,6 +158,61 @@ export default function SharedIdeasPage() {
   const copyShareUrl = () => {
     const url = window.location.href
     copyToClipboard(url, 'shareUrl')
+  }
+
+  // Facebook mockup generation function - copied from idea-detail-modal.tsx
+  const handleGenerateFacebookPost = async (idea: IdeaRecommendation) => {
+    setIsGeneratingFacebook(true)
+    
+    // Create unique key for current idea
+    const ideaKey = `${idea.title}-${idea.description}`.substring(0, 50)
+    
+    try {
+      const payload = {
+        clientName: sharedData?.clientName,
+        productFocus: sharedData?.productFocus,
+        adAccount: '', // Not available in shared context
+        instructions: sharedData?.instructions || '',
+        title: idea.title,
+        description: idea.description,
+        category: idea.category,
+        impact: idea.impact,
+        competitiveGap: idea.competitiveGap,
+        tags: idea.tags,
+        content_pillar: idea.content_pillar,
+        product_focus: idea.product_focus,
+        concept_idea: idea.concept_idea,
+        copywriting: idea.copywriting
+      }
+
+      console.log('🔄 Generating Facebook post with payload:', payload)
+
+      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const result = await response.json()
+      
+      if (response.ok) {
+        console.log('✅ Facebook post generated:', result)
+        // Handle both array and direct object responses
+        const postData = Array.isArray(result) ? result : [result]
+        setFacebookPostData(prev => ({ ...prev, [ideaKey]: postData[0] }))
+        setShowFacebookPost(prev => ({ ...prev, [ideaKey]: true }))
+      } else {
+        console.error('❌ Facebook post generation failed:', result)
+        alert('Failed to generate Facebook post. Please try again.')
+      }
+    } catch (error) {
+      console.error('❌ Facebook post generation error:', error)
+      alert('An error occurred while generating Facebook post. Please try again.')
+    } finally {
+      setIsGeneratingFacebook(false)
+    }
   }
 
   const getImpactColor = (impact: string) => {
@@ -492,6 +553,45 @@ export default function SharedIdeasPage() {
                   </div>
                 </TabsContent>
               </Tabs>
+              
+              {/* Facebook Post Mockup Generation Button */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <Button
+                  onClick={() => handleGenerateFacebookPost(idea)}
+                  disabled={isGeneratingFacebook}
+                  className="w-full bg-[#1877f2] hover:bg-[#166fe5] text-white"
+                >
+                  {isGeneratingFacebook ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      กำลังสร้าง Facebook Mockup...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      สร้าง Facebook Post Mockup
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Facebook Post Preview */}
+              {(() => {
+                const ideaKey = `${idea.title}-${idea.description}`.substring(0, 50)
+                return showFacebookPost[ideaKey] && facebookPostData[ideaKey] && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <h4 className="font-semibold mb-4 flex items-center">
+                      <svg className="w-5 h-5 mr-2 text-[#1877f2]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                      Facebook Post Mockup Preview
+                    </h4>
+                    <FacebookPost data={facebookPostData[ideaKey]} />
+                  </div>
+                )
+              })()}
             </Card>
           ))}
         </div>
