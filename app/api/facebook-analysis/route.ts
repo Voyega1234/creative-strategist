@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
     // Call N8N webhook for Facebook analysis
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://n8n.srv934175.hstgr.cloud';
-    const N8N_WEBHOOK_URL = `${baseUrl}/webhook-test/b14e5c79-4730-4e9c-8708-092875053f3a`;
+    const N8N_WEBHOOK_URL = `${baseUrl}/webhook/b14e5c79-4730-4e9c-8708-092875053f3a`;
     
     console.log('Calling N8N webhook for Facebook analysis...');
     

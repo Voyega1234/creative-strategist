@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ChevronUp, Plus, User, Bookmark, Settings, Upload, Image as ImageIcon, Sparkles, Images, Home } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { ImageUpload } from "@/components/image-upload"
-import { PinterestResearch } from "@/components/pinterest-research"
+import { ReferenceImageSearch } from "@/components/reference-image-search"
 import { AIImageGenerator } from "@/components/ai-image-generator"
 import { LoadingPopup } from "@/components/loading-popup"
 import { SavedIdeas } from "@/components/saved-ideas"
@@ -256,11 +256,11 @@ function MainContent() {
             </div>
 
             {/* Main Content Tabs */}
-            <Tabs defaultValue="pinterest" className="space-y-6">
+            <Tabs defaultValue="reference-search" className="space-y-6">
               <TabsList className="grid w-full grid-cols-2 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
-                <TabsTrigger value="pinterest" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
+                <TabsTrigger value="reference-search" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Images className="w-4 h-4" />
-                  ค้นหารูปภาพ Pinterest
+                  ค้นหารูปภาพอ้างอิง
                 </TabsTrigger>
                 <TabsTrigger value="generate" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Sparkles className="w-4 h-4" />
@@ -269,20 +269,20 @@ function MainContent() {
               </TabsList>
 
 
-              {/* Pinterest Search Tab */}
-              <TabsContent value="pinterest" className="space-y-6">
+              {/* Reference Search Tab */}
+              <TabsContent value="reference-search" className="space-y-6">
                 <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
                   <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                     <div>
                       <h2 className="text-xl font-bold text-black flex items-center gap-3">
                         <Images className="w-6 h-6 text-[#1d4ed8]" />
-                        ค้นหารูปภาพ Pinterest
+                        ค้นหารูปภาพอ้างอิง
                       </h2>
-                      <p className="text-[#8e8e93] text-sm mt-1">ค้นหาและเก็บภาพอ้างอิงจาก Pinterest</p>
+                      <p className="text-[#8e8e93] text-sm mt-1">ค้นหาและเก็บภาพอ้างอิงจาก Pinterest หรือ Facebook</p>
                     </div>
                   </div>
                   
-                  <PinterestResearch 
+                  <ReferenceImageSearch 
                     activeClientId={clients.find(c => c.clientName === activeClientName)?.id || null}
                     activeProductFocus={activeProductFocus}
                     activeClientName={activeClientName}

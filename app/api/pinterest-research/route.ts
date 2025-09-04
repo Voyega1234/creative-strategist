@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     })
 
     // N8N webhook URL for Pinterest research
-    const n8nWebhookUrl = 'https://n8n.srv934175.hstgr.cloud/webhook-test/7d99dbe5-f303-4782-894e-c9d01f405f86'
+    const n8nWebhookUrl = 'https://n8n.srv934175.hstgr.cloud/webhook/7d99dbe5-f303-4782-894e-c9d01f405f86'
 
     // Prepare the data for N8N Pinterest research webhook
     const n8nPayload = {
