@@ -52,6 +52,12 @@ interface GeneratedImage {
   reference_image?: string
   status: 'generating' | 'completed' | 'error'
   created_at: string
+  // Facebook specific metadata
+  title?: string
+  description?: string
+  ad_id?: string
+  page_name?: string
+  type?: string
 }
 
 interface ClientOption {
@@ -352,7 +358,15 @@ export function ReferenceImageSearch({
           prompt: searchSource === 'pinterest' ? prompt.trim() : facebookUrl.trim(),
           reference_image: undefined,
           status: 'completed' as const,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Facebook specific metadata
+          ...(searchSource === 'facebook' && {
+            title: img.title || 'Facebook Image',
+            description: img.description || '',
+            ad_id: img.ad_id,
+            page_name: img.page_name,
+            type: img.type
+          })
         }))
         
         setGeneratedImages(prev => [...referenceImages, ...prev])
@@ -825,9 +839,30 @@ export function ReferenceImageSearch({
                   </div>
                   
                   <div className="p-3">
-                    <p className="text-xs text-[#8e8e93] mb-3 line-clamp-2">
-                      {image.prompt}
-                    </p>
+                    {/* Display Facebook metadata if available */}
+                    {searchSource === 'facebook' && image.title && (
+                      <div className="mb-3">
+                        <h4 className="text-sm font-medium text-black mb-1 line-clamp-1">{image.title}</h4>
+                        {image.page_name && (
+                          <p className="text-xs text-blue-600 mb-1">จาก: {image.page_name}</p>
+                        )}
+                        {image.description && (
+                          <p className="text-xs text-[#8e8e93] line-clamp-2 mb-2">{image.description}</p>
+                        )}
+                        {image.type && (
+                          <Badge variant="outline" className="text-xs">
+                            {image.type === 'video_preview' ? 'วิดีโอ' : image.type === 'profile_picture' ? 'โปรไฟล์' : 'โฆษณา'}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Display Pinterest search prompt or Facebook URL */}
+                    {searchSource === 'pinterest' && (
+                      <p className="text-xs text-[#8e8e93] mb-3 line-clamp-2">
+                        {image.prompt}
+                      </p>
+                    )}
                     
                     <div className="flex items-center gap-1">
                       {image.status === 'completed' && image.url && (
@@ -971,6 +1006,33 @@ export function ReferenceImageSearch({
           
           {selectedImageForPreview && (
             <div className="relative">
+              {/* Display Facebook metadata in modal header if available */}
+              {searchSource === 'facebook' && (() => {
+                const selectedImage = generatedImages.find(img => img.url === selectedImageForPreview)
+                return selectedImage?.title && (
+                  <div className="px-6 pb-4 border-b border-gray-100">
+                    <h3 className="text-lg font-semibold text-black mb-2">{selectedImage.title}</h3>
+                    {selectedImage.page_name && (
+                      <p className="text-sm text-blue-600 mb-1">จาก: {selectedImage.page_name}</p>
+                    )}
+                    {selectedImage.description && (
+                      <p className="text-sm text-gray-600">{selectedImage.description}</p>
+                    )}
+                    <div className="flex gap-2 mt-2">
+                      {selectedImage.type && (
+                        <Badge variant="outline">
+                          {selectedImage.type === 'video_preview' ? 'วิดีโอพรีวิว' : 
+                           selectedImage.type === 'profile_picture' ? 'รูปโปรไฟล์' : 'โฆษณา Facebook'}
+                        </Badge>
+                      )}
+                      {selectedImage.ad_id && (
+                        <Badge variant="secondary">ID: {selectedImage.ad_id}</Badge>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+              
               <div className="relative w-full" style={{ aspectRatio: '1/1', maxHeight: '70vh' }}>
                 <Image
                   src={selectedImageForPreview}

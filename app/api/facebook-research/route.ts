@@ -70,52 +70,109 @@ export async function POST(request: Request) {
       console.log('[facebook-research] Raw n8n response length:', rawResponse?.length);
       console.log('[facebook-research] Raw n8n response sample:', rawResponse?.slice ? rawResponse.slice(0, 3) : rawResponse);
       
-      // Handle Facebook image extraction results from N8N
-      console.log('[facebook-research] Raw Facebook extraction response:', rawResponse);
+      // Handle Facebook ad data extraction results from N8N
+      console.log('[facebook-research] Raw Facebook extraction response:', JSON.stringify(rawResponse, null, 2));
       
-      let facebookImages = [];
-      
-      // Handle different possible response formats from N8N
+      let facebookImages: any[] = [];
+      let adsData: any[] = [];
+
+      // Parse the response - handle different response formats
       if (Array.isArray(rawResponse)) {
-        // Case 1: Direct array of objects [{url: "..."}, {url: "..."}, ...]
-        facebookImages = rawResponse;
-        console.log('[facebook-research] Found direct array format with', facebookImages.length, 'images');
-      } else if (rawResponse.images && Array.isArray(rawResponse.images)) {
-        // Case 2: Nested in images property
-        facebookImages = rawResponse.images;
-        console.log('[facebook-research] Found nested images array with', facebookImages.length, 'images');
-      } else if (rawResponse.data && Array.isArray(rawResponse.data)) {
-        // Case 3: Nested in data property
-        facebookImages = rawResponse.data;
-        console.log('[facebook-research] Found nested data array with', facebookImages.length, 'images');
-      } else if (rawResponse.urls && Array.isArray(rawResponse.urls)) {
-        // Case 4: Array of URL strings in urls property
-        facebookImages = rawResponse.urls.map((url: string) => ({ url }));
-        console.log('[facebook-research] Found URLs array format with', facebookImages.length, 'images');
-      } else if (rawResponse.url && Array.isArray(rawResponse.url)) {
-        // Case 5: Array of URL strings in url property: {url: ["url1", "url2", ...]}
-        facebookImages = rawResponse.url.map((url: string) => ({ url }));
-        console.log('[facebook-research] Found URL array in url property with', facebookImages.length, 'images');
-      } else if (rawResponse.url && typeof rawResponse.url === 'string') {
-        // Case 6: Single image object format: {url: "..."}
-        facebookImages = [rawResponse];
-        console.log('[facebook-research] Found single image object format');
+        adsData = rawResponse;
+        console.log('[facebook-research] Found', adsData.length, 'Facebook ad entries');
+      } else if (rawResponse && typeof rawResponse === 'object') {
+        // If it's already an object (not a string), use it directly
+        adsData = [rawResponse]; // Wrap single object in array
+        console.log('[facebook-research] Found single Facebook ad object, wrapped in array');
       } else if (typeof rawResponse === 'string') {
-        // Case 7: Single URL string
-        facebookImages = [{ url: rawResponse }];
-        console.log('[facebook-research] Found single URL string format');
+        // Try to parse if it's a string
+        try {
+          const parsed = JSON.parse(rawResponse);
+          if (Array.isArray(parsed)) {
+            adsData = parsed;
+          } else {
+            adsData = [parsed]; // Wrap single object in array
+          }
+        } catch (e) {
+          console.error('[facebook-research] Failed to parse response as JSON:', e);
+          throw new Error('Invalid response format from Facebook extraction');
+        }
       } else {
-        console.error('[facebook-research] Unknown Facebook response format:', rawResponse);
-        console.error('[facebook-research] Response type:', typeof rawResponse);
-        console.error('[facebook-research] Response keys:', Object.keys(rawResponse || {}));
+        console.error('[facebook-research] Unexpected response format:', typeof rawResponse);
+        throw new Error('Invalid response format from Facebook extraction');
+      }
+
+      // Extract ONLY actual images from Facebook ad data structure (no video previews)
+      for (const ad of adsData) {
+        try {
+          const images: any[] = [];
+          
+          // Extract ONLY images from snapshot.images array - skip videos
+          if (ad.snapshot?.images && Array.isArray(ad.snapshot.images)) {
+            ad.snapshot.images.forEach((img: any) => {
+              if (img.original_image_url) {
+                images.push({
+                  url: img.original_image_url,
+                  title: ad.snapshot?.title || ad.page_name || 'Facebook Ad',
+                  description: ad.snapshot?.body?.text || '',
+                  ad_id: ad.ad_archive_id,
+                  page_name: ad.page_name,
+                  type: 'ad_image'
+                });
+              }
+            });
+          }
+          
+          // Skip video previews as requested - user only wants actual images
+          
+          // Skip profile pictures as requested - user only wants ad images
+          
+          // Add all found images
+          facebookImages.push(...images);
+          
+        } catch (adError) {
+          console.warn('[facebook-research] Error processing ad data:', adError);
+          // Continue with other ads even if one fails
+        }
+      }
+      
+      if (facebookImages.length === 0) {
+        // Fallback: try to extract any URL-like properties from the raw data
+        console.log('[facebook-research] No images found in standard fields, checking for fallback URLs...');
         
-        // Try to extract any URL-like properties
-        const possibleUrls = Object.keys(rawResponse || {}).filter(key => 
-          key.toLowerCase().includes('url') || key.toLowerCase().includes('image')
-        );
-        console.error('[facebook-research] Possible URL keys:', possibleUrls);
+        const fallbackImages: any[] = [];
+        for (const ad of adsData) {
+          // Check for any property containing 'url' and 'image'
+          const checkForImageUrls = (obj: any, prefix = '') => {
+            for (const [key, value] of Object.entries(obj || {})) {
+              if (typeof value === 'string' && 
+                  key.toLowerCase().includes('url') && 
+                  key.toLowerCase().includes('image') &&
+                  value.includes('http') &&
+                  // Exclude video-related URLs
+                  !key.toLowerCase().includes('video') &&
+                  !key.toLowerCase().includes('preview') &&
+                  !key.toLowerCase().includes('profile') &&
+                  // Only show original images, skip resized duplicates
+                  !key.toLowerCase().includes('resized')) {
+                fallbackImages.push({
+                  url: value,
+                  title: `${ad.page_name || 'Facebook'} - ${key}`,
+                  description: ad.snapshot?.body?.text || '',
+                  ad_id: ad.ad_archive_id,
+                  page_name: ad.page_name,
+                  type: 'fallback'
+                });
+              } else if (typeof value === 'object' && value !== null) {
+                checkForImageUrls(value, `${prefix}${key}.`);
+              }
+            }
+          };
+          
+          checkForImageUrls(ad);
+        }
         
-        throw new Error('Invalid response format from Facebook image extraction');
+        facebookImages = fallbackImages;
       }
       
       if (facebookImages.length === 0) {
