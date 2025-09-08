@@ -13,28 +13,38 @@ export async function POST(request: Request) {
       client_name, 
       product_focus, 
       search_prompt, 
-      selected_topics 
+      selected_topics,
+      source 
     } = body;
 
-    if (!image_url || !client_name) {
+    if (!image_url) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Missing required fields: image_url or client_name' 
+        error: 'Missing required fields: image_url' 
       }, { status: 400 });
     }
 
-    console.log('[save-pinterest-image] Saving Pinterest image:', {
+    // For Pinterest, client_name is required. For Facebook, it's optional
+    if (source === 'pinterest' && !client_name) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Missing required fields: client_name (required for Pinterest images)' 
+      }, { status: 400 });
+    }
+
+    console.log(`[save-reference-image] Saving ${source || 'reference'} image:`, {
       filename,
-      client_name,
-      product_focus,
+      client_name: client_name || 'N/A',
+      product_focus: product_focus || 'N/A',
       search_prompt: search_prompt?.substring(0, 100),
-      selected_topics: selected_topics?.length || 0
+      selected_topics: selected_topics?.length || 0,
+      source: source || 'unknown'
     });
 
-    // Download the image from Pinterest
+    // Download the image from source
     const imageResponse = await fetch(image_url);
     if (!imageResponse.ok) {
-      throw new Error('Failed to download image from Pinterest');
+      throw new Error(`Failed to download image from ${source || 'source'}`);
     }
 
     const imageBlob = await imageResponse.blob();
@@ -46,9 +56,9 @@ export async function POST(request: Request) {
     const uniqueFilename = `${timestamp}-${randomId}.${fileExtension}`;
     const fullPath = `references/${uniqueFilename}`;
 
-    console.log('[save-pinterest-image] Uploading to path:', fullPath);
-    console.log('[save-pinterest-image] File size:', imageBlob.size);
-    console.log('[save-pinterest-image] File type:', imageBlob.type);
+    console.log('[save-reference-image] Uploading to path:', fullPath);
+    console.log('[save-reference-image] File size:', imageBlob.size);
+    console.log('[save-reference-image] File type:', imageBlob.type);
 
     // Upload to Supabase storage following the exact same pattern as image-upload
     const storageClient = getStorageClient();
@@ -57,11 +67,11 @@ export async function POST(request: Request) {
       .upload(fullPath, imageBlob);
 
     if (error) {
-      console.error('[save-pinterest-image] Upload error:', error);
+      console.error('[save-reference-image] Upload error:', error);
       throw new Error(`Failed to upload image: ${error.message}`);
     }
 
-    console.log('[save-pinterest-image] Upload successful:', {
+    console.log('[save-reference-image] Upload successful:', {
       id: data.id,
       path: data.path,
       fullPath: data.fullPath
@@ -85,10 +95,10 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('[save-pinterest-image] Error:', error);
+    console.error('[save-reference-image] Error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message || 'Failed to save Pinterest image'
+      error: error.message || 'Failed to save reference image'
     }, { status: 500 });
   }
 }

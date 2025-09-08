@@ -337,6 +337,11 @@ export function AIImageGenerator({
       return
     }
 
+    if (!selectedReferenceImage) {
+      alert('กรุณาเลือกรูปภาพอ้างอิงจากคลัง')
+      return
+    }
+
     setIsGenerating(true)
     
     const selectedClient = clients.find(c => c.id === selectedClientId)
@@ -730,7 +735,7 @@ export function AIImageGenerator({
             <div className="space-y-3">
               <label className="text-sm font-medium text-black flex items-center gap-2">
                 <ImageIcon className="w-4 h-4 text-blue-500" />
-                รูปภาพอ้างอิง (เลือกจากคลัง - ไม่บังคับ)
+                รูปภาพอ้างอิง (เลือกจากคลัง - บังคับ)
               </label>
               
               {loadingReferenceImages ? (
@@ -834,7 +839,7 @@ export function AIImageGenerator({
           {/* Generate Button */}
           <Button 
             onClick={generateImage}
-            disabled={isGenerating || !selectedTopic}
+            disabled={isGenerating || !selectedTopic || !selectedReferenceImage}
             className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? (

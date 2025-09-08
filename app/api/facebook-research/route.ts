@@ -6,7 +6,7 @@ export const maxDuration = 180; // Allow up to 3 minutes for Facebook image extr
 export async function POST(request: Request) {
   try {
     // N8N webhook URL for Facebook image extraction
-    const N8N_FACEBOOK_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook-test/facebook-seach-ref';
+    const N8N_FACEBOOK_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/facebook-seach-ref';
 
     // Parse request body
     const body = await request.json();
