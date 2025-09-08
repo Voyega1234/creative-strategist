@@ -851,6 +851,91 @@ function MainContent() {
     }
   }
 
+  // Function to generate more ideas (avoiding duplicates)
+  const handleGenerateMoreIdeas = async () => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      alert('กรุณาเลือกลูกค้าก่อน')
+      return
+    }
+    
+    if (!activeProductFocus) {
+      alert('กรุณาเลือก Product Focus ก่อน')
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      // Get existing concept ideas to avoid duplicates
+      const existingConceptIdeas = topics.map(topic => topic.concept_idea).filter(Boolean)
+      
+      // Use the same instructions and settings as the original generation
+      const finalInstructions = instructions.trim() || " "
+
+      const response = await fetch('/api/generate-ideas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+          instructions: finalInstructions,
+          productDetails: showProductDetails ? productDetails.trim() : undefined,
+          negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
+          hasProductDetails: showProductDetails,
+          model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
+          existingConceptIdeas: existingConceptIdeas, // Add existing concept ideas
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        // Append new ideas to existing ones instead of replacing
+        setTopics(prevTopics => [...prevTopics, ...data.ideas])
+        
+        // Save all ideas to localStorage (existing + new)
+        if (activeClientName && activeProductFocus) {
+          const allIdeas = [...topics, ...data.ideas]
+          saveIdeasToStorage(allIdeas, activeClientName, activeProductFocus)
+        }
+        
+        // Save to database session history (non-blocking)
+        if (activeClientName && activeProductFocus) {
+          console.log('🎯 Initiating session save for more ideas:', {
+            activeClientName,
+            activeProductFocus,
+            existingIdeasCount: topics.length,
+            newIdeasCount: data?.ideas?.length || 0,
+          })
+          
+          // Create session data for the additional ideas (matching sessionManager interface)
+          const allIdeas = [...topics, ...data.ideas]
+          const sessionData = {
+            clientName: activeClientName,
+            productFocus: activeProductFocus,
+            n8nResponse: { ideas: allIdeas }, // Use n8nResponse format instead of ideas
+            userInput: finalInstructions,
+            modelUsed: modelOptions.find(m => m.name === selectedModel)?.name || "Gemini 2.5 Pro"
+          }
+          
+          sessionManager.saveSession(sessionData).catch((error: any) => {
+            console.warn('⚠️ Failed to save additional ideas session to database (non-critical):', error)
+          })
+        }
+        
+        alert(`สร้างไอเดียเพิ่มเติม ${data.ideas.length} ข้อสำเร็จแล้วสำหรับ ${activeClientName} ปัจจุบันมีไอเดียทั้งหมด ${topics.length + data.ideas.length} ข้อ`)
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error generating more ideas:', error)
+      alert('เกิดข้อผิดพลาดในการสร้างไอเดียเพิ่มเติม กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   // Function to check saved ideas
   const fetchSavedTitles = async () => {
     if (!activeClientName || !activeProductFocus) return
@@ -868,7 +953,19 @@ function MainContent() {
 
   // Function to handle saving/unsaving ideas - instant UI update with background sync
   const handleSaveIdea = async (idea: IdeaRecommendation, index: number) => {
-    if (!activeClientName || !activeProductFocus) return
+    console.log('🔍 handleSaveIdea called with:', {
+      activeClientName,
+      activeProductFocus,
+      ideaTitle: idea.title
+    })
+    
+    if (!activeClientName || !activeProductFocus) {
+      console.warn('⚠️ Missing client info for save:', {
+        activeClientName,
+        activeProductFocus
+      })
+      return
+    }
     
     const isSaved = savedTitles.includes(idea.title)
     const action = isSaved ? 'unsave' : 'save'
@@ -1983,6 +2080,27 @@ function MainContent() {
                       />
                     )
                   })}
+                </div>
+                
+                {/* Generate More Ideas Button */}
+                <div className="flex justify-center mt-8 pt-6 border-t border-gray-200">
+                  <Button
+                    onClick={handleGenerateMoreIdeas}
+                    disabled={isGenerating}
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-3 rounded-lg font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                        กำลังสร้างไอเดียเพิ่มเติม...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generate More Ideas
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>
