@@ -57,7 +57,9 @@ export function MainSidebar({
   }
 
   const handleProductFocusChange = (clientName: string, productFocus: string) => {
-    router.push(`/configure?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
+    const client = clients.find(c => c.clientName === clientName)
+    const clientId = client?.id
+    router.push(`/configure?clientId=${clientId}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
   }
 
   const handleLogout = () => {
@@ -88,7 +90,7 @@ export function MainSidebar({
                   <div key={client.id} className="space-y-1">
                     {/* Client name - always show, highlight if active */}
                     <Link
-                      href={`/configure?clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
+                      href={`/configure?clientId=${client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
                       className={`block text-sm py-1 px-2 rounded-md font-medium ${
                         client.clientName === activeClientName
                           ? 'text-[#063def] bg-[#dbeafe]'

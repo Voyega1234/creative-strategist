@@ -924,6 +924,8 @@ function MainContent() {
           })
         }
         
+        // Show completion notifications
+        playNotificationSound()
         alert(`สร้างไอเดียเพิ่มเติม ${data.ideas.length} ข้อสำเร็จแล้วสำหรับ ${activeClientName} ปัจจุบันมีไอเดียทั้งหมด ${topics.length + data.ideas.length} ข้อ`)
       } else {
         alert(`เกิดข้อผิดพลาด: ${data.error}`)
@@ -1155,7 +1157,7 @@ function MainContent() {
     
     // Build configure URL with current client parameters
     const configureUrl = `/configure${activeClientName && activeClientName !== "No Client Selected" 
-      ? `?clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
+      ? `?clientId=${activeClientId}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
       : ''}`
     
     try {

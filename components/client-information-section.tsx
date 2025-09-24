@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Edit, Save, X } from "lucide-react"
@@ -20,6 +20,11 @@ export function ClientInformationSection({ initialClientProfileData, clientBusin
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState(initialClientProfileData)
   const [isSaving, setIsSaving] = useState(false)
+
+  // Update formData when initialClientProfileData changes (client selection)
+  useEffect(() => {
+    setFormData(initialClientProfileData)
+  }, [initialClientProfileData])
 
   const handleSave = async () => {
     setIsSaving(true)
