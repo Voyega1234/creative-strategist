@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/server"
+import { cachedQuery, invalidateCache } from "@/lib/utils/server-cache"
 
 // Type for feedback based on the idea_feedback table structure
 export type FeedbackDetail = {
@@ -21,36 +22,42 @@ export async function getFeedback(
   productFocus?: string,
   voteFilter?: 'good' | 'bad' | 'all'
 ): Promise<FeedbackDetail[]> {
-  const supabase = getSupabase()
-  
-  let query = supabase
-    .from("idea_feedback")
-    .select("*")
-    .order("created_at", { ascending: false })
+  return cachedQuery(
+    `feedback:${clientName ?? "all"}:${productFocus ?? "all"}:${voteFilter ?? "all"}`,
+    async () => {
+      const supabase = getSupabase()
 
-  // Filter by client name if provided
-  if (clientName) {
-    query = query.eq("client_name", clientName)
-  }
+      let query = supabase
+        .from("idea_feedback")
+        .select("*")
+        .order("created_at", { ascending: false })
 
-  // Filter by product focus if provided
-  if (productFocus) {
-    query = query.eq("product_focus", productFocus)
-  }
+      // Filter by client name if provided
+      if (clientName) {
+        query = query.eq("client_name", clientName)
+      }
 
-  // Filter by vote if provided
-  if (voteFilter && voteFilter !== 'all') {
-    query = query.eq("vote", voteFilter)
-  }
+      // Filter by product focus if provided
+      if (productFocus) {
+        query = query.eq("product_focus", productFocus)
+      }
 
-  const { data, error } = await query
+      // Filter by vote if provided
+      if (voteFilter && voteFilter !== "all") {
+        query = query.eq("vote", voteFilter)
+      }
 
-  if (error) {
-    console.error("Error fetching feedback:", error)
-    return []
-  }
+      const { data, error } = await query
 
-  return data as FeedbackDetail[]
+      if (error) {
+        console.error("Error fetching feedback:", error)
+        return []
+      }
+
+      return (data as FeedbackDetail[]) || []
+    },
+    60 * 1000,
+  )
 }
 
 // Function to update feedback
@@ -70,6 +77,8 @@ export async function updateFeedback(
     return false
   }
 
+  invalidateCache("feedback:")
+
   return true
 }
 
@@ -86,6 +95,8 @@ export async function deleteFeedback(id: string): Promise<boolean> {
     console.error("Error deleting feedback:", error)
     return false
   }
+
+  invalidateCache("feedback:")
 
   return true
 }

@@ -39,6 +39,7 @@ import {
   Copy,
   Check,
   X,
+  Home,
 } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
@@ -1259,11 +1260,32 @@ function MainContent() {
     router.push('/new-client')
   }, [isNavigatingToNewClient, router])
 
+  const mainUrl = useMemo(() => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      return "/"
+    }
+    const params = new URLSearchParams()
+    if (activeClientId) {
+      params.set("clientId", String(activeClientId))
+    }
+    params.set("clientName", activeClientName)
+    if (activeProductFocusEntry?.productFocus) {
+      params.set("productFocus", activeProductFocusEntry.productFocus)
+    }
+    const query = params.toString()
+    return query ? `/?${query}` : "/"
+  }, [activeClientName, activeClientId, activeProductFocusEntry])
+
   const handleImagesNavigation = useCallback(() => {
     if (isNavigatingToImages) return
     setIsNavigatingToImages(true)
     router.push(imagesUrl)
   }, [imagesUrl, isNavigatingToImages, router])
+
+  const handleMainNavigation = useCallback(() => {
+    if (isGenerating) return
+    router.push(mainUrl)
+  }, [isGenerating, mainUrl, router])
 
   useEffect(() => {
     router.prefetch('/new-client')
@@ -1614,11 +1636,30 @@ function MainContent() {
         <aside className={`w-64 h-screen bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
           <div className="flex h-full flex-col">
             <div className="flex-1 overflow-y-auto pr-2">
-              <div className="flex items-center gap-2 mb-6">
-                <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist.</h1>
+              <div className="flex items-center gap-2 mb-8">
+                <Button
+                  onClick={!isGenerating ? handleMainNavigation : undefined}
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-[#535862] hover:text-[#1d4ed8] hover:bg-[#f5f5f5]"
+                  disabled={isGenerating}
+                >
+                  <Home className="h-4 w-4" />
+                  <span className="sr-only">กลับหน้าหลัก</span>
+                </Button>
+                <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
               </div>
+              <Button
+                onClick={!isGenerating && !isLoadingMore ? handleNewClientNavigation : undefined}
+                variant="ghost"
+                className="mb-4 w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+                disabled={isGenerating || isLoadingMore || isNavigatingToNewClient}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                เพิ่มรายชื่อ
+              </Button>
               <nav className="space-y-2">
-              <Collapsible open={isBrandOpen} onOpenChange={isGenerating ? undefined : setIsBrandOpen} className="w-full">
+                <Collapsible open={isBrandOpen} onOpenChange={isGenerating ? undefined : setIsBrandOpen} className="w-full">
                 <CollapsibleTrigger asChild>
                   <Button
                     variant="ghost"
@@ -1779,16 +1820,6 @@ function MainContent() {
         {/* Main Content */}
         <main className="flex-1 p-8 flex flex-col h-full bg-transparent overflow-y-auto">
           <div className="w-full flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end mb-6">
-            <Button
-              onClick={!isGenerating && !isLoadingMore ? handleNewClientNavigation : undefined}
-              size="sm"
-              variant="outline"
-              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              disabled={isGenerating || isLoadingMore || isNavigatingToNewClient}
-            >
-              <Plus className="mr-2 h-3 w-3" />
-              เพิ่มรายชื่อ
-            </Button>
             <Button
               onClick={() => !isGenerating && !isLoadingMore && setSavedIdeasModalOpen(true)}
               size="sm"

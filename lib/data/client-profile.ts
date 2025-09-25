@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/server"
+import { cachedQuery } from "@/lib/utils/server-cache"
 
 // Type for a single client profile, based on Clients table
 export type ClientProfile = {
@@ -23,12 +24,14 @@ export type ClientProfile = {
 }
 
 export async function getClientProfile(clientId: string): Promise<ClientProfile | null> {
-  const supabase = getSupabase()
-  const { data, error } = await supabase.from("Clients").select("*").eq("id", clientId).single()
+  return cachedQuery(`client-profile:${clientId}`, async () => {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.from("Clients").select("*").eq("id", clientId).single()
 
-  if (error) {
-    console.error("Error fetching client profile:", error)
-    return null
-  }
-  return data as ClientProfile
+    if (error) {
+      console.error("Error fetching client profile:", error)
+      return null
+    }
+    return data as ClientProfile
+  }, 2 * 60 * 1000)
 }

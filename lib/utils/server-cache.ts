@@ -45,6 +45,14 @@ class ServerCache {
     }
   }
 
+  clearByPrefix(prefix: string): void {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(prefix)) {
+        this.cache.delete(key)
+      }
+    }
+  }
+
   // Cached execution wrapper
   async cachedExecution<T>(
     key: string, 
@@ -94,4 +102,12 @@ export async function cachedQuery<T>(
   expiresInMs: number = 2 * 60 * 1000
 ): Promise<T> {
   return serverCache.cachedExecution(cacheKey, queryFn, expiresInMs)
+}
+
+export function invalidateCache(prefix?: string) {
+  if (!prefix) {
+    serverCache.clear()
+    return
+  }
+  serverCache.clearByPrefix(prefix)
 }

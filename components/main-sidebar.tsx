@@ -92,6 +92,14 @@ export function MainSidebar({
             <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
           </div>
           <nav className="space-y-2">
+            <Button
+              onClick={handleNewClientNavigation}
+              variant="ghost"
+              className="mb-4 w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              เพิ่มรายชื่อ
+            </Button>
             <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
               <CollapsibleTrigger asChild>
                 <Button
@@ -146,14 +154,6 @@ export function MainSidebar({
                 </div>
               </CollapsibleContent>
             </Collapsible>
-          <Button
-            onClick={handleNewClientNavigation}
-            variant="ghost"
-            className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            เพิ่มรายชื่อ
-          </Button>
           </nav>
           <div className="my-4 border-t border-[#e4e7ec]" />
           <nav className="space-y-2 pb-2">

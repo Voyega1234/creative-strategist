@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/server"
+import { cachedQuery } from "@/lib/utils/server-cache"
 
 // Type for ads details based on the table structure
 export type AdDetail = {
@@ -42,23 +43,7 @@ export async function getTopPerformingAds(adAccount?: string, limit: number = 10
     return []
   }
 
-  const supabase = getSupabase()
-  
-  let query = supabase
-    .from("ads_details")
-    .select("*")
-    .eq("ad_account", adAccount)
-    .order("roas", { ascending: false })
-    .limit(limit)
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error("Error fetching top performing ads:", error)
-    return []
-  }
-
-  return data as AdDetail[]
+  return getTopPerformingAdsByMetric("roas", adAccount, limit)
 }
 
 // Function to get top performing ads by CTR
@@ -69,23 +54,7 @@ export async function getTopPerformingAdsByCTR(adAccount?: string, limit: number
     return []
   }
 
-  const supabase = getSupabase()
-  
-  let query = supabase
-    .from("ads_details")
-    .select("*")
-    .eq("ad_account", adAccount)
-    .order("ctr", { ascending: false })
-    .limit(limit)
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error("Error fetching top performing ads by CTR:", error)
-    return []
-  }
-
-  return data as AdDetail[]
+  return getTopPerformingAdsByMetric("ctr", adAccount, limit)
 }
 
 // Function to get ads by different metrics
@@ -100,21 +69,25 @@ export async function getTopPerformingAdsByMetric(
     return []
   }
 
-  const supabase = getSupabase()
-  
-  let query = supabase
-    .from("ads_details")
-    .select("*")
-    .eq("ad_account", adAccount)
-    .order(metric, { ascending: false })
-    .limit(limit)
+  return cachedQuery(
+    `ads:${metric}:${adAccount}:${limit}`,
+    async () => {
+      const supabase = getSupabase()
 
-  const { data, error } = await query
+      const { data, error } = await supabase
+        .from("ads_details")
+        .select("*")
+        .eq("ad_account", adAccount)
+        .order(metric, { ascending: false })
+        .limit(limit)
 
-  if (error) {
-    console.error(`Error fetching top performing ads by ${metric}:`, error)
-    return []
-  }
+      if (error) {
+        console.error(`Error fetching top performing ads by ${metric}:`, error)
+        return []
+      }
 
-  return data as AdDetail[]
+      return (data as AdDetail[]) || []
+    },
+    3 * 60 * 1000,
+  )
 }
