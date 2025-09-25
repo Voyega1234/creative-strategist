@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useState, useEffect, Suspense, memo, useCallback } from "react"
+import { useState, useEffect, Suspense, memo, useCallback, useMemo } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,7 +46,7 @@ import { SessionHistory } from "@/components/session-history"
 import { SavedIdeas } from "@/components/saved-ideas"
 import { AITypingAnimation } from "@/components/ai-typing-animation"
 import { LoadingPopup } from "@/components/loading-popup"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { sessionManager } from "@/lib/session-manager"
 
 // Types for ideas
@@ -370,6 +370,62 @@ function MainContent() {
   const activeClientId = resolvedClientInfo.clientId
   const activeAdAccount = resolvedClientInfo.adAccount
   
+  const pathname = usePathname()
+
+  const activeClientRecord = useMemo(() => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      return null
+    }
+    return clients.find(client => client.clientName === activeClientName) || null
+  }, [clients, activeClientName])
+
+  const activeProductFocusEntry = useMemo(() => {
+    if (!activeClientRecord) {
+      return null
+    }
+    if (activeProductFocus) {
+      const matched = activeClientRecord.productFocuses.find(pf => pf.productFocus === activeProductFocus)
+      if (matched) {
+        return matched
+      }
+    }
+    return activeClientRecord.productFocuses[0] || null
+  }, [activeClientRecord, activeProductFocus])
+
+  const configureUrl = useMemo(() => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      return "/configure"
+    }
+    const params = new URLSearchParams()
+    const effectiveClientId = activeClientId || activeProductFocusEntry?.id || activeClientRecord?.id
+    if (effectiveClientId) {
+      params.set("clientId", String(effectiveClientId))
+    }
+    params.set("clientName", activeClientName)
+    if (activeProductFocusEntry?.productFocus) {
+      params.set("productFocus", activeProductFocusEntry.productFocus)
+    }
+    const query = params.toString()
+    return query ? `/configure?${query}` : "/configure"
+  }, [activeClientName, activeClientId, activeProductFocusEntry, activeClientRecord])
+
+  const imagesUrl = useMemo(() => {
+    if (!activeClientName || activeClientName === "No Client Selected") {
+      return "/images"
+    }
+    const params = new URLSearchParams()
+    const productFocusId = activeProductFocusEntry?.id || activeClientRecord?.id
+    if (productFocusId) {
+      params.set("clientId", String(productFocusId))
+    }
+    params.set("clientName", activeClientName)
+    if (activeProductFocusEntry?.productFocus) {
+      params.set("productFocus", activeProductFocusEntry.productFocus)
+    }
+    const query = params.toString()
+    return query ? `/images?${query}` : "/images"
+  }, [activeClientName, activeProductFocusEntry, activeClientRecord])
+
   // Model options and templates
   const modelOptions = [
     { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
@@ -1180,52 +1236,11 @@ function MainContent() {
     }
   }
 
-  const handleConfigureNavigation = async () => {
+  const handleConfigureNavigation = useCallback(() => {
+    if (isNavigatingToConfigure) return
     setIsNavigatingToConfigure(true)
-    
-    // Build configure URL with current client parameters
-    const configureUrl = `/configure${activeClientName && activeClientName !== "No Client Selected" 
-      ? `?clientId=${activeClientId}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
-      : ''}`
-    
-    try {
-      // Start timing for minimum loading display
-      const startTime = Date.now()
-      const minLoadingTime = 1500 // Minimum 1.5 second loading time for smooth UX
-      
-      // Preload the configure page data while showing loading popup
-      const response = await fetch(configureUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Cache-Control': 'no-cache',
-        },
-      })
-      
-      // Wait for both preload completion and minimum loading time
-      const elapsedTime = Date.now() - startTime
-      const remainingTime = Math.max(0, minLoadingTime - elapsedTime)
-      
-      if (response.ok && response.status === 200) {
-        // Ensure the response contains actual page content
-        const contentType = response.headers.get('content-type')
-        if (contentType && contentType.includes('text/html')) {
-          await new Promise(resolve => setTimeout(resolve, remainingTime))
-          router.push(configureUrl)
-        } else {
-          throw new Error('Invalid response type')
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}`)
-      }
-    } catch (error) {
-      console.error('Error preloading configure page:', error)
-      // If preload fails, still respect minimum loading time before navigating
-      setTimeout(() => {
-        router.push(configureUrl)
-      }, 1500)
-    }
-  }
+    router.push(configureUrl)
+  }, [configureUrl, isNavigatingToConfigure, router])
 
   // Handle product focus selection
   const handleProductFocusChange = (clientName: string, productFocusValue: string) => {
@@ -1238,98 +1253,33 @@ function MainContent() {
     }
   }
 
-  const handleNewClientNavigation = async () => {
+  const handleNewClientNavigation = useCallback(() => {
+    if (isNavigatingToNewClient) return
     setIsNavigatingToNewClient(true)
-    
-    const newClientUrl = '/new-client'
-    
-    try {
-      // Start timing for minimum loading display
-      const startTime = Date.now()
-      const minLoadingTime = 1500 // Minimum 1.5 second loading time for smooth UX
-      
-      // Preload the new-client page data while showing loading popup
-      const response = await fetch(newClientUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Cache-Control': 'no-cache',
-        },
-      })
-      
-      // Wait for both preload completion and minimum loading time
-      const elapsedTime = Date.now() - startTime
-      const remainingTime = Math.max(0, minLoadingTime - elapsedTime)
-      
-      if (response.ok && response.status === 200) {
-        // Ensure the response contains actual page content
-        const contentType = response.headers.get('content-type')
-        if (contentType && contentType.includes('text/html')) {
-          await new Promise(resolve => setTimeout(resolve, remainingTime))
-          router.push(newClientUrl)
-        } else {
-          throw new Error('Invalid response type')
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}`)
-      }
-    } catch (error) {
-      console.error('Error preloading new-client page:', error)
-      // If preload fails, still respect minimum loading time before navigating
-      setTimeout(() => {
-        router.push(newClientUrl)
-      }, 1500)
-    }
-  }
+    router.push('/new-client')
+  }, [isNavigatingToNewClient, router])
 
-  const handleImagesNavigation = async () => {
+  const handleImagesNavigation = useCallback(() => {
+    if (isNavigatingToImages) return
     setIsNavigatingToImages(true)
-    
-    // Build images URL with current client parameters
-    const imagesUrl = `/images${activeClientName && activeClientName !== "No Client Selected" 
-      ? `?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` 
-      : ''}`
-    
-    try {
-      // Start timing for minimum loading display
-      const startTime = Date.now()
-      const minLoadingTime = 1500 // Minimum 1.5 second loading time for smooth UX
-      
-      // Preload the images page data while showing loading popup
-      const response = await fetch(imagesUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Cache-Control': 'no-cache',
-        },
-      })
-      
-      // Wait for both preload completion and minimum loading time
-      const elapsedTime = Date.now() - startTime
-      const remainingTime = Math.max(0, minLoadingTime - elapsedTime)
-      
-      if (response.ok && response.status === 200) {
-        // Ensure the response contains actual page content
-        const contentType = response.headers.get('content-type')
-        if (contentType && contentType.includes('text/html')) {
-          await new Promise(resolve => setTimeout(resolve, remainingTime))
-          router.push(imagesUrl)
-        } else {
-          throw new Error('Invalid response type')
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}`)
-      }
-    } catch (error) {
-      console.error('Error preloading images page:', error)
-      // If preload fails, still respect minimum loading time before navigating
-      setTimeout(() => {
-        router.push(imagesUrl)
-      }, 1500)
-    } finally {
-      setIsNavigatingToImages(false)
-    }
-  }
+    router.push(imagesUrl)
+  }, [imagesUrl, isNavigatingToImages, router])
+
+  useEffect(() => {
+    router.prefetch('/new-client')
+  }, [router])
+
+  useEffect(() => {
+    router.prefetch(configureUrl)
+    router.prefetch(imagesUrl)
+  }, [router, configureUrl, imagesUrl])
+
+  useEffect(() => {
+    if (!pathname) return
+    setIsNavigatingToConfigure(false)
+    setIsNavigatingToImages(false)
+    setIsNavigatingToNewClient(false)
+  }, [pathname])
 
   // Memoized callbacks for better performance
   const handleDetailClick = useCallback((topic: IdeaRecommendation) => {

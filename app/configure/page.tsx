@@ -157,7 +157,7 @@ async function ConfigurePageContent({
   const totalPages = Math.ceil(totalCompetitorsCount / ITEMS_PER_PAGE)
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
   return (
-    <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
+    <div className="flex h-screen bg-white relative animate-in fade-in-0 duration-500 overflow-hidden">
       <div className="flex w-full relative z-10">
         <MainSidebar 
           clients={clientsWithProductFocus} 
@@ -167,7 +167,7 @@ async function ConfigurePageContent({
           showSecondaryNav={false}
           showHistory={false}
         />
-        <main className="flex-1 p-8 bg-transparent flex flex-col overflow-hidden">
+        <main className="flex-1 p-8 bg-transparent flex flex-col h-full overflow-hidden">
           <ConfigureHeaderActions
             activeClientName={activeClientName}
             activeProductFocus={activeProductFocus}

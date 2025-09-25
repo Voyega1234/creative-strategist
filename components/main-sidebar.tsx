@@ -79,73 +79,73 @@ export function MainSidebar({
     <aside className="w-64 h-screen bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden">
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-y-auto pr-2">
-        <div className="flex items-center gap-2 mb-8">
-          <Button
-            onClick={handleMainNavigation}
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 text-[#535862] hover:text-[#1d4ed8] hover:bg-[#f5f5f5]"
-          >
-            <Home className="h-4 w-4" />
-            <span className="sr-only">กลับหน้าหลัก</span>
-          </Button>
-          <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
-        </div>
-        <nav className="space-y-2">
-          <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              >
-                <User className="mr-2 h-4 w-4" />
-                แบรนด์
-                <ChevronUp
-                  className={`ml-auto h-4 w-4 transition-transform ${isBrandOpen ? "rotate-0" : "rotate-180"}`}
-                />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 pl-8 pt-2">
-              <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                {clients.map((client) => (
-                  <div key={client.id} className="space-y-1">
-                    {/* Client name - always show, highlight if active */}
-                    <Link
-                      href={`/configure?clientId=${client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
-                      className={`block text-sm py-1 px-2 rounded-md font-medium ${
-                        client.clientName === activeClientName
-                          ? 'text-[#063def] bg-[#dbeafe]'
-                          : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
-                      }`}
-                    >
-                      {client.clientName}
-                    </Link>
-                    
-                    {/* Show product focus select ONLY for the selected/active client */}
-                    {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
-                      <div className="ml-4 mt-2 mb-2">
-                        <Select
-                          value={activeProductFocus || ""}
-                          onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
-                        >
-                          <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
-                            <SelectValue placeholder="เลือก Product Focus" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {client.productFocuses.map((pf) => (
-                              <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
-                                {pf.productFocus}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          <div className="flex items-center gap-2 mb-8">
+            <Button
+              onClick={handleMainNavigation}
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-[#535862] hover:text-[#1d4ed8] hover:bg-[#f5f5f5]"
+            >
+              <Home className="h-4 w-4" />
+              <span className="sr-only">กลับหน้าหลัก</span>
+            </Button>
+            <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
+          </div>
+          <nav className="space-y-2">
+            <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  แบรนด์
+                  <ChevronUp
+                    className={`ml-auto h-4 w-4 transition-transform ${isBrandOpen ? "rotate-0" : "rotate-180"}`}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 pl-8 pt-2">
+                <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                  {clients.map((client) => (
+                    <div key={client.id} className="space-y-1">
+                      {/* Client name - always show, highlight if active */}
+                      <Link
+                        href={`/configure?clientId=${client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
+                        className={`block text-sm py-1 px-2 rounded-md font-medium ${
+                          client.clientName === activeClientName
+                            ? 'text-[#063def] bg-[#dbeafe]'
+                            : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
+                        }`}
+                      >
+                        {client.clientName}
+                      </Link>
+                      
+                      {/* Show product focus select ONLY for the selected/active client */}
+                      {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
+                        <div className="ml-4 mt-2 mb-2">
+                          <Select
+                            value={activeProductFocus || ""}
+                            onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
+                          >
+                            <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
+                              <SelectValue placeholder="เลือก Product Focus" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {client.productFocuses.map((pf) => (
+                                <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
+                                  {pf.productFocus}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           <Button
             onClick={handleNewClientNavigation}
             variant="ghost"
@@ -154,61 +154,61 @@ export function MainSidebar({
             <Plus className="mr-2 h-4 w-4" />
             เพิ่มรายชื่อ
           </Button>
-        </nav>
-        <div className="my-4 border-t border-[#e4e7ec]" />
-        <nav className="space-y-2 pb-2">
-          {showSecondaryNav && (
-            <>
-              <Button
-                onClick={handleMainNavigation}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                หน้าหลัก
-              </Button>
-              <Button
-                onClick={() => setSavedIdeasModalOpen(true)}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              >
-                <Bookmark className="mr-2 h-4 w-4" />
-                รายการที่บันทึก
-              </Button>
-              <Button
-                onClick={handleImagesNavigation}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              >
-                <Images className="mr-2 h-4 w-4" />
-                ค้นและสร้างภาพ
-              </Button>
-            </>
-          )}
-          {showHistory && (
-            <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen} className="w-full">
-              <CollapsibleTrigger asChild>
+          </nav>
+          <div className="my-4 border-t border-[#e4e7ec]" />
+          <nav className="space-y-2 pb-2">
+            {showSecondaryNav && (
+              <>
                 <Button
+                  onClick={handleMainNavigation}
                   variant="ghost"
                   className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
                 >
-                  <History className="mr-2 h-4 w-4" />
-                  ประวัติการสร้าง
-                  <ChevronUp
-                    className={`ml-auto h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-0" : "rotate-180"}`}
-                  />
+                  <Settings className="mr-2 h-4 w-4" />
+                  หน้าหลัก
                 </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1 pl-8 pt-2">
-                <div className="text-[#535862] text-xs p-2 bg-white/70 rounded-md border border-[#e4e7ec]">
-                  {activeClientName && activeClientName !== "No Client Selected"
-                    ? "ยังไม่มีประวัติการสร้างไอเดีย"
-                    : "เลือกลูกค้าเพื่อดูประวัติ"}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-        </nav>
+                <Button
+                  onClick={() => setSavedIdeasModalOpen(true)}
+                  variant="ghost"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+                >
+                  <Bookmark className="mr-2 h-4 w-4" />
+                  รายการที่บันทึก
+                </Button>
+                <Button
+                  onClick={handleImagesNavigation}
+                  variant="ghost"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+                >
+                  <Images className="mr-2 h-4 w-4" />
+                  ค้นและสร้างภาพ
+                </Button>
+              </>
+            )}
+            {showHistory && (
+              <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen} className="w-full">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+                  >
+                    <History className="mr-2 h-4 w-4" />
+                    ประวัติการสร้าง
+                    <ChevronUp
+                      className={`ml-auto h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-0" : "rotate-180"}`}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-1 pl-8 pt-2">
+                  <div className="text-[#535862] text-xs p-2 bg-white/70 rounded-md border border-[#e4e7ec]">
+                    {activeClientName && activeClientName !== "No Client Selected"
+                      ? "ยังไม่มีประวัติการสร้างไอเดีย"
+                      : "เลือกลูกค้าเพื่อดูประวัติ"}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </nav>
         </div>
         <div className="border-t border-[#e4e7ec] mt-4 pt-4">
           <div className="flex items-center space-x-3 p-2 mb-2">
