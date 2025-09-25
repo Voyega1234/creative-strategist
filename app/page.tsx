@@ -1648,7 +1648,7 @@ function MainContent() {
 
   // Show main dashboard if authenticated
   return (
-    <div className="flex min-h-screen bg-white relative">
+    <div className="flex h-screen bg-white relative overflow-hidden">
       {/* Background Image - Hidden temporarily */}
       {/* <div 
         className="fixed inset-0 z-0"
@@ -1661,10 +1661,13 @@ function MainContent() {
       /> */}
       <div className="flex w-full relative z-10">
         {/* Sidebar */}
-        <aside className={`w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col justify-between ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
-          <div>
-            <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist.</h1>
-            <nav className="space-y-2">
+        <aside className={`w-64 h-screen bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
+          <div className="flex h-full flex-col">
+            <div className="flex-1 overflow-y-auto pr-2">
+              <div className="flex items-center gap-2 mb-6">
+                <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist.</h1>
+              </div>
+              <nav className="space-y-2">
               <Collapsible open={isBrandOpen} onOpenChange={isGenerating ? undefined : setIsBrandOpen} className="w-full">
                 <CollapsibleTrigger asChild>
                   <Button
@@ -1820,10 +1823,11 @@ function MainContent() {
               ออกจากระบบ
             </Button>
           </div>
+        </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 flex flex-col min-h-screen bg-transparent overflow-y-auto">
+        <main className="flex-1 p-8 flex flex-col h-full bg-transparent overflow-y-auto">
           <div className="w-full flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end mb-6">
             <Button
               onClick={!isGenerating && !isLoadingMore ? handleNewClientNavigation : undefined}
@@ -1856,7 +1860,7 @@ function MainContent() {
               ค้นและสร้างภาพ
             </Button>
           </div>
-          <div className="flex-1 flex items-center justify-center relative">
+          <div className="flex-1 min-h-0 flex items-start justify-center relative">
             {/* Pending Notification Banner */}
             {pendingNotification && (
               <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border-l-4 border-green-600 animate-pulse">

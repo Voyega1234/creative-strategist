@@ -76,8 +76,9 @@ export function MainSidebar({
   }
 
   return (
-    <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col justify-between">
-      <div>
+    <aside className="w-64 h-screen bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden">
+      <div className="flex h-full flex-col">
+        <div className="flex-1 overflow-y-auto pr-2">
         <div className="flex items-center gap-2 mb-8">
           <Button
             onClick={handleMainNavigation}
@@ -155,7 +156,7 @@ export function MainSidebar({
           </Button>
         </nav>
         <div className="my-4 border-t border-[#e4e7ec]" />
-        <nav className="space-y-2">
+        <nav className="space-y-2 pb-2">
           {showSecondaryNav && (
             <>
               <Button
@@ -208,30 +209,31 @@ export function MainSidebar({
             </Collapsible>
           )}
         </nav>
-      </div>
-      <div className="border-t border-[#e4e7ec] mt-4 pt-4">
-        <div className="flex items-center space-x-3 p-2 mb-2">
-          <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
-            <AvatarFallback>A</AvatarFallback>
-          </Avatar>
-          <span className="text-[#000000] font-medium">Admin</span>
         </div>
-        <Button
-          onClick={handleConfigureNavigation}
-          variant="ghost"
-          className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
-        >
-          <Settings className="mr-2 h-4 w-4" />
-          ตั้งค่าและวิเคราะห์
-        </Button>
-        <Button
-          onClick={handleLogout}
-          variant="ghost"
-          className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
-        >
-          <Lock className="mr-2 h-4 w-4" />
-          ออกจากระบบ
-        </Button>
+        <div className="border-t border-[#e4e7ec] mt-4 pt-4">
+          <div className="flex items-center space-x-3 p-2 mb-2">
+            <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
+              <AvatarFallback>A</AvatarFallback>
+            </Avatar>
+            <span className="text-[#000000] font-medium">Admin</span>
+          </div>
+          <Button
+            onClick={handleConfigureNavigation}
+            variant="ghost"
+            className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            ตั้งค่าและวิเคราะห์
+          </Button>
+          <Button
+            onClick={handleLogout}
+            variant="ghost"
+            className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
+          >
+            <Lock className="mr-2 h-4 w-4" />
+            ออกจากระบบ
+          </Button>
+        </div>
       </div>
 
       {/* SavedIdeas Modal */}
