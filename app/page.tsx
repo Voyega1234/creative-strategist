@@ -319,6 +319,7 @@ function MainContent() {
   const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
   const [isNavigatingToImages, setIsNavigatingToImages] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
   
@@ -772,7 +773,7 @@ function MainContent() {
       return
     }
 
-    setIsGenerating(true)
+    setIsLoadingMore(true)
     try {
       // Simply use whatever is in the input box (which may be auto-filled from template)
       // If empty, send a single space to N8N instead of undefined
@@ -863,7 +864,7 @@ function MainContent() {
       return
     }
 
-    setIsGenerating(true)
+    setIsLoadingMore(true)
     try {
       // Get existing concept ideas to avoid duplicates
       const existingConceptIdeas = topics.map(topic => topic.concept_idea).filter(Boolean)
@@ -889,44 +890,71 @@ function MainContent() {
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
-        // Append new ideas to existing ones instead of replacing
-        setTopics(prevTopics => [...prevTopics, ...data.ideas])
-        
-        // Save all ideas to localStorage (existing + new)
-        if (activeClientName && activeProductFocus) {
-          const allIdeas = [...topics, ...data.ideas]
-          saveIdeasToStorage(allIdeas, activeClientName, activeProductFocus)
+        let mergedIdeas: IdeaRecommendation[] = []
+        let appendedCount = 0
+        setTopics(prevTopics => {
+          const existingConcepts = new Set(
+            prevTopics.map(topic => topic.concept_idea || topic.title || "")
+          )
+
+          const freshIdeas = (data.ideas || []).filter((idea: IdeaRecommendation) => {
+            const key = idea.concept_idea || idea.title || ""
+            if (!key) return true
+            if (existingConcepts.has(key)) {
+              return false
+            }
+            existingConcepts.add(key)
+            return true
+          })
+
+          appendedCount = freshIdeas.length
+          mergedIdeas = [...prevTopics, ...freshIdeas]
+          return mergedIdeas
+        })
+
+        // Ensure results stay visible while more ideas load
+        setShowResults(true)
+
+        // Persist the combined list once state is updated
+        if (activeClientName && activeProductFocus && mergedIdeas.length > 0) {
+          saveIdeasToStorage(mergedIdeas, activeClientName, activeProductFocus)
         }
-        
-        // Save to database session history (non-blocking)
-        if (activeClientName && activeProductFocus) {
-          console.log('🎯 Initiating session save for more ideas:', {
+
+        // Save the extended session (non-blocking)
+        if (activeClientName && activeProductFocus && mergedIdeas.length > 0) {
+          console.log('🎯 Appending session with additional ideas:', {
             activeClientName,
             activeProductFocus,
-            existingIdeasCount: topics.length,
-            newIdeasCount: data?.ideas?.length || 0,
+            previousCount: topics.length,
+            addedCount: appendedCount,
+            totalAfterAppend: mergedIdeas.length,
           })
-          
-          // Create session data for the additional ideas (matching sessionManager interface)
-          const allIdeas = [...topics, ...data.ideas]
-          const sessionData = {
+
+          sessionManager.saveSession({
             clientName: activeClientName,
             productFocus: activeProductFocus,
-            n8nResponse: { ideas: allIdeas }, // Use n8nResponse format instead of ideas
+            n8nResponse: { ideas: mergedIdeas },
             userInput: finalInstructions,
-            modelUsed: modelOptions.find(m => m.name === selectedModel)?.name || "Gemini 2.5 Pro"
-          }
-          
-          sessionManager.saveSession(sessionData).catch((error: any) => {
-            console.warn('⚠️ Failed to save additional ideas session to database (non-critical):', error)
+            modelUsed: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
+          }).catch((error: any) => {
+            console.warn('⚠️ Failed to save combined ideas session (non-critical):', error)
           })
         }
-        
-        // Show completion notifications
-        playNotificationSound()
-        alert(`สร้างไอเดียเพิ่มเติม ${data.ideas.length} ข้อสำเร็จแล้วสำหรับ ${activeClientName} ปัจจุบันมีไอเดียทั้งหมด ${topics.length + data.ideas.length} ข้อ`)
+
+        // Friendly notification (avoid interruptive alerts)
+        if (appendedCount > 0) {
+          playNotificationSound()
+          showNotification(
+            '🎉 เพิ่มไอเดียใหม่แล้ว!',
+            `เพิ่มไอเดียอีก ${appendedCount} ข้อ • รวมทั้งหมด ${mergedIdeas.length} ข้อ`,
+            appendedCount
+          )
+          console.log(`✅ Added ${appendedCount} more ideas. Total now: ${mergedIdeas.length}`)
+        } else {
+          console.log('ℹ️ No brand-new ideas were added (possible duplicates).')
+        }
       } else {
         alert(`เกิดข้อผิดพลาด: ${data.error}`)
       }
@@ -934,7 +962,7 @@ function MainContent() {
       console.error('Error generating more ideas:', error)
       alert('เกิดข้อผิดพลาดในการสร้างไอเดียเพิ่มเติม กรุณาลองใหม่อีกครั้ง')
     } finally {
-      setIsGenerating(false)
+      setIsLoadingMore(false)
     }
   }
 
@@ -1775,10 +1803,10 @@ function MainContent() {
               <span className="text-[#000000] font-medium">Admin</span>
             </div>
             <Button
-              onClick={!isGenerating ? handleConfigureNavigation : undefined}
+              onClick={!isGenerating && !isLoadingMore ? handleConfigureNavigation : undefined}
               variant="ghost"
               className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
-              disabled={isNavigatingToConfigure || isGenerating}
+              disabled={isNavigatingToConfigure || isGenerating || isLoadingMore}
             >
               <Settings className="mr-2 h-4 w-4" />
               ตั้งค่าและวิเคราะห์
@@ -1798,31 +1826,31 @@ function MainContent() {
         <main className="flex-1 p-8 flex flex-col min-h-screen bg-transparent overflow-y-auto">
           <div className="w-full flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end mb-6">
             <Button
-              onClick={!isGenerating ? handleNewClientNavigation : undefined}
+              onClick={!isGenerating && !isLoadingMore ? handleNewClientNavigation : undefined}
               size="sm"
               variant="outline"
               className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              disabled={isGenerating || isNavigatingToNewClient}
+              disabled={isGenerating || isLoadingMore || isNavigatingToNewClient}
             >
               <Plus className="mr-2 h-3 w-3" />
               เพิ่มรายชื่อ
             </Button>
             <Button
-              onClick={() => !isGenerating && setSavedIdeasModalOpen(true)}
+              onClick={() => !isGenerating && !isLoadingMore && setSavedIdeasModalOpen(true)}
               size="sm"
               variant="outline"
               className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              disabled={isGenerating}
+              disabled={isGenerating || isLoadingMore}
             >
               <Bookmark className="mr-2 h-3 w-3" />
               รายการที่บันทึก
             </Button>
             <Button
-              onClick={!isGenerating ? handleImagesNavigation : undefined}
+              onClick={!isGenerating && !isLoadingMore ? handleImagesNavigation : undefined}
               size="sm"
               variant="outline"
               className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              disabled={isNavigatingToImages || isGenerating}
+              disabled={isNavigatingToImages || isGenerating || isLoadingMore}
             >
               <Images className="mr-2 h-3 w-3" />
               ค้นและสร้างภาพ
@@ -2032,7 +2060,7 @@ function MainContent() {
                 <div className="flex justify-end">
                   <Button 
                     onClick={handleGenerateTopics}
-                    disabled={isGenerating || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
+                    disabled={isGenerating || isLoadingMore || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
                     className="bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
                   >
                     {isGenerating ? (
@@ -2094,13 +2122,13 @@ function MainContent() {
                 <div className="flex justify-center mt-8 pt-6 border-t border-gray-200">
                   <Button
                     onClick={handleGenerateMoreIdeas}
-                    disabled={isGenerating}
+                    disabled={isGenerating || isLoadingMore}
                     className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-3 rounded-lg font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50"
                   >
-                    {isGenerating ? (
+                    {isLoadingMore ? (
                       <>
                         <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
-                        กำลังสร้างไอเดียเพิ่มเติม...
+                        กำลังเพิ่มไอเดียใหม่...
                       </>
                     ) : (
                       <>
