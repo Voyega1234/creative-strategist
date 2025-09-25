@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock } from "lucide-react"
+import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock, Home } from "lucide-react"
 import { SavedIdeas } from "./saved-ideas"
 
 type ClientWithProductFocus = {
@@ -24,17 +24,21 @@ interface MainSidebarProps {
   activeClientName: string
   activeProductFocus: string | null
   activeClientId: string | null
+  showSecondaryNav?: boolean
+  showHistory?: boolean
 }
 
 export function MainSidebar({ 
   clients, 
   activeClientName, 
   activeProductFocus, 
-  activeClientId 
+  activeClientId,
+  showSecondaryNav = true,
+  showHistory = true,
 }: MainSidebarProps) {
   const router = useRouter()
   const [isBrandOpen, setIsBrandOpen] = useState(true)
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true)
   const [savedIdeasModalOpen, setSavedIdeasModalOpen] = useState(false)
 
 
@@ -56,6 +60,11 @@ export function MainSidebar({
     router.push(mainUrl)
   }
 
+  const handleConfigureNavigation = () => {
+    const configureUrl = `/configure${activeClientId ? `?clientId=${encodeURIComponent(activeClientId)}${activeClientName ? `&clientName=${encodeURIComponent(activeClientName)}` : ''}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` : ''}`
+    router.push(configureUrl)
+  }
+
   const handleProductFocusChange = (clientName: string, productFocus: string) => {
     const client = clients.find(c => c.clientName === clientName)
     const clientId = client?.id
@@ -67,9 +76,20 @@ export function MainSidebar({
   }
 
   return (
-    <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between">
+    <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col justify-between">
       <div>
-        <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist</h1>
+        <div className="flex items-center gap-2 mb-8">
+          <Button
+            onClick={handleMainNavigation}
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-[#535862] hover:text-[#1d4ed8] hover:bg-[#f5f5f5]"
+          >
+            <Home className="h-4 w-4" />
+            <span className="sr-only">กลับหน้าหลัก</span>
+          </Button>
+          <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
+        </div>
         <nav className="space-y-2">
           <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
             <CollapsibleTrigger asChild>
@@ -136,37 +156,57 @@ export function MainSidebar({
         </nav>
         <div className="my-4 border-t border-[#e4e7ec]" />
         <nav className="space-y-2">
-          <Button
-            onClick={handleMainNavigation}
-            variant="ghost"
-            className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            หน้าหลัก
-          </Button>
-          <Button
-            onClick={() => setSavedIdeasModalOpen(true)}
-            variant="ghost"
-            className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-          >
-            <Bookmark className="mr-2 h-4 w-4" />
-            รายการที่บันทึก
-          </Button>
-          <Button
-            onClick={handleImagesNavigation}
-            variant="ghost"
-            className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-          >
-            <Images className="mr-2 h-4 w-4" />
-            ค้นและสร้างภาพ
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-[#063def] bg-[#dbeafe] hover:bg-[#dbeafe] hover:text-[#063def]"
-          >
-            <Settings className="mr-2 h-4 w-4" />
-            ตั้งค่าและวิเคราะห์
-          </Button>
+          {showSecondaryNav && (
+            <>
+              <Button
+                onClick={handleMainNavigation}
+                variant="ghost"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                หน้าหลัก
+              </Button>
+              <Button
+                onClick={() => setSavedIdeasModalOpen(true)}
+                variant="ghost"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              >
+                <Bookmark className="mr-2 h-4 w-4" />
+                รายการที่บันทึก
+              </Button>
+              <Button
+                onClick={handleImagesNavigation}
+                variant="ghost"
+                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              >
+                <Images className="mr-2 h-4 w-4" />
+                ค้นและสร้างภาพ
+              </Button>
+            </>
+          )}
+          {showHistory && (
+            <Collapsible open={isHistoryOpen} onOpenChange={setIsHistoryOpen} className="w-full">
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  ประวัติการสร้าง
+                  <ChevronUp
+                    className={`ml-auto h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-0" : "rotate-180"}`}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 pl-8 pt-2">
+                <div className="text-[#535862] text-xs p-2 bg-white/70 rounded-md border border-[#e4e7ec]">
+                  {activeClientName && activeClientName !== "No Client Selected"
+                    ? "ยังไม่มีประวัติการสร้างไอเดีย"
+                    : "เลือกลูกค้าเพื่อดูประวัติ"}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </nav>
       </div>
       <div className="border-t border-[#e4e7ec] mt-4 pt-4">
@@ -176,6 +216,14 @@ export function MainSidebar({
           </Avatar>
           <span className="text-[#000000] font-medium">Admin</span>
         </div>
+        <Button
+          onClick={handleConfigureNavigation}
+          variant="ghost"
+          className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
+        >
+          <Settings className="mr-2 h-4 w-4" />
+          ตั้งค่าและวิเคราะห์
+        </Button>
         <Button
           onClick={handleLogout}
           variant="ghost"

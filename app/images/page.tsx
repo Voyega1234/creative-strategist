@@ -34,6 +34,7 @@ function MainContent() {
   const [isBrandOpen, setIsBrandOpen] = useState(true)
   const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false)
+  const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
   
   // Saved Ideas modal state
   const [savedIdeasOpen, setSavedIdeasOpen] = useState(false)
@@ -87,6 +88,15 @@ function MainContent() {
     }
   }
 
+  const handleNewClientNavigation = async () => {
+    setIsNavigatingToNewClient(true)
+    try {
+      router.push('/new-client')
+    } catch (error) {
+      setIsNavigatingToNewClient(false)
+    }
+  }
+
   const handleHomeNavigation = async () => {
     setIsNavigatingToHome(true)
     
@@ -121,7 +131,7 @@ function MainContent() {
     <div className="flex min-h-screen bg-white relative">
       <div className="flex w-full relative z-10">
         {/* Sidebar */}
-        <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between">
+        <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col justify-between">
           <div>
             <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist</h1>
             <nav className="space-y-2">
@@ -184,15 +194,6 @@ function MainContent() {
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-              <Link href="/new-client">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  เพิ่มรายชื่อ
-                </Button>
-              </Link>
             </nav>
             <div className="my-4 border-t border-[#e4e7ec]" />
             <nav className="space-y-2">
@@ -206,41 +207,76 @@ function MainContent() {
                 กลับหน้าหลัก
               </Button>
               <Button
-                onClick={handleViewSavedIdeas}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              >
-                <Bookmark className="mr-2 h-4 w-4" />
-                รายการที่บันทึก
-              </Button>
-              <Button
                 variant="ghost"
                 className="w-full justify-start text-[#063def] bg-[#dbeafe] hover:bg-[#dbeafe] hover:text-[#063def]"
+                disabled
               >
                 <Images className="mr-2 h-4 w-4" />
                 ค้นและสร้างภาพ
               </Button>
-              <Button
-                onClick={handleConfigureNavigation}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                disabled={isNavigatingToConfigure}
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                ตั้งค่าและวิเคราะห์
-              </Button>
             </nav>
           </div>
-          <div className="flex items-center space-x-3 p-2 border-t border-[#e4e7ec] mt-4">
-            <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
-              <AvatarFallback>A</AvatarFallback>
-            </Avatar>
-            <span className="text-[#000000] font-medium">Admin</span>
+          <div className="border-t border-[#e4e7ec] mt-4 pt-4">
+            <div className="flex items-center space-x-3 p-2 mb-2">
+              <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
+                <AvatarFallback>A</AvatarFallback>
+              </Avatar>
+              <span className="text-[#000000] font-medium">Admin</span>
+            </div>
+            <Button
+              onClick={handleConfigureNavigation}
+              variant="ghost"
+              className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
+              disabled={isNavigatingToConfigure}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              ตั้งค่าและวิเคราะห์
+            </Button>
+            <Button
+              onClick={handleViewSavedIdeas}
+              variant="ghost"
+              className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
+            >
+              <Bookmark className="mr-2 h-4 w-4" />
+              รายการที่บันทึก
+            </Button>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 p-6 flex flex-col min-h-screen bg-transparent overflow-y-auto">
+          <div className="w-full flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end mb-6">
+            <Button
+              onClick={handleNewClientNavigation}
+              size="sm"
+              variant="outline"
+              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              disabled={isNavigatingToNewClient}
+            >
+              <Plus className="mr-2 h-3 w-3" />
+              เพิ่มรายชื่อ
+            </Button>
+            <Button
+              onClick={handleViewSavedIdeas}
+              size="sm"
+              variant="outline"
+              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+            >
+              <Bookmark className="mr-2 h-3 w-3" />
+              รายการที่บันทึก
+            </Button>
+            <Button
+              onClick={handleHomeNavigation}
+              size="sm"
+              variant="outline"
+              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              disabled={isNavigatingToHome}
+            >
+              <Home className="mr-2 h-3 w-3" />
+              กลับหน้าหลัก
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto space-y-6">
             {/* Header Section */}
             <div className="flex items-center justify-between border-b border-[#d1d1d6] pb-6">
@@ -329,6 +365,7 @@ function MainContent() {
                 </Card>
               </TabsContent>
             </Tabs>
+          </div>
           </div>
         </main>
       </div>

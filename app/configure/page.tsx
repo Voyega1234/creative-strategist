@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { MainSidebar } from "@/components/main-sidebar"
+import { ConfigureHeaderActions } from "@/components/configure-header-actions"
 import { getCompetitors, getUniqueServices, getClientBusinessProfile, type Competitor } from "@/lib/data/competitors"
 import { ClientInformationSection } from "@/components/client-information-section"
 import { ResearchInsightsSection } from "@/components/research-insights-section"
@@ -139,7 +140,9 @@ async function ConfigurePageContent({
             clients={clientsWithProductFocus} 
             activeClientName={activeClientName} 
             activeProductFocus={activeProductFocus} 
-            activeClientId={activeClientId} 
+            activeClientId={activeClientId}
+            showSecondaryNav={false}
+            showHistory={false}
           />
           <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent">
             <div className="text-center text-[#535862]">
@@ -153,7 +156,6 @@ async function ConfigurePageContent({
 
   const totalPages = Math.ceil(totalCompetitorsCount / ITEMS_PER_PAGE)
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
-
   return (
     <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
       <div className="flex w-full relative z-10">
@@ -161,11 +163,19 @@ async function ConfigurePageContent({
           clients={clientsWithProductFocus} 
           activeClientName={activeClientName} 
           activeProductFocus={activeProductFocus} 
-          activeClientId={activeClientId} 
+          activeClientId={activeClientId}
+          showSecondaryNav={false}
+          showHistory={false}
         />
-        <main className="flex-1 p-8 overflow-auto bg-transparent">
-          {/* Main Tabs */}
-          <Tabs defaultValue="client" className="w-full">
+        <main className="flex-1 p-8 bg-transparent flex flex-col overflow-hidden">
+          <ConfigureHeaderActions
+            activeClientName={activeClientName}
+            activeProductFocus={activeProductFocus}
+            activeClientId={activeClientId}
+          />
+          <div className="flex-1 overflow-auto">
+            {/* Main Tabs */}
+            <Tabs defaultValue="client" className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-auto bg-transparent p-0 border-b border-[#e4e7ec] mb-8">
               <TabsTrigger
                 value="client"
@@ -372,7 +382,8 @@ async function ConfigurePageContent({
               </div>
             </TabsContent>
 
-          </Tabs>
+            </Tabs>
+          </div>
         </main>
       </div>
     </div>

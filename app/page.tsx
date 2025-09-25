@@ -312,7 +312,7 @@ function MainContent() {
   const [historyModalOpen, setHistoryModalOpen] = useState(false)
   const [savedIdeasModalOpen, setSavedIdeasModalOpen] = useState(false)
   const [isBrandOpen, setIsBrandOpen] = useState(true)
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true)
   const [showResults, setShowResults] = useState(false)
   const [sidebarHistory, setSidebarHistory] = useState<any[]>([])
   const [isLoadingSidebarHistory, setIsLoadingSidebarHistory] = useState(false)
@@ -600,7 +600,7 @@ function MainContent() {
   // Auto-load session history and latest ideas when client changes
   useEffect(() => {
     setSidebarHistory([])
-    setIsHistoryOpen(false)
+    setIsHistoryOpen(true)
     
     // Automatically load session history for the new client
     if (activeClientName && activeClientName !== "No Client Selected") {
@@ -1633,7 +1633,7 @@ function MainContent() {
       /> */}
       <div className="flex w-full relative z-10">
         {/* Sidebar */}
-        <aside className={`w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-white/20 flex flex-col justify-between ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
+        <aside className={`w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col justify-between ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
           <div>
             <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist.</h1>
             <nav className="space-y-2">
@@ -1710,45 +1710,9 @@ function MainContent() {
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-              <Button
-                onClick={!isGenerating ? handleNewClientNavigation : undefined}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                disabled={isGenerating || isNavigatingToNewClient}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                เพิ่มรายชื่อ
-              </Button>
             </nav>
             <div className="my-4 border-t border-[#e4e7ec]" />
             <nav className="space-y-2">
-              <Button
-                onClick={() => !isGenerating && setSavedIdeasModalOpen(true)}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                disabled={isGenerating}
-              >
-                <Bookmark className="mr-2 h-4 w-4" />
-                รายการที่บันทึก
-              </Button>
-              <Button
-                onClick={!isGenerating ? handleImagesNavigation : undefined}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                disabled={isNavigatingToImages || isGenerating}
-              >
-                <Images className="mr-2 h-4 w-4" />
-                ค้นและสร้างภาพ
-              </Button>
-              <Button
-                onClick={!isGenerating ? handleConfigureNavigation : undefined}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                disabled={isNavigatingToConfigure || isGenerating}
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                ตั้งค่าและวิเคราะห์
-              </Button>
               <Collapsible open={isHistoryOpen} onOpenChange={isGenerating ? undefined : setIsHistoryOpen} className="w-full">
                 <CollapsibleTrigger asChild>
                   <Button
@@ -1811,6 +1775,15 @@ function MainContent() {
               <span className="text-[#000000] font-medium">Admin</span>
             </div>
             <Button
+              onClick={!isGenerating ? handleConfigureNavigation : undefined}
+              variant="ghost"
+              className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
+              disabled={isNavigatingToConfigure || isGenerating}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              ตั้งค่าและวิเคราะห์
+            </Button>
+            <Button
               onClick={handleLogout}
               variant="ghost"
               className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
@@ -1822,35 +1795,68 @@ function MainContent() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent overflow-y-auto">
-          {/* Pending Notification Banner */}
-          {pendingNotification && (
-            <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border-l-4 border-green-600 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 bg-white rounded-full animate-ping"></div>
-                <div>
-                  <p className="font-medium">🎉 ไอเดียสร้างเสร็จแล้ว!</p>
-                  <p className="text-sm opacity-90">คลิกแท็บนี้เพื่อดูผลลัพธ์และฟังเสียงแจ้งเตือน</p>
+        <main className="flex-1 p-8 flex flex-col min-h-screen bg-transparent overflow-y-auto">
+          <div className="w-full flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end mb-6">
+            <Button
+              onClick={!isGenerating ? handleNewClientNavigation : undefined}
+              size="sm"
+              variant="outline"
+              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              disabled={isGenerating || isNavigatingToNewClient}
+            >
+              <Plus className="mr-2 h-3 w-3" />
+              เพิ่มรายชื่อ
+            </Button>
+            <Button
+              onClick={() => !isGenerating && setSavedIdeasModalOpen(true)}
+              size="sm"
+              variant="outline"
+              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              disabled={isGenerating}
+            >
+              <Bookmark className="mr-2 h-3 w-3" />
+              รายการที่บันทึก
+            </Button>
+            <Button
+              onClick={!isGenerating ? handleImagesNavigation : undefined}
+              size="sm"
+              variant="outline"
+              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
+              disabled={isNavigatingToImages || isGenerating}
+            >
+              <Images className="mr-2 h-3 w-3" />
+              ค้นและสร้างภาพ
+            </Button>
+          </div>
+          <div className="flex-1 flex items-center justify-center relative">
+            {/* Pending Notification Banner */}
+            {pendingNotification && (
+              <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border-l-4 border-green-600 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 bg-white rounded-full animate-ping"></div>
+                  <div>
+                    <p className="font-medium">🎉 ไอเดียสร้างเสร็จแล้ว!</p>
+                    <p className="text-sm opacity-90">คลิกแท็บนี้เพื่อดูผลลัพธ์และฟังเสียงแจ้งเตือน</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      playNotificationSoundImmediate()
+                      setPendingNotification(false)
+                    }}
+                    className="ml-2 bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    playNotificationSoundImmediate()
-                    setPendingNotification(false)
-                  }}
-                  className="ml-2 bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
-            </div>
-          )}
-          
-          {isGenerating ? (
-            /* AI Typing Animation */
-            <AITypingAnimation activeClientName={activeClientName} />
-          ) : !showResults ? (
-            /* Input Section */
-            <div className="flex flex-col items-center text-center w-full max-w-4xl">
+            )}
+            
+            {isGenerating ? (
+              /* AI Typing Animation */
+              <AITypingAnimation activeClientName={activeClientName} />
+            ) : !showResults ? (
+              /* Input Section */
+              <div className="flex flex-col items-center text-center w-full max-w-4xl">
               <Image
                 src="/SCR-20250730-myam-Photoroom.png"
                 alt="Creative Strategist Logo"
@@ -2107,6 +2113,7 @@ function MainContent() {
               </div>
             </div>
           )}
+        </div>
         </main>
       </div>
       
