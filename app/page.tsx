@@ -830,6 +830,7 @@ function MainContent() {
       return
     }
 
+    setIsGenerating(true)
     setIsLoadingMore(true)
     try {
       // Simply use whatever is in the input box (which may be auto-filled from template)
@@ -905,6 +906,7 @@ function MainContent() {
       console.error('Error generating topics:', error)
       alert('เกิดข้อผิดพลาดในการสร้างหัวข้อ กรุณาลองใหม่อีกครั้ง')
     } finally {
+      setIsLoadingMore(false)
       setIsGenerating(false)
     }
   }
