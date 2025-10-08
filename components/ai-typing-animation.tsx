@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Sparkles, Zap } from "lucide-react"
+import { Zap } from "lucide-react"
 
 interface AITypingAnimationProps {
   activeClientName: string
@@ -59,10 +59,17 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
       <div className="bg-white/80 backdrop-blur-md rounded-2xl p-12 shadow-lg border border-white/20 max-w-2xl w-full">
         {/* Animated Icon */}
         <div className="flex justify-center mb-8">
-          <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] rounded-full animate-pulse opacity-20 scale-110"></div>
-            <div className="relative bg-gradient-to-r from-[#1d4ed8] to-[#3b82f6] p-6 rounded-full">
-              <Sparkles className="h-8 w-8 text-white animate-spin" />
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-[#1d4ed8]/10 blur-2xl scale-110 animate-pulse" />
+            <div
+              className="relative h-20 w-20 rounded-full overflow-hidden animate-spin"
+              style={{ animationDuration: "2.4s" }}
+            >
+              <img
+                src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/PxUhJl3kT_WKa78iEID8DA-Photoroom.png"
+                alt="AI generating ideas"
+                className="h-full w-full object-cover"
+              />
             </div>
           </div>
         </div>

@@ -26,7 +26,6 @@ import {
   Sparkles,
   RefreshCcw,
   Share2,
-  Zap,
   ThumbsUp,
   ThumbsDown,
   BookmarkCheck,
@@ -148,26 +147,37 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
   onShare: (topic: IdeaRecommendation, index: number) => void;
 }) => {
   return (
-    <Card className="bg-white/90 border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
-      {/* Impact Badge */}
-      {topic.impact && (
-        <div className="mb-4">
-          <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
-            topic.impact === 'Proven Concept' ? 'bg-blue-500' :
-            topic.impact === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
-          }`}>
-            {topic.impact}
-          </Badge>
-        </div>
-      )}
+    <Card
+      className="border border-[#e4e7ec] rounded-xl hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative overflow-hidden"
+      style={{
+        backgroundImage:
+          'url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/coolbackgrounds-topography-gulf.png")',
+        backgroundSize: '600px',
+        backgroundPosition: 'top left',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      <div className="absolute inset-0 bg-white/90 backdrop-blur-sm" />
+      <div className="relative z-10 p-6">
+        {/* Impact Badge */}
+        {topic.impact && (
+          <div className="mb-4">
+            <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
+              topic.impact === 'Proven Concept' ? 'bg-blue-500' :
+              topic.impact === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
+            }`}>
+              {topic.impact}
+            </Badge>
+          </div>
+        )}
 
-      {/* Action Buttons - Top Right */}
-      <div className="absolute top-3 right-3 flex gap-1">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0 hover:bg-purple-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
-          onClick={(e) => {
+        {/* Action Buttons - Top Right */}
+        <div className="absolute top-3 right-3 flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-purple-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
+            onClick={(e) => {
             e.stopPropagation()
             onShare(topic, index)
           }}
@@ -285,6 +295,7 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
             </Button>
           </div>
         </div>
+      </div>
       </div>
     </Card>
   )
@@ -659,7 +670,9 @@ function MainContent() {
   useEffect(() => {
     setSidebarHistory([])
     setIsHistoryOpen(true)
-    
+    setShowResults(false)
+    setTopics([])
+
     // Automatically load session history for the new client
     if (activeClientName && activeClientName !== "No Client Selected") {
       console.log(`🔄 Auto-loading session history and latest ideas for client: ${activeClientName}`)
@@ -1623,16 +1636,15 @@ function MainContent() {
   // Show main dashboard if authenticated
   return (
     <div className="flex h-screen bg-white relative overflow-hidden">
-      {/* Background Image - Hidden temporarily */}
-      {/* <div 
-        className="fixed inset-0 z-0"
+      <div 
+        className="fixed inset-0 z-0 opacity-70"
         style={{
-          backgroundImage: 'url("/vivid-blurred-colorful-background (1).jpg")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundImage: 'url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/coolbackgrounds-topography-gulf.png")',
+          backgroundSize: '800px',
+          backgroundPosition: 'top right',
           backgroundRepeat: 'no-repeat'
         }}
-      /> */}
+      />
       <div className="flex w-full relative z-10">
         {/* Sidebar */}
         <aside className={`w-64 h-screen bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
@@ -1764,11 +1776,12 @@ function MainContent() {
                     {isLoadingSidebarHistory ? (
                       <div className="text-[#535862] text-xs p-2">กำลังโหลด...</div>
                     ) : sidebarHistory.length > 0 ? (
-                      sidebarHistory.map((session) => (
+                      sidebarHistory.map((session, index) => (
                         <button
                           key={session.id}
                           onClick={() => loadSessionIdeas(session)}
-                          className="w-full text-left p-2 rounded-md hover:bg-[#dbeafe] hover:text-[#063def] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1"
+                          className="w-full text-left p-2 rounded-md hover:bg-[#dbeafe] hover:text-[#063def] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1 animate-in fade-in duration-1000 ease-out slide-in-from-left-10"
+                          style={{ animationDelay: `${index * 120}ms`, animationFillMode: "both" }}
                         >
                           <div className="font-medium truncate">
                             {session.selectedTemplate ? 
@@ -1869,205 +1882,9 @@ function MainContent() {
             {isGenerating ? (
               /* AI Typing Animation */
               <AITypingAnimation activeClientName={activeClientName} />
-            ) : !showResults ? (
-              /* Input Section */
-              <div className="flex flex-col items-center text-center w-full max-w-4xl">
-              <Image
-                src="/SCR-20250730-myam-Photoroom.png"
-                alt="Creative Strategist Logo"
-                width={120}
-                height={120}
-                className="mb-6"
-              />
-              <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
-              <p className="text-sm text-[#535862] mb-8 max-w-full w-full">
-                <span className="font-bold">เลือกคอนเทนต์แนะนำด้านล่างได้เลย</span> — อย่าลืมเลือกลูกค้าทางซ้าย ให้ได้คอนเทนต์ที่ใช่ยิ่งขึ้น
-              </p>
-
-              {/* Client/Product Focus Status */}
-              {(!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) && (
-                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    {!activeClientName || activeClientName === "No Client Selected" 
-                      ? "กรุณาเลือกลูกค้าจากแถบด้านซ้าย" 
-                      : "กรุณาเลือก Product Focus"}
-                  </p>
-                </div>
-              )}
-
-              {/* Dynamic Template Buttons - HIDDEN */}
-              {/* <div className="flex flex-col gap-4 mb-8 items-center">
-                {briefTemplates.map((template) => (
-                  <Button
-                    key={template.id}
-                    onClick={() => handleTemplateSelect(template.id)}
-                    variant="outline"
-                    disabled={isGenerating}
-                    className={`h-auto py-4 px-6 flex items-center justify-start text-left border-white/30 hover:bg-[#dbeafe] hover:border-[#b692f6] hover:text-[#063def] shadow-lg max-w-fit transition-all ${
-                      selectedTemplate === template.id 
-                        ? 'bg-[#dbeafe] border-[#b692f6] text-[#063def]' 
-                        : 'bg-white text-[#535862]'
-                    }`}
-                  >
-                    <Sparkles className={`mr-3 h-5 w-5 ${
-                      selectedTemplate === template.id ? 'text-[#063def]' : 'text-[#3b82f6]'
-                    }`} />
-                    {template.title}
-                  </Button>
-                ))}
-              </div> */}
-
-              {/* Product Details Toggle */}
-              <div className="w-full max-w-2xl mb-6">
-                <div className="flex items-center space-x-3 justify-center">
-                  <Label htmlFor="product-details-toggle" className="text-sm font-medium text-[#535862]">
-                    เพิ่มรายละเอียดสินค้า
-                  </Label>
-                  <Switch
-                    id="product-details-toggle"
-                    checked={showProductDetails}
-                    onCheckedChange={setShowProductDetails}
-                    disabled={isGenerating}
-                  />
-                </div>
-                
-                <Collapsible open={showProductDetails} className="mt-4">
-                  <CollapsibleContent className="space-y-4">
-                    <div className="bg-[#f3f0ff] border border-[#d8ccf1] rounded-lg p-4">
-                      <Label className="text-sm font-medium text-[#063def] mb-2 block">
-                        รายละเอียดสินค้าและบริการ
-                      </Label>
-                      <textarea
-                        value={productDetails}
-                        onChange={(e) => {
-                          setProductDetails(e.target.value)
-                          // Auto-resize textarea
-                          const textarea = e.target as HTMLTextAreaElement
-                          textarea.style.height = 'auto'
-                          textarea.style.height = Math.min(Math.max(textarea.scrollHeight, 100), 300) + 'px'
-                        }}
-                        placeholder="อธิบายรายละเอียดเกี่ยวกับสินค้าหรือบริการของคุณ เช่น คุณสมบัติเด่น จุดขาย กลุ่มเป้าหมาย ความพิเศษ ฯลฯ"
-                        className="w-full min-h-[100px] max-h-[300px] p-3 text-[#000000] border border-[#d8ccf1] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 bg-white resize-none overflow-hidden rounded-md"
-                        style={{ height: "100px" }}
-                        disabled={isGenerating}
-                      />
-                      <p className="text-xs text-[#1d4ed8] mt-2">
-                        💡 ข้อมูลนี้จะช่วยให้ AI สร้างไอเดียที่เหมาะกับสินค้าที่คุณต้องการมากขึ้น
-                      </p>
-                    </div>
-                    
-                    {/* Negative Prompts Section */}
-                    <div className="bg-[#fff3f3] border border-[#f1cccc] rounded-lg p-4">
-                      <Label className="text-sm font-medium text-[#dc2626] mb-2 block">
-                        Negative Prompts (สิ่งที่ไม่ต้องการ)
-                      </Label>
-                      
-                      {/* Input field to add new negative prompt */}
-                      <div className="flex gap-2 mb-3">
-                        <Input
-                          value={negativePromptInput}
-                          onChange={(e) => setNegativePromptInput(e.target.value)}
-                          placeholder="เช่น whey protein, gym supplements, ฟิตเนส"
-                          className="flex-1 border-[#f1cccc] focus:border-[#dc2626] focus-visible:ring-0"
-                          disabled={isGenerating}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && negativePromptInput.trim()) {
-                              const newPrompt = negativePromptInput.trim()
-                              if (!negativePrompts.includes(newPrompt)) {
-                                setNegativePrompts([...negativePrompts, newPrompt])
-                              }
-                              setNegativePromptInput("")
-                            }
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="bg-[#dc2626] hover:bg-[#b91c1c] text-white"
-                          disabled={!negativePromptInput.trim() || isGenerating}
-                          onClick={() => {
-                            const newPrompt = negativePromptInput.trim()
-                            if (newPrompt && !negativePrompts.includes(newPrompt)) {
-                              setNegativePrompts([...negativePrompts, newPrompt])
-                              setNegativePromptInput("")
-                            }
-                          }}
-                        >
-                          เพิ่ม
-                        </Button>
-                      </div>
-                      
-                      {/* Bubble tags display */}
-                      {negativePrompts.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {negativePrompts.map((prompt, index) => (
-                            <div
-                              key={index}
-                              className="inline-flex items-center gap-1 bg-[#dc2626] text-white text-xs px-3 py-1 rounded-full"
-                            >
-                              <span>{prompt}</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setNegativePrompts(negativePrompts.filter((_, i) => i !== index))
-                                }}
-                                className="hover:bg-[#b91c1c] rounded-full p-0.5 ml-1"
-                                disabled={isGenerating}
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      <p className="text-xs text-[#dc2626]">
-                        🚫 AI จะหลีกเลี่ยงการสร้างไอเดียที่เกี่ยวข้องกับคำเหล่านี้
-                      </p>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-
-              {/* Custom Input Field */}
-              <div className="w-full max-w-2xl space-y-4">
-                <textarea
-                  value={instructions}
-                  onChange={(e) => {
-                    setInstructions(e.target.value)
-                    // Auto-resize textarea
-                    autoResizeTextarea(e.target as HTMLTextAreaElement)
-                  }}
-                  placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
-                  className="w-full min-h-[120px] max-h-[400px] p-4 text-[#000000] border border-[#e4e7ec] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 shadow-md resize-none overflow-y-auto rounded-md"
-                  style={{ backgroundColor: "#ffffff", height: "120px" }}
-                  disabled={isGenerating}
-                />
-                
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={handleGenerateTopics}
-                    disabled={isGenerating || isLoadingMore || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
-                    className="bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
-                        กำลังสร้าง...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="mr-2 h-4 w-4 text-[#1d4ed8] animate-pulse" />
-                        Generate
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Results Section */
-            <div className="flex flex-col items-center text-center w-full max-w-6xl">
+            ) : showResults && topics.length > 0 ? (
+              /* Results Section */
+              <div className="flex flex-col items-center text-center w-full max-w-6xl">
               <div className="bg-white/95 rounded-2xl p-8 shadow-lg border border-[#e4e7ec] w-full">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-[#000000] mb-2">Generated Ideas</h3>
@@ -2091,16 +1908,21 @@ function MainContent() {
                     const isSaved = savedTitles.includes(topic.title)
                     
                     return (
-                      <IdeaCard
+                      <div
                         key={`${topic.title}-${index}`}
-                        topic={topic}
-                        index={index}
-                        isSaved={isSaved}
-                        onDetailClick={handleDetailClick}
-                        onSaveClick={handleSaveIdea}
-                        onFeedback={handleFeedback}
-                        onShare={handleIndividualShare}
-                      />
+                        className="animate-in fade-in duration-1000 ease-out slide-in-from-bottom-12"
+                        style={{ animationDelay: `${index * 140}ms`, animationFillMode: "both" }}
+                      >
+                        <IdeaCard
+                          topic={topic}
+                          index={index}
+                          isSaved={isSaved}
+                          onDetailClick={handleDetailClick}
+                          onSaveClick={handleSaveIdea}
+                          onFeedback={handleFeedback}
+                          onShare={handleIndividualShare}
+                        />
+                      </div>
                     )
                   })}
                 </div>
@@ -2127,6 +1949,219 @@ function MainContent() {
                 </div>
               </div>
             </div>
+            ) : (
+              /* Input Section */
+              <div className="flex flex-col items-center text-center w-full max-w-4xl h-full">
+                <div
+                  className="flex flex-col items-center text-center w-full px-4 sm:px-0 animate-in fade-in duration-1000 ease-out slide-in-from-bottom-8"
+                  style={{ animationFillMode: "both" }}
+                >
+                  <Image
+                    src="/SCR-20250730-myam-Photoroom.png"
+                    alt="Creative Strategist Logo"
+                    width={120}
+                    height={120}
+                    className="mb-6"
+                  />
+                  <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
+                  <p className="text-sm text-[#535862] mb-8 max-w-full w-full">
+                    <span className="font-bold">เลือกคอนเทนต์แนะนำด้านล่างได้เลย</span> — อย่าลืมเลือกลูกค้าทางซ้าย ให้ได้คอนเทนต์ที่ใช่ยิ่งขึ้น
+                  </p>
+
+                  {/* Client/Product Focus Status */}
+                  {(!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) && (
+                    <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        {!activeClientName || activeClientName === "No Client Selected" 
+                          ? "กรุณาเลือกลูกค้าจากแถบด้านซ้าย" 
+                          : "กรุณาเลือก Product Focus"}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Dynamic Template Buttons - HIDDEN */}
+                  {/* <div className="flex flex-col gap-4 mb-8 items-center">
+                    {briefTemplates.map((template) => (
+                      <Button
+                        key={template.id}
+                        onClick={() => handleTemplateSelect(template.id)}
+                        variant="outline"
+                        disabled={isGenerating}
+                        className={`h-auto py-4 px-6 flex items-center justify-start text-left border-white/30 hover:bg-[#dbeafe] hover:border-[#b692f6] hover:text-[#063def] shadow-lg max-w-fit transition-all ${
+                          selectedTemplate === template.id 
+                            ? 'bg-[#dbeafe] border-[#b692f6] text-[#063def]' 
+                            : 'bg-white text-[#535862]'
+                        }`}
+                      >
+                        <Sparkles className={`mr-3 h-5 w-5 ${
+                          selectedTemplate === template.id ? 'text-[#063def]' : 'text-[#3b82f6]'
+                        }`} />
+                        {template.title}
+                      </Button>
+                    ))}
+                  </div> */}
+
+                  {/* Product Details Toggle (Hidden) */}
+                  <div className="w-full max-w-2xl mb-6 hidden" aria-hidden="true">
+                    <div className="flex items-center space-x-3 justify-center">
+                      <Label htmlFor="product-details-toggle" className="sr-only">
+                        เพิ่มรายละเอียดสินค้า
+                      </Label>
+                      <Switch
+                        id="product-details-toggle"
+                        checked={showProductDetails}
+                        onCheckedChange={setShowProductDetails}
+                        disabled={isGenerating}
+                      />
+                    </div>
+                    
+                    <Collapsible open={showProductDetails} className="mt-4">
+                      <CollapsibleContent className="space-y-4">
+                        <div className="bg-[#f3f0ff] border border-[#d8ccf1] rounded-lg p-4">
+                          <Label className="text-sm font-medium text-[#063def] mb-2 block">
+                            รายละเอียดสินค้าและบริการ
+                          </Label>
+                          <textarea
+                            value={productDetails}
+                            onChange={(e) => {
+                              setProductDetails(e.target.value)
+                              // Auto-resize textarea
+                              const textarea = e.target as HTMLTextAreaElement
+                              textarea.style.height = 'auto'
+                              textarea.style.height = Math.min(Math.max(textarea.scrollHeight, 100), 300) + 'px'
+                            }}
+                            placeholder="อธิบายรายละเอียดเกี่ยวกับสินค้าหรือบริการของคุณ เช่น คุณสมบัติเด่น จุดขาย กลุ่มเป้าหมาย ความพิเศษ ฯลฯ"
+                            className="w-full min-h-[100px] max-h-[300px] p-3 text-[#000000] border border-[#d8ccf1] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 bg-white resize-none overflow-hidden rounded-md"
+                            style={{ height: "100px" }}
+                            disabled={isGenerating}
+                          />
+                          <p className="text-xs text-[#1d4ed8] mt-2">
+                            💡 ข้อมูลนี้จะช่วยให้ AI สร้างไอเดียที่เหมาะกับสินค้าที่คุณต้องการมากขึ้น
+                          </p>
+                        </div>
+                        
+                        {/* Negative Prompts Section */}
+                        <div className="bg-[#fff3f3] border border-[#f1cccc] rounded-lg p-4">
+                          <Label className="text-sm font-medium text-[#dc2626] mb-2 block">
+                            Negative Prompts (สิ่งที่ไม่ต้องการ)
+                          </Label>
+                          
+                          {/* Input field to add new negative prompt */}
+                          <div className="flex gap-2 mb-3">
+                            <Input
+                              value={negativePromptInput}
+                              onChange={(e) => setNegativePromptInput(e.target.value)}
+                              placeholder="เช่น whey protein, gym supplements, ฟิตเนส"
+                              className="flex-1 border-[#f1cccc] focus:border-[#dc2626] focus-visible:ring-0"
+                              disabled={isGenerating}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && negativePromptInput.trim()) {
+                                  const newPrompt = negativePromptInput.trim()
+                                  if (!negativePrompts.includes(newPrompt)) {
+                                    setNegativePrompts([...negativePrompts, newPrompt])
+                                  }
+                                  setNegativePromptInput("")
+                                }
+                              }}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="bg-[#dc2626] hover:bg-[#b91c1c] text-white"
+                              disabled={!negativePromptInput.trim() || isGenerating}
+                              onClick={() => {
+                                const newPrompt = negativePromptInput.trim()
+                                if (newPrompt && !negativePrompts.includes(newPrompt)) {
+                                  setNegativePrompts([...negativePrompts, newPrompt])
+                                  setNegativePromptInput("")
+                                }
+                              }}
+                            >
+                              เพิ่ม
+                            </Button>
+                          </div>
+                          
+                          {/* Bubble tags display */}
+                          {negativePrompts.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {negativePrompts.map((prompt, index) => (
+                                <div
+                                  key={index}
+                                  className="inline-flex items-center gap-1 bg-[#dc2626] text-white text-xs px-3 py-1 rounded-full"
+                                >
+                                  <span>{prompt}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setNegativePrompts(negativePrompts.filter((_, i) => i !== index))
+                                    }}
+                                    className="hover:bg-[#b91c1c] rounded-full p-0.5 ml-1"
+                                    disabled={isGenerating}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <p className="text-xs text-[#dc2626]">
+                            🚫 AI จะหลีกเลี่ยงการสร้างไอเดียที่เกี่ยวข้องกับคำเหล่านี้
+                          </p>
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                </div>
+                {/* Custom Input Field */}
+                <div className="w-full max-w-2xl space-y-4 mt-auto pt-6">
+                  <textarea
+                    value={instructions}
+                    onChange={(e) => {
+                      setInstructions(e.target.value)
+                      // Auto-resize textarea
+                      autoResizeTextarea(e.target as HTMLTextAreaElement)
+                    }}
+                    placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
+                    className="w-full min-h-[120px] max-h-[400px] p-4 text-[#000000] border border-[#e4e7ec] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 shadow-md resize-none overflow-y-auto rounded-md"
+                    style={{ backgroundColor: "#ffffff", height: "120px" }}
+                    disabled={isGenerating}
+                  />
+                  
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleGenerateTopics}
+                      disabled={isGenerating || isLoadingMore || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
+                      className="bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <span className="inline-flex items-center justify-center mr-2">
+                            <img
+                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/PxUhJl3kT_WKa78iEID8DA-Photoroom.png"
+                              alt="Generating"
+                              className="h-5 w-5 animate-spin"
+                              style={{ animationDuration: "1.6s" }}
+                            />
+                          </span>
+                          กำลังสร้าง...
+                        </>
+                      ) : (
+                        <>
+                          <span className="inline-flex items-center justify-center mr-2">
+                            <img
+                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/PxUhJl3kT_WKa78iEID8DA-Photoroom.png"
+                              alt="Generate icon"
+                              className="h-5 w-5"
+                            />
+                          </span>
+                          Generate
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
           )}
         </div>
         </main>
