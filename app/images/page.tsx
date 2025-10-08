@@ -133,7 +133,7 @@ function MainContent() {
         {/* Sidebar */}
         <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Strategist</h1>
+            <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Compass</h1>
             <nav className="space-y-2">
               <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
                 <CollapsibleTrigger asChild>

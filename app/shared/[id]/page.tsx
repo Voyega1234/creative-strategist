@@ -268,7 +268,7 @@ export default function SharedIdeasPage() {
           <div className="flex items-center justify-center gap-4 mb-4">
             <Image
               src="/SCR-20250730-myam-Photoroom.png"
-              alt="Creative Strategist Logo"
+              alt="Creative Compass Logo"
               width={80}
               height={80}
               className="rounded-xl"
@@ -278,7 +278,7 @@ export default function SharedIdeasPage() {
                 Shared Creative Idea
               </h1>
               <p className="text-[#535862] text-sm">
-                ไอเดียการตลาดที่ถูกแชร์โดย AI Creative Strategist
+                ไอเดียการตลาดที่ถูกแชร์โดย AI Creative Compass
               </p>
             </div>
           </div>
@@ -601,14 +601,14 @@ export default function SharedIdeasPage() {
           <div className="max-w-2xl mx-auto">
             <Image
               src="/SCR-20250730-myam-Photoroom.png"
-              alt="Creative Strategist Logo"
+              alt="Creative Compass Logo"
               width={60}
               height={60}
               className="rounded-xl mx-auto mb-3"
             />
             <h3 className="text-xl font-semibold mb-2 text-[#000000]">ต้องการสร้างไอเดียของคุณเอง?</h3>
             <p className="text-sm text-[#535862] mb-4">
-              ใช้ AI Creative Strategist เพื่อสร้างไอเดียการตลาดที่สร้างสรรค์และมีประสิทธิภาพ
+              ใช้ AI Creative Compass เพื่อสร้างไอเดียการตลาดที่สร้างสรรค์และมีประสิทธิภาพ
             </p>
             <Link href="/">
               <Button className="bg-[#1d4ed8] text-white hover:bg-[#063def]">

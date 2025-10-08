@@ -89,7 +89,7 @@ export function MainSidebar({
               <Home className="h-4 w-4" />
               <span className="sr-only">กลับหน้าหลัก</span>
             </Button>
-            <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
+            <h1 className="text-lg font-semibold text-[#000000]">Creative Compass</h1>
           </div>
           <nav className="space-y-2">
             <Button

@@ -154,10 +154,10 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
           'url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/coolbackgrounds-topography-gulf.png")',
         backgroundSize: '600px',
         backgroundPosition: 'top left',
-        backgroundRepeat: 'no-repeat',
+        backgroundRepeat: 'no-repeat'
       }}
     >
-      <div className="absolute inset-0 bg-white/90 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-white/92" />
       <div className="relative z-10 p-6">
         {/* Impact Badge */}
         {topic.impact && (
@@ -736,13 +736,13 @@ function MainContent() {
     const originalTitle = document.title
     
     if (pendingNotification) {
-      document.title = '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Strategist'
+      document.title = '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Compass'
       
       // Flash title for attention
       const flashInterval = setInterval(() => {
         document.title = document.title.startsWith('🔔') 
-          ? 'Creative Strategist' 
-          : '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Strategist'
+          ? 'Creative Compass' 
+          : '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Compass'
       }, 1000)
       
       return () => {
@@ -1523,8 +1523,16 @@ function MainContent() {
       <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
         <div className="flex w-full relative z-10">
           {/* Left Panel - Branding */}
-          <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1d4ed8] to-[#063def] relative overflow-hidden">
-            <div className="absolute inset-0 bg-white/5 opacity-20"></div>
+          <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+            <div 
+              className="absolute inset-0"
+              style={{
+                backgroundImage: 'url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/coolbackgrounds-topography-orleans.svg")',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            />
+            <div className="absolute inset-0 bg-[#0f172a]/70" />
             
             <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
               <div className="mb-8">
@@ -1532,7 +1540,7 @@ function MainContent() {
                   <Lock className="w-8 h-8 text-white" />
                 </div>
                 <h1 className="text-4xl font-bold mb-4 leading-tight">
-                  Creative Strategist<br />Dashboard
+                  Creative Compass<br />Dashboard
                 </h1>
                 <p className="text-xl text-white/90 leading-relaxed">
                   เข้าสู่ระบบเพื่อเริ่มสร้างไอเดียคอนเทนต์และวิเคราะห์คู่แข่ง
@@ -1576,7 +1584,7 @@ function MainContent() {
                   <Lock className="w-6 h-6 text-[#1d4ed8]" />
                 </div>
                 <h2 className="text-3xl font-bold text-[#535862] mb-2">เข้าสู่ระบบ</h2>
-                <p className="text-[#8e8e93]">กรุณาใส่รหัสผ่านเพื่อเข้าสู่ Creative Strategist</p>
+                <p className="text-[#8e8e93]">กรุณาใส่รหัสผ่านเพื่อเข้าสู่ Creative Compass</p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-6">
@@ -1661,7 +1669,7 @@ function MainContent() {
                   <Home className="h-4 w-4" />
                   <span className="sr-only">กลับหน้าหลัก</span>
                 </Button>
-                <h1 className="text-lg font-semibold text-[#000000]">Creative Strategist</h1>
+                <h1 className="text-lg font-semibold text-[#000000]">Creative Compass</h1>
               </div>
               <Button
                 onClick={!isGenerating && !isLoadingMore ? handleNewClientNavigation : undefined}
@@ -1884,7 +1892,8 @@ function MainContent() {
               <AITypingAnimation activeClientName={activeClientName} />
             ) : showResults && topics.length > 0 ? (
               /* Results Section */
-              <div className="flex flex-col items-center text-center w-full max-w-6xl">
+              <div className="flex flex-col items-center text-center w-full max-w-6xl animate-in fade-in duration-1200 ease-out slide-in-from-top-10"
+                style={{ animationFillMode: "both" }}>
               <div className="bg-white/95 rounded-2xl p-8 shadow-lg border border-[#e4e7ec] w-full">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-bold text-[#000000] mb-2">Generated Ideas</h3>
@@ -1911,7 +1920,7 @@ function MainContent() {
                       <div
                         key={`${topic.title}-${index}`}
                         className="animate-in fade-in duration-1000 ease-out slide-in-from-bottom-12"
-                        style={{ animationDelay: `${index * 140}ms`, animationFillMode: "both" }}
+                        style={{ animationDelay: `${600 + index * 160}ms`, animationFillMode: "both" }}
                       >
                         <IdeaCard
                           topic={topic}
@@ -1957,10 +1966,10 @@ function MainContent() {
                   style={{ animationFillMode: "both" }}
                 >
                   <Image
-                    src="/SCR-20250730-myam-Photoroom.png"
-                    alt="Creative Strategist Logo"
-                    width={120}
-                    height={120}
+                    src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/Untitled%20folder/a-modern-logo-design-featuring-creative-_VhJY7EGOQwa57YqyQuADeg_6LpGaHBWQeeM__y1oTCnPg-Photoroom.png"
+                    alt="Creative Compass Logo"
+                    width={360}
+                    height={360}
                     className="mb-6"
                   />
                   <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
