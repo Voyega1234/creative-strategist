@@ -1966,11 +1966,11 @@ function MainContent() {
                   style={{ animationFillMode: "both" }}
                 >
                   <Image
-                    src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/Untitled%20folder/a-modern-logo-design-featuring-creative-_VhJY7EGOQwa57YqyQuADeg_6LpGaHBWQeeM__y1oTCnPg-Photoroom.png"
+                    src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-logo-design-featuring-the-text-creativ_2P0Qai5zSDyOiSNmNhEqzQ_6LpGaHBWQeeM__y1oTCnPg-Photoroom.png"
                     alt="Creative Compass Logo"
-                    width={360}
-                    height={360}
-                    className="mb-6"
+                    width={400}
+                    height={400}
+                    className="mb-2"
                   />
                   <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
                   <p className="text-sm text-[#535862] mb-8 max-w-full w-full">
@@ -2147,9 +2147,9 @@ function MainContent() {
                         <>
                           <span className="inline-flex items-center justify-center mr-2">
                             <img
-                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/PxUhJl3kT_WKa78iEID8DA-Photoroom.png"
+                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-minimalist-logo-design-featuring-a-sty_i3vs-y0STaWbGUfO4JyaDw_iMf0MEt0Qq6mW_Qu-aloAg-Photoroom.png"
                               alt="Generating"
-                              className="h-5 w-5 animate-spin"
+                              className="h-[26px] w-[26px] animate-spin"
                               style={{ animationDuration: "1.6s" }}
                             />
                           </span>
@@ -2159,9 +2159,9 @@ function MainContent() {
                         <>
                           <span className="inline-flex items-center justify-center mr-2">
                             <img
-                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/PxUhJl3kT_WKa78iEID8DA-Photoroom.png"
+                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-minimalist-logo-design-featuring-a-sty_i3vs-y0STaWbGUfO4JyaDw_iMf0MEt0Qq6mW_Qu-aloAg-Photoroom.png"
                               alt="Generate icon"
-                              className="h-5 w-5"
+                              className="h-[26px] w-[26px]"
                             />
                           </span>
                           Generate

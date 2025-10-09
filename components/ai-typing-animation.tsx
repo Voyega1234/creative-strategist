@@ -62,11 +62,11 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 rounded-full bg-[#1d4ed8]/10 blur-2xl scale-110 animate-pulse" />
             <div
-              className="relative h-20 w-20 rounded-full overflow-hidden animate-spin"
+              className="relative h-[208px] w-[208px] rounded-full overflow-hidden animate-spin"
               style={{ animationDuration: "2.4s" }}
             >
               <img
-                src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/PxUhJl3kT_WKa78iEID8DA-Photoroom.png"
+                src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-minimalist-logo-design-featuring-a-sty_i3vs-y0STaWbGUfO4JyaDw_iMf0MEt0Qq6mW_Qu-aloAg-Photoroom.png"
                 alt="AI generating ideas"
                 className="h-full w-full object-cover"
               />
