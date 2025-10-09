@@ -157,7 +157,7 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
         backgroundRepeat: 'no-repeat'
       }}
     >
-      <div className="absolute inset-0 bg-white/92" />
+      <div className="absolute inset-0 bg-white/80" />
       <div className="relative z-10 p-6">
         {/* Impact Badge */}
         {topic.impact && (
@@ -1966,10 +1966,10 @@ function MainContent() {
                   style={{ animationFillMode: "both" }}
                 >
                   <Image
-                    src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-logo-design-featuring-the-text-creativ_2P0Qai5zSDyOiSNmNhEqzQ_6LpGaHBWQeeM__y1oTCnPg-Photoroom.png"
+                    src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/SCR-20250730-myam-Photoroom.png"
                     alt="Creative Compass Logo"
-                    width={400}
-                    height={400}
+                    width={200}
+                    height={200}
                     className="mb-2"
                   />
                   <h2 className="text-2xl font-bold text-[#000000] mb-2">ต้องการไอเดียสร้างคอนเทนต์ใช่ไหม?</h2>
