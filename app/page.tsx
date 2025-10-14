@@ -148,7 +148,6 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
 }) => {
   return (
     <Card className="bg-white border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
-      <div className="relative z-10">
         {/* Impact Badge */}
         {topic.impact && (
           <div className="mb-4">
@@ -286,7 +285,6 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
           </div>
         </div>
       </div>
-      </div>
     </Card>
   )
 })
@@ -322,6 +320,7 @@ function MainContent() {
   const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
   const [isNavigatingToImages, setIsNavigatingToImages] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [isImprovingPrompt, setIsImprovingPrompt] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
   
@@ -1336,6 +1335,52 @@ function MainContent() {
     }
   }, [instructions, autoResizeTextarea])
 
+  const handleImprovePrompt = useCallback(async () => {
+    if (isImprovingPrompt || !instructions.trim()) {
+      return
+    }
+
+    setIsImprovingPrompt(true)
+    try {
+      const response = await fetch('/api/improve-prompt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: instructions.trim(),
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        console.error('[prompt-enhancer] Error:', data?.error)
+        alert(data?.error || 'ไม่สามารถปรับปรุงพรอมป์ได้ กรุณาลองใหม่อีกครั้ง')
+        return
+      }
+
+      if (data.improvedPrompt) {
+        setInstructions(data.improvedPrompt)
+        setTimeout(() => {
+          const textarea = document.querySelector(
+            'textarea[placeholder*="หรือใส่ความต้องการเฉพาะของคุณ"]'
+          ) as HTMLTextAreaElement | null
+          if (textarea) {
+            autoResizeTextarea(textarea)
+          }
+        }, 0)
+      }
+    } catch (error) {
+      console.error('[prompt-enhancer] Unexpected error:', error)
+      alert('เกิดข้อผิดพลาดในการปรับปรุงพรอมป์ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setIsImprovingPrompt(false)
+    }
+  }, [isImprovingPrompt, instructions, activeClientName, activeProductFocus, autoResizeTextarea])
+
   const handleShareIdeas = async () => {
     if (!topics.length) {
       alert('ไม่มีไอเดียที่จะแชร์')
@@ -2127,7 +2172,31 @@ function MainContent() {
                     disabled={isGenerating}
                   />
                   
-                  <div className="flex justify-end">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleImprovePrompt}
+                      disabled={
+                        isImprovingPrompt ||
+                        isGenerating ||
+                        isLoadingMore ||
+                        !instructions.trim()
+                      }
+                      className="border-[#d1d5db] text-[#063def] hover:bg-[#eef2ff] hover:text-[#063def]"
+                    >
+                      {isImprovingPrompt ? (
+                        <>
+                          <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                          กำลังปรับปรุง...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2 text-[#7c3aed]" />
+                          Improve Prompt
+                        </>
+                      )}
+                    </Button>
                     <Button
                       onClick={handleGenerateTopics}
                       disabled={isGenerating || isLoadingMore || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
