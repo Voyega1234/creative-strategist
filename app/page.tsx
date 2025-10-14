@@ -147,18 +147,8 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
   onShare: (topic: IdeaRecommendation, index: number) => void;
 }) => {
   return (
-    <Card
-      className="border border-[#e4e7ec] rounded-xl hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative overflow-hidden"
-      style={{
-        backgroundImage:
-          'url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/coolbackgrounds-topography-gulf.png")',
-        backgroundSize: '600px',
-        backgroundPosition: 'top left',
-        backgroundRepeat: 'no-repeat'
-      }}
-    >
-      <div className="absolute inset-0 bg-white/80" />
-      <div className="relative z-10 p-6">
+    <Card className="bg-white border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
+      <div className="relative z-10">
         {/* Impact Badge */}
         {topic.impact && (
           <div className="mb-4">
@@ -176,32 +166,32 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 w-8 p-0 hover:bg-purple-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
+            className="h-8 w-8 p-0 hover:bg-purple-50 rounded-full bg-white/90 shadow-sm border border-gray-100"
             onClick={(e) => {
-            e.stopPropagation()
-            onShare(topic, index)
-          }}
-          title="Share idea"
-        >
-          <Share2 className="h-4 w-4 text-gray-400 hover:text-purple-600" />
-        </Button>
-        
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0 hover:bg-blue-50 rounded-full bg-white/80 backdrop-blur-sm shadow-sm border border-gray-100"
-          onClick={(e) => {
-            e.stopPropagation()
-            onSaveClick(topic, index)
-          }}
-          title={isSaved ? "Remove bookmark" : "Save idea"}
-        >
-          {isSaved ? (
-            <BookmarkCheck className="h-4 w-4 text-blue-600" />
-          ) : (
-            <Bookmark className="h-4 w-4 text-gray-400 hover:text-blue-600" />
-          )}
-        </Button>
+              e.stopPropagation()
+              onShare(topic, index)
+            }}
+            title="Share idea"
+          >
+            <Share2 className="h-4 w-4 text-gray-400 hover:text-purple-600" />
+          </Button>
+          
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-blue-50 rounded-full bg-white/90 shadow-sm border border-gray-100"
+            onClick={(e) => {
+              e.stopPropagation()
+              onSaveClick(topic, index)
+            }}
+            title={isSaved ? "Remove bookmark" : "Save idea"}
+          >
+            {isSaved ? (
+              <BookmarkCheck className="h-4 w-4 text-blue-600" />
+            ) : (
+              <Bookmark className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+            )}
+          </Button>
       </div>
 
       {/* Content - clickable area */}
@@ -1912,7 +1902,7 @@ function MainContent() {
                 </div>
 
                 {/* Ideas Grid - Optimized */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 will-change-transform">
                   {topics.map((topic, index) => {
                     const isSaved = savedTitles.includes(topic.title)
                     

@@ -29,6 +29,22 @@ export function FeedbackForm({
   const [vote, setVote] = useState<'good' | 'bad' | ''>('')
   const [comment, setComment] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const extractDescription = (description: IdeaRecommendation['description']) => {
+    if (!description) return ''
+    if (typeof description === 'string') return description
+    if (Array.isArray(description)) {
+      return description
+        .map((item) => item.text)
+        .filter(Boolean)
+        .join(' | ')
+    }
+    if (typeof description === 'object' && 'summary' in description) {
+      return description.summary || ''
+    }
+    return ''
+  }
+
+  const summaryText = idea ? extractDescription(idea.description) : ''
 
   const handleClose = () => {
     setVote('')
@@ -45,6 +61,7 @@ export function FeedbackForm({
     setIsSubmitting(true)
 
     try {
+      const ideaSummary = extractDescription(idea.description)
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: {
@@ -56,7 +73,7 @@ export function FeedbackForm({
           client_name: clientName,
           product_focus: productFocus,
           idea_title: idea.title,
-          idea_description: idea.description,
+          idea_description: ideaSummary,
           concept_ideas: idea.concept_idea,
         }),
       })
@@ -95,8 +112,10 @@ export function FeedbackForm({
           <div className="space-y-4">
             {/* Idea Summary */}
             <div className="bg-[#f8f9fa] p-3 rounded-lg">
-              <h4 className="font-medium text-sm mb-1">{idea.concept_idea}</h4>
-              <p className="text-xs text-[#666] line-clamp-2">{idea.description}</p>
+              <h4 className="font-medium text-sm mb-1">{idea.concept_idea || idea.title}</h4>
+              {summaryText && (
+                <p className="text-xs text-[#666] line-clamp-2">{summaryText}</p>
+              )}
             </div>
 
             {/* Vote Selection */}
