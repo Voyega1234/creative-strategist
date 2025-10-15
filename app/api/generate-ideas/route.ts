@@ -30,7 +30,7 @@ interface N8NIdeaResponse {
 
 export async function POST(request: Request) {
   try {
-    const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook-test/9d610c88-2614-47b1-904c-217b0d995715';
+    const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/9d610c88-2614-47b1-904c-217b0d995715';
     // const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook-test/6e2160ba-b793-4b34-b16c-67cca13d8af6'
     // Parse request body
 
