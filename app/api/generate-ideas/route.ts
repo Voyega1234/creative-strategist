@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
 
     const body = await request.json();
-    const { clientName, productFocus, instructions, targetMarket, model, productDetails, hasProductDetails, negativePrompts, existingConceptIdeas } = body;
+    const { clientName, productFocus, service, instructions, targetMarket, model, productDetails, hasProductDetails, negativePrompts, existingConceptIdeas } = body;
     
     if (!clientName || !productFocus) {
       return NextResponse.json({ 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
     
-    console.log('[generate-ideas] Generating ideas and strategic insights for:', { clientName, productFocus, instructions, targetMarket, model, productDetails, hasProductDetails, negativePrompts, existingConceptIdeas: existingConceptIdeas?.length || 0 });
+    console.log('[generate-ideas] Generating ideas and strategic insights for:', { clientName, productFocus, service, instructions, targetMarket, model, productDetails, hasProductDetails, negativePrompts, existingConceptIdeas: existingConceptIdeas?.length || 0 });
 
     // Debug: Check environment variable value
     console.log('[generate-ideas] NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL);
@@ -59,7 +59,8 @@ export async function POST(request: Request) {
     console.log('[generate-ideas] Detected baseUrl:', baseUrl);
 
     // Use existing google_research API instead of non-existent webhook
-    const GOOGLE_RESEARCH_URL = `${baseUrl}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`;
+    const serviceQuery = service ? `&service=${encodeURIComponent(service)}` : '';
+    const GOOGLE_RESEARCH_URL = `${baseUrl}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}${serviceQuery}`;
     console.log('[generate-ideas] GOOGLE_RESEARCH_URL:', GOOGLE_RESEARCH_URL);
     
     // Call both N8N webhooks in parallel
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             clientName,
             productFocus,
+            service,
             instructions,
             targetMarket,
             productDetails,
@@ -118,7 +120,11 @@ export async function POST(request: Request) {
         throw new Error('Invalid response format from n8n webhook');
       }
       
-      console.log(`[generate-ideas] Successfully generated ${ideaData.output.recommendations.length} ideas`);
+      console.log(`[generate-ideas] Successfully generated ${ideaData.output.recommendations.length} ideas`, {
+        clientName,
+        productFocus,
+        service: service || null,
+      });
 
       // Handle strategic insights response - WAIT for completion
       if (strategicInsightsResponse.ok) {
@@ -139,7 +145,8 @@ export async function POST(request: Request) {
         success: true,
         ideas: ideaData.output.recommendations,
         clientName,
-        productFocus
+        productFocus,
+        service: service || null
       });
 
     } catch (webhookError: any) {

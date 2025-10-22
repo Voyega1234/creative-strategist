@@ -323,6 +323,12 @@ function MainContent() {
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
+  const [clientServices, setClientServices] = useState<string[]>([])
+  const [isLoadingServices, setIsLoadingServices] = useState(false)
+  const [selectedService, setSelectedService] = useState<string | null>(null)
+  const [newServiceName, setNewServiceName] = useState("")
+  const [isAddingService, setIsAddingService] = useState(false)
+  const [serviceError, setServiceError] = useState<string | null>(null)
   
   // Individual idea share state
   const [individualShareDialogOpen, setIndividualShareDialogOpen] = useState(false)
@@ -548,6 +554,62 @@ function MainContent() {
   useEffect(() => {
     loadClients()
   }, [])
+
+  useEffect(() => {
+    if (!activeClientId) {
+      setClientServices([])
+      setSelectedService(null)
+      return
+    }
+
+    let isCancelled = false
+    const controller = new AbortController()
+
+    const fetchServices = async () => {
+      try {
+        setIsLoadingServices(true)
+        const response = await fetch(`/api/client-services?clientId=${encodeURIComponent(activeClientId)}`, {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch services: ${response.status}`)
+        }
+
+        const data = await response.json()
+        if (isCancelled) return
+
+        const services = Array.isArray(data.services) ? data.services.slice().sort((a: string, b: string) => a.localeCompare(b, "th")) : []
+        setClientServices(services)
+
+        setSelectedService((prev) => {
+          if (services.length === 0) {
+            return null
+          }
+          if (prev && services.includes(prev)) {
+            return prev
+          }
+          return null
+        })
+      } catch (error) {
+        if (isCancelled) return
+        console.error("Error loading services:", error)
+        setClientServices([])
+        setSelectedService(null)
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingServices(false)
+        }
+      }
+    }
+
+    fetchServices()
+
+    return () => {
+      isCancelled = true
+      controller.abort()
+    }
+  }, [activeClientId, activeProductFocusEntry?.id])
 
   // Removed automatic refresh on visibility change to prevent excessive API calls
   // The 1-minute cache will handle data freshness
@@ -847,6 +909,7 @@ function MainContent() {
         body: JSON.stringify({
           clientName: activeClientName,
           productFocus: activeProductFocus,
+          service: selectedService || undefined,
           instructions: finalInstructions,
           productDetails: showProductDetails ? productDetails.trim() : undefined,
           negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
@@ -941,6 +1004,7 @@ function MainContent() {
         body: JSON.stringify({
           clientName: activeClientName,
           productFocus: activeProductFocus,
+          service: selectedService || undefined,
           instructions: finalInstructions,
           productDetails: showProductDetails ? productDetails.trim() : undefined,
           negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
@@ -1257,6 +1321,70 @@ function MainContent() {
       router.push(newUrl)
     }
   }
+
+  const handleServiceSelection = useCallback(
+    (service: string | null) => {
+      if (isGenerating) {
+        return
+      }
+      setSelectedService((prev) => {
+        if (service === null) {
+          return null
+        }
+        return prev === service ? null : service
+      })
+    },
+    [isGenerating],
+  )
+
+  const handleAddService = useCallback(async () => {
+    if (!activeClientId) {
+      setServiceError("กรุณาเลือกลูกค้าก่อน")
+      return
+    }
+
+    const value = newServiceName.trim()
+    if (!value) {
+      setServiceError("กรุณากรอกชื่อบริการ")
+      return
+    }
+
+    if (clientServices.some((service) => service.toLowerCase() === value.toLowerCase())) {
+      setServiceError("มีบริการนี้อยู่แล้ว")
+      setSelectedService(value)
+      setNewServiceName("")
+      return
+    }
+
+    try {
+      setServiceError(null)
+      setIsAddingService(true)
+      const response = await fetch("/api/client-services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: activeClientId, service: value }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to add service")
+      }
+
+      setClientServices((prev) => {
+        const next = [...prev, value]
+        next.sort((a, b) => a.localeCompare(b, "th"))
+        return next
+      })
+      setSelectedService(value)
+      setNewServiceName("")
+    } catch (error) {
+      console.error("Failed to add service:", error)
+      setServiceError("ไม่สามารถเพิ่มบริการได้ กรุณาลองใหม่")
+    } finally {
+      setIsAddingService(false)
+    }
+  }, [activeClientId, clientServices, newServiceName])
 
   const handleNewClientNavigation = useCallback(() => {
     if (isNavigatingToNewClient) return
@@ -1764,24 +1892,109 @@ function MainContent() {
                           
                           {/* Show product focus select ONLY for the selected/active client */}
                           {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
-                            <div className="ml-4 mt-2 mb-2">
-                              <Select
-                                value={activeProductFocus || ""}
-                                onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
-                                disabled={isGenerating}
-                              >
-                                <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
-                                  <SelectValue placeholder="เลือก Product Focus" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {client.productFocuses.map((pf) => (
-                                    <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
-                                      {pf.productFocus}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                            <>
+                              <div className="ml-4 mt-2 mb-2">
+                                <Select
+                                  value={activeProductFocus || ""}
+                                  onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
+                                  disabled={isGenerating}
+                                >
+                                  <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
+                                    <SelectValue placeholder="เลือก Product Focus" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {client.productFocuses.map((pf) => (
+                                      <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
+                                        {pf.productFocus}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="ml-4 mt-3 mb-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93] mb-2">
+                                  Services
+                                </p>
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <Input
+                                      value={newServiceName}
+                                      onChange={(event) => {
+                                        setNewServiceName(event.target.value)
+                                        if (serviceError) {
+                                          setServiceError(null)
+                                        }
+                                      }}
+                                      onKeyDown={(event) => {
+                                        if (event.key === "Enter") {
+                                          event.preventDefault()
+                                          handleAddService()
+                                        }
+                                      }}
+                                      placeholder="เพิ่มบริการใหม่"
+                                      disabled={isGenerating || isLoadingServices || isAddingService}
+                                      className="h-7 text-[10px] px-2 py-1 border-[#d9dbe3] focus:border-[#1d4ed8] focus:ring-0 placeholder:text-[#a0a5b1] placeholder:text-[10px]"
+                                    />
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      className="h-7 w-7 border-[#d9dbe3] text-[#535862] hover:text-[#1d4ed8]"
+                                      onClick={handleAddService}
+                                      disabled={isGenerating || isLoadingServices || isAddingService}
+                                    >
+                                      {isAddingService ? (
+                                        <span className="inline-block h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                                      ) : (
+                                        <Plus className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                  {serviceError && (
+                                    <p className="text-[10px] text-red-500">{serviceError}</p>
+                                  )}
+                                  {isLoadingServices ? (
+                                    <div className="text-xs text-[#535862]">กำลังโหลดบริการ...</div>
+                                  ) : clientServices.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button
+                                        variant={!selectedService ? "default" : "outline"}
+                                        size="sm"
+                                        className={`h-auto min-h-[26px] text-[10px] px-2 py-1 whitespace-normal text-left leading-tight ${
+                                          !selectedService
+                                            ? "bg-[#1d4ed8] text-white hover:bg-[#063def]"
+                                            : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-white"
+                                        }`}
+                                        onClick={() => handleServiceSelection(null)}
+                                        disabled={isGenerating || isLoadingServices}
+                                      >
+                                        All Services
+                                      </Button>
+                                      {clientServices.map((service) => {
+                                        const isActive = selectedService === service
+                                        return (
+                                          <Button
+                                            key={service}
+                                            variant={isActive ? "default" : "outline"}
+                                            size="sm"
+                                            className={`h-auto min-h-[26px] text-[10px] px-2 py-1 whitespace-normal text-left leading-tight ${
+                                              isActive
+                                                ? "bg-[#1d4ed8] text-white hover:bg-[#063def]"
+                                                : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-white"
+                                            }`}
+                                            onClick={() => handleServiceSelection(service)}
+                                            disabled={isGenerating || isLoadingServices}
+                                          >
+                                            {service}
+                                          </Button>
+                                        )
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-[#8e8e93]">ไม่มีข้อมูลบริการ</div>
+                                  )}
+                                </div>
+                              </div>
+                            </>
                           )}
                       </div>
                       ))
@@ -2023,11 +2236,87 @@ function MainContent() {
                     </div>
                   )}
 
+                  {/* Custom Prompt Input */}
+                  <div className="w-full max-w-2xl space-y-4 mb-8">
+                    <textarea
+                      value={instructions}
+                      onChange={(e) => {
+                        setInstructions(e.target.value)
+                        autoResizeTextarea(e.target as HTMLTextAreaElement)
+                      }}
+                      placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
+                      className="w-full min-h-[120px] max-h-[400px] p-4 text-[#000000] border border-[#e4e7ec] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 shadow-md resize-none overflow-y-auto rounded-md"
+                      style={{ backgroundColor: "#ffffff", height: "120px" }}
+                      disabled={isGenerating}
+                    />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleImprovePrompt}
+                        disabled={
+                          isImprovingPrompt ||
+                          isGenerating ||
+                          isLoadingMore ||
+                          !instructions.trim()
+                        }
+                        className="border-[#d1d5db] text-[#063def] hover:bg-[#eef2ff] hover:text-[#063def]"
+                      >
+                        {isImprovingPrompt ? (
+                          <>
+                            <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
+                            กำลังปรับปรุง...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2 text-[#7c3aed]" />
+                            Improve Prompt
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleGenerateTopics}
+                        disabled={
+                          isGenerating ||
+                          isLoadingMore ||
+                          (!activeClientName || activeClientName === "No Client Selected") ||
+                          !activeProductFocus
+                        }
+                        className="bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <span className="inline-flex items-center justify-center mr-2">
+                              <img
+                                src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-minimalist-logo-design-featuring-a-sty_i3vs-y0STaWbGUfO4JyaDw_iMf0MEt0Qq6mW_Qu-aloAg-Photoroom.png"
+                                alt="Generating"
+                                className="h-[26px] w-[26px] animate-spin"
+                                style={{ animationDuration: "1.6s" }}
+                              />
+                            </span>
+                            กำลังสร้าง...
+                          </>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center justify-center mr-2">
+                              <img
+                                src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-minimalist-logo-design-featuring-a-sty_i3vs-y0STaWbGUfO4JyaDw_iMf0MEt0Qq6mW_Qu-aloAg-Photoroom.png"
+                                alt="Generate icon"
+                                className="h-[26px] w-[26px]"
+                              />
+                            </span>
+                            Generate
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
                   {/* Dynamic Template Buttons - HIDDEN */}
                   {/* <div className="flex flex-col gap-4 mb-8 items-center">
                     {briefTemplates.map((template) => (
                       <Button
-                        key={template.id}
+                       key={template.id}
                         onClick={() => handleTemplateSelect(template.id)}
                         variant="outline"
                         disabled={isGenerating}
@@ -2155,83 +2444,12 @@ function MainContent() {
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
-                  </div>
-                </div>
-                {/* Custom Input Field */}
-                <div className="w-full max-w-2xl space-y-4 mt-auto pt-6">
-                  <textarea
-                    value={instructions}
-                    onChange={(e) => {
-                      setInstructions(e.target.value)
-                      // Auto-resize textarea
-                      autoResizeTextarea(e.target as HTMLTextAreaElement)
-                    }}
-                    placeholder="หรือใส่ความต้องการเฉพาะของคุณ..."
-                    className="w-full min-h-[120px] max-h-[400px] p-4 text-[#000000] border border-[#e4e7ec] focus:border-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#1d4ed8] focus:ring-opacity-20 shadow-md resize-none overflow-y-auto rounded-md"
-                    style={{ backgroundColor: "#ffffff", height: "120px" }}
-                    disabled={isGenerating}
-                  />
-                  
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleImprovePrompt}
-                      disabled={
-                        isImprovingPrompt ||
-                        isGenerating ||
-                        isLoadingMore ||
-                        !instructions.trim()
-                      }
-                      className="border-[#d1d5db] text-[#063def] hover:bg-[#eef2ff] hover:text-[#063def]"
-                    >
-                      {isImprovingPrompt ? (
-                        <>
-                          <RefreshCcw className="h-4 w-4 mr-2 animate-spin" />
-                          กำลังปรับปรุง...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2 text-[#7c3aed]" />
-                          Improve Prompt
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={handleGenerateTopics}
-                      disabled={isGenerating || isLoadingMore || (!activeClientName || activeClientName === "No Client Selected") || !activeProductFocus}
-                      className="bg-[#252b37] text-[#ffffff] hover:bg-[#181d27] px-6 py-2 rounded-md disabled:opacity-50"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <span className="inline-flex items-center justify-center mr-2">
-                            <img
-                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-minimalist-logo-design-featuring-a-sty_i3vs-y0STaWbGUfO4JyaDw_iMf0MEt0Qq6mW_Qu-aloAg-Photoroom.png"
-                              alt="Generating"
-                              className="h-[26px] w-[26px] animate-spin"
-                              style={{ animationDuration: "1.6s" }}
-                            />
-                          </span>
-                          กำลังสร้าง...
-                        </>
-                      ) : (
-                        <>
-                          <span className="inline-flex items-center justify-center mr-2">
-                            <img
-                              src="https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/a-minimalist-logo-design-featuring-a-sty_i3vs-y0STaWbGUfO4JyaDw_iMf0MEt0Qq6mW_Qu-aloAg-Photoroom.png"
-                              alt="Generate icon"
-                              className="h-[26px] w-[26px]"
-                            />
-                          </span>
-                          Generate
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </div>
               </div>
-          )}
-        </div>
+              {/* Custom Input Field */}
+            </div>
+        )}
+      </div>
         </main>
       </div>
       
