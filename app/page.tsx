@@ -163,35 +163,42 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
           <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
             {topic.content_pillar}
           </Badge>
-          {topic.title && (
-            <div className="rounded-lg border border-[#e5eaf5] bg-[#f8fafc] px-3 py-2 mb-2">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1">
-                Title
-              </span>
-              <p className="text-base font-semibold text-[#0f172a] leading-snug line-clamp-3">
-                {topic.title}
-              </p>
-            </div>
-          )}
+          <h4 className="text-lg font-bold text-[#000000] leading-tight mb-2">
+            {topic.title || topic.concept_idea}
+          </h4>
           {topic.copywriting?.headline && (
-            <div className="rounded-lg border border-[#e5eaf5] bg-[#f8fafc] px-3 py-2 mb-2">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1">
+            <div className="mt-2 rounded-md border border-[#e4e7ec] bg-[#f9fbff] px-3 py-2">
+              <span className="block text-[11px] uppercase tracking-wide text-[#64748b] mb-1">
                 Headline
               </span>
-              <p className="text-base font-semibold text-[#1d4ed8] leading-snug line-clamp-3">
+              <p className="text-sm font-medium text-[#0f172a] leading-snug">
                 {topic.copywriting.headline}
               </p>
             </div>
           )}
-          {topic.concept_idea && (!topic.title || topic.concept_idea !== topic.title) && (
-            <div className="rounded-lg border border-[#e5eaf5] bg-[#f8fafc] px-3 py-2">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1">
+          {topic.copywriting?.sub_headline_1 && (
+            <p className="text-[#525d7a] text-sm leading-snug mt-2">
+              <span className="font-semibold text-[#1d4ed8] uppercase text-[11px] tracking-wide mr-2">
+                Sub Headline 1
+              </span>
+              {topic.copywriting.sub_headline_1}
+            </p>
+          )}
+          {topic.copywriting?.sub_headline_2 && (
+            <p className="text-[#525d7a] text-sm leading-snug mt-1">
+              <span className="font-semibold text-[#1d4ed8] uppercase text-[11px] tracking-wide mr-2">
+                Sub Headline 2
+              </span>
+              {topic.copywriting.sub_headline_2}
+            </p>
+          )}
+          {topic.title && topic.concept_idea && topic.concept_idea !== topic.title && (
+            <p className="text-[#475569] text-sm mt-3 leading-snug">
+              <span className="font-semibold text-[#1d4ed8] uppercase text-[11px] tracking-wide mr-2">
                 Core Concept
               </span>
-              <p className="text-base font-medium text-[#0f172a] leading-snug line-clamp-3">
-                {topic.concept_idea}
-              </p>
-            </div>
+              {topic.concept_idea}
+            </p>
           )}
         </div>
 
