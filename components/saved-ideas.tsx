@@ -31,7 +31,8 @@ interface SavedIdea {
   title: string
   description: string
   category: string
-  impact: string
+  concept_type: string
+  impact?: string
   competitivegap: string
   tags: string
   content_pillar: string
@@ -85,6 +86,7 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
           title,
           description,
           category,
+          concept_type,
           impact,
           competitivegap,
           tags,
@@ -171,7 +173,7 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
         }
       })(),
       category: idea.category,
-      impact: idea.impact as 'Proven Concept' | 'New Concept',
+      concept_type: (idea.concept_type || idea.impact || 'Proven Concept') as 'Proven Concept' | 'New Concept',
       competitiveGap: idea.competitivegap,
       tags: (() => {
         try {
@@ -280,10 +282,10 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className={`text-white text-xs px-2 py-1 rounded-full ${
-                            idea.impact === 'Proven Concept' ? 'bg-blue-500' :
-                            idea.impact === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
+                            (idea.concept_type || idea.impact) === 'Proven Concept' ? 'bg-blue-500' :
+                            (idea.concept_type || idea.impact) === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
                           }`}>
-                            {idea.impact}
+                            {idea.concept_type || idea.impact}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
                             {idea.content_pillar}

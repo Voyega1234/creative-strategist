@@ -323,7 +323,7 @@ function MainContent() {
     const formattedText = `Creative Ideas - ${activeClientName}\nProduct Focus: ${activeProductFocus}\nCreated: ${new Date().toLocaleDateString('th-TH')}\nModel: ${selectedModel}\n${instructions ? `Instructions: ${instructions}\n` : ''}\n` +
       topics.map((idea, index) => 
         `${index + 1}. ${idea.concept_idea}\n` +
-        `Impact: ${idea.impact}\n` +
+        `impact: ${idea.impact}\n` +
         `Description: ${idea.description}\n` +
         `Tags: ${idea.tags.join(', ')}\n` +
         `Content Pillar: ${idea.content_pillar}\n` +
@@ -634,11 +634,11 @@ function MainContent() {
                         setDetailModalOpen(true)
                       }}
                     >
-                      {/* High Impact Badge */}
+                      {/* High impact Badge */}
                       {topic.impact === 'High' && (
                         <div className="mb-4">
                           <Badge className="bg-green-500 text-white text-xs px-3 py-1 rounded-full">
-                            High Impact
+                            High impact
                           </Badge>
                         </div>
                       )}

@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+const normalizeIdea = (idea: any) => {
+  const conceptType = idea?.concept_type || idea?.impact || null
+  return {
+    ...idea,
+    concept_type: conceptType,
+    impact: conceptType,
+  }
+}
+
 // High-performance session history with pagination and caching
 export async function GET(request: NextRequest) {
   const startTime = performance.now()
@@ -66,19 +75,23 @@ export async function GET(request: NextRequest) {
     const { count } = await countQuery
 
     // Transform for frontend (minimize data transfer)
-    const transformedSessions = sessions?.map(session => ({
-      id: session.id,
-      clientName: session.client_name,
-      productFocus: session.product_focus,
-      userInput: session.user_input,
-      selectedTemplate: session.selected_template,
-      modelUsed: session.model_used,
-      ideasCount: session.ideas_count,
-      createdAt: session.created_at,
-      // Send full ideas data for loading complete sessions
-      ideas: session.n8n_response?.ideas || [],
-      n8nResponse: session.n8n_response
-    }))
+    const transformedSessions = sessions?.map(session => {
+      const normalizedIdeas = Array.isArray(session.n8n_response?.ideas) ? session.n8n_response.ideas.map(normalizeIdea) : []
+
+      return {
+        id: session.id,
+        clientName: session.client_name,
+        productFocus: session.product_focus,
+        userInput: session.user_input,
+        selectedTemplate: session.selected_template,
+        modelUsed: session.model_used,
+        ideasCount: session.ideas_count,
+        createdAt: session.created_at,
+        // Send full ideas data for loading complete sessions
+        ideas: normalizedIdeas,
+        n8nResponse: session.n8n_response ? { ...session.n8n_response, ideas: normalizedIdeas } : undefined
+      }
+    })
 
     const endTime = performance.now()
     const queryTime = endTime - startTime

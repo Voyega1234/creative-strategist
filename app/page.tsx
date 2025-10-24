@@ -63,7 +63,8 @@ export interface IdeaRecommendation {
     text: string;
   }> | string; // Support old, intermediate, and new formats
   category: string;
-  impact: 'Proven Concept' | 'New Concept';
+  concept_type: 'Proven Concept' | 'New Concept';
+  impact?: 'Proven Concept' | 'New Concept';
   competitiveGap: string;
   tags: string[];
   content_pillar: string;
@@ -78,54 +79,14 @@ export interface IdeaRecommendation {
   };
 }
 
-// Utility function to normalize description to consistent format
-const normalizeDescription = (description: any): {summary: string; sections: Array<{group: string; bullets: string[]}>} => {
-  // New format with summary and sections
-  if (description && typeof description === 'object' && description.summary && description.sections) {
-    return {
-      summary: description.summary,
-      sections: description.sections.map((section: any) => ({
-        group: getGroupLabel(section.group),
-        bullets: Array.isArray(section.bullets) ? section.bullets : []
-      }))
-    };
-  }
-  
-  // Old array format
-  if (Array.isArray(description)) {
-    return {
-      summary: description.length > 0 ? description[0].text : 'No description available',
-      sections: description.map((item: any) => ({
-        group: item.label || 'Description',
-        bullets: [item.text || '']
-      }))
-    };
-  }
-  
-  // String format (oldest)
-  if (typeof description === 'string') {
-    return {
-      summary: description,
-      sections: []
-    };
-  }
-  
-  // Fallback
+const normalizeIdea = (idea: any): IdeaRecommendation => {
+  const conceptType = idea?.concept_type || idea?.impact || 'Proven Concept';
   return {
-    summary: 'No description available',
-    sections: []
-  };
-}
-
-// Helper function to get readable labels for groups
-const getGroupLabel = (group: string): string => {
-  switch (group) {
-    case 'pain': return 'Pain Point';
-    case 'insight_solution': return 'Insight / Solution';
-    case 'why_evidence': return 'Why this converts / Evidence';
-    default: return group || 'Description';
-  }
-}
+    ...idea,
+    concept_type: conceptType,
+    impact: conceptType,
+  } as IdeaRecommendation;
+};
 
 type ClientWithProductFocus = {
   id: string
@@ -148,14 +109,14 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
 }) => {
   return (
     <Card className="bg-white border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
-        {/* Impact Badge */}
-        {topic.impact && (
+        {/* Concept Type Badge */}
+        {topic.concept_type && (
           <div className="mb-4">
             <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
-              topic.impact === 'Proven Concept' ? 'bg-blue-500' :
-              topic.impact === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
+              topic.concept_type === 'Proven Concept' ? 'bg-blue-500' :
+              topic.concept_type === 'New Concept' ? 'bg-purple-500' : 'bg-gray-500'
             }`}>
-              {topic.impact}
+              {topic.concept_type}
             </Badge>
           </div>
         )}
@@ -202,50 +163,38 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
           <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
             {topic.content_pillar}
           </Badge>
-          <h4 className="text-lg font-bold text-[#000000] leading-tight mb-2">
-            {topic.title || topic.concept_idea}
-          </h4>
-          {topic.title && topic.concept_idea && topic.concept_idea !== topic.title && (
-            <p className="text-[#8e8e93] text-sm font-medium mb-2 italic">
-              {topic.concept_idea}
-            </p>
+          {topic.title && (
+            <div className="rounded-lg border border-[#e5eaf5] bg-[#f8fafc] px-3 py-2 mb-2">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1">
+                Title
+              </span>
+              <p className="text-base font-semibold text-[#0f172a] leading-snug line-clamp-3">
+                {topic.title}
+              </p>
+            </div>
+          )}
+          {topic.copywriting?.headline && (
+            <div className="rounded-lg border border-[#e5eaf5] bg-[#f8fafc] px-3 py-2 mb-2">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1">
+                Headline
+              </span>
+              <p className="text-base font-semibold text-[#1d4ed8] leading-snug line-clamp-3">
+                {topic.copywriting.headline}
+              </p>
+            </div>
+          )}
+          {topic.concept_idea && (!topic.title || topic.concept_idea !== topic.title) && (
+            <div className="rounded-lg border border-[#e5eaf5] bg-[#f8fafc] px-3 py-2">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1">
+                Core Concept
+              </span>
+              <p className="text-base font-medium text-[#0f172a] leading-snug line-clamp-3">
+                {topic.concept_idea}
+              </p>
+            </div>
           )}
         </div>
-        
-        <div className="text-[#535862] text-sm space-y-3">
-          {(() => {
-            const normalized = normalizeDescription(topic.description);
-            return (
-              <>
-                {/* Summary */}
-                <p className="text-sm line-clamp-2 font-medium text-[#000000]">
-                  {normalized.summary}
-                </p>
-                
-                {/* First section preview */}
-                {normalized.sections.length > 0 && (
-                  <div className="space-y-1">
-                    <span className="font-medium text-[#1d4ed8] text-xs">
-                      {normalized.sections[0].group}:
-                    </span>
-                    {normalized.sections[0].bullets.slice(0, 2).map((bullet, index) => (
-                      <div key={index} className="flex gap-2">
-                        <span className="text-[#1d4ed8] text-xs">•</span>
-                        <span className="text-xs line-clamp-1">{bullet}</span>
-                      </div>
-                    ))}
-                    {normalized.sections.length > 1 && (
-                      <p className="text-xs text-[#8e8e93] italic">
-                        +{normalized.sections.length - 1} more sections...
-                      </p>
-                    )}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-        </div>
-        
+
         <div className="flex items-center justify-between">
           <div className="flex flex-wrap gap-2">
             {(topic.tags || []).slice(0, 3).map(tag => (
@@ -471,8 +420,9 @@ function MainContent() {
   const saveIdeasToStorage = (ideas: IdeaRecommendation[], clientName: string, productFocus: string) => {
     try {
       const key = getStorageKey(clientName, productFocus)
+      const normalized = ideas.map(normalizeIdea)
       localStorage.setItem(key, JSON.stringify({
-        ideas,
+        ideas: normalized,
         timestamp: Date.now(),
         clientName,
         productFocus
@@ -492,7 +442,7 @@ function MainContent() {
         const now = Date.now()
         const timeDiff = now - data.timestamp
         if (timeDiff < 24 * 60 * 60 * 1000) {
-          return data.ideas || []
+          return (data.ideas || []).map(normalizeIdea)
         }
       }
     } catch (error) {
@@ -921,11 +871,12 @@ function MainContent() {
       const data = await response.json()
       
       if (data.success) {
-        setTopics(data.ideas)
+        const normalizedIdeas = (data.ideas || []).map(normalizeIdea)
+        setTopics(normalizedIdeas)
         setShowResults(true)
         // Save ideas to localStorage
         if (activeClientName && activeProductFocus) {
-          saveIdeasToStorage(data.ideas, activeClientName, activeProductFocus)
+          saveIdeasToStorage(normalizedIdeas, activeClientName, activeProductFocus)
         }
         
         // Save to database session history (non-blocking)
@@ -943,7 +894,7 @@ function MainContent() {
           sessionManager.saveSession({
             clientName: activeClientName,
             productFocus: activeProductFocus,
-            n8nResponse: data,
+            n8nResponse: { ...data, ideas: normalizedIdeas },
             userInput: finalInstructions,
             selectedTemplate: selectedTemplate || undefined,
             modelUsed: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro"
@@ -957,7 +908,7 @@ function MainContent() {
         // Ideas generated successfully
         
         // Show completion notifications
-        const ideaCount = data.ideas.length
+        const ideaCount = normalizedIdeas.length
         playNotificationSound()
         showNotification(
           '🎉 ไอเดียสร้างเสร็จแล้ว!',
@@ -1019,12 +970,13 @@ function MainContent() {
       if (data.success) {
         let mergedIdeas: IdeaRecommendation[] = []
         let appendedCount = 0
+        const incomingIdeas = (data.ideas || []).map(normalizeIdea)
         setTopics(prevTopics => {
           const existingConcepts = new Set(
             prevTopics.map(topic => topic.concept_idea || topic.title || "")
           )
 
-          const freshIdeas = (data.ideas || []).filter((idea: IdeaRecommendation) => {
+          const freshIdeas = incomingIdeas.filter((idea: IdeaRecommendation) => {
             const key = idea.concept_idea || idea.title || ""
             if (!key) return true
             if (existingConcepts.has(key)) {
@@ -1282,7 +1234,8 @@ function MainContent() {
       
       // Set the complete ideas from the session's n8nResponse
       if (session.n8nResponse?.ideas && session.n8nResponse.ideas.length > 0) {
-        setTopics(session.n8nResponse.ideas)
+        const normalized = session.n8nResponse.ideas.map(normalizeIdea)
+        setTopics(normalized)
         setShowResults(true)
         
         // Also update form state to match the session
@@ -1291,12 +1244,13 @@ function MainContent() {
           setSelectedTemplate(session.selectedTemplate)
         }
         
-        console.log('✅ Session ideas loaded:', session.n8nResponse.ideas.length, 'complete ideas with all fields')
+        console.log('✅ Session ideas loaded:', normalized.length, 'complete ideas with all fields')
       } else if (session.ideas && session.ideas.length > 0) {
         // Fallback to the simplified ideas if n8nResponse is not available
-        setTopics(session.ideas)
+        const normalized = session.ideas.map(normalizeIdea)
+        setTopics(normalized)
         setShowResults(true)
-        console.log('✅ Session ideas loaded:', session.ideas.length, 'simplified ideas')
+        console.log('✅ Session ideas loaded:', normalized.length, 'simplified ideas')
       } else {
         console.warn('⚠️ No ideas found in session:', session)
       }
@@ -1533,7 +1487,7 @@ function MainContent() {
             title: topic.title,
             description: topic.description,
             category: topic.category,
-            impact: topic.impact,
+            concept_type: topic.concept_type,
             competitiveGap: topic.competitiveGap,
             tags: topic.tags,
             content_pillar: topic.content_pillar,
@@ -1589,7 +1543,7 @@ function MainContent() {
             title: selectedShareIdea.title,
             description: selectedShareIdea.description,
             category: selectedShareIdea.category,
-            impact: selectedShareIdea.impact,
+            concept_type: selectedShareIdea.concept_type,
             competitiveGap: selectedShareIdea.competitiveGap,
             tags: selectedShareIdea.tags,
             content_pillar: selectedShareIdea.content_pillar,

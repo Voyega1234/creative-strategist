@@ -7,7 +7,8 @@ interface IdeaRecommendation {
   title: string;
   description: string;
   category: string;
-  impact: 'High' | 'Medium' | 'Low';
+  concept_type?: string;
+  impact?: string;
   competitiveGap: string;
   tags: string[];
   content_pillar: string;
@@ -120,7 +121,16 @@ export async function POST(request: Request) {
         throw new Error('Invalid response format from n8n webhook');
       }
       
-      console.log(`[generate-ideas] Successfully generated ${ideaData.output.recommendations.length} ideas`, {
+      const normalizedIdeas = ideaData.output.recommendations.map((idea: any) => {
+        const conceptType = idea.concept_type || idea.impact || null;
+        return {
+          ...idea,
+          concept_type: conceptType,
+          impact: conceptType,
+        };
+      });
+
+      console.log(`[generate-ideas] Successfully generated ${normalizedIdeas.length} ideas`, {
         clientName,
         productFocus,
         service: service || null,
@@ -143,7 +153,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ 
         success: true,
-        ideas: ideaData.output.recommendations,
+        ideas: normalizedIdeas,
         clientName,
         productFocus,
         service: service || null

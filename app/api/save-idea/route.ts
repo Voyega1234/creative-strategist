@@ -45,7 +45,8 @@ export async function POST(request: Request) {
         title: idea.title,
         description: typeof idea.description === 'string' ? idea.description : JSON.stringify(idea.description),
         category: idea.category,
-        impact: idea.impact,
+        concept_type: idea.concept_type || idea.impact,
+        impact: idea.concept_type || idea.impact,
         competitivegap: idea.competitiveGap,
         tags: JSON.stringify(idea.tags || []),
         content_pillar: idea.content_pillar,
@@ -174,6 +175,7 @@ export async function GET(request: Request) {
         title,
         description,
         category,
+        concept_type,
         impact,
         competitivegap,
         tags,
@@ -215,7 +217,7 @@ export async function GET(request: Request) {
       title: item.title,
       description: item.description,
       category: item.category,
-      impact: item.impact,
+      concept_type: item.concept_type || item.impact,
       competitiveGap: item.competitivegap,
       tags: (() => {
         try {

@@ -81,7 +81,8 @@ interface IdeaRecommendation {
   title: string;
   description: string;
   category: string;
-  impact: 'High' | 'Medium' | 'Low';
+  concept_type?: string;
+  impact?: string;
   competitiveGap: string;
   tags: string[];
   content_pillar: string;
@@ -176,7 +177,7 @@ export default function SharedIdeasPage() {
         title: idea.title,
         description: idea.description,
         category: idea.category,
-        impact: idea.impact,
+        concept_type: idea.concept_type || idea.impact,
         competitiveGap: idea.competitiveGap,
         tags: idea.tags,
         content_pillar: idea.content_pillar,
@@ -215,16 +216,16 @@ export default function SharedIdeasPage() {
     }
   }
 
-  const getImpactColor = (impact: string) => {
-    switch (impact) {
+  const getConceptTypeColor = (conceptType: string) => {
+    switch (conceptType) {
       case 'Proven Concept': return 'bg-blue-500 text-white'
       case 'New Concept': return 'bg-purple-500 text-white'
       default: return 'bg-gray-500 text-white'
     }
   }
 
-  const getImpactIcon = (impact: string) => {
-    switch (impact) {
+  const getConceptTypeIcon = (conceptType: string) => {
+    switch (conceptType) {
       case 'Proven Concept': return <Target className="w-3 h-3" />
       case 'New Concept': return <Zap className="w-3 h-3" />
       default: return null
@@ -365,11 +366,11 @@ export default function SharedIdeasPage() {
         <div className="flex justify-center mb-8">
           {sharedData.ideas.map((idea, index) => (
             <Card key={index} className="p-6 border border-[#e4e7ec] bg-white/90 rounded-xl hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 max-w-2xl w-full">
-              {/* Impact Badge */}
-              {idea.impact && (
+              {/* Concept Type Badge */}
+              {(idea.concept_type || idea.impact) && (
                 <div className="mb-4">
-                  <Badge className={`text-white text-xs px-3 py-1 rounded-full ${getImpactColor(idea.impact)}`}>
-                    {idea.impact} Impact
+                  <Badge className={`text-white text-xs px-3 py-1 rounded-full ${getConceptTypeColor(idea.concept_type || idea.impact || '')}`}>
+                    {idea.concept_type || idea.impact}
                   </Badge>
                 </div>
               )}
@@ -379,11 +380,17 @@ export default function SharedIdeasPage() {
                 <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
                   {idea.content_pillar}
                 </Badge>
-                <h4 className="text-lg font-bold text-[#000000] leading-tight mb-2">
+                <p className="text-base font-semibold text-[#0f172a] leading-snug mb-1">
                   {idea.title || idea.concept_idea}
-                </h4>
+                </p>
+                {idea.copywriting?.headline && (
+                  <p className="text-base font-semibold text-[#1d4ed8] leading-snug mb-1">
+                    {idea.copywriting.headline}
+                  </p>
+                )}
                 {idea.title && idea.concept_idea && idea.concept_idea !== idea.title && (
-                  <p className="text-[#8e8e93] text-sm font-medium mb-2 italic">
+                  <p className="text-base text-[#0f172a] leading-snug mb-2">
+                    <span className="font-semibold text-[#1d4ed8] mr-2">Core Concept:</span>
                     {idea.concept_idea}
                   </p>
                 )}

@@ -91,7 +91,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
         title: idea.title,
         description: idea.description,
         category: idea.category,
-        impact: idea.impact,
+        concept_type: idea.concept_type,
         competitiveGap: idea.competitiveGap,
         tags: idea.tags,
         content_pillar: idea.content_pillar,
@@ -135,15 +135,15 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
       <DialogContent className="max-w-3xl idea-detail-modal">
         <ScrollArea className="max-h-[80vh] pr-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl mb-2">{idea.title}</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-[#0f172a] mb-1">{idea.title}</DialogTitle>
           </DialogHeader>
           <div className="space-x-2 mb-4">
             <Badge variant="secondary" className="mr-1">{idea.category}</Badge>
             <Badge variant="default" className={cn(
-              idea.impact === 'Proven Concept' ? 'bg-blue-500 text-white' :
-              idea.impact === 'New Concept' ? 'bg-purple-500 text-white' :
+              (idea.concept_type || idea.impact) === 'Proven Concept' ? 'bg-blue-500 text-white' :
+              (idea.concept_type || idea.impact) === 'New Concept' ? 'bg-purple-500 text-white' :
               'bg-gray-500 text-white'
-            )}>{idea.impact}</Badge>
+            )}>{idea.concept_type || idea.impact}</Badge>
             {(idea.tags || []).map(tag => (
               <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
             ))}
@@ -221,7 +221,10 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
                   <div className="mt-3 space-y-2 border p-3 rounded-md bg-muted/20">
                     <h5 className="font-medium text-sm mb-1">Draft Copywriting:</h5>
                     {idea.copywriting.headline && (
-                      <p className="text-sm"><strong>Headline:</strong> {idea.copywriting.headline}</p>
+                      <p className="text-base font-semibold text-[#0f172a]">
+                        <span className="font-semibold text-[#1d4ed8] mr-2">Headline:</span>
+                        {idea.copywriting.headline}
+                      </p>
                     )}
                     {idea.copywriting.sub_headline_1 && (
                       <p className="text-sm text-muted-foreground"><strong>Sub-Headline 1:</strong> {idea.copywriting.sub_headline_1}</p>

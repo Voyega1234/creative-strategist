@@ -6,6 +6,15 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const revalidate = 0;
 
+const normalizeIdea = (idea: any) => {
+  const conceptType = idea?.concept_type || idea?.impact || null;
+  return {
+    ...idea,
+    concept_type: conceptType,
+    impact: conceptType,
+  };
+};
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -29,13 +38,15 @@ export async function POST(request: Request) {
     const shareId = uuidv4();
 
     // Create the shared ideas record
+    const normalizedIdeas = ideas.map(normalizeIdea);
+
     const sharedIdeasRecord = {
       id: shareId,
       clientname: clientName,
       productfocus: productFocus,
       instructions: instructions || null,
       model: model || 'Gemini 2.5 Pro',
-      ideas: JSON.stringify(ideas),
+      ideas: JSON.stringify(normalizedIdeas),
       createdat: new Date().toISOString(),
       totalideas: ideas.length
     };
@@ -125,6 +136,8 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
+    const normalizedIdeas = Array.isArray(ideas) ? ideas.map(normalizeIdea) : [];
+
     return NextResponse.json({ 
       success: true, 
       data: {
@@ -133,7 +146,7 @@ export async function GET(request: Request) {
         productFocus: data.productfocus,
         instructions: data.instructions,
         model: data.model,
-        ideas: ideas,
+        ideas: normalizedIdeas,
         createdAt: data.createdat,
         totalIdeas: data.totalideas
       }

@@ -19,7 +19,8 @@ interface SavedIdea {
   title: string
   description: string
   category: string
-  impact: string
+  concept_type: string
+  impact?: string
   competitivegap: string
   tags: string
   content_pillar: string
@@ -134,7 +135,8 @@ export function EditableSavedIdeaModal({ isOpen, onClose, idea, onSave }: Editab
           title: editedIdea.title,
           description: editedIdea.description,
           category: editedIdea.category,
-          impact: editedIdea.impact,
+          concept_type: editedIdea.concept_type,
+          impact: editedIdea.concept_type,
           competitivegap: editedIdea.competitivegap,
           tags: editedIdea.tags,
           content_pillar: editedIdea.content_pillar,
@@ -207,18 +209,17 @@ export function EditableSavedIdeaModal({ isOpen, onClose, idea, onSave }: Editab
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="impact">Impact</Label>
+                <Label htmlFor="concept_type">Concept Type</Label>
                 <Select
-                  value={editedIdea.impact || ''}
-                  onValueChange={(value) => setEditedIdea(prev => prev ? { ...prev, impact: value } : null)}
+                  value={editedIdea.concept_type || editedIdea.impact || ''}
+                  onValueChange={(value) => setEditedIdea(prev => prev ? { ...prev, concept_type: value, impact: value } : null)}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Proven Concept">Proven Concept</SelectItem>
+                    <SelectItem value="New Concept">New Concept</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

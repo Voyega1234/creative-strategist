@@ -43,7 +43,8 @@ interface SavedTopic {
   title: string
   description: string
   category: string
-  impact: string
+  concept_type: string
+  impact?: string
   competitiveGap: string
   tags: string[]
   content_pillar: string
@@ -165,6 +166,7 @@ export function RealAIImageGenerator({
           title,
           description,
           category,
+          concept_type,
           impact,
           competitivegap,
           tags,
@@ -215,7 +217,7 @@ export function RealAIImageGenerator({
           title: item.title,
           description: item.description,
           category: item.category,
-          impact: item.impact,
+          concept_type: item.concept_type || item.impact || '',
           competitiveGap: item.competitivegap,
           tags: tags,
           content_pillar: item.content_pillar,

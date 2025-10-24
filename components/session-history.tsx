@@ -32,7 +32,7 @@ interface SessionHistoryItem {
   ideas: {
     title: string
     category: string
-    impact: string
+    concept_type: string
   }[]
 }
 
@@ -283,12 +283,12 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
                             <Badge 
                               variant="default" 
                               className={`text-xs ${
-                                idea.impact === 'Proven Concept' ? 'bg-blue-500 text-white' :
-                                idea.impact === 'New Concept' ? 'bg-purple-500 text-white' :
+                                idea.concept_type === 'Proven Concept' ? 'bg-blue-500 text-white' :
+                                idea.concept_type === 'New Concept' ? 'bg-purple-500 text-white' :
                                 'bg-gray-500 text-white'
                               }`}
                             >
-                              {idea.impact}
+                              {idea.concept_type}
                             </Badge>
                           </div>
                         </div>
