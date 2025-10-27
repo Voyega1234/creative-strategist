@@ -84,7 +84,7 @@ export function AITypingAnimation({ activeClientName }: AITypingAnimationProps) 
             {activeClientName}
           </div>
           <p className="text-sm text-[#8e8e93] font-medium">
-            จะใช้เวลาประมาณ 2-3 นาที
+            จะใช้เวลาประมาณ 3-8 นาที
           </p>
         </div>
 

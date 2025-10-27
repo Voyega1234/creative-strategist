@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useState, useEffect, Suspense, memo, useCallback, useMemo } from "react"
+import { useState, useEffect, Suspense, memo, useCallback, useMemo, useRef } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -279,6 +279,18 @@ function MainContent() {
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
+  const taskPollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const taskContextRef = useRef<{
+    mode: 'initial' | 'append'
+    finalInstructions: string
+    selectedTemplate: string | null
+    selectedModel: string
+    existingConceptIdeas?: string[]
+    clientName: string
+    productFocus: string | null
+  } | null>(null)
+
   const [clientServices, setClientServices] = useState<string[]>([])
   const [isLoadingServices, setIsLoadingServices] = useState(false)
   const [selectedService, setSelectedService] = useState<string | null>(null)
@@ -418,45 +430,6 @@ function MainContent() {
       content: "I want you to come up with ideas that highlight unusual, overlooked, or unexpected ways our product or service can be used, providing fresh perspectives that competitors aren't talking about."
     }
   ]
-
-  // Helper functions for localStorage
-  const getStorageKey = (clientName: string, productFocus: string) => {
-    return `ideas_${clientName}_${productFocus}`
-  }
-
-  const saveIdeasToStorage = (ideas: IdeaRecommendation[], clientName: string, productFocus: string) => {
-    try {
-      const key = getStorageKey(clientName, productFocus)
-      const normalized = ideas.map(normalizeIdea)
-      localStorage.setItem(key, JSON.stringify({
-        ideas: normalized,
-        timestamp: Date.now(),
-        clientName,
-        productFocus
-      }))
-    } catch (error) {
-      console.error('Error saving ideas to localStorage:', error)
-    }
-  }
-
-  const loadIdeasFromStorage = (clientName: string, productFocus: string): IdeaRecommendation[] => {
-    try {
-      const key = getStorageKey(clientName, productFocus)
-      const stored = localStorage.getItem(key)
-      if (stored) {
-        const data = JSON.parse(stored)
-        // Check if data is not too old (24 hours)
-        const now = Date.now()
-        const timeDiff = now - data.timestamp
-        if (timeDiff < 24 * 60 * 60 * 1000) {
-          return (data.ideas || []).map(normalizeIdea)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading ideas from localStorage:', error)
-    }
-    return []
-  }
 
   // Check authentication on mount
   useEffect(() => {
@@ -762,6 +735,43 @@ function MainContent() {
     }
   }, [pendingNotification])
 
+  function getStorageKey(clientName: string, productFocus: string) {
+    return `ideas_${clientName}_${productFocus}`
+  }
+
+  function saveIdeasToStorage(ideas: IdeaRecommendation[], clientName: string, productFocus: string) {
+    try {
+      const key = getStorageKey(clientName, productFocus)
+      const normalized = ideas.map(normalizeIdea)
+      localStorage.setItem(key, JSON.stringify({
+        ideas: normalized,
+        timestamp: Date.now(),
+        clientName,
+        productFocus
+      }))
+    } catch (error) {
+      console.error('Error saving ideas to localStorage:', error)
+    }
+  }
+
+  function loadIdeasFromStorage(clientName: string, productFocus: string): IdeaRecommendation[] {
+    try {
+      const key = getStorageKey(clientName, productFocus)
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        const data = JSON.parse(stored)
+        const now = Date.now()
+        const timeDiff = now - data.timestamp
+        if (timeDiff < 24 * 60 * 60 * 1000) {
+          return (data.ideas || []).map(normalizeIdea)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading ideas from localStorage:', error)
+    }
+    return []
+  }
+
   // Immediate audio playback function
   const playNotificationSoundImmediate = async () => {
     try {
@@ -840,6 +850,166 @@ function MainContent() {
     }
   }
 
+  const stopTaskPolling = useCallback(() => {
+    if (taskPollingRef.current) {
+      clearInterval(taskPollingRef.current)
+      taskPollingRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      stopTaskPolling()
+    }
+  }, [stopTaskPolling])
+
+  const processTaskResult = useCallback(
+    (result: any, context: NonNullable<typeof taskContextRef.current>) => {
+      const rawIdeas: any[] = Array.isArray(result?.ideas)
+        ? result.ideas
+        : Array.isArray(result?.data?.ideas)
+          ? result.data.ideas
+          : []
+
+      const ideas: IdeaRecommendation[] = rawIdeas.map(normalizeIdea)
+
+      if (!ideas || ideas.length === 0) {
+        setIsGenerating(false)
+        setIsLoadingMore(false)
+        alert('No ideas returned from generator. Please try again.')
+        return
+      }
+
+      const clientName = context.clientName
+      const productFocus = context.productFocus
+
+      if (context.mode === 'append') {
+        let mergedIdeas: IdeaRecommendation[] = []
+        setTopics(prevTopics => {
+          const existingConcepts = new Set(
+            prevTopics.map(topic => topic.concept_idea || topic.title || '')
+          )
+
+          const freshIdeas = ideas.filter(idea => {
+            const key = idea.concept_idea || idea.title || ''
+            if (!key) return true
+            if (existingConcepts.has(key)) {
+              return false
+            }
+            existingConcepts.add(key)
+            return true
+          })
+
+          mergedIdeas = [...prevTopics, ...freshIdeas]
+          return mergedIdeas
+        })
+
+        if (clientName && productFocus && mergedIdeas.length > 0) {
+          saveIdeasToStorage(mergedIdeas, clientName, productFocus)
+
+          sessionManager.saveSession({
+            clientName,
+            productFocus,
+            n8nResponse: result?.n8nResponse || { ideas: mergedIdeas },
+            userInput: context.finalInstructions,
+            selectedTemplate: context.selectedTemplate || undefined,
+            modelUsed: context.selectedModel,
+          }).then(success => {
+            console.log(success ? '✅ Appended session saved' : '❌ Failed to save appended session')
+          }).catch(error => {
+            console.warn('⚠️ Failed to save combined ideas session (non-critical):', error)
+          })
+        }
+
+        const addedCount = ideas.length
+        const totalAfterAppend = mergedIdeas.length
+        playNotificationSound()
+        showNotification(
+          '🎉 เพิ่มไอเดียใหม่แล้ว!',
+          `เพิ่มไอเดียอีก ${addedCount} ข้อ • รวมทั้งหมด ${totalAfterAppend} ข้อ`,
+          addedCount
+        )
+      } else {
+        setTopics(ideas)
+        if (clientName && productFocus) {
+          saveIdeasToStorage(ideas, clientName, productFocus)
+
+          sessionManager.saveSession({
+            clientName,
+            productFocus,
+            n8nResponse: result?.n8nResponse || { ideas },
+            userInput: context.finalInstructions,
+            selectedTemplate: context.selectedTemplate || undefined,
+            modelUsed: context.selectedModel,
+          }).then(success => {
+            console.log(success ? '✅ Session save initiated successfully' : '❌ Session save failed')
+          }).catch(error => {
+            console.error('❌ Session save failed (non-critical):', error)
+          })
+        }
+
+        playNotificationSound()
+        showNotification(
+          '🎉 ไอเดียสร้างเสร็จแล้ว!',
+          `สร้างไอเดีย ${ideas.length} ข้อสำเร็จแล้วสำหรับ ${clientName}`,
+          ideas.length
+        )
+      }
+
+      setShowResults(true)
+      setIsGenerating(false)
+      setIsLoadingMore(false)
+      setCurrentTaskId(null)
+      stopTaskPolling()
+      taskContextRef.current = null
+    },
+    [saveIdeasToStorage, setTopics, sessionManager, setShowResults, stopTaskPolling, playNotificationSound, showNotification]
+  )
+
+  const startTaskPolling = useCallback(
+    (taskId: string) => {
+      stopTaskPolling()
+
+      const poll = async () => {
+        try {
+          const response = await fetch(`/api/generate-ideas/status?taskId=${taskId}`)
+          const data = await response.json()
+
+          if (!data.success) {
+            throw new Error(data.error || 'Failed to fetch task status')
+          }
+
+          if (data.status === 'completed') {
+                const context = taskContextRef.current
+                if (context) {
+                  processTaskResult(data.result, context)
+                } else {
+                  setIsGenerating(false)
+                  setIsLoadingMore(false)
+                }
+                return
+          }
+
+          if (data.status === 'failed') {
+            stopTaskPolling()
+            setCurrentTaskId(null)
+            setIsGenerating(false)
+            setIsLoadingMore(false)
+            taskContextRef.current = null
+            alert(data.error || 'Idea generation failed. Please try again.')
+            return
+          }
+        } catch (error) {
+          console.error('Error polling task status:', error)
+        }
+      }
+
+      poll()
+      taskPollingRef.current = setInterval(poll, 4000)
+    },
+    [processTaskResult, stopTaskPolling]
+  )
+
   const handleGenerateTopics = async () => {
     if (!activeClientName || activeClientName === "No Client Selected") {
       alert('กรุณาเลือกลูกค้าก่อน')
@@ -853,10 +1023,11 @@ function MainContent() {
 
     setIsGenerating(true)
     setIsLoadingMore(true)
+    stopTaskPolling()
+
     try {
-      // Simply use whatever is in the input box (which may be auto-filled from template)
-      // If empty, send a single space to N8N instead of undefined
       const finalInstructions = instructions.trim() || " "
+      const modelId = modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro"
 
       const response = await fetch('/api/generate-ideas', {
         method: 'POST',
@@ -871,66 +1042,37 @@ function MainContent() {
           productDetails: showProductDetails ? productDetails.trim() : undefined,
           negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
           hasProductDetails: showProductDetails,
-          model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
+          model: modelId,
         }),
       })
 
       const data = await response.json()
-      
-      if (data.success) {
-        const normalizedIdeas = (data.ideas || []).map(normalizeIdea)
-        setTopics(normalizedIdeas)
-        setShowResults(true)
-        // Save ideas to localStorage
-        if (activeClientName && activeProductFocus) {
-          saveIdeasToStorage(normalizedIdeas, activeClientName, activeProductFocus)
-        }
-        
-        // Save to database session history (non-blocking)
-        if (activeClientName && activeProductFocus) {
-          console.log('🎯 Initiating session save for:', {
-            activeClientName,
-            activeProductFocus,
-            hasData: !!data,
-            ideasCount: data?.ideas?.length || 0,
-            finalInstructions,
-            selectedTemplate,
-            selectedModel
-          })
-          
-          sessionManager.saveSession({
-            clientName: activeClientName,
-            productFocus: activeProductFocus,
-            n8nResponse: { ...data, ideas: normalizedIdeas },
-            userInput: finalInstructions,
-            selectedTemplate: selectedTemplate || undefined,
-            modelUsed: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro"
-          }).then(success => {
-            console.log(success ? '✅ Session save initiated successfully' : '❌ Session save failed')
-          }).catch(error => {
-            console.error('❌ Session save failed (non-critical):', error)
-          })
-        }
-        
-        // Ideas generated successfully
-        
-        // Show completion notifications
-        const ideaCount = normalizedIdeas.length
-        playNotificationSound()
-        showNotification(
-          '🎉 ไอเดียสร้างเสร็จแล้ว!',
-          `สร้างไอเดีย ${ideaCount} ข้อสำเร็จแล้วสำหรับ ${activeClientName}`,
-          ideaCount
-        )
-      } else {
-        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+
+      if (!response.ok || !data.success || !data.taskId) {
+        const errorMessage = data.error || 'เกิดข้อผิดพลาดในการเริ่มการสร้างไอเดีย'
+        console.error('[generate-ideas] Failed to enqueue task:', errorMessage)
+        setIsGenerating(false)
+        setIsLoadingMore(false)
+        alert(errorMessage)
+        return
       }
+
+      taskContextRef.current = {
+        mode: 'initial',
+        finalInstructions,
+        selectedTemplate,
+        selectedModel: modelId,
+        clientName: activeClientName,
+        productFocus: activeProductFocus,
+      }
+
+      setCurrentTaskId(data.taskId)
+      startTaskPolling(data.taskId)
     } catch (error) {
       console.error('Error generating topics:', error)
-      alert('เกิดข้อผิดพลาดในการสร้างหัวข้อ กรุณาลองใหม่อีกครั้ง')
-    } finally {
-      setIsLoadingMore(false)
       setIsGenerating(false)
+      setIsLoadingMore(false)
+      alert('เกิดข้อผิดพลาดในการสร้างไอเดีย กรุณาลองใหม่อีกครั้ง')
     }
   }
 
@@ -947,12 +1089,12 @@ function MainContent() {
     }
 
     setIsLoadingMore(true)
+    stopTaskPolling()
+
     try {
-      // Get existing concept ideas to avoid duplicates
       const existingConceptIdeas = topics.map(topic => topic.concept_idea).filter(Boolean)
-      
-      // Use the same instructions and settings as the original generation
       const finalInstructions = instructions.trim() || " "
+      const modelId = modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro"
 
       const response = await fetch('/api/generate-ideas', {
         method: 'POST',
@@ -967,86 +1109,37 @@ function MainContent() {
           productDetails: showProductDetails ? productDetails.trim() : undefined,
           negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
           hasProductDetails: showProductDetails,
-          model: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
-          existingConceptIdeas: existingConceptIdeas, // Add existing concept ideas
+          model: modelId,
+          existingConceptIdeas,
         }),
       })
 
       const data = await response.json()
 
-      if (data.success) {
-        let mergedIdeas: IdeaRecommendation[] = []
-        let appendedCount = 0
-        const incomingIdeas = (data.ideas || []).map(normalizeIdea)
-        setTopics(prevTopics => {
-          const existingConcepts = new Set(
-            prevTopics.map(topic => topic.concept_idea || topic.title || "")
-          )
-
-          const freshIdeas = incomingIdeas.filter((idea: IdeaRecommendation) => {
-            const key = idea.concept_idea || idea.title || ""
-            if (!key) return true
-            if (existingConcepts.has(key)) {
-              return false
-            }
-            existingConcepts.add(key)
-            return true
-          })
-
-          appendedCount = freshIdeas.length
-          mergedIdeas = [...prevTopics, ...freshIdeas]
-          return mergedIdeas
-        })
-
-        // Ensure results stay visible while more ideas load
-        setShowResults(true)
-
-        // Persist the combined list once state is updated
-        if (activeClientName && activeProductFocus && mergedIdeas.length > 0) {
-          saveIdeasToStorage(mergedIdeas, activeClientName, activeProductFocus)
-        }
-
-        // Save the extended session (non-blocking)
-        if (activeClientName && activeProductFocus && mergedIdeas.length > 0) {
-          console.log('🎯 Appending session with additional ideas:', {
-            activeClientName,
-            activeProductFocus,
-            previousCount: topics.length,
-            addedCount: appendedCount,
-            totalAfterAppend: mergedIdeas.length,
-          })
-
-          sessionManager.saveSession({
-            clientName: activeClientName,
-            productFocus: activeProductFocus,
-            n8nResponse: { ideas: mergedIdeas },
-            userInput: finalInstructions,
-            modelUsed: modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro",
-          }).catch((error: any) => {
-            console.warn('⚠️ Failed to save combined ideas session (non-critical):', error)
-          })
-        }
-
-        // Friendly notification (avoid interruptive alerts)
-        if (appendedCount > 0) {
-          playNotificationSound()
-          showNotification(
-            '🎉 เพิ่มไอเดียใหม่แล้ว!',
-            `เพิ่มไอเดียอีก ${appendedCount} ข้อ • รวมทั้งหมด ${mergedIdeas.length} ข้อ`,
-            appendedCount
-          )
-          console.log(`✅ Added ${appendedCount} more ideas. Total now: ${mergedIdeas.length}`)
-        } else {
-          console.log('ℹ️ No brand-new ideas were added (possible duplicates).')
-        }
-      } else {
-        alert(`เกิดข้อผิดพลาด: ${data.error}`)
+      if (!response.ok || !data.success || !data.taskId) {
+        const errorMessage = data.error || 'เกิดข้อผิดพลาดในการเริ่มการสร้างไอเดียเพิ่มเติม'
+        console.error('[generate-ideas] Failed to enqueue more ideas task:', errorMessage)
+        setIsLoadingMore(false)
+        alert(errorMessage)
+        return
       }
+
+      taskContextRef.current = {
+        mode: 'append',
+        finalInstructions,
+        selectedTemplate,
+        selectedModel: modelId,
+        existingConceptIdeas,
+        clientName: activeClientName,
+        productFocus: activeProductFocus,
+      }
+
+      setCurrentTaskId(data.taskId)
+      startTaskPolling(data.taskId)
     } catch (error) {
       console.error('Error generating more ideas:', error)
-      alert('เกิดข้อผิดพลาดในการสร้างไอเดียเพิ่มเติม กรุณาลองใหม่อีกครั้ง')
-    } finally {
       setIsLoadingMore(false)
+      alert('เกิดข้อผิดพลาดในการสร้างไอเดียเพิ่มเติม กรุณาลองใหม่อีกครั้ง')
     }
   }
 
