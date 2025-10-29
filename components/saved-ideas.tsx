@@ -32,7 +32,6 @@ interface SavedIdea {
   description: string
   category: string
   concept_type: string
-  impact?: string
   competitivegap: string
   tags: string
   content_pillar: string
@@ -87,7 +86,6 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
           description,
           category,
           concept_type,
-          impact,
           competitivegap,
           tags,
           content_pillar,

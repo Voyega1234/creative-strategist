@@ -25,7 +25,6 @@ export async function POST(request: Request) {
         description: idea.description,
         category: idea.category,
         concept_type: idea.concept_type || idea.impact,
-        impact: idea.concept_type || idea.impact,
         competitivegap: idea.competitivegap,
         tags: idea.tags, // Already JSON stringified from frontend
         content_pillar: idea.content_pillar,

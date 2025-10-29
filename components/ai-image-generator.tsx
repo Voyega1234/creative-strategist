@@ -194,7 +194,6 @@ export function AIImageGenerator({
           description,
           category,
           concept_type,
-          impact,
           competitivegap,
           tags,
           content_pillar,
