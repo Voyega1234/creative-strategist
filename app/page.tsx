@@ -281,6 +281,7 @@ function MainContent() {
   const [shareSuccess, setShareSuccess] = useState(false)
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
   const taskPollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const taskTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const taskContextRef = useRef<{
     mode: 'initial' | 'append'
     finalInstructions: string
@@ -855,6 +856,10 @@ function MainContent() {
       clearInterval(taskPollingRef.current)
       taskPollingRef.current = null
     }
+    if (taskTimeoutRef.current) {
+      clearTimeout(taskTimeoutRef.current)
+      taskTimeoutRef.current = null
+    }
   }, [])
 
   useEffect(() => {
@@ -1006,6 +1011,17 @@ function MainContent() {
 
       poll()
       taskPollingRef.current = setInterval(poll, 4000)
+      if (taskTimeoutRef.current) {
+        clearTimeout(taskTimeoutRef.current)
+      }
+      taskTimeoutRef.current = setTimeout(() => {
+        stopTaskPolling()
+        setCurrentTaskId(null)
+        setIsGenerating(false)
+        setIsLoadingMore(false)
+        taskContextRef.current = null
+        alert('การสร้างไอเดียใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง')
+      }, 10 * 60 * 1000)
     },
     [processTaskResult, stopTaskPolling]
   )

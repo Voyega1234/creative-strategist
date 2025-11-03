@@ -102,7 +102,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
 
       console.log('🔄 Generating Facebook post with payload:', payload)
 
-      const response = await fetch('https://n8n.srv934175.hstgr.cloud/webhook/a6f8d152-df0d-4323-93ce-4b291703bb3f', {
+      const response = await fetch('/api/facebook-post', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,15 +112,16 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
 
       const result = await response.json()
       
-      if (response.ok) {
+      if (response.ok && result.success) {
         console.log('✅ Facebook post generated:', result)
         // Handle both array and direct object responses
-        const postData = Array.isArray(result) ? result : [result]
+        const raw = result.data
+        const postData = Array.isArray(raw) ? raw : [raw]
         setFacebookPostData(prev => ({ ...prev, [ideaKey]: postData[0] }))
         setShowFacebookPost(prev => ({ ...prev, [ideaKey]: true }))
       } else {
         console.error('❌ Facebook post generation failed:', result)
-        alert('Failed to generate Facebook post. Please try again.')
+        alert(result.error || 'Failed to generate Facebook post. Please try again.')
       }
     } catch (error) {
       console.error('❌ Facebook post generation error:', error)

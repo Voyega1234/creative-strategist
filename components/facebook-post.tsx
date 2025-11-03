@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Heart, MessageCircle, Share, MoreHorizontal, Globe } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Heart, MessageCircle, Share, MoreHorizontal, Globe, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface FacebookPostProps {
   data: Array<{
@@ -22,6 +22,7 @@ export function FacebookPost({ data }: FacebookPostProps) {
   const [likes, setLikes] = useState(Math.floor(Math.random() * 500) + 50)
   const [comments, setComments] = useState(Math.floor(Math.random() * 50) + 5)
   const [shares, setShares] = useState(Math.floor(Math.random() * 20) + 2)
+  const [currentCaptionIndex, setCurrentCaptionIndex] = useState(0)
 
   const handleLike = () => {
     setLiked(!liked)
@@ -43,10 +44,23 @@ export function FacebookPost({ data }: FacebookPostProps) {
 
   // Handle both array and object formats from N8N API
   const postData = Array.isArray(data) ? data[0] : data
-  
+
   const pageName = postData?.page_name || "Your Business Page"
-  const caption = postData?.content || postData?.caption || "Generated Facebook post content will appear here..."
+  const defaultCaption = postData?.content || postData?.caption || "Generated Facebook post content will appear here..."
   const imageUrl = postData?.image_url
+  const captions = Array.isArray(postData?.captions) ? postData.captions : []
+
+  useEffect(() => {
+    if (captions.length === 0) {
+      setCurrentCaptionIndex(0)
+    } else if (currentCaptionIndex >= captions.length) {
+      setCurrentCaptionIndex(0)
+    }
+  }, [captions.length, currentCaptionIndex])
+
+  const activeCaptionData = captions.length > 0 ? captions[currentCaptionIndex] : null
+  const caption = activeCaptionData?.caption || defaultCaption
+  const activeStrategy = activeCaptionData?.strategy
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm max-w-[500px] mx-auto">
@@ -77,6 +91,37 @@ export function FacebookPost({ data }: FacebookPostProps) {
 
       {/* Post Content */}
       <div className="px-4 pb-3">
+        {captions.length > 0 && (
+          <div className="flex items-center justify-between mb-3 bg-gray-50 rounded-md px-3 py-2">
+            <button
+              onClick={() => setCurrentCaptionIndex(prev => Math.max(prev - 1, 0))}
+              disabled={currentCaptionIndex === 0}
+              className={`p-1 rounded-full ${currentCaptionIndex === 0 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}`}
+              aria-label="Previous caption"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col items-center gap-1 text-sm">
+              <span className="font-medium text-gray-700">
+                Caption {currentCaptionIndex + 1} / {captions.length}
+              </span>
+              {activeStrategy && (
+                <span className="text-xs uppercase tracking-wide text-blue-600 font-semibold">
+                  {activeStrategy}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setCurrentCaptionIndex(prev => Math.min(prev + 1, captions.length - 1))}
+              disabled={currentCaptionIndex === captions.length - 1}
+              className={`p-1 rounded-full ${currentCaptionIndex === captions.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}`}
+              aria-label="Next caption"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
         <div className="text-[15px] text-gray-900 leading-5 space-y-2">
           {caption.split('\n').map((line, index) => {
             // Handle different formatting
