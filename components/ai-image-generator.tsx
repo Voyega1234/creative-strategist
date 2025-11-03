@@ -271,20 +271,35 @@ export function AIImageGenerator({
 
   const loadReferenceImages = async () => {
     try {
+      console.log('🔄 Starting to load reference images...')
       setLoadingReferenceImages(true)
       const storageClient = getStorageClient()
       
       if (!storageClient) {
-        console.error('Storage client not available')
+        console.error('❌ Storage client not available')
         return
       }
       
+      console.log('🔍 Fetching files from Supabase storage...')
       // Get list of image files from the 'ads-creative-image' bucket, 'references' folder
+      // First get all files with basic info
       const { data: files, error } = await storageClient
         .from('ads-creative-image')
-        .list('references')
+        .list('references/', {
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'name', order: 'desc' } // Sort by name in descending order (newest first)
+        })
 
-      console.log('🔍 Reference images response:', { files, error })
+      console.log('📊 Supabase storage response:', { 
+        filesCount: files?.length || 0,
+        error: error?.message || 'No error',
+        files: files?.map(f => ({
+          name: f.name,
+          size: f.metadata?.size,
+          created_at: f.created_at
+        })) || []
+      })
 
       if (error) {
         console.error('Error loading reference images:', error)

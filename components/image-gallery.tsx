@@ -115,8 +115,23 @@ export function ImageGallery() {
         }
       })
 
-      console.log('🔍 Final images array:', imagesWithUrls)
-      setImages(imagesWithUrls)
+      // Sort images by timestamp in filename (newest first)
+      const sortedImages = [...imagesWithUrls].sort((a, b) => {
+        // Extract timestamp from filename (format: timestamp-random.ext)
+        const getTimeFromFilename = (filename: string) => {
+          const match = filename.match(/^(\d+)-/);
+          return match ? parseInt(match[1], 10) : 0;
+        };
+        
+        const timeA = getTimeFromFilename(a.name);
+        const timeB = getTimeFromFilename(b.name);
+        return timeB - timeA; // Sort in descending order (newest first)
+      })
+      
+      // Limit to 100 most recent images
+      const limitedImages = sortedImages.slice(0, 100)
+      console.log(`🔍 Loaded ${limitedImages.length} images (showing most recent 100 if more exist)`)
+      setImages(limitedImages)
     } catch (error) {
       console.error('Error loading images:', error)
     } finally {
