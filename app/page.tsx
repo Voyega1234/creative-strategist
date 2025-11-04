@@ -1021,7 +1021,7 @@ function MainContent() {
         setIsLoadingMore(false)
         taskContextRef.current = null
         alert('การสร้างไอเดียใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง')
-      }, 10 * 60 * 1000)
+      }, 15 * 60 * 1000) // Changed from 10 to 15 minutes
     },
     [processTaskResult, stopTaskPolling]
   )
