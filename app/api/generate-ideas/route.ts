@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // this route should respond quickly after enqueueing
 
 const N8N_FIRE_TIMEOUT_MS = 30_000
-const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/ee9dbf72-1c09-4dd2-83e9-a6c1775ed8c1'
+const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook-test/27e35891-6bd8-4280-9965-9209f3b5f883'
 
 export async function POST(request: Request) {
   try {
