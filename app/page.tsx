@@ -15,6 +15,15 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 // Optimize imports - only import what we need
 import {
   ChevronUp,
@@ -294,10 +303,11 @@ function MainContent() {
 
   const [clientServices, setClientServices] = useState<string[]>([])
   const [isLoadingServices, setIsLoadingServices] = useState(false)
-  const [selectedService, setSelectedService] = useState<string | null>(null)
+  const [selectedServices, setSelectedServices] = useState<string[]>([])
   const [newServiceName, setNewServiceName] = useState("")
   const [isAddingService, setIsAddingService] = useState(false)
   const [serviceError, setServiceError] = useState<string | null>(null)
+  const [clientSearch, setClientSearch] = useState("")
   
   // Individual idea share state
   const [individualShareDialogOpen, setIndividualShareDialogOpen] = useState(false)
@@ -345,6 +355,36 @@ function MainContent() {
   const activeProductFocus = resolvedClientInfo.productFocus
   const activeClientId = resolvedClientInfo.clientId
   const activeAdAccount = resolvedClientInfo.adAccount
+  const normalizedClientSearch = clientSearch.trim().toLowerCase()
+  const filteredClients = useMemo(() => {
+    if (!normalizedClientSearch) {
+      return clients
+    }
+    return clients.filter((client) => client.clientName.toLowerCase().includes(normalizedClientSearch))
+  }, [clients, normalizedClientSearch])
+  const orderedClients = useMemo(() => {
+    const activeClient = filteredClients.find((client) => client.clientName === activeClientName)
+    const otherClients = filteredClients.filter((client) => client.clientName !== activeClientName)
+    return activeClient ? [activeClient, ...otherClients] : filteredClients
+  }, [filteredClients, activeClientName])
+  const selectedServicesLabel = useMemo(() => {
+    if (selectedServices.length === 0) {
+      return "All Services"
+    }
+    if (selectedServices.length === 1) {
+      return selectedServices[0]
+    }
+    if (selectedServices.length === 2) {
+      return selectedServices.join(", ")
+    }
+    return `${selectedServices.length} services selected`
+  }, [selectedServices])
+  const selectedServicesText = useMemo(() => {
+    if (selectedServices.length === 0) {
+      return undefined
+    }
+    return selectedServices.join(", ")
+  }, [selectedServices])
   
   const pathname = usePathname()
 
@@ -489,7 +529,7 @@ function MainContent() {
   useEffect(() => {
     if (!activeClientId) {
       setClientServices([])
-      setSelectedService(null)
+      setSelectedServices([])
       return
     }
 
@@ -512,21 +552,12 @@ function MainContent() {
 
         const services = Array.isArray(data.services) ? data.services.slice().sort((a: string, b: string) => a.localeCompare(b, "th")) : []
         setClientServices(services)
-
-        setSelectedService((prev) => {
-          if (services.length === 0) {
-            return null
-          }
-          if (prev && services.includes(prev)) {
-            return prev
-          }
-          return null
-        })
+        setSelectedServices((prev) => prev.filter((service) => services.includes(service)))
       } catch (error) {
         if (isCancelled) return
         console.error("Error loading services:", error)
         setClientServices([])
-        setSelectedService(null)
+        setSelectedServices([])
       } finally {
         if (!isCancelled) {
           setIsLoadingServices(false)
@@ -1053,7 +1084,7 @@ function MainContent() {
         body: JSON.stringify({
           clientName: activeClientName,
           productFocus: activeProductFocus,
-          service: selectedService || undefined,
+          service: selectedServicesText,
           instructions: finalInstructions,
           productDetails: showProductDetails ? productDetails.trim() : undefined,
           negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
@@ -1120,7 +1151,7 @@ function MainContent() {
         body: JSON.stringify({
           clientName: activeClientName,
           productFocus: activeProductFocus,
-          service: selectedService || undefined,
+          service: selectedServicesText,
           instructions: finalInstructions,
           productDetails: showProductDetails ? productDetails.trim() : undefined,
           negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
@@ -1392,16 +1423,20 @@ function MainContent() {
     }
   }
 
-  const handleServiceSelection = useCallback(
+  const handleServiceToggle = useCallback(
     (service: string | null) => {
       if (isGenerating) {
         return
       }
-      setSelectedService((prev) => {
-        if (service === null) {
-          return null
+      if (service === null) {
+        setSelectedServices([])
+        return
+      }
+      setSelectedServices((prev) => {
+        if (prev.includes(service)) {
+          return prev.filter((item) => item !== service)
         }
-        return prev === service ? null : service
+        return [...prev, service]
       })
     },
     [isGenerating],
@@ -1421,7 +1456,12 @@ function MainContent() {
 
     if (clientServices.some((service) => service.toLowerCase() === value.toLowerCase())) {
       setServiceError("มีบริการนี้อยู่แล้ว")
-      setSelectedService(value)
+      setSelectedServices((prev) => {
+        if (prev.includes(value)) {
+          return prev
+        }
+        return [...prev, value]
+      })
       setNewServiceName("")
       return
     }
@@ -1446,7 +1486,7 @@ function MainContent() {
         next.sort((a, b) => a.localeCompare(b, "th"))
         return next
       })
-      setSelectedService(value)
+      setSelectedServices((prev) => (prev.includes(value) ? prev : [...prev, value]))
       setNewServiceName("")
     } catch (error) {
       console.error("Failed to add service:", error)
@@ -1913,6 +1953,14 @@ function MainContent() {
                 <Plus className="mr-2 h-4 w-4" />
                 เพิ่มรายชื่อ
               </Button>
+              <Input
+                type="search"
+                value={clientSearch}
+                onChange={(event) => setClientSearch(event.target.value)}
+                placeholder="ค้นหาชื่อลูกค้า"
+                className="mb-4 h-9 text-sm border-[#e4e7ec] focus-visible:ring-0 focus-visible:border-[#1d4ed8]"
+                disabled={isGenerating}
+              />
               <nav className="space-y-2">
                 <Collapsible open={isBrandOpen} onOpenChange={isGenerating ? undefined : setIsBrandOpen} className="w-full">
                 <CollapsibleTrigger asChild>
@@ -1930,36 +1978,33 @@ function MainContent() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-1 pl-8 pt-2">
                   <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                    {(() => {
-                      // Reorder clients: selected client first, then others (same as configure-sidebar)
-                      const activeClient = clients.find(client => client.clientName === activeClientName)
-                      const otherClients = clients.filter(client => client.clientName !== activeClientName)
-                      const reorderedClients = activeClient ? [activeClient, ...otherClients] : clients
-                      
-                      return reorderedClients.map((client) => (
-                      <div key={client.id} className="space-y-1">
+                    {orderedClients.length > 0 ? (
+                      orderedClients.map((client) => (
+                        <div key={client.id} className="space-y-1">
                           {/* Client name - always show, highlight if active */}
                           {isGenerating ? (
-                            <div className={`block text-sm py-1 px-2 rounded-md font-medium cursor-not-allowed ${
-                              client.clientName === activeClientName
-                                ? 'text-[#063def] bg-[#dbeafe]'
-                                : 'text-[#535862]'
-                            }`}>
+                            <div
+                              className={`block text-sm py-1 px-2 rounded-md font-medium cursor-not-allowed ${
+                                client.clientName === activeClientName
+                                  ? "text-[#063def] bg-[#dbeafe]"
+                                  : "text-[#535862]"
+                              }`}
+                            >
                               {client.clientName}
                             </div>
                           ) : (
                             <Link
-                              href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
+                              href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || "")}`}
                               className={`block text-sm py-1 px-2 rounded-md font-medium ${
                                 client.clientName === activeClientName
-                                  ? 'text-[#063def] bg-[#dbeafe]'
-                                  : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
+                                  ? "text-[#063def] bg-[#dbeafe]"
+                                  : "text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]"
                               }`}
                             >
                               {client.clientName}
                             </Link>
                           )}
-                          
+
                           {/* Show product focus select ONLY for the selected/active client */}
                           {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
                             <>
@@ -2019,46 +2064,49 @@ function MainContent() {
                                       )}
                                     </Button>
                                   </div>
-                                  {serviceError && (
-                                    <p className="text-[10px] text-red-500">{serviceError}</p>
-                                  )}
+                                  {serviceError && <p className="text-[10px] text-red-500">{serviceError}</p>}
                                   {isLoadingServices ? (
                                     <div className="text-xs text-[#535862]">กำลังโหลดบริการ...</div>
                                   ) : clientServices.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2">
-                                      <Button
-                                        variant={!selectedService ? "default" : "outline"}
-                                        size="sm"
-                                        className={`h-auto min-h-[26px] text-[10px] px-2 py-1 whitespace-normal text-left leading-tight ${
-                                          !selectedService
-                                            ? "bg-[#1d4ed8] text-white hover:bg-[#063def]"
-                                            : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-white"
-                                        }`}
-                                        onClick={() => handleServiceSelection(null)}
-                                        disabled={isGenerating || isLoadingServices}
-                                      >
-                                        All Services
-                                      </Button>
-                                      {clientServices.map((service) => {
-                                        const isActive = selectedService === service
-                                        return (
-                                          <Button
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="w-full justify-between text-xs border-[#e4e7ec] text-[#535862] hover:text-[#063def]"
+                                          disabled={isGenerating || isLoadingServices}
+                                        >
+                                          <span className="truncate">{selectedServicesLabel}</span>
+                                          <ChevronUp className="ml-2 h-3 w-3 rotate-180 opacity-60" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent className="w-64" align="start">
+                                        <DropdownMenuLabel className="text-xs text-[#535862]">
+                                          เลือกบริการ
+                                        </DropdownMenuLabel>
+                                        <DropdownMenuItem
+                                          className="text-xs text-[#1d4ed8] focus:text-[#1d4ed8]"
+                                          onSelect={(event) => {
+                                            event.preventDefault()
+                                            handleServiceToggle(null)
+                                          }}
+                                        >
+                                          ล้างการเลือกทั้งหมด
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        {clientServices.map((service) => (
+                                          <DropdownMenuCheckboxItem
                                             key={service}
-                                            variant={isActive ? "default" : "outline"}
-                                            size="sm"
-                                            className={`h-auto min-h-[26px] text-[10px] px-2 py-1 whitespace-normal text-left leading-tight ${
-                                              isActive
-                                                ? "bg-[#1d4ed8] text-white hover:bg-[#063def]"
-                                                : "border-[#e4e7ec] text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def] bg-white"
-                                            }`}
-                                            onClick={() => handleServiceSelection(service)}
-                                            disabled={isGenerating || isLoadingServices}
+                                            className="text-xs"
+                                            checked={selectedServices.includes(service)}
+                                            onCheckedChange={() => handleServiceToggle(service)}
+                                            onSelect={(event) => event.preventDefault()}
                                           >
                                             {service}
-                                          </Button>
-                                        )
-                                      })}
-                                    </div>
+                                          </DropdownMenuCheckboxItem>
+                                        ))}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   ) : (
                                     <div className="text-xs text-[#8e8e93]">ไม่มีข้อมูลบริการ</div>
                                   )}
@@ -2066,9 +2114,11 @@ function MainContent() {
                               </div>
                             </>
                           )}
-                      </div>
+                        </div>
                       ))
-                    })()}
+                    ) : (
+                      <div className="text-xs text-[#8e8e93] p-2">ไม่พบลูกค้าตามการค้นหา</div>
+                    )}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
