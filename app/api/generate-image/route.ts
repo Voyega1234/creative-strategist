@@ -27,7 +27,8 @@ export async function POST(request: Request) {
       topic_title,
       topic_description,
       content_pillar,
-      copywriting
+      copywriting,
+      color_palette,
     } = body;
     
     // Prompt is now optional - user can generate from saved ideas and reference image only
@@ -59,7 +60,8 @@ export async function POST(request: Request) {
           topic_title: topic_title || "",
           topic_description: topic_description || "",
           content_pillar: content_pillar || "",
-          copywriting: copywriting || null
+          copywriting: copywriting || null,
+          color_palette: color_palette || [],
         }),
       });
 
@@ -102,6 +104,9 @@ export async function POST(request: Request) {
         // Case 5: Array of URL strings in url property: {url: ["url1", "url2", ...]}
         pinterestImages = rawResponse.url.map((url: string) => ({ url }));
         console.log('[generate-image] Found URL array in url property with', pinterestImages.length, 'images');
+      } else if (rawResponse.image_url && typeof rawResponse.image_url === 'string') {
+        pinterestImages = [{ url: rawResponse.image_url }]
+        console.log('[generate-image] Found single image_url format')
       } else if (rawResponse.url && typeof rawResponse.url === 'string') {
         // Case 6: Single image object format: {url: "..."}
         pinterestImages = [rawResponse];

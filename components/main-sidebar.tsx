@@ -191,7 +191,7 @@ export function MainSidebar({
                                 <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
                                   <SelectValue placeholder="เลือก Product Focus" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="max-h-48 overflow-y-auto">
                                   {client.productFocuses.map((pf) => (
                                     <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
                                       {pf.productFocus}
@@ -213,7 +213,7 @@ export function MainSidebar({
                                   <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
                                     <SelectValue placeholder="Services" />
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="max-h-48 overflow-y-auto">
                                     <SelectItem value={ALL_SERVICES_VALUE} className="text-xs">
                                       All Services
                                     </SelectItem>

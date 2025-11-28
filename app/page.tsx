@@ -2080,7 +2080,7 @@ function MainContent() {
                                           <ChevronUp className="ml-2 h-3 w-3 rotate-180 opacity-60" />
                                         </Button>
                                       </DropdownMenuTrigger>
-                                      <DropdownMenuContent className="w-64" align="start">
+                                      <DropdownMenuContent className="w-64 max-h-60 overflow-y-auto" align="start">
                                         <DropdownMenuLabel className="text-xs text-[#535862]">
                                           เลือกบริการ
                                         </DropdownMenuLabel>

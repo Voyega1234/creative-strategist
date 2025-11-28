@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -18,7 +19,8 @@ import {
   Loader2,
   Lightbulb,
   Target,
-  X
+  X,
+  Palette,
 } from "lucide-react"
 import Image from "next/image"
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
@@ -45,6 +47,7 @@ interface ClientOption {
   productFocuses: Array<{
     productFocus: string
   }>
+  colorPalette?: string[]
 }
 
 interface SavedTopic {
@@ -98,6 +101,9 @@ export function AIImageGenerator({
   const [selectedReferenceImage, setSelectedReferenceImage] = useState<string>('')
   const [showAllReferenceImages, setShowAllReferenceImages] = useState(false)
   const [loadingReferenceImages, setLoadingReferenceImages] = useState(false)
+  const [colorPalette, setColorPalette] = useState<string[]>([])
+  const [colorInput, setColorInput] = useState("")
+  const [isSavingPalette, setIsSavingPalette] = useState(false)
   
   // AI generation results pagination
   const [showAllResults, setShowAllResults] = useState(false)
@@ -116,6 +122,11 @@ export function AIImageGenerator({
       loadReferenceImages()
     }
   }, [selectedClientId, selectedProductFocus])
+
+  useEffect(() => {
+    const selectedClient = clients.find((client) => client.id === selectedClientId)
+    setColorPalette(selectedClient?.colorPalette || [])
+  }, [selectedClientId, clients])
 
   // Update selection when props change (from URL parameters)
   useEffect(() => {
@@ -140,7 +151,11 @@ export function AIImageGenerator({
       console.log('[AI Image Generator] Loaded clients:', clients)
       
       if (Array.isArray(clients)) {
-        setClients(clients)
+        const normalizedClients = clients.map((client: any) => ({
+          ...client,
+          colorPalette: Array.isArray(client.colorPalette) ? client.colorPalette : [],
+        }))
+        setClients(normalizedClients)
         
         // Auto-select based on props (from URL params) or first available
         if (activeClientId && activeProductFocus) {
@@ -393,6 +408,7 @@ export function AIImageGenerator({
           topic_description: selectedTopicData?.description || '',
           content_pillar: selectedTopicData?.content_pillar || '',
           copywriting: selectedTopicData?.copywriting || null,
+          color_palette: colorPalette,
         }),
       })
 
@@ -584,6 +600,67 @@ export function AIImageGenerator({
       setPrompt(image.prompt)
       // Remove the failed image
       setGeneratedImages(prev => prev.filter(img => img.id !== imageId))
+    }
+  }
+
+  const sanitizeColorValue = (value: string) => {
+    return value.replace(/[^0-9a-fA-F]/g, "").substring(0, 6).toUpperCase()
+  }
+
+  const handleAddColor = () => {
+    const sanitized = sanitizeColorValue(colorInput)
+    if (!sanitized) {
+      alert("กรุณากรอกโค้ดสีที่ถูกต้อง")
+      return
+    }
+    if (colorPalette.includes(sanitized)) {
+      setColorInput("")
+      return
+    }
+    setColorPalette((prev) => [...prev, sanitized])
+    setColorInput("")
+  }
+
+  const handleRemoveColor = (index: number) => {
+    setColorPalette((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSavePalette = async () => {
+    if (!selectedClientId) {
+      alert("กรุณาเลือกลูกค้าก่อน")
+      return
+    }
+    setIsSavingPalette(true)
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ""
+      const response = await fetch(`${baseUrl}/api/update-client-color`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clientId: selectedClientId,
+          colorPalette,
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        alert(result?.error || "ไม่สามารถบันทึกพาเลตสีได้")
+        return
+      }
+
+      setClients((prev) =>
+        prev.map((client) =>
+          client.id === selectedClientId ? { ...client, colorPalette } : client,
+        ),
+      )
+      alert("บันทึกพาเลตสีเรียบร้อยแล้ว")
+    } catch (error) {
+      console.error("Failed to save color palette:", error)
+      alert("เกิดข้อผิดพลาดในการบันทึกพาเลตสี")
+    } finally {
+      setIsSavingPalette(false)
     }
   }
 
@@ -831,6 +908,64 @@ export function AIImageGenerator({
                   เลือกรูปภาพอ้างอิงแล้ว
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Color Palette Selection */}
+          {selectedClientId && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-black flex items-center gap-2">
+                <Palette className="w-4 h-4 text-purple-500" />
+                พาเลตสีสำหรับแบรนด์
+              </label>
+              {colorPalette.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {colorPalette.map((color, index) => (
+                    <div key={`${color}-${index}`} className="flex items-center gap-2">
+                      <div
+                        className="w-10 h-10 rounded-md border border-gray-200"
+                        style={{ backgroundColor: `#${color}` }}
+                        title={`#${color}`}
+                      />
+                      <div className="text-sm font-medium text-[#000000]">#{color}</div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleRemoveColor(index)}
+                      >
+                        ลบ
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-[#8e8e93]">ยังไม่มีพาเลตสีที่บันทึกไว้</div>
+              )}
+              <div className="flex items-center gap-2">
+                <Input
+                  value={colorInput}
+                  onChange={(event) => setColorInput(event.target.value)}
+                  placeholder="ใส่โค้ดสี เช่น 265484 หรือ #265484"
+                  className="max-w-xs"
+                />
+                <Button variant="outline" onClick={handleAddColor}>
+                  เพิ่มสี
+                </Button>
+                <Button variant="ghost" asChild className="text-xs text-[#1d4ed8] hover:text-[#063def]">
+                  <a href="https://coolors.co/image-picker" target="_blank" rel="noopener noreferrer">
+                    เปิด Image Picker
+                  </a>
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleSavePalette} disabled={isSavingPalette}>
+                  {isSavingPalette ? "กำลังบันทึก..." : "บันทึกพาเลตสี"}
+                </Button>
+                <p className="text-xs text-[#8e8e93]">
+                  ระบบจะส่งพาเลตสีนี้ไปยัง AI ทุกครั้งที่สร้างภาพใหม่
+                </p>
+              </div>
             </div>
           )}
 

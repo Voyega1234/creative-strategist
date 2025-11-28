@@ -328,23 +328,6 @@ function MainContent() {
 
               {/* Generate and Upload Images Tab */}
               <TabsContent value="generate" className="space-y-6">
-                {/* Upload Images Section */}
-                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
-                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                          <Upload className="w-5 h-5 text-white" />
-                        </div>
-                        อัปโหลดรูปภาพอ้างอิง
-                      </h2>
-                      <p className="text-[#8e8e93] text-sm mt-1">เพิ่มรูปภาพโฆษณาใหม่เข้าสู่คลัง</p>
-                    </div>
-                  </div>
-                  
-                  <ImageUpload />
-                </Card>
-                
                 {/* AI Image Generation Section */}
                 <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
                   <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
@@ -362,6 +345,23 @@ function MainContent() {
                     activeProductFocus={activeProductFocus}
                     activeClientName={activeClientName}
                   />
+                </Card>
+
+                {/* Upload Images Section */}
+                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
+                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                          <Upload className="w-5 h-5 text-white" />
+                        </div>
+                        อัปโหลดรูปภาพอ้างอิง
+                      </h2>
+                      <p className="text-[#8e8e93] text-sm mt-1">เพิ่มรูปภาพโฆษณาใหม่เข้าสู่คลัง</p>
+                    </div>
+                  </div>
+                  
+                  <ImageUpload />
                 </Card>
               </TabsContent>
             </Tabs>
