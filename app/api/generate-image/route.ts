@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       content_pillar,
       copywriting,
       color_palette,
+      material_image_urls,
     } = body;
     
     // Prompt is now optional - user can generate from saved ideas and reference image only
@@ -41,6 +42,10 @@ export async function POST(request: Request) {
     console.log('[generate-image] Topic Title:', topic_title);
     if (reference_image_url) {
       console.log('[generate-image] Using reference image:', reference_image_url);
+    }
+
+    if (material_image_urls?.length) {
+      console.log("[generate-image] Material images selected:", material_image_urls.length)
     }
 
     try {
@@ -62,6 +67,7 @@ export async function POST(request: Request) {
           content_pillar: content_pillar || "",
           copywriting: copywriting || null,
           color_palette: color_palette || [],
+          material_image_urls: material_image_urls || [],
         }),
       });
 
@@ -104,9 +110,22 @@ export async function POST(request: Request) {
         // Case 5: Array of URL strings in url property: {url: ["url1", "url2", ...]}
         pinterestImages = rawResponse.url.map((url: string) => ({ url }));
         console.log('[generate-image] Found URL array in url property with', pinterestImages.length, 'images');
-      } else if (rawResponse.image_url && typeof rawResponse.image_url === 'string') {
-        pinterestImages = [{ url: rawResponse.image_url }]
-        console.log('[generate-image] Found single image_url format')
+      } else if (
+        (rawResponse.image_url && typeof rawResponse.image_url === 'string') ||
+        (rawResponse.ideogram && typeof rawResponse.ideogram === 'string') ||
+        (rawResponse.gemini && typeof rawResponse.gemini === 'string')
+      ) {
+        pinterestImages = []
+        if (rawResponse.image_url) {
+          pinterestImages.push({ url: rawResponse.image_url })
+        }
+        if (rawResponse.ideogram) {
+          pinterestImages.push({ url: rawResponse.ideogram, source: 'ideogram' })
+        }
+        if (rawResponse.gemini) {
+          pinterestImages.push({ url: rawResponse.gemini, source: 'gemini' })
+        }
+        console.log('[generate-image] Found single image_url/ideogram/gemini format with', pinterestImages.length, 'images')
       } else if (rawResponse.url && typeof rawResponse.url === 'string') {
         // Case 6: Single image object format: {url: "..."}
         pinterestImages = [rawResponse];

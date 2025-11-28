@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useMemo, type ComponentProps } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,9 +21,12 @@ import {
   Target,
   X,
   Palette,
+  Upload,
+  Edit,
 } from "lucide-react"
 import Image from "next/image"
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
+import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal"
 
 interface ReferenceImage {
   name: string
@@ -39,6 +42,7 @@ interface GeneratedImage {
   reference_image?: string
   status: 'generating' | 'completed' | 'error'
   created_at: string
+  source?: string
 }
 
 interface ClientOption {
@@ -68,6 +72,9 @@ interface SavedTopic {
     bullets: string[]
     cta: string
   }
+  id?: string
+  clientname?: string
+  productfocus?: string
 }
 
 interface AIImageGeneratorProps {
@@ -75,6 +82,8 @@ interface AIImageGeneratorProps {
   activeProductFocus?: string | null  
   activeClientName?: string | null
 }
+
+type EditableIdeaType = NonNullable<ComponentProps<typeof EditableSavedIdeaModal>["idea"]>
 
 export function AIImageGenerator({ 
   activeClientId, 
@@ -94,13 +103,18 @@ export function AIImageGenerator({
   // Strategic insights and topics
   const [savedTopics, setSavedTopics] = useState<SavedTopic[]>([])
   const [selectedTopic, setSelectedTopic] = useState<string>('')
+  const [topicEditModalOpen, setTopicEditModalOpen] = useState(false)
+  const [topicBeingEdited, setTopicBeingEdited] = useState<SavedTopic | null>(null)
   const [loadingTopics, setLoadingTopics] = useState(false)
   
   // Reference image selection
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([])
   const [selectedReferenceImage, setSelectedReferenceImage] = useState<string>('')
-  const [showAllReferenceImages, setShowAllReferenceImages] = useState(false)
   const [loadingReferenceImages, setLoadingReferenceImages] = useState(false)
+  const [materialImages, setMaterialImages] = useState<ReferenceImage[]>([])
+  const [loadingMaterialImages, setLoadingMaterialImages] = useState(false)
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([])
+  const [isUploadingMaterials, setIsUploadingMaterials] = useState(false)
   const [colorPalette, setColorPalette] = useState<string[]>([])
   const [colorInput, setColorInput] = useState("")
   const [isSavingPalette, setIsSavingPalette] = useState(false)
@@ -111,17 +125,30 @@ export function AIImageGenerator({
   
   // Image preview modal
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
+  const materialInputRef = useRef<HTMLInputElement | null>(null)
+  const currentClient = useMemo(() => {
+    if (!selectedClientId) return null
+    return clients.find((client) => client.id === selectedClientId) || null
+  }, [clients, selectedClientId])
+
+  const getSourceLabel = (value?: string) => {
+    if (!value) return null
+    const normalized = value.toLowerCase()
+    const map: Record<string, string> = {
+      gemini: "Gemini",
+      ideogram: "Ideogram",
+      dalle: "DALL·E",
+      stable_diffusion: "Stable Diffusion",
+    }
+    if (map[normalized]) return map[normalized]
+    return value
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+  }
 
   useEffect(() => {
     loadClients()
   }, [])
-
-  useEffect(() => {
-    if (selectedClientId && selectedProductFocus) {
-      loadSavedTopics()
-      loadReferenceImages()
-    }
-  }, [selectedClientId, selectedProductFocus])
 
   useEffect(() => {
     const selectedClient = clients.find((client) => client.id === selectedClientId)
@@ -189,7 +216,7 @@ export function AIImageGenerator({
     
     try {
       setLoadingTopics(true)
-      const selectedClient = clients.find(c => c.id === selectedClientId)
+      const selectedClient = currentClient
       if (!selectedClient) return
 
       console.log('[AI Image Generator] Direct Supabase query for:', {
@@ -205,6 +232,8 @@ export function AIImageGenerator({
         .from('savedideas')
         .select(`
           id,
+          clientname,
+          productfocus,
           title,
           description,
           category,
@@ -255,6 +284,9 @@ export function AIImageGenerator({
         }
 
         return {
+          id: item.id,
+          clientname: item.clientname,
+          productfocus: item.productfocus,
           title: item.title,
           description: item.description,
           category: item.category,
@@ -281,6 +313,68 @@ export function AIImageGenerator({
       console.error('[AI Image Generator] Error loading saved topics:', error)
     } finally {
       setLoadingTopics(false)
+    }
+  }
+
+  const loadMaterialImages = async (clientId: string) => {
+    try {
+      console.log("[AI Image Generator] Loading material images for", clientId)
+      setLoadingMaterialImages(true)
+      const storageClient = getStorageClient()
+
+      if (!storageClient) {
+        console.error("Storage client not available")
+        setMaterialImages([])
+        return
+      }
+
+      const folderPath = `materials/${clientId}`
+      const { data: files, error } = await storageClient.from("ads-creative-image").list(folderPath, {
+        limit: 100,
+        offset: 0,
+        sortBy: { column: "name", order: "desc" },
+      })
+
+      if (error) {
+        if (error.message?.toLowerCase().includes("not found")) {
+          setMaterialImages([])
+          setSelectedMaterials([])
+          return
+        }
+        console.error("Error loading material images:", error)
+        return
+      }
+
+      if (!files || files.length === 0) {
+        setMaterialImages([])
+        setSelectedMaterials([])
+        return
+      }
+
+      const imagePromises = files.map(async (file) => {
+        const { data: urlData } = storageClient
+          .from("ads-creative-image")
+          .getPublicUrl(`${folderPath}/${file.name}`)
+
+        return {
+          name: file.name,
+          url: urlData.publicUrl,
+          size: file.metadata?.size || 0,
+          created_at: file.created_at || new Date().toISOString(),
+        }
+      })
+
+      const imageList = await Promise.all(imagePromises)
+      const sortedImages = imageList.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )
+
+      setMaterialImages(sortedImages)
+      setSelectedMaterials((prev) => prev.filter((url) => sortedImages.some((image) => image.url === url)))
+    } catch (error) {
+      console.error("Error loading material images:", error)
+    } finally {
+      setLoadingMaterialImages(false)
     }
   }
 
@@ -357,6 +451,19 @@ export function AIImageGenerator({
     }
   }
 
+  useEffect(() => {
+    if (selectedClientId && selectedProductFocus) {
+      setSelectedReferenceImage("")
+      loadSavedTopics()
+      loadReferenceImages()
+      loadMaterialImages(selectedClientId)
+    } else {
+      setMaterialImages([])
+      setSelectedMaterials([])
+      setSelectedReferenceImage("")
+    }
+  }, [selectedClientId, selectedProductFocus])
+
   const generateImage = async () => {
     if (!selectedClientId || !selectedProductFocus) {
       alert('กรุณาเลือกลูกค้าและ Product Focus')
@@ -368,14 +475,9 @@ export function AIImageGenerator({
       return
     }
 
-    if (!selectedReferenceImage) {
-      alert('กรุณาเลือกรูปภาพอ้างอิงจากคลัง')
-      return
-    }
-
     setIsGenerating(true)
     
-    const selectedClient = clients.find(c => c.id === selectedClientId)
+    const selectedClient = currentClient
     const selectedTopicData = savedTopics.find(topic => topic.title === selectedTopic)
     
     const newImageId = Math.random().toString(36).substring(2, 11)
@@ -385,7 +487,8 @@ export function AIImageGenerator({
       prompt: prompt.trim(),
       reference_image: undefined,
       status: 'generating',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      source: undefined,
     }
 
     setGeneratedImages(prev => [newImage, ...prev])
@@ -409,10 +512,49 @@ export function AIImageGenerator({
           content_pillar: selectedTopicData?.content_pillar || '',
           copywriting: selectedTopicData?.copywriting || null,
           color_palette: colorPalette,
+          material_image_urls: selectedMaterials,
         }),
       })
 
       const result = await response.json()
+
+      const normalizeImageEntries = (entry: any): Array<{ url: string; source?: string }> => {
+        const entries: Array<{ url: string; source?: string }> = []
+        if (!entry) return entries
+
+        if (typeof entry === "string") {
+          entries.push({ url: entry })
+          return entries
+        }
+
+        if (typeof entry === "object") {
+          const knownKeys = ["url", "image_url", "gemini", "ideogram", "stable_diffusion", "dalle"]
+          let found = false
+          if (entry.url || entry.image_url) {
+            entries.push({
+              url: entry.url || entry.image_url,
+              source: entry.source || entry.provider,
+            })
+            found = true
+          }
+          knownKeys.forEach((key) => {
+            if (key !== "url" && key !== "image_url" && entry[key]) {
+              entries.push({ url: entry[key], source: key })
+              found = true
+            }
+          })
+          if (!found) {
+            Object.keys(entry).forEach((key) => {
+              if (typeof entry[key] === "string") {
+                entries.push({ url: entry[key], source: key })
+              }
+            })
+          }
+          return entries
+        }
+
+        return entries
+      }
 
       if (result.success && result.image_url) {
         // Update the loading image with the generated result
@@ -422,7 +564,8 @@ export function AIImageGenerator({
                 ...img, 
                 url: result.image_url, 
                 status: 'completed',
-                reference_image: selectedReferenceImage || undefined
+                reference_image: selectedReferenceImage || undefined,
+                source: result.provider || result.model || 'gemini'
               }
             : img
         ))
@@ -431,14 +574,21 @@ export function AIImageGenerator({
         // Handle multiple images if the N8N returns an array
         setGeneratedImages(prev => prev.filter(img => img.id !== newImageId))
         
-        const aiImages = result.images.map((img: any, index: number) => ({
+        const normalizedEntries = result.images.flatMap((img: any) => normalizeImageEntries(img))
+
+        const aiImages = normalizedEntries.map((img, index) => ({
           id: `${newImageId}-${index}`,
-          url: img.url || img.image_url || img,
+          url: img.url,
           prompt: prompt.trim(),
           reference_image: selectedReferenceImage || undefined,
           status: 'completed' as const,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          source: img.source,
         }))
+
+        if (aiImages.length === 0) {
+          throw new Error("No valid image URLs returned from generator")
+        }
         
         setGeneratedImages(prev => [...aiImages, ...prev])
         console.log(`Generated ${result.images.length} AI images`)
@@ -603,6 +753,54 @@ export function AIImageGenerator({
     }
   }
 
+  const handleMaterialToggle = (url: string) => {
+    setSelectedMaterials((prev) => {
+      if (prev.includes(url)) {
+        return prev.filter((item) => item !== url)
+      }
+      return [...prev, url]
+    })
+  }
+
+  const handleMaterialUpload = async (files: FileList | null) => {
+    if (!files || !selectedClientId) {
+      alert("กรุณาเลือกลูกค้าก่อนอัปโหลดวัสดุ")
+      return
+    }
+
+    const storageClient = getStorageClient()
+    if (!storageClient) {
+      alert("ไม่สามารถเชื่อมต่อที่จัดเก็บไฟล์ได้")
+      return
+    }
+
+    setIsUploadingMaterials(true)
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) continue
+        const fileExt = file.name.split(".").pop()
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
+        const fullPath = `materials/${selectedClientId}/${fileName}`
+        const { error } = await storageClient.from("ads-creative-image").upload(fullPath, file)
+        if (error) {
+          console.error("Material upload error:", error)
+          throw error
+        }
+      }
+
+      await loadMaterialImages(selectedClientId)
+      alert("อัปโหลดวัสดุเรียบร้อยแล้ว")
+    } catch (error) {
+      console.error("Failed to upload materials:", error)
+      alert("เกิดข้อผิดพลาดในการอัปโหลดวัสดุ")
+    } finally {
+      setIsUploadingMaterials(false)
+      if (materialInputRef.current) {
+        materialInputRef.current.value = ""
+      }
+    }
+  }
+
   const sanitizeColorValue = (value: string) => {
     return value.replace(/[^0-9a-fA-F]/g, "").substring(0, 6).toUpperCase()
   }
@@ -661,6 +859,94 @@ export function AIImageGenerator({
       alert("เกิดข้อผิดพลาดในการบันทึกพาเลตสี")
     } finally {
       setIsSavingPalette(false)
+    }
+  }
+
+  const handleTopicSave = (updatedIdea: SavedTopic) => {
+    setSavedTopics((prev) =>
+      prev.map((topic) => {
+        const matches = updatedIdea.id
+          ? topic.id === updatedIdea.id
+          : topic.title === topicBeingEdited?.title
+        return matches ? { ...topic, ...updatedIdea } : topic
+      }),
+    )
+    if (updatedIdea.title && selectedTopic === topicBeingEdited?.title) {
+      setSelectedTopic(updatedIdea.title)
+    }
+  }
+
+  const convertTopicToEditableIdea = (
+    topic: SavedTopic | null,
+    fallbackClientName: string | null,
+    fallbackProductFocus: string | null,
+  ): EditableIdeaType | null => {
+    if (!topic) return null
+
+    const tags = Array.isArray(topic.tags) ? JSON.stringify(topic.tags) : topic.tags || "[]"
+    const bullets =
+      Array.isArray(topic.copywriting.bullets) || typeof topic.copywriting.bullets === "string"
+        ? Array.isArray(topic.copywriting.bullets)
+          ? JSON.stringify(topic.copywriting.bullets)
+          : topic.copywriting.bullets
+        : "[]"
+
+    return {
+      id: topic.id || "",
+      clientname: topic.clientname || fallbackClientName || "",
+      productfocus: topic.productfocus || fallbackProductFocus || "",
+      title: topic.title,
+      description: topic.description,
+      category: topic.category,
+      concept_type: topic.concept_type,
+      impact: topic.concept_type,
+      competitivegap: topic.competitiveGap,
+      tags,
+      content_pillar: topic.content_pillar,
+      product_focus: topic.product_focus,
+      concept_idea: topic.concept_idea,
+      copywriting_headline: topic.copywriting.headline,
+      copywriting_sub_headline_1: topic.copywriting.sub_headline_1,
+      copywriting_sub_headline_2: topic.copywriting.sub_headline_2,
+      copywriting_bullets: bullets,
+      copywriting_cta: topic.copywriting.cta,
+      savedat: new Date().toISOString(),
+    }
+  }
+
+  const convertEditableIdeaToTopic = (idea: EditableIdeaType): SavedTopic => {
+    const parseArray = (input: any) => {
+      if (Array.isArray(input)) return input
+      if (typeof input === "string") {
+        try {
+          return JSON.parse(input)
+        } catch {
+          return input.split(",").map((item) => item.trim()).filter(Boolean)
+        }
+      }
+      return []
+    }
+
+    return {
+      id: idea.id,
+      clientname: idea.clientname,
+      productfocus: idea.productfocus,
+      title: idea.title,
+      description: idea.description,
+      category: idea.category,
+      concept_type: idea.concept_type,
+      competitiveGap: idea.competitivegap,
+      tags: parseArray(idea.tags),
+      content_pillar: idea.content_pillar,
+      product_focus: idea.product_focus,
+      concept_idea: idea.concept_idea,
+      copywriting: {
+        headline: idea.copywriting_headline,
+        sub_headline_1: idea.copywriting_sub_headline_1,
+        sub_headline_2: idea.copywriting_sub_headline_2,
+        bullets: parseArray(idea.copywriting_bullets),
+        cta: idea.copywriting_cta,
+      },
     }
   }
 
@@ -750,57 +1036,66 @@ export function AIImageGenerator({
                 </div>
               ) : savedTopics.length > 0 ? (
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {savedTopics.map((topic) => (
-                    <div
-                      key={topic.title}
-                      className={`p-3 border-2 rounded-lg cursor-pointer transition-colors ${
-                        selectedTopic === topic.title
-                          ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200'
-                          : 'border-gray-200 hover:border-amber-300 hover:bg-amber-25'
-                      }`}
-                      onClick={() => {
-                        setSelectedTopic(topic.title)
-                      }}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm text-black">{topic.title}</h4>
-                          <div className="text-xs text-[#8e8e93] mt-1 line-clamp-2">
-                            {(() => {
-                              try {
-                                // Try to parse as JSON first (new format)
-                                const parsed = JSON.parse(topic.description)
-                                
-                                // New format with summary and sections
-                                if (parsed && typeof parsed === 'object' && parsed.summary && parsed.sections) {
-                                  return parsed.summary
+                  {savedTopics.map((topic) => {
+                    const isSelected = selectedTopic === topic.title
+                    return (
+                      <div
+                        key={topic.id || topic.title}
+                        className={`p-3 border-2 rounded-lg transition-colors ${
+                          isSelected ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200' : 'border-gray-200 hover:border-amber-300 hover:bg-amber-25'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <button
+                            type="button"
+                            className="flex-1 text-left"
+                            onClick={() => setSelectedTopic(topic.title)}
+                          >
+                            <h4 className="font-medium text-sm text-black">{topic.title}</h4>
+                            <div className="text-xs text-[#8e8e93] mt-1 line-clamp-2">
+                              {(() => {
+                                try {
+                                  const parsed = JSON.parse(topic.description)
+                                  if (parsed && typeof parsed === 'object' && parsed.summary && parsed.sections) {
+                                    return parsed.summary
+                                  }
+                                  if (Array.isArray(parsed)) {
+                                    return parsed.length > 0 ? parsed[0].text : 'No description available'
+                                  }
+                                } catch {
+                                  return topic.description
                                 }
-                                
-                                // Old array format
-                                if (Array.isArray(parsed)) {
-                                  return parsed.length > 0 ? parsed[0].text : 'No description available'
-                                }
-                              } catch {
-                                // If parsing fails, it's probably an old string format
                                 return topic.description
-                              }
-                              // Fallback
-                              return topic.description
-                            })()}
-                          </div>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary" className="text-xs">{topic.category}</Badge>
-                            {Array.isArray(topic.tags) && topic.tags.slice(0, 2).map(tag => (
-                              <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                            ))}
+                              })()}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="secondary" className="text-xs">{topic.category}</Badge>
+                              {Array.isArray(topic.tags) && topic.tags.slice(0, 2).map(tag => (
+                                <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                              ))}
+                            </div>
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => {
+                                setTopicBeingEdited(topic)
+                                setTopicEditModalOpen(true)
+                              }}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              แก้ไข
+                            </Button>
+                            {isSelected && (
+                              <CheckCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                            )}
                           </div>
                         </div>
-                        {selectedTopic === topic.title && (
-                          <CheckCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="p-4 border border-[#d1d1d6] rounded-lg bg-[#f2f2f7] text-center">
@@ -823,91 +1118,161 @@ export function AIImageGenerator({
             </div>
           )}
 
-          {/* Reference Image Selection */}
+          {/* Material & Reference Image Selection */}
           {selectedClientId && selectedProductFocus && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-black flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-blue-500" />
-                รูปภาพอ้างอิง (เลือกจากคลัง - บังคับ)
-              </label>
-              
-              {loadingReferenceImages ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                  <span className="ml-2 text-gray-500">กำลังโหลดรูปภาพ...</span>
-                </div>
-              ) : referenceImages.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {(showAllReferenceImages ? referenceImages : referenceImages.slice(0, 10)).map((image) => (
-                      <Card 
-                        key={image.url} 
-                        className={`group overflow-hidden cursor-pointer transition-all ${
-                          selectedReferenceImage === image.url
-                            ? 'ring-2 ring-blue-500 shadow-lg'
-                            : 'hover:shadow-lg'
-                        }`}
-                        onClick={() => {
-                          setSelectedReferenceImage(prev => 
-                            prev === image.url ? '' : image.url
-                          )
-                        }}
-                      >
-                        <div className="relative aspect-square">
-                          <Image
-                            src={image.url}
-                            alt="Reference image"
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 20vw"
-                          />
-                          
-                          {/* Selection overlay */}
-                          {selectedReferenceImage === image.url && (
-                            <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
-                              <div className="bg-blue-500 rounded-full p-2">
-                                <CheckCircle className="w-5 h-5 text-white" />
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Hover overlay */}
-                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                      </Card>
-                    ))}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-black flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-purple-500" />
+                      วัสดุ / ภาพสินค้า (เลือกได้หลายไฟล์)
+                    </p>
+                    <p className="text-xs text-[#8e8e93]">
+                      รองรับ JPG/PNG สามารถอัปโหลดได้หลายรูป เพื่อใช้เป็นวัสดุประกอบการสร้างภาพ
+                    </p>
                   </div>
-                  
-                  {referenceImages.length > 10 && (
-                    <div className="flex justify-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowAllReferenceImages(!showAllReferenceImages)}
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                      >
-                        {showAllReferenceImages 
-                          ? 'แสดงน้อยลง' 
-                          : `ดูทั้งหมด (${referenceImages.length} รูป)`
-                        }
-                      </Button>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={materialInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => handleMaterialUpload(event.target.files)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => materialInputRef.current?.click()}
+                      disabled={isUploadingMaterials}
+                    >
+                      <Upload className="w-4 h-4 mr-1" />
+                      {isUploadingMaterials ? "กำลังอัปโหลด..." : "อัปโหลดวัสดุ"}
+                    </Button>
+                  </div>
+                </div>
+                {loadingMaterialImages ? (
+                  <div className="flex items-center justify-center p-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-500 text-sm">กำลังโหลดวัสดุ...</span>
+                  </div>
+                ) : materialImages.length > 0 ? (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-64 overflow-y-auto pr-1">
+                      {materialImages.map((image) => {
+                        const isSelected = selectedMaterials.includes(image.url)
+                        return (
+                          <Card
+                            key={image.url}
+                            className={`group overflow-hidden cursor-pointer transition-all ${
+                              isSelected ? "ring-2 ring-purple-500 shadow-lg" : "hover:shadow-lg"
+                            }`}
+                            onClick={() => handleMaterialToggle(image.url)}
+                          >
+                            <div className="relative aspect-square">
+                              <Image
+                                src={image.url}
+                                alt="Material image"
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, 33vw"
+                              />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-purple-500/30 flex items-center justify-center">
+                                  <div className="bg-purple-500 rounded-full p-2">
+                                    <CheckCircle className="w-4 h-4 text-white" />
+                                  </div>
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </Card>
+                        )
+                      })}
                     </div>
-                  )}
+                    {materialImages.length > 0 && (
+                      <div className="text-center text-xs text-[#8e8e93]">เลื่อนเพื่อดูวัสดุทั้งหมด</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center">
+                    <p className="text-sm text-[#8e8e93]">ยังไม่มีวัสดุที่อัปโหลด</p>
+                    <p className="text-xs text-[#8e8e93] mt-1">อัปโหลดภาพสินค้าเพื่อใช้เป็น Material ในการสร้างภาพ</p>
+                  </div>
+                )}
+                <div className="text-xs text-[#6d28d9]">
+                  {selectedMaterials.length > 0
+                    ? `เลือกวัสดุแล้ว ${selectedMaterials.length} ภาพ`
+                    : "ยังไม่ได้เลือกวัสดุ (เลือกหรือไม่เลือกก็ได้)"}
                 </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <ImageIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">ยังไม่มีรูปภาพในคลัง</p>
-                  <p className="text-xs mt-1">ลองอัปโหลดรูปภาพในแท็บ "อัปโหลดรูปภาพ" ก่อน</p>
+              </Card>
+
+              <Card className="p-4 space-y-3">
+                <label className="text-sm font-medium text-black flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-blue-500" />
+                  รูปภาพอ้างอิง (เลือกจากคลัง)
+                </label>
+
+                {loadingReferenceImages ? (
+                  <div className="flex items-center justify-center p-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-500">กำลังโหลดรูปภาพ...</span>
+                  </div>
+                ) : referenceImages.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto pr-1">
+                      {referenceImages.map((image) => (
+                        <Card
+                          key={image.url}
+                          className={`group overflow-hidden cursor-pointer transition-all ${
+                            selectedReferenceImage === image.url
+                              ? "ring-2 ring-blue-500 shadow-lg"
+                              : "hover:shadow-lg"
+                          }`}
+                          onClick={() => {
+                            setSelectedReferenceImage((prev) => (prev === image.url ? "" : image.url))
+                          }}
+                        >
+                          <div className="relative aspect-video">
+                            <Image
+                              src={image.url}
+                              alt="Reference image"
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                            />
+                            {selectedReferenceImage === image.url && (
+                              <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                <div className="bg-blue-500 rounded-full p-2">
+                                  <CheckCircle className="w-4 h-4 text-white" />
+                                </div>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {referenceImages.length > 0 && (
+                      <div className="text-center text-xs text-[#8e8e93]">เลื่อนเพื่อดูรูปภาพทั้งหมด</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <ImageIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">ยังไม่มีรูปภาพในคลัง</p>
+                    <p className="text-xs mt-1">ลองอัปโหลดรูปภาพในแท็บ "อัปโหลดรูปภาพ" ก่อน</p>
+                  </div>
+                )}
+
+                <div className="text-xs text-[#2563eb]">
+                  {selectedReferenceImage
+                    ? "เลือกรูปภาพอ้างอิงแล้ว"
+                    : "ยังไม่ได้เลือกรูปภาพอ้างอิง (เลือกหรือไม่เลือกก็ได้)"}
                 </div>
-              )}
-              
-              {selectedReferenceImage && (
-                <div className="flex items-center gap-2 text-sm text-blue-500 bg-blue-50 p-2 rounded-lg border border-blue-200">
-                  <CheckCircle className="w-4 h-4" />
-                  เลือกรูปภาพอ้างอิงแล้ว
-                </div>
-              )}
+              </Card>
             </div>
           )}
 
@@ -990,7 +1355,7 @@ export function AIImageGenerator({
           {/* Generate Button */}
           <Button 
             onClick={generateImage}
-            disabled={isGenerating || !selectedTopic || !selectedReferenceImage}
+            disabled={isGenerating || !selectedTopic}
             className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? (
@@ -1050,6 +1415,11 @@ export function AIImageGenerator({
                           className="object-cover transition-transform group-hover:scale-105"
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         />
+                        {image.source && (
+                          <span className="absolute top-2 left-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide">
+                            {getSourceLabel(image.source)}
+                          </span>
+                        )}
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <div className="w-8 h-8 bg-white bg-opacity-90 rounded-full flex items-center justify-center">
@@ -1247,6 +1617,19 @@ export function AIImageGenerator({
           )}
         </DialogContent>
       </Dialog>
+
+      <EditableSavedIdeaModal
+        isOpen={topicEditModalOpen}
+        onClose={() => {
+          setTopicEditModalOpen(false)
+          setTopicBeingEdited(null)
+        }}
+        idea={convertTopicToEditableIdea(topicBeingEdited, currentClient?.clientName || activeClientName || null, selectedProductFocus)}
+        onSave={(updatedIdea) => {
+          handleTopicSave(convertEditableIdeaToTopic(updatedIdea))
+          setTopicEditModalOpen(false)
+        }}
+      />
     </div>
   )
 }
