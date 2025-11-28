@@ -516,7 +516,14 @@ export function AIImageGenerator({
         }),
       })
 
-      const result = await response.json()
+      const responseText = await response.text()
+      let result: any = null
+      try {
+        result = responseText ? JSON.parse(responseText) : {}
+      } catch (parseError) {
+        console.error("Failed to parse generate-image response:", parseError, responseText)
+        throw new Error("Invalid response from image generator")
+      }
 
       const normalizeImageEntries = (entry: any): Array<{ url: string; source?: string }> => {
         const entries: Array<{ url: string; source?: string }> = []
@@ -554,6 +561,10 @@ export function AIImageGenerator({
         }
 
         return entries
+      }
+
+      if (!response.ok) {
+        throw new Error(result?.error || `การสร้างรูปไม่สำเร็จ (${response.status})`)
       }
 
       if (result.success && result.image_url) {

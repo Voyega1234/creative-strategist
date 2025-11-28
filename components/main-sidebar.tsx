@@ -20,6 +20,8 @@ type ClientWithProductFocus = {
   }>
 }
 
+type SidebarMode = "configure" | "images"
+
 interface MainSidebarProps {
   clients: ClientWithProductFocus[]
   activeClientName: string
@@ -29,6 +31,8 @@ interface MainSidebarProps {
   activeServiceFilter?: string | null
   showSecondaryNav?: boolean
   showHistory?: boolean
+  mode?: SidebarMode
+  showServiceFilters?: boolean
 }
 
 const ALL_SERVICES_VALUE = "__all_services__"
@@ -42,6 +46,8 @@ export function MainSidebar({
   activeServiceFilter = null,
   showSecondaryNav = true,
   showHistory = true,
+  mode = "configure",
+  showServiceFilters = true,
 }: MainSidebarProps) {
   const router = useRouter()
   const [isBrandOpen, setIsBrandOpen] = useState(true)
@@ -81,14 +87,41 @@ export function MainSidebar({
     router.push(configureUrl)
   }
 
+  const buildClientUrl = (client: ClientWithProductFocus) => {
+    if (mode === "images") {
+      const firstFocus = client.productFocuses[0]
+      const params = new URLSearchParams()
+      params.set("clientName", client.clientName)
+      if (firstFocus?.productFocus) {
+        params.set("productFocus", firstFocus.productFocus)
+      }
+      params.set("clientId", firstFocus?.id || client.id)
+      return `/images?${params.toString()}`
+    }
+    const params = new URLSearchParams()
+    params.set("clientId", client.id)
+    params.set("clientName", client.clientName)
+    if (client.productFocuses[0]?.productFocus) {
+      params.set("productFocus", client.productFocuses[0].productFocus)
+    }
+    return `/configure?${params.toString()}`
+  }
+
   const handleProductFocusChange = (clientName: string, productFocus: string) => {
     const client = clients.find(c => c.clientName === clientName)
     const clientId = client?.id
-    router.push(`/configure?clientId=${clientId}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
+    if (!client || !clientId) return
+    const productFocusEntry = client.productFocuses.find((pf) => pf.productFocus === productFocus)
+    if (mode === "images") {
+      const targetId = productFocusEntry?.id || clientId
+      router.push(`/images?clientId=${targetId}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
+    } else {
+      router.push(`/configure?clientId=${clientId}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
+    }
   }
 
   const handleServiceFilterChange = (value: string) => {
-    if (!activeClientId) {
+    if (!activeClientId || mode !== "configure") {
       return
     }
 
@@ -170,7 +203,7 @@ export function MainSidebar({
                       <div key={client.id} className="space-y-1">
                         {/* Client name - always show, highlight if active */}
                         <Link
-                          href={`/configure?clientId=${client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
+                          href={buildClientUrl(client)}
                           className={`block text-sm py-1 px-2 rounded-md font-medium ${
                             client.clientName === activeClientName
                               ? 'text-[#063def] bg-[#dbeafe]'
@@ -200,34 +233,36 @@ export function MainSidebar({
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div className="ml-4 mt-3 mb-2">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93] mb-2">
-                                Services
-                              </p>
-                              {activeClientServices.length > 0 ? (
-                                <Select
-                                  value={resolvedServiceFilterValue}
-                                  onValueChange={handleServiceFilterChange}
-                                  disabled={!activeClientId}
-                                >
-                                  <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
-                                    <SelectValue placeholder="Services" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-48 overflow-y-auto">
-                                    <SelectItem value={ALL_SERVICES_VALUE} className="text-xs">
-                                      All Services
-                                    </SelectItem>
-                                    {activeClientServices.map((service) => (
-                                      <SelectItem key={service} value={service} className="text-xs">
-                                        {service}
+                            {showServiceFilters && (
+                              <div className="ml-4 mt-3 mb-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93] mb-2">
+                                  Services
+                                </p>
+                                {activeClientServices.length > 0 ? (
+                                  <Select
+                                    value={resolvedServiceFilterValue}
+                                    onValueChange={handleServiceFilterChange}
+                                    disabled={!activeClientId}
+                                  >
+                                    <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
+                                      <SelectValue placeholder="Services" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-48 overflow-y-auto">
+                                      <SelectItem value={ALL_SERVICES_VALUE} className="text-xs">
+                                        All Services
                                       </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <div className="text-xs text-[#8e8e93]">ไม่มีข้อมูลบริการ</div>
-                              )}
-                            </div>
+                                      {activeClientServices.map((service) => (
+                                        <SelectItem key={service} value={service} className="text-xs">
+                                          {service}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <div className="text-xs text-[#8e8e93]">ไม่มีข้อมูลบริการ</div>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

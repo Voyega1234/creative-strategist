@@ -1,14 +1,11 @@
 "use client"
 
 // Performance optimization for client-side rendering
-import Link from "next/link"
-import { useState, useEffect, Suspense } from "react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useState, useEffect, useMemo, Suspense } from "react"
 import { Button } from "@/components/ui/button"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ChevronUp, Plus, User, Bookmark, Settings, Upload, Image as ImageIcon, Sparkles, Images, Home } from "lucide-react"
+import { Plus, Upload, Image as ImageIcon, Sparkles, Images, Home, Bookmark } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { ImageUpload } from "@/components/image-upload"
 import { ReferenceImageSearch } from "@/components/reference-image-search"
@@ -16,6 +13,7 @@ import { AIImageGenerator } from "@/components/ai-image-generator"
 import { LoadingPopup } from "@/components/loading-popup"
 import { SavedIdeas } from "@/components/saved-ideas"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
+import { MainSidebar } from "@/components/main-sidebar"
 
 type ClientWithProductFocus = {
   id: string
@@ -31,8 +29,6 @@ function MainContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [clients, setClients] = useState<ClientWithProductFocus[]>([])
-  const [isBrandOpen, setIsBrandOpen] = useState(true)
-  const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   const [isNavigatingToHome, setIsNavigatingToHome] = useState(false)
   const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
   
@@ -41,8 +37,9 @@ function MainContent() {
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<any>(null)
   
   // Get URL parameters
-  const activeProductFocus = searchParams.get('productFocus') || null
-  const activeClientName = searchParams.get('clientName') || "No Client Selected"
+  const activeProductFocusParam = searchParams.get('productFocus') || null
+  const activeClientNameParam = searchParams.get('clientName') || "No Client Selected"
+  const activeClientIdParam = searchParams.get('clientId')
   
   useEffect(() => {
     loadClients()
@@ -61,32 +58,32 @@ function MainContent() {
     }
   }
 
-  const handleConfigureNavigation = async () => {
-    if (!activeClientName || activeClientName === "No Client Selected") {
-      alert('กรุณาเลือกลูกค้าก่อนเข้าสู่หน้าตั้งค่า')
-      return
+  const activeClientRecord = useMemo(() => {
+    if (clients.length === 0) return null
+    if (activeClientIdParam) {
+      const byProductFocus = clients.find((client) =>
+        client.productFocuses.some((pf) => pf.id === activeClientIdParam),
+      )
+      if (byProductFocus) return byProductFocus
+      const byClientId = clients.find((client) => client.id === activeClientIdParam)
+      if (byClientId) return byClientId
     }
-    
-    const selectedClient = clients.find(c => c.clientName === activeClientName)
-    if (!selectedClient) {
-      alert('ไม่พบข้อมูลลูกค้าที่เลือก')
-      return
+    if (activeClientNameParam && activeClientNameParam !== "No Client Selected") {
+      const byName = clients.find((client) => client.clientName === activeClientNameParam)
+      if (byName) return byName
     }
+    return clients[0] || null
+  }, [clients, activeClientIdParam, activeClientNameParam])
 
-    const productFocusId = selectedClient.productFocuses.find(pf => pf.productFocus === activeProductFocus)?.id
-    if (!productFocusId) {
-      alert('ไม่พบ Product Focus ที่เลือก')
-      return
-    }
+  const resolvedClientName =
+    (activeClientNameParam && activeClientNameParam !== "No Client Selected"
+      ? activeClientNameParam
+      : activeClientRecord?.clientName) || "No Client Selected"
 
-    setIsNavigatingToConfigure(true)
-    
-    try {
-      router.push(`/configure?clientId=${productFocusId}`)
-    } catch (error) {
-      setIsNavigatingToConfigure(false)
-    }
-  }
+  const resolvedProductFocus =
+    activeProductFocusParam || activeClientRecord?.productFocuses[0]?.productFocus || null
+
+  const resolvedClientId = activeClientRecord?.id || null
 
   const handleNewClientNavigation = async () => {
     setIsNavigatingToNewClient(true)
@@ -101,9 +98,19 @@ function MainContent() {
     setIsNavigatingToHome(true)
     
     try {
-      const homeUrl = activeClientName && activeClientName !== "No Client Selected" 
-        ? `/?clientId=${clients.find(c => c.clientName === activeClientName)?.productFocuses?.find(pf => pf.productFocus === activeProductFocus)?.id || clients.find(c => c.clientName === activeClientName)?.id}&clientName=${encodeURIComponent(activeClientName)}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}`
-        : '/'
+      let homeUrl = "/"
+      if (resolvedClientName && resolvedClientName !== "No Client Selected" && resolvedClientId) {
+        const targetFocus = activeClientRecord?.productFocuses.find(
+          (pf) => pf.productFocus === resolvedProductFocus,
+        )
+        const params = new URLSearchParams()
+        params.set("clientId", targetFocus?.id || resolvedClientId)
+        params.set("clientName", resolvedClientName)
+        if (resolvedProductFocus) {
+          params.set("productFocus", resolvedProductFocus)
+        }
+        homeUrl = `/?${params.toString()}`
+      }
       
       router.push(homeUrl)
     } catch (error) {
@@ -112,7 +119,11 @@ function MainContent() {
   }
 
   const handleViewSavedIdeas = () => {
-    if (!activeClientName || activeClientName === "No Client Selected" || !activeProductFocus) {
+    if (
+      !resolvedClientName ||
+      resolvedClientName === "No Client Selected" ||
+      !resolvedProductFocus
+    ) {
       alert('กรุณาเลือกลูกค้าและ Product Focus ก่อน')
       return
     }
@@ -130,118 +141,15 @@ function MainContent() {
   return (
     <div className="flex min-h-screen bg-white relative">
       <div className="flex w-full relative z-10">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-[#000000] mb-8">Creative Compass</h1>
-            <nav className="space-y-2">
-              <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    แบรนด์
-                    <ChevronUp
-                      className={`ml-auto h-4 w-4 transition-transform ${isBrandOpen ? "rotate-0" : "rotate-180"}`}
-                    />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1 pl-8 pt-2">
-                  <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                    {(() => {
-                      // Reorder clients: selected client first, then others
-                      const activeClient = clients.find(client => client.clientName === activeClientName)
-                      const otherClients = clients.filter(client => client.clientName !== activeClientName)
-                      const reorderedClients = activeClient ? [activeClient, ...otherClients] : clients
-                      
-                      return reorderedClients.map((client) => (
-                        <div key={client.id} className="space-y-1">
-                          {/* Client name - always show, highlight if active */}
-                          <Link
-                            href={`/images?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
-                            className={`block text-sm py-1 px-2 rounded-md font-medium ${
-                              client.clientName === activeClientName
-                                ? 'text-[#063def] bg-[#dbeafe]'
-                                : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
-                            }`}
-                          >
-                            {client.clientName}
-                          </Link>
-                          
-                          {/* Show product focuses ONLY for the selected/active client */}
-                          {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
-                            <div className="ml-4 space-y-1 mb-2">
-                              {client.productFocuses.map((pf) => (
-                                <Link
-                                  key={pf.id}
-                                  href={`/images?clientId=${pf.id}&productFocus=${encodeURIComponent(pf.productFocus)}&clientName=${encodeURIComponent(activeClientName)}`}
-                                  className={`block text-xs py-1 px-2 rounded-md ${
-                                    activeProductFocus === pf.productFocus
-                                      ? 'text-[#063def] bg-[#dbeafe] font-medium'
-                                      : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
-                                  }`}
-                                >
-                                  {pf.productFocus}
-                                </Link>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    })()}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </nav>
-            <div className="my-4 border-t border-[#e4e7ec]" />
-            <nav className="space-y-2">
-              <Button
-                onClick={handleHomeNavigation}
-                variant="ghost"
-                className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                disabled={isNavigatingToHome}
-              >
-                <Home className="mr-2 h-4 w-4" />
-                กลับหน้าหลัก
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-[#063def] bg-[#dbeafe] hover:bg-[#dbeafe] hover:text-[#063def]"
-                disabled
-              >
-                <Images className="mr-2 h-4 w-4" />
-                ค้นและสร้างภาพ
-              </Button>
-            </nav>
-          </div>
-          <div className="border-t border-[#e4e7ec] mt-4 pt-4">
-            <div className="flex items-center space-x-3 p-2 mb-2">
-              <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
-              <span className="text-[#000000] font-medium">Admin</span>
-            </div>
-            <Button
-              onClick={handleConfigureNavigation}
-              variant="ghost"
-              className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
-              disabled={isNavigatingToConfigure}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              ตั้งค่าและวิเคราะห์
-            </Button>
-            <Button
-              onClick={handleViewSavedIdeas}
-              variant="ghost"
-              className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
-            >
-              <Bookmark className="mr-2 h-4 w-4" />
-              รายการที่บันทึก
-            </Button>
-          </div>
-        </aside>
+        <MainSidebar
+          clients={clients}
+          activeClientName={resolvedClientName}
+          activeProductFocus={resolvedProductFocus}
+          activeClientId={resolvedClientId}
+          showHistory={false}
+          showServiceFilters={false}
+          mode="images"
+        />
 
         {/* Main Content */}
         <main className="flex-1 p-6 flex flex-col min-h-screen bg-transparent overflow-y-auto">
@@ -319,9 +227,9 @@ function MainContent() {
                   </div>
                   
                   <ReferenceImageSearch 
-                    activeClientId={clients.find(c => c.clientName === activeClientName)?.id || null}
-                    activeProductFocus={activeProductFocus}
-                    activeClientName={activeClientName}
+                    activeClientId={resolvedClientId}
+                    activeProductFocus={resolvedProductFocus}
+                    activeClientName={resolvedClientName}
                   />
                 </Card>
               </TabsContent>
@@ -341,9 +249,9 @@ function MainContent() {
                   </div>
                   
                   <AIImageGenerator 
-                    activeClientId={clients.find(c => c.clientName === activeClientName)?.id || null}
-                    activeProductFocus={activeProductFocus}
-                    activeClientName={activeClientName}
+                    activeClientId={resolvedClientId}
+                    activeProductFocus={resolvedProductFocus}
+                    activeClientName={resolvedClientName}
                   />
                 </Card>
 
@@ -375,18 +283,13 @@ function MainContent() {
         isOpen={isNavigatingToHome}
         message="กลับสู่หน้าหลัก กำลังเตรียมข้อมูลสำหรับคุณ..."
       />
-      
-      <LoadingPopup
-        isOpen={isNavigatingToConfigure}
-        message="กำลังโหลดหน้าตั้งค่าและวิเคราะห์"
-      />
 
       {/* Saved Ideas Modal */}
       <SavedIdeas 
         isOpen={savedIdeasOpen}
         onClose={() => setSavedIdeasOpen(false)}
-        activeClientName={activeClientName || undefined}
-        activeProductFocus={activeProductFocus || undefined}
+        activeClientName={resolvedClientName !== "No Client Selected" ? resolvedClientName : undefined}
+        activeProductFocus={resolvedProductFocus || undefined}
         onViewDetails={handleViewDetails}
       />
 

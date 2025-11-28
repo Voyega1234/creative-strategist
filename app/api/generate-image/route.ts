@@ -50,25 +50,30 @@ export async function POST(request: Request) {
 
     try {
       // Call N8N AI image generation webhook (no timeout)
+      const payload: Record<string, any> = {
+        prompt: prompt || "",
+        saved_ideas: selected_topics || [],
+        client: client_name || "",
+        productFocus: product_focus || "",
+        core_concept: core_concept || "",
+        topic_title: topic_title || "",
+        topic_description: topic_description || "",
+        content_pillar: content_pillar || "",
+        copywriting: copywriting || null,
+        color_palette: color_palette || [],
+        material_image_urls: material_image_urls || [],
+      }
+
+      if (reference_image_url) {
+        payload.reference_image_url = reference_image_url
+      }
+
       const webhookResponse = await fetch(N8N_AI_IMAGE_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: prompt || "",
-          saved_ideas: selected_topics || [],
-          reference_image_url: reference_image_url || null,
-          client: client_name || "",
-          productFocus: product_focus || "",
-          core_concept: core_concept || "",
-          topic_title: topic_title || "",
-          topic_description: topic_description || "",
-          content_pillar: content_pillar || "",
-          copywriting: copywriting || null,
-          color_palette: color_palette || [],
-          material_image_urls: material_image_urls || [],
-        }),
+        body: JSON.stringify(payload),
       });
 
       // Check webhook response
@@ -78,7 +83,18 @@ export async function POST(request: Request) {
         throw new Error(`N8N webhook error: ${webhookResponse.status}`);
       }
 
-      const rawResponse = await webhookResponse.json();
+      const responseBody = await webhookResponse.text();
+      let rawResponse: any = null
+      if (responseBody) {
+        try {
+          rawResponse = JSON.parse(responseBody)
+        } catch (parseError) {
+          console.error("[generate-image] Failed to parse JSON from n8n:", parseError, responseBody)
+          throw new Error("Image generator returned invalid JSON")
+        }
+      } else {
+        throw new Error("Image generator returned empty response")
+      }
       console.log('[generate-image] Raw n8n response type:', typeof rawResponse);
       console.log('[generate-image] Raw n8n response is array:', Array.isArray(rawResponse));
       console.log('[generate-image] Raw n8n response length:', rawResponse?.length);
