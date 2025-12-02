@@ -34,14 +34,14 @@ export async function getResearchMarketData(clientName: string, productFocus: st
       .select("*")
       .eq("client_name", clientName)
       .eq("product_focus", productFocus)
-      .single()
+      .maybeSingle()
 
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
       console.error("Error fetching research market data:", error)
       return null
     }
 
-    return data as ResearchMarketData
+    return data as ResearchMarketData | null
   }, 5 * 60 * 1000)
 }
 
@@ -55,7 +55,7 @@ export async function getResearchMarketDataByRunId(analysisRunId: string): Promi
       .from("Clients")
       .select("clientName, productFocus")
       .eq("id", analysisRunId)
-      .single()
+      .maybeSingle()
 
     if (analysisError || !analysisRun) {
       console.error("Error fetching analysis run:", analysisError)

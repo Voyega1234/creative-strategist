@@ -17,8 +17,7 @@ export async function POST(request: Request) {
     }
 
     // Call N8N webhook for Facebook analysis
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://n8n.srv934175.hstgr.cloud';
-    const N8N_WEBHOOK_URL = `${baseUrl}/webhook/b14e5c79-4730-4e9c-8708-092875053f3a`;
+    const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/6c2ebd81-8085-43d3-b315-e221f7339194';
     
     console.log('Calling N8N webhook for Facebook analysis...');
     
@@ -43,38 +42,41 @@ export async function POST(request: Request) {
     const n8nData = await n8nResponse.json();
     console.log('N8N response:', n8nData);
     
-    // Handle both array format and single object format
-    let analysisData;
-    if (Array.isArray(n8nData)) {
-      if (n8nData.length === 0) {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'No data received from analysis service' 
-        }, { status: 500 });
-      }
-      analysisData = n8nData[0];
-    } else if (typeof n8nData === 'object' && n8nData !== null) {
-      // Direct object response
-      analysisData = n8nData;
-    } else {
+    const analysisData = Array.isArray(n8nData) ? n8nData[0] : n8nData;
+    if (!analysisData || typeof analysisData !== 'object') {
       return NextResponse.json({ 
         success: false, 
         error: 'Invalid response format from analysis service' 
       }, { status: 500 });
     }
-    
-    if (!analysisData.clientname || !Array.isArray(analysisData.list_product)) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Missing required data in analysis response' 
-      }, { status: 500 });
-    }
+
+    const summary = typeof analysisData.summary_competitor === 'string' ? analysisData.summary_competitor : '';
+    const competitors = Array.isArray(analysisData.competitors) ? analysisData.competitors : [];
+    const primaryCompetitor = competitors[0] || {};
+
+    const extractStrings = (value: unknown): string[] => {
+      if (Array.isArray(value)) {
+        return value
+          .map(item => typeof item === 'string' ? item.trim() : null)
+          .filter((item): item is string => !!item);
+      }
+      if (typeof value === 'string') {
+        return value.trim() ? [value.trim()] : [];
+      }
+      return [];
+    };
+
+    const productCandidates = [
+      ...extractStrings(primaryCompetitor.services),
+      ...extractStrings(primaryCompetitor.serviceCategories)
+    ];
 
     return NextResponse.json({ 
       success: true,
       data: {
-        clientName: analysisData.clientname,
-        products: analysisData.list_product
+        clientName: typeof primaryCompetitor.name === 'string' ? primaryCompetitor.name : 'Facebook Page',
+        products: productCandidates,
+        summary
       }
     });
 

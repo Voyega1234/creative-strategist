@@ -88,22 +88,28 @@ export async function POST(request: Request) {
     
     const { clientName, facebookUrl: clientFacebookUrl, websiteUrl: clientWebsiteUrl, market, productFocus, additionalInfo, userCompetitors, ad_account_id } = body;
     
+    const normalizedClientName = (clientName ?? '').trim();
+    const normalizedMarket = (market ?? '').trim();
+    const normalizedProductFocus = (productFocus ?? '').trim();
+    const normalizedAdditionalInfo = (additionalInfo ?? '').trim();
+    const normalizedUserCompetitors = (userCompetitors ?? '').trim();
+    
     const analysisInput = {
-      clientName,
+      clientName: normalizedClientName || 'Facebook Page',
       clientWebsiteUrl,
       clientFacebookUrl,
-      market,
-      productFocus,
-      additionalInfo,
-      userCompetitors,
+      market: normalizedMarket || 'Thailand',
+      productFocus: normalizedProductFocus || 'General',
+      additionalInfo: normalizedAdditionalInfo,
+      userCompetitors: normalizedUserCompetitors,
       timestamp: new Date().toISOString(),
     };
     
     console.log('[competitor-research] Processed analysis input:', analysisInput);
-    
-    if (!clientName || !market) {
-      console.error('Client name and market are required from form data');
-      return NextResponse.json({ success: false, error: 'Client name and target market are required' }, { status: 400 });
+
+    if (!clientFacebookUrl || !clientFacebookUrl.trim()) {
+      console.error('Facebook URL is required from form data');
+      return NextResponse.json({ success: false, error: 'Facebook page URL is required' }, { status: 400 });
     }
     
     // --- Call N8N Webhook ---
@@ -117,13 +123,14 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          clientName,
-          productFocus,
-          market,
-          additionalInfo,
+          clientName: analysisInput.clientName,
+          productFocus: analysisInput.productFocus,
+          market: analysisInput.market,
+          additionalInfo: analysisInput.additionalInfo,
           website: clientWebsiteUrl,
+          facebook_url: clientFacebookUrl,
           ad_account_id,
-          known_competitors: userCompetitors
+          known_competitors: analysisInput.userCompetitors
         }),
       });
 
@@ -149,6 +156,24 @@ export async function POST(request: Request) {
     }
     // --- End API Call ---
     
+    const resolvedClientName =
+      typeof parsedData?.client_name === 'string'
+        ? parsedData.client_name.trim()
+        : '';
+
+    const resolvedProductFocus =
+      typeof parsedData?.product_focus === 'string'
+        ? parsedData.product_focus.trim()
+        : '';
+
+    if (!resolvedClientName || !resolvedProductFocus) {
+      console.error('[competitor-research] Missing client_name or product_focus from n8n response');
+      return NextResponse.json({
+        success: false,
+        error: 'Analysis service did not return a client name/product focus. Please try again.'
+      }, { status: 502 });
+    }
+
     // --- Process N8N Output --- 
     // Extract client data and filter out client from competitors
     // Since client is always the first index, we'll extract it directly
@@ -219,6 +244,15 @@ export async function POST(request: Request) {
       };
     }).filter(comp => comp.name !== 'Unknown Competitor');
 
+    if (processedCompetitors.length > 0) {
+      processedCompetitors[0] = {
+        ...processedCompetitors[0],
+        name: resolvedClientName,
+        facebookUrl: ensureAbsoluteUrl(clientFacebookUrl),
+        website: ensureAbsoluteUrl(clientWebsiteUrl),
+      };
+    }
+
     console.log(`[competitor-research] Processed ${processedCompetitors.length} competitors.`);
 
     // --- Save to Database --- 
@@ -229,11 +263,11 @@ export async function POST(request: Request) {
         // 1. Insert Clients 
         const analysisRunData = {
             id: uuidv4(),
-            clientName: analysisInput.clientName,
+            clientName: resolvedClientName,
             clientWebsiteUrl: analysisInput.clientWebsiteUrl,
             clientFacebookUrl: analysisInput.clientFacebookUrl,
             market: analysisInput.market,
-            productFocus: analysisInput.productFocus,
+            productFocus: resolvedProductFocus,
             additionalInfo: analysisInput.additionalInfo,
             ad_account_id: ad_account_id,
             timestamp: analysisInput.timestamp,
@@ -318,52 +352,50 @@ export async function POST(request: Request) {
 
     // --- Generate Strategic Insights ---
     let strategicInsightsGenerated = false;
-    try {
-      console.log('[competitor-research] Generating strategic insights using Gemini API...');
-      
-      // Debug: Check environment variable value
-      console.log('[competitor-research] NEXT_PUBLIC_BASE_URL:', process.env.NEXT_PUBLIC_BASE_URL);
-      
-      // Get base URL from request headers (reliable in any environment)
-      const host = request.headers.get('host');
-      const protocol = request.headers.get('x-forwarded-proto') || 'https';
-      const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001');
-      console.log('[competitor-research] Detected baseUrl:', baseUrl);
-      
-      // Use the existing google_research API logic internally instead of webhook
-      const googleResearchUrl = `${baseUrl}/api/google_research?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`;
-      console.log('[competitor-research] GOOGLE_RESEARCH_URL:', googleResearchUrl);
-      console.log('[competitor-research] Raw parameters - clientName:', clientName, 'productFocus:', productFocus);
-      console.log('[competitor-research] Encoded parameters - clientName:', encodeURIComponent(clientName), 'productFocus:', encodeURIComponent(productFocus));
-      
-      console.log('[competitor-research] Calling Google research API with URL:', googleResearchUrl);
-      
-      const googleResearchResponse = await fetch(googleResearchUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('[competitor-research] Google research API response status:', googleResearchResponse.status);
-
-      if (googleResearchResponse.ok) {
-        const responseData = await googleResearchResponse.json();
-        console.log('[competitor-research] Google research API response:', responseData);
-        console.log('[competitor-research] Successfully generated strategic insights via google_research API');
-        strategicInsightsGenerated = true;
-      } else {
-        const errorText = await googleResearchResponse.text();
-        console.error('[competitor-research] Strategic insights generation failed:', {
-          status: googleResearchResponse.status,
-          statusText: googleResearchResponse.statusText,
-          error: errorText,
-          url: googleResearchUrl
+    if (newRunId) {
+      try {
+        console.log('[competitor-research] Generating strategic insights using Gemini API...');
+        
+        const host = request.headers.get('host');
+        const protocol = request.headers.get('x-forwarded-proto') || 'https';
+        const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001');
+        console.log('[competitor-research] Detected baseUrl:', baseUrl);
+        
+        const googleResearchUrl = `${baseUrl}/api/google_research`;
+        console.log('[competitor-research] GOOGLE_RESEARCH_URL:', googleResearchUrl);
+        console.log('[competitor-research] Payload - clientName:', resolvedClientName, 'productFocus:', resolvedProductFocus, 'runId:', newRunId);
+        
+        const googleResearchResponse = await fetch(googleResearchUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clientName: resolvedClientName,
+            productFocus: resolvedProductFocus,
+            runId: newRunId
+          })
         });
+
+        console.log('[competitor-research] Google research API response status:', googleResearchResponse.status);
+
+        if (googleResearchResponse.ok) {
+          const responseData = await googleResearchResponse.json();
+          console.log('[competitor-research] Google research API response:', responseData);
+          console.log('[competitor-research] Successfully generated strategic insights via google_research API');
+          strategicInsightsGenerated = true;
+        } else {
+          const errorText = await googleResearchResponse.text();
+          console.error('[competitor-research] Strategic insights generation failed:', {
+            status: googleResearchResponse.status,
+            statusText: googleResearchResponse.statusText,
+            error: errorText,
+            url: googleResearchUrl
+          });
+        }
+      } catch (strategicInsightsError: any) {
+        console.error('[competitor-research] Error generating strategic insights:', strategicInsightsError);
       }
-    } catch (strategicInsightsError: any) {
-      console.error('[competitor-research] Error generating strategic insights:', strategicInsightsError);
-      // Don't fail the whole process, just log the error
     }
 
     // Return success response
@@ -371,6 +403,8 @@ export async function POST(request: Request) {
       success: true,
       competitors: processedCompetitors,
       analysisRunId: newRunId,
+      clientName: resolvedClientName,
+      productFocus: resolvedProductFocus,
       strategicInsightsGenerated
     });
 

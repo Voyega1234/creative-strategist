@@ -4,20 +4,13 @@ import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowRight, ArrowLeft, HelpCircle, RefreshCcw, Plus, X } from "lucide-react"
+import { ArrowRight, ArrowLeft, HelpCircle, ChevronDown } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
 import { getClients } from "@/lib/data/clients"
 import { useRouter } from "next/navigation"
 import { LoadingPopup } from "@/components/loading-popup"
-
-type FacebookAnalysisData = {
-  clientName: string;
-  products: string[];
-}
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 export default function NewClientPage() {
   const [clients, setClients] = useState<{ id: string; clientName: string }[]>([])
@@ -34,16 +27,7 @@ export default function NewClientPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [adAccountError, setAdAccountError] = useState("")
   const [showProductFocusTooltip, setShowProductFocusTooltip] = useState(false)
-  
-  // New state for Facebook analysis mode
-  const [useAdvancedMode, setUseAdvancedMode] = useState(false)
-  const [simpleFacebookUrl, setSimpleFacebookUrl] = useState("")
-  const [isAnalyzingFacebook, setIsAnalyzingFacebook] = useState(false)
-  const [facebookAnalysisData, setFacebookAnalysisData] = useState<FacebookAnalysisData | null>(null)
-  const [selectedProduct, setSelectedProduct] = useState("")
-  const [facebookAnalysisError, setFacebookAnalysisError] = useState("")
-  const [customProductInput, setCustomProductInput] = useState("")
-  const [customProducts, setCustomProducts] = useState<string[]>([])
+  const [showOptionalFields, setShowOptionalFields] = useState(false)
   const [isNavigatingToClient, setIsNavigatingToClient] = useState(false)
   
   const router = useRouter()
@@ -131,131 +115,42 @@ export default function NewClientPage() {
     }
   }
 
-  // Facebook analysis function
-  const handleAnalyzeFacebook = async () => {
-    if (!simpleFacebookUrl.trim()) {
-      setFacebookAnalysisError("กรุณาใส่ URL Facebook Page")
+  const handleCreateNewClient = async () => {
+    const trimmedFacebookUrl = formData.facebookUrl.trim()
+    if (!trimmedFacebookUrl) {
+      alert("กรุณาใส่ลิงก์ Facebook Page")
       return
     }
 
-    setIsAnalyzingFacebook(true)
-    setFacebookAnalysisError("")
-    
-    try {
-      const response = await fetch('/api/facebook-analysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          facebook_url: simpleFacebookUrl.trim()
-        }),
-      })
-
-      const result = await response.json()
-      
-      if (result.success) {
-        setFacebookAnalysisData(result.data)
-        setSelectedProduct("") // Reset selection
-      } else {
-        setFacebookAnalysisError(result.error || "ไม่สามารถวิเคราะห์ Facebook Page ได้")
-      }
-    } catch (error) {
-      console.error('Error analyzing Facebook:', error)
-      setFacebookAnalysisError("เกิดข้อผิดพลาดในการวิเคราะห์ Facebook Page")
-    }
-    
-    setIsAnalyzingFacebook(false)
-  }
-
-  // Reset function when switching modes
-  const handleModeChange = (checked: boolean) => {
-    setUseAdvancedMode(checked)
-    // Reset all form states when switching
-    setSimpleFacebookUrl("")
-    setFacebookAnalysisData(null)
-    setSelectedProduct("")
-    setFacebookAnalysisError("")
-    setCustomProductInput("")
-    setCustomProducts([])
-    setFormData({
-      clientName: "",
-      websiteUrl: "",
-      facebookUrl: "",
-      market: "Thailand",
-      productFocus: "",
-      additionalInfo: "",
-      userCompetitors: "",
-      ad_account_id: ""
-    })
-  }
-
-  const handleAddCustomProduct = () => {
-    if (customProductInput.trim() && !customProducts.includes(customProductInput.trim())) {
-      const newCustomProduct = customProductInput.trim()
-      setCustomProducts(prev => [...prev, newCustomProduct])
-      setSelectedProduct(newCustomProduct)
-      setCustomProductInput("")
-    }
-  }
-
-  const handleRemoveCustomProduct = (productToRemove: string) => {
-    setCustomProducts(prev => prev.filter(product => product !== productToRemove))
-    if (selectedProduct === productToRemove) {
-      setSelectedProduct("")
-    }
-  }
-
-  const getAllAvailableProducts = () => {
-    const facebookProducts = facebookAnalysisData?.products || []
-    return [...facebookProducts, ...customProducts]
-  }
-
-  const handleCreateNewClient = async () => {
-    let clientData;
-    
-    if (useAdvancedMode) {
-      // Advanced mode - use manual form data
-      if (!formData.clientName || !formData.market || !formData.productFocus) {
-        alert("กรุณากรอกข้อมูลที่จำเป็น: ชื่อลูกค้า, ตลาดเป้าหมาย, และสินค้าหรือบริการที่สนใจ")
+    let validatedAdAccountId = null
+    if (formData.ad_account_id) {
+      try {
+        validatedAdAccountId = validateAndFormatAdAccountId(formData.ad_account_id)
+      } catch (error: any) {
+        alert(error.message)
         return
       }
+    }
 
-      let validatedAdAccountId = null
-      if (formData.ad_account_id) {
-        try {
-          validatedAdAccountId = validateAndFormatAdAccountId(formData.ad_account_id)
-        } catch (error: any) {
-          alert(error.message)
-          return
-        }
-      }
+    const trimmedClientName = formData.clientName.trim()
+    const trimmedProductFocus = formData.productFocus.trim()
+    const resolvedMarket = formData.market.trim() || 'Thailand'
+    const resolvedAdditionalInfo = formData.additionalInfo.trim()
+    const resolvedWebsite = formData.websiteUrl.trim()
+    const resolvedCompetitors = formData.userCompetitors.trim()
 
-      clientData = {
-        ...formData,
-        ad_account_id: validatedAdAccountId
-      }
-    } else {
-      // Simple mode - use Facebook analysis data
-      if (!facebookAnalysisData || !selectedProduct) {
-        alert("กรุณาเลือกสินค้าหรือบริการที่ต้องการวิเคราะห์")
-        return
-      }
-
-      clientData = {
-        clientName: facebookAnalysisData.clientName,
-        websiteUrl: "",
-        facebookUrl: simpleFacebookUrl,
-        market: "Thailand",
-        productFocus: selectedProduct,
-        additionalInfo: "",
-        userCompetitors: "",
-        ad_account_id: null
-      }
+    const clientData = {
+      clientName: trimmedClientName,
+      websiteUrl: resolvedWebsite,
+      facebookUrl: trimmedFacebookUrl,
+      market: resolvedMarket,
+      productFocus: trimmedProductFocus,
+      additionalInfo: resolvedAdditionalInfo,
+      userCompetitors: resolvedCompetitors,
+      ad_account_id: validatedAdAccountId
     }
 
     console.log('[new-client] Sending client data to competitor-research API:', clientData);
-    console.log('[new-client] Mode:', useAdvancedMode ? 'Advanced' : 'Facebook');
     
     setIsCreating(true)
     
@@ -278,31 +173,21 @@ export default function NewClientPage() {
         playNotificationSound()
         alert(insightsStatus)
         
-        // Clear the clients cache completely for the main page
         try {
           console.log('Clearing client cache after new client creation...');
           await fetch('/api/clients-with-product-focus', { method: 'POST' });
-          console.log('Client cache cleared successfully');
-          
-          // Small delay to ensure cache is fully cleared
+          console.log('Client.cache cleared successfully');
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           console.warn('Failed to clear client cache:', error);
         }
         
-        // Construct proper URL with clientName and productFocus
         let destination = `/configure`
+        const responseClientName = result.clientName || trimmedClientName || 'Facebook Page'
+        const responseProductFocus = result.productFocus || trimmedProductFocus || 'General'
         
         if (result.analysisRunId) {
-          const clientName = useAdvancedMode ? formData.clientName : facebookAnalysisData?.clientName
-          const productFocus = useAdvancedMode ? formData.productFocus : selectedProduct
-          
-          if (clientName && productFocus) {
-            destination = `/configure?clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`
-          } else {
-            // Fallback to clientId if we don't have name/productFocus
-            destination = `/configure?clientId=${result.analysisRunId}`
-          }
+          destination = `/configure?clientId=${result.analysisRunId}&clientName=${encodeURIComponent(responseClientName)}&productFocus=${encodeURIComponent(responseProductFocus)}`
         }
         
         router.push(destination)
@@ -316,6 +201,8 @@ export default function NewClientPage() {
     
     setIsCreating(false)
   }
+
+
 
   const handleClientSelection = async (clientId: string) => {
     setIsNavigatingToClient(true)
@@ -457,421 +344,179 @@ export default function NewClientPage() {
               </TabsList>
 
               <TabsContent value="new-client">
-                {/* Mode Toggle */}
-                <div className="flex items-center justify-center mb-6 p-4 bg-[#eff6ff] rounded-lg border border-[#dbeafe]">
-                  <Label htmlFor="advanced-mode" className="text-sm font-medium text-[#535862] mr-3">
-                    โหมดง่าย (Facebook)
-                  </Label>
-                  <Switch
-                    id="advanced-mode"
-                    checked={useAdvancedMode}
-                    onCheckedChange={handleModeChange}
-                    disabled={isCreating || isAnalyzingFacebook}
-                  />
-                  <Label htmlFor="advanced-mode" className="text-sm font-medium text-[#535862] ml-3">
-                    โหมดขั้นสูง
-                  </Label>
-                </div>
-
-                {/* Simple Mode - Facebook URL Input */}
-                {!useAdvancedMode ? (
-                  <div className="space-y-6">
-                    {/* Step 1: Facebook URL Input */}
-                    <div className="text-center">
-                      <h3 className="text-lg font-semibold text-[#535862] mb-2">
-                        ใส่ลิงก์ Facebook Page ของคุณ
-                      </h3>
-                      <p className="text-[#8e8e93] mb-4">
-                        เราจะวิเคราะห์ข้อมูลบริษัทและสินค้าจาก Facebook Page ของคุณ
-                      </p>
-                    </div>
-
-                    <div className="max-w-2xl mx-auto">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-[#535862] mb-2">
-                            Facebook Page URL <span className="text-red-500">*</span>
-                          </label>
-                          <div className="flex gap-3">
-                            <Input
-                              type="url"
-                              placeholder="https://www.facebook.com/your-page"
-                              className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors flex-1"
-                              value={simpleFacebookUrl}
-                              onChange={(e) => setSimpleFacebookUrl(e.target.value)}
-                              disabled={isAnalyzingFacebook || isCreating}
-                            />
-                            <Button
-                              onClick={handleAnalyzeFacebook}
-                              disabled={isAnalyzingFacebook || isCreating || !simpleFacebookUrl.trim()}
-                              className="bg-[#1d4ed8] text-white hover:bg-[#063def] px-6 h-12 whitespace-nowrap"
-                            >
-                              {isAnalyzingFacebook ? (
-                                <>
-                                  <RefreshCcw className="w-4 h-4 mr-2 animate-spin" />
-                                  วิเคราะห์...
-                                </>
-                              ) : (
-                                'วิเคราะห์'
-                              )}
-                            </Button>
-                          </div>
-                          {facebookAnalysisError && (
-                            <p className="text-red-500 text-sm mt-2">{facebookAnalysisError}</p>
-                          )}
-                        </div>
-
-                        {/* Step 2: Show Company Info and Product Selection */}
-                        {facebookAnalysisData && (
-                          <div className="space-y-6 animate-in fade-in-0 slide-in-from-top-4 duration-300">
-                            {/* Company Info Display */}
-                            <Card className="border-[#dbeafe] bg-[#eff6ff]">
-                              <CardContent className="p-6">
-                                <h4 className="text-lg font-semibold text-[#063def] mb-2">
-                                  ข้อมูลบริษัทที่วิเคราะห์ได้
-                                </h4>
-                                <p className="text-[#535862] text-base">
-                                  <span className="font-medium">ชื่อบริษัท:</span> {facebookAnalysisData.clientName}
-                                </p>
-                              </CardContent>
-                            </Card>
-
-                            {/* Product Selection */}
-                            <div>
-                              <h4 className="text-lg font-semibold text-[#535862] mb-4">
-                                เลือกสินค้าหรือบริการที่ต้องการวิเคราะห์คู่แข่ง <span className="text-red-500">*</span>
-                              </h4>
-                              
-                              {/* Custom Product Input */}
-                              <div className="mb-4 p-4 border border-[#e4e7ec] rounded-lg bg-[#fafafa]">
-                                <h5 className="text-sm font-medium text-[#535862] mb-2">
-                                  เพิ่มสินค้าหรือบริการของคุณเอง
-                                </h5>
-                                <div className="flex gap-2">
-                                  <Input
-                                    type="text"
-                                    placeholder="เช่น การซื้อขายทอง, บริการลงทุน, กาแฟ"
-                                    className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors flex-1"
-                                    value={customProductInput}
-                                    onChange={(e) => setCustomProductInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        handleAddCustomProduct()
-                                      }
-                                    }}
-                                  />
-                                  <Button
-                                    onClick={handleAddCustomProduct}
-                                    disabled={!customProductInput.trim()}
-                                    className="bg-[#1d4ed8] text-white hover:bg-[#063def] px-4 h-10"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* All Available Products */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {getAllAvailableProducts().length === 0 ? (
-                                  <div className="col-span-full text-center py-8 text-[#8e8e93]">
-                                    <p className="mb-2">ยังไม่มีสินค้าหรือบริการในรายการ</p>
-                                    <p className="text-sm">โปรดเพิ่มสินค้าหรือบริการที่คุณต้องการวิเคราะห์ด้านบน</p>
-                                  </div>
-                                ) : (
-                                  getAllAvailableProducts().map((product, index) => {
-                                  const isCustomProduct = customProducts.includes(product)
-                                  return (
-                                    <Card 
-                                      key={`${isCustomProduct ? 'custom' : 'facebook'}-${index}`}
-                                      className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                                        selectedProduct === product
-                                          ? 'border-[#7f56d9] bg-[#eff6ff] shadow-sm'
-                                          : 'border-[#e4e7ec] hover:border-[#b692f6]'
-                                      }`}
-                                      onClick={() => setSelectedProduct(product)}
-                                    >
-                                      <CardContent className="p-4">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center space-x-3 flex-1">
-                                            <div className={`w-4 h-4 rounded-full border-2 transition-colors ${
-                                              selectedProduct === product
-                                                ? 'border-[#7f56d9] bg-[#1d4ed8]'
-                                                : 'border-[#d1d1d6]'
-                                            }`}>
-                                              {selectedProduct === product && (
-                                                <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></div>
-                                              )}
-                                            </div>
-                                            <div className="flex-1">
-                                              <span className={`text-base ${
-                                                selectedProduct === product
-                                                  ? 'text-[#063def] font-medium'
-                                                  : 'text-[#535862]'
-                                              }`}>
-                                                {product}
-                                              </span>
-                                              {isCustomProduct && (
-                                                <span className="text-xs text-[#8e8e93] block">
-                                                  (เพิ่มโดยคุณ)
-                                                </span>
-                                              )}
-                                            </div>
-                                          </div>
-                                          {isCustomProduct && (
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              className="h-6 w-6 p-0 text-[#ef4444] hover:text-[#dc2626] hover:bg-red-50"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleRemoveCustomProduct(product)
-                                              }}
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  )
-                                })
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Submit Button */}
-                            <div className="pt-4">
-                              <Button
-                                className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#1d4ed8] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
-                                onClick={handleCreateNewClient}
-                                disabled={isCreating || !selectedProduct}
-                              >
-                                {isCreating ? (
-                                  <>
-                                    <div className="flex flex-col items-center justify-center">
-                                      <div className="flex items-center mb-2">
-                                        <div className="flex space-x-1 mr-3">
-                                          <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                          <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                          <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                                        </div>
-                                        <span className="animate-pulse">กำลังประมวลผล</span>
-                                      </div>
-                                      <span className="text-xs text-white/80">
-                                        กระบวนการนี้จะใช้เวลาประมาณ 5-10 นาที
-                                      </span>
-                                    </div>
-                                    <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
-                                      <div className="h-full bg-white animate-pulse" style={{ 
-                                        width: '100%',
-                                        animation: 'progress 3s ease-in-out infinite'
-                                      }}></div>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="group-hover:translate-x-1 transition-transform duration-200">
-                                      เริ่มวิเคราะห์คู่แข่ง
-                                    </span>
-                                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Advanced Mode - Original Form */
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Column */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
-                        ชื่อลูกค้า <span className="text-red-500">*</span>
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="กรอกชื่อลูกค้า"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
-                        value={formData.clientName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, clientName: e.target.value }))}
-                        disabled={isCreating}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
-                        ตลาดเป้าหมาย <span className="text-red-500">*</span>
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="เช่น ประเทศไทย, สิงคโปร์, มาเลเซีย"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
-                        value={formData.market}
-                        onChange={(e) => setFormData(prev => ({ ...prev, market: e.target.value }))}
-                        disabled={isCreating}
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center mb-1.5">
-                        <label className="block text-sm font-medium text-[#535862]">
-                          สินค้าหรือบริการที่สนใจ <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative ml-2">
-                          <HelpCircle 
-                            className="h-4 w-4 text-[#8e8e93] cursor-help hover:text-[#7f56d9] transition-colors"
-                            onMouseEnter={() => setShowProductFocusTooltip(true)}
-                            onMouseLeave={() => setShowProductFocusTooltip(false)}
-                          />
-                          {showProductFocusTooltip && (
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg whitespace-nowrap z-10">
-                              สินค้าหรือบริการที่ต้องการวิเคราะห์คู่แข่ง
-                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <Input
-                        type="text"
-                        placeholder="เช่น การซื้อขายทอง, บริการลงทุน, กาแฟ, เสื้อผ้า"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
-                        value={formData.productFocus}
-                        onChange={(e) => setFormData(prev => ({ ...prev, productFocus: e.target.value }))}
-                        disabled={isCreating}
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
-                        เว็บไซต์
-                      </label>
-                      <Input
-                        type="url"
-                        placeholder="https://example.com"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
-                        value={formData.websiteUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, websiteUrl: e.target.value }))}
-                        disabled={isCreating}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
-                        เพจ Facebook
-                      </label>
-                      <Input
-                        type="url"
-                        placeholder="ลิงก์เพจ Facebook"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
-                        value={formData.facebookUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, facebookUrl: e.target.value }))}
-                        disabled={isCreating}
-                      />
-                    </div>
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-[#535862] mb-1.5">
+                      Facebook Page URL <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="url"
+                      placeholder="https://www.facebook.com/your-page"
+                      className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-12 text-base transition-colors"
+                      value={formData.facebookUrl}
+                      onChange={(e) => setFormData(prev => ({ ...prev, facebookUrl: e.target.value }))}
+                      disabled={isCreating}
+                    />
+                    <p className="text-sm text-[#8e8e93] mt-2">
+                      ฟีลด์อื่น ๆ ด้านล่างเป็นตัวเลือก หากกรอก AI จะใช้ช่วยวิเคราะห์เพิ่มเติม
+                    </p>
                   </div>
 
-                  {/* Right Column */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
-                        ข้อมูลเพิ่มเติม
-                      </label>
-                      <Textarea
-                        placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับลูกค้า..."
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
-                        rows={3}
-                        value={formData.additionalInfo}
-                        onChange={(e) => setFormData(prev => ({ ...prev, additionalInfo: e.target.value }))}
-                        disabled={isCreating}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
-                        คู่แข่งที่ทราบ
-                      </label>
-                      <Textarea
-                        placeholder="ชื่อคู่แข่ง (คั่นด้วยเครื่องหมายจุลภาค)"
-                        className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
-                        rows={3}
-                        value={formData.userCompetitors}
-                        onChange={(e) => setFormData(prev => ({ ...prev, userCompetitors: e.target.value }))}
-                        disabled={isCreating}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[#535862] mb-1.5">
-                        รหัสบัญชีโฆษณา
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="act_1234567890123456 (ไม่บังคับ)"
-                        className={`border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors ${
-                          adAccountError ? '!border-red-500 !focus:border-red-500 !focus:ring-red-500/20' : ''
-                        }`}
-                        value={formData.ad_account_id}
-                        onChange={(e) => handleAdAccountChange(e.target.value)}
-                        disabled={isCreating}
-                      />
-                      {adAccountError && (
-                        <p className="text-red-500 text-sm mt-1">{adAccountError}</p>
-                      )}
-                    </div>
-
-                    <div className="pt-4">
-                      <Button
-                        className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#1d4ed8] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
-                        onClick={handleCreateNewClient}
-                        disabled={isCreating}
+                  <Collapsible open={showOptionalFields} onOpenChange={setShowOptionalFields}>
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full flex items-center justify-between border border-dashed border-[#dbeafe] rounded-lg px-4 py-3 text-sm.font-medium text-[#1d4ed8] bg-[#f8fbff] hover:bg-[#eff6ff] transition-colors"
                       >
-                        {isCreating ? (
-                          <>
-                            <div className="flex flex-col items-center justify-center">
-                              <div className="flex items-center mb-2">
-                                {/* Animated dots */}
-                                <div className="flex space-x-1 mr-3">
-                                  <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                  <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                  <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                                </div>
-                                <span className="animate-pulse">กำลังประมวลผล</span>
+                        <span>{showOptionalFields ? 'Hide Optional Details' : 'Optional Customer Details'}</span>
+                        <ChevronDown className={`w-4 h-4 transition-transform ${showOptionalFields ? 'rotate-180' : ''}`} />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-3 border border-[#e4e7ec] rounded-lg p-4 bg-white space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-[#535862] mb-1.5">ชื่อลูกค้า</label>
+                        <Input
+                          type="text"
+                          placeholder="กรอกชื่อลูกค้า"
+                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
+                          value={formData.clientName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, clientName: e.target.value }))}
+                          disabled={isCreating}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[#535862] mb-1.5">ตลาดเป้าหมาย</label>
+                        <Input
+                          type="text"
+                          placeholder="เช่น ประเทศไทย, สิงคโปร์, มาเลเซีย"
+                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
+                          value={formData.market}
+                          onChange={(e) => setFormData(prev => ({ ...prev, market: e.target.value }))}
+                          disabled={isCreating}
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center mb-1.5">
+                          <label className="block text-sm font-medium text-[#535862]">สินค้าหรือบริการที่สนใจ</label>
+                          <div className="relative ml-2">
+                            <HelpCircle
+                              className="h-4 w-4 text-[#8e8e93] cursor-help hover:text-[#7f56d9] transition-colors"
+                              onMouseEnter={() => setShowProductFocusTooltip(true)}
+                              onMouseLeave={() => setShowProductFocusTooltip(false)}
+                            />
+                            {showProductFocusTooltip && (
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-sm text-white bg-gray-800 rounded-lg shadow-lg whitespace-nowrap z-10">
+                                สินค้าหรือบริการที่ต้องการวิเคราะห์คู่แข่ง
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
                               </div>
-                              <span className="text-xs text-white/80">
-                                กระบวนการนี้จะใช้เวลาประมาณ 5-10 นาที
-                              </span>
-                            </div>
-                            {/* Progress bar animation */}
-                            <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
-                              <div className="h-full bg-white animate-pulse" style={{ 
-                                width: '100%',
-                                animation: 'progress 3s ease-in-out infinite'
-                              }}></div>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <span className="group-hover:translate-x-1 transition-transform duration-200">
-                              เริ่มวิเคราะห์คู่แข่ง
-                            </span>
-                            <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-                            {/* Hover effect background */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                          </>
+                            )}
+                          </div>
+                        </div>
+                        <Input
+                          type="text"
+                          placeholder="เช่น การซื้อขายทอง, บริการลงทุน, กาแฟ, เสื้อผ้า"
+                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
+                          value={formData.productFocus}
+                          onChange={(e) => setFormData(prev => ({ ...prev, productFocus: e.target.value }))}
+                          disabled={isCreating}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[#535862] mb-1.5">เว็บไซต์</label>
+                        <Input
+                          type="url"
+                          placeholder="https://example.com"
+                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors"
+                          value={formData.websiteUrl}
+                          onChange={(e) => setFormData(prev => ({ ...prev, websiteUrl: e.target.value }))}
+                          disabled={isCreating}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[#535862] mb-1.5">ข้อมูลเพิ่มเติม</label>
+                        <Textarea
+                          placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับลูกค้า..."
+                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
+                          rows={3}
+                          value={formData.additionalInfo}
+                          onChange={(e) => setFormData(prev => ({ ...prev, additionalInfo: e.target.value }))}
+                          disabled={isCreating}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[#535862] mb-1.5">คู่แข่งที่ทราบ</label>
+                        <Textarea
+                          placeholder="ชื่อคู่แข่ง (คั่นด้วยเครื่องหมายจุลภาค)"
+                          className="border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 text-base resize-none transition-colors"
+                          rows={3}
+                          value={formData.userCompetitors}
+                          onChange={(e) => setFormData(prev => ({ ...prev, userCompetitors: e.target.value }))}
+                          disabled={isCreating}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm.font-medium text-[#535862] mb-1.5">รหัสบัญชีโฆษณา</label>
+                        <Input
+                          type="text"
+                          placeholder="act_1234567890123456 (ไม่บังคับ)"
+                          className={`border-[#e4e7ec] focus:border-[#7f56d9] focus:ring-1 focus:ring-[#7f56d9]/20 h-10 text-base transition-colors ${
+                            adAccountError ? '!border-red-500 !focus:border-red-500 !focus:ring-red-500/20' : ''
+                          }`}
+                          value={formData.ad_account_id}
+                          onChange={(e) => handleAdAccountChange(e.target.value)}
+                          disabled={isCreating}
+                        />
+                        {adAccountError && (
+                          <p className="text-red-500 text-sm mt-1">{adAccountError}</p>
                         )}
-                      </Button>
-                    </div>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <div className="pt-2">
+                    <Button
+                      className={`w-full ${isCreating ? 'h-16' : 'h-12'} bg-[#1d4ed8] text-white hover:bg-[#063def] text-base font-medium transition-all duration-300 shadow-sm disabled:opacity-75 relative overflow-hidden group`}
+                      onClick={handleCreateNewClient}
+                      disabled={isCreating || !formData.facebookUrl.trim()}
+                    >
+                      {isCreating ? (
+                        <>
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="flex items-center mb-2">
+                              <div className="flex space-x-1 mr-3">
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-white rounded-full.animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                              </div>
+                              <span className="animate-pulse">กำลังประมวลผล</span>
+                            </div>
+                            <span className="text-xs text-white/80">
+                              กระบวนการนี้จะใช้เวลาประมาณ 5-10 นาที
+                            </span>
+                          </div>
+                          <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full">
+                            <div className="h-full bg-white animate-pulse" style={{ width: '100%', animation: 'progress 3s.ease-in-out infinite' }}></div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="group-hover:translate-x-1 transition-transform duration-200">
+                            เริ่มวิเคราะห์คู่แข่ง
+                          </span>
+                          <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform.duration-200" />
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform.duration-700"></div>
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
-                )}
               </TabsContent>
-
               <TabsContent value="select-client">
                 <div className="space-y-4">
                   <p className="text-[#8e8e93] text-center mb-6">
