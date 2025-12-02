@@ -141,6 +141,8 @@ async function ConfigurePageContent({
             activeClientName={activeClientName} 
             activeProductFocus={activeProductFocus} 
             activeClientId={activeClientId}
+            activeClientServices={uniqueServices}
+            activeServiceFilter={selectedServiceFilter}
             showSecondaryNav={false}
             showHistory={false}
           />
@@ -164,6 +166,8 @@ async function ConfigurePageContent({
           activeClientName={activeClientName} 
           activeProductFocus={activeProductFocus} 
           activeClientId={activeClientId}
+          activeClientServices={uniqueServices}
+          activeServiceFilter={selectedServiceFilter}
           showSecondaryNav={false}
           showHistory={false}
         />

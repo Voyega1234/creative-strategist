@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Save, X, Plus } from "lucide-react"
-import { getSupabase } from "@/lib/supabase/client"
 
 interface SavedIdea {
   id: string
@@ -127,40 +126,27 @@ export function EditableSavedIdeaModal({ isOpen, onClose, idea, onSave }: Editab
     
     setIsSaving(true)
     try {
-      const supabase = getSupabase()
-      
-      const { error } = await supabase
-        .from('savedideas')
-        .update({
-          title: editedIdea.title,
-          description: editedIdea.description,
-          category: editedIdea.category,
-          concept_type: editedIdea.concept_type,
-          impact: editedIdea.concept_type,
-          competitivegap: editedIdea.competitivegap,
-          tags: editedIdea.tags,
-          content_pillar: editedIdea.content_pillar,
-          product_focus: editedIdea.product_focus,
-          concept_idea: editedIdea.concept_idea,
-          copywriting_headline: editedIdea.copywriting_headline,
-          copywriting_sub_headline_1: editedIdea.copywriting_sub_headline_1,
-          copywriting_sub_headline_2: editedIdea.copywriting_sub_headline_2,
-          copywriting_bullets: editedIdea.copywriting_bullets,
-          copywriting_cta: editedIdea.copywriting_cta
-        })
-        .eq('id', editedIdea.id)
+      const response = await fetch("/api/update-saved-idea", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idea: editedIdea }),
+      })
 
-      if (error) {
-        console.error('Error saving idea:', error)
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        console.error("Error saving idea:", result?.error)
+        alert(result?.error || "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
         return
       }
 
       onSave(editedIdea)
       onClose()
     } catch (error) {
-      console.error('Error saving idea:', error)
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล')
+      console.error("Error saving idea:", error)
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล")
     } finally {
       setIsSaving(false)
     }

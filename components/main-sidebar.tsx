@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock, Home } from "lucide-react"
@@ -19,27 +20,48 @@ type ClientWithProductFocus = {
   }>
 }
 
+type SidebarMode = "configure" | "images"
+
 interface MainSidebarProps {
   clients: ClientWithProductFocus[]
   activeClientName: string
   activeProductFocus: string | null
   activeClientId: string | null
+  activeClientServices?: string[]
+  activeServiceFilter?: string | null
   showSecondaryNav?: boolean
   showHistory?: boolean
+  mode?: SidebarMode
+  showServiceFilters?: boolean
 }
+
+const ALL_SERVICES_VALUE = "__all_services__"
 
 export function MainSidebar({ 
   clients, 
   activeClientName, 
   activeProductFocus, 
   activeClientId,
+  activeClientServices = [],
+  activeServiceFilter = null,
   showSecondaryNav = true,
   showHistory = true,
+  mode = "configure",
+  showServiceFilters = true,
 }: MainSidebarProps) {
   const router = useRouter()
   const [isBrandOpen, setIsBrandOpen] = useState(true)
   const [isHistoryOpen, setIsHistoryOpen] = useState(true)
   const [savedIdeasModalOpen, setSavedIdeasModalOpen] = useState(false)
+  const [clientSearch, setClientSearch] = useState("")
+  const normalizedQuery = clientSearch.trim().toLowerCase()
+  const filteredClients = useMemo(() => {
+    if (!normalizedQuery) {
+      return clients
+    }
+    return clients.filter((client) => client.clientName.toLowerCase().includes(normalizedQuery))
+  }, [clients, normalizedQuery])
+  const hasClientResults = filteredClients.length > 0
 
 
   const handleNewClientNavigation = () => {
@@ -65,11 +87,65 @@ export function MainSidebar({
     router.push(configureUrl)
   }
 
+  const buildClientUrl = (client: ClientWithProductFocus) => {
+    if (mode === "images") {
+      const firstFocus = client.productFocuses[0]
+      const params = new URLSearchParams()
+      params.set("clientName", client.clientName)
+      if (firstFocus?.productFocus) {
+        params.set("productFocus", firstFocus.productFocus)
+      }
+      params.set("clientId", firstFocus?.id || client.id)
+      return `/images?${params.toString()}`
+    }
+    const params = new URLSearchParams()
+    params.set("clientId", client.id)
+    params.set("clientName", client.clientName)
+    if (client.productFocuses[0]?.productFocus) {
+      params.set("productFocus", client.productFocuses[0].productFocus)
+    }
+    return `/configure?${params.toString()}`
+  }
+
   const handleProductFocusChange = (clientName: string, productFocus: string) => {
     const client = clients.find(c => c.clientName === clientName)
     const clientId = client?.id
-    router.push(`/configure?clientId=${clientId}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
+    if (!client || !clientId) return
+    const productFocusEntry = client.productFocuses.find((pf) => pf.productFocus === productFocus)
+    if (mode === "images") {
+      const targetId = productFocusEntry?.id || clientId
+      router.push(`/images?clientId=${targetId}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
+    } else {
+      router.push(`/configure?clientId=${clientId}&clientName=${encodeURIComponent(clientName)}&productFocus=${encodeURIComponent(productFocus)}`)
+    }
   }
+
+  const handleServiceFilterChange = (value: string) => {
+    if (!activeClientId || mode !== "configure") {
+      return
+    }
+
+    const params = new URLSearchParams()
+    params.set("clientId", activeClientId)
+    if (activeClientName && activeClientName !== "No Client Selected") {
+      params.set("clientName", activeClientName)
+    }
+    if (activeProductFocus) {
+      params.set("productFocus", activeProductFocus)
+    }
+    if (value && value !== ALL_SERVICES_VALUE) {
+      params.set("serviceFilter", value)
+    }
+    params.set("page", "1")
+    router.push(`/configure?${params.toString()}`)
+  }
+
+  const resolvedServiceFilterValue =
+    activeServiceFilter &&
+    activeServiceFilter !== "All Competitors" &&
+    activeClientServices.includes(activeServiceFilter)
+      ? activeServiceFilter
+      : ALL_SERVICES_VALUE
 
   const handleLogout = () => {
     // Add logout logic here
@@ -100,6 +176,13 @@ export function MainSidebar({
               <Plus className="mr-2 h-4 w-4" />
               เพิ่มรายชื่อ
             </Button>
+            <Input
+              type="search"
+              value={clientSearch}
+              onChange={(event) => setClientSearch(event.target.value)}
+              placeholder="ค้นหาชื่อลูกค้า"
+              className="mb-4 h-9 text-sm border-[#e4e7ec] focus-visible:ring-0 focus-visible:border-[#1d4ed8]"
+            />
             <Collapsible open={isBrandOpen} onOpenChange={setIsBrandOpen} className="w-full">
               <CollapsibleTrigger asChild>
                 <Button
@@ -115,42 +198,78 @@ export function MainSidebar({
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-1 pl-8 pt-2">
                 <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                  {clients.map((client) => (
-                    <div key={client.id} className="space-y-1">
-                      {/* Client name - always show, highlight if active */}
-                      <Link
-                        href={`/configure?clientId=${client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || '')}`}
-                        className={`block text-sm py-1 px-2 rounded-md font-medium ${
-                          client.clientName === activeClientName
-                            ? 'text-[#063def] bg-[#dbeafe]'
-                            : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
-                        }`}
-                      >
-                        {client.clientName}
-                      </Link>
-                      
-                      {/* Show product focus select ONLY for the selected/active client */}
-                      {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
-                        <div className="ml-4 mt-2 mb-2">
-                          <Select
-                            value={activeProductFocus || ""}
-                            onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
-                          >
-                            <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
-                              <SelectValue placeholder="เลือก Product Focus" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {client.productFocuses.map((pf) => (
-                                <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
-                                  {pf.productFocus}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                  {hasClientResults ? (
+                    filteredClients.map((client) => (
+                      <div key={client.id} className="space-y-1">
+                        {/* Client name - always show, highlight if active */}
+                        <Link
+                          href={buildClientUrl(client)}
+                          className={`block text-sm py-1 px-2 rounded-md font-medium ${
+                            client.clientName === activeClientName
+                              ? 'text-[#063def] bg-[#dbeafe]'
+                              : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
+                          }`}
+                        >
+                          {client.clientName}
+                        </Link>
+                        
+                        {/* Show product focus select ONLY for the selected/active client */}
+                        {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
+                          <>
+                            <div className="ml-4 mt-2 mb-2">
+                              <Select
+                                value={activeProductFocus || ""}
+                                onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
+                              >
+                                <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
+                                  <SelectValue placeholder="เลือก Product Focus" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-48 overflow-y-auto">
+                                  {client.productFocuses.map((pf) => (
+                                    <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
+                                      {pf.productFocus}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {showServiceFilters && (
+                              <div className="ml-4 mt-3 mb-2">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93] mb-2">
+                                  Services
+                                </p>
+                                {activeClientServices.length > 0 ? (
+                                  <Select
+                                    value={resolvedServiceFilterValue}
+                                    onValueChange={handleServiceFilterChange}
+                                    disabled={!activeClientId}
+                                  >
+                                    <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
+                                      <SelectValue placeholder="Services" />
+                                    </SelectTrigger>
+                                    <SelectContent className="max-h-48 overflow-y-auto">
+                                      <SelectItem value={ALL_SERVICES_VALUE} className="text-xs">
+                                        All Services
+                                      </SelectItem>
+                                      {activeClientServices.map((service) => (
+                                        <SelectItem key={service} value={service} className="text-xs">
+                                          {service}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <div className="text-xs text-[#8e8e93]">ไม่มีข้อมูลบริการ</div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-[#8e8e93] p-2">ไม่พบลูกค้าตามการค้นหา</div>
+                  )}
                 </div>
               </CollapsibleContent>
             </Collapsible>

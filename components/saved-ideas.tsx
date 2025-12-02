@@ -291,7 +291,7 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
                         </div>
                         
                         <h4 className="font-semibold text-lg mb-2 line-clamp-2">
-                          {idea.concept_idea || idea.title}
+                          {idea.copywriting_headline || idea.concept_idea || idea.title}
                         </h4>
                         
                         <div className="text-gray-600 text-sm mb-3 space-y-2">

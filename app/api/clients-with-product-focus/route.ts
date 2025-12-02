@@ -35,7 +35,7 @@ export async function GET() {
     // OPTIMIZED: Use select with specific fields and better ordering
     const { data, error } = await supabase
       .from('Clients')
-      .select('id, clientName, productFocus')
+      .select('id, clientName, productFocus, color_palette')
       .not('clientName', 'is', null)
       .not('productFocus', 'is', null)
       .order('clientName')
@@ -50,6 +50,33 @@ export async function GET() {
     const clientsMap = new Map();
     const seenProducts = new Set();
     
+    const sanitizeColorValue = (value: string) =>
+      value.replace(/[^0-9a-fA-F]/g, "").substring(0, 6).toUpperCase()
+
+    const parseColorPalette = (paletteValue: any): string[] => {
+      if (!paletteValue) return []
+      if (Array.isArray(paletteValue))
+        return paletteValue
+          .map((value) => sanitizeColorValue(String(value)))
+          .filter(Boolean)
+      if (typeof paletteValue === 'string') {
+        try {
+          const parsed = JSON.parse(paletteValue)
+          if (Array.isArray(parsed)) {
+            return parsed
+              .map((value) => sanitizeColorValue(String(value)))
+              .filter(Boolean)
+          }
+        } catch {
+          return paletteValue
+            .split(',')
+            .map((value) => sanitizeColorValue(value))
+            .filter(Boolean)
+        }
+      }
+      return []
+    }
+
     data?.forEach(row => {
       const productKey = `${row.clientName}:${row.productFocus}`;
       
@@ -61,7 +88,8 @@ export async function GET() {
         clientsMap.set(row.clientName, {
           id: row.id,
           clientName: row.clientName,
-          productFocuses: []
+          productFocuses: [],
+          colorPalette: parseColorPalette(row.color_palette)
         });
       }
       
