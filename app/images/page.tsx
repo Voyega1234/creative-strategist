@@ -14,6 +14,7 @@ import { LoadingPopup } from "@/components/loading-popup"
 import { SavedIdeas } from "@/components/saved-ideas"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { MainSidebar } from "@/components/main-sidebar"
+import { ReferenceRemixPanel } from "@/components/reference-remix-panel"
 
 type ClientWithProductFocus = {
   id: string
@@ -201,14 +202,18 @@ function MainContent() {
 
             {/* Main Content Tabs */}
             <Tabs defaultValue="reference-search" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
+              <TabsList className="grid w-full grid-cols-3 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
                 <TabsTrigger value="reference-search" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Images className="w-4 h-4" />
-                  ค้นหารูปภาพอ้างอิง
+                  ค้นหาภาพตัวอย่าง
                 </TabsTrigger>
                 <TabsTrigger value="generate" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Sparkles className="w-4 h-4" />
-                  สร้างภาพและอัปโหลด
+                  สร้าง/อัปโหลด (มีไอเดีย Compass)
+                </TabsTrigger>
+                <TabsTrigger value="reference-remix" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
+                  <ImageIcon className="w-4 h-4" />
+                  ทำภาพตามตัวอย่าง
                 </TabsTrigger>
               </TabsList>
 
@@ -271,6 +276,15 @@ function MainContent() {
                   
                   <ImageUpload />
                 </Card>
+              </TabsContent>
+
+              {/* Direct Reference Remix Tab */}
+              <TabsContent value="reference-remix" className="space-y-6">
+                <ReferenceRemixPanel 
+                  activeClientId={resolvedClientId}
+                  activeProductFocus={resolvedProductFocus}
+                  activeClientName={resolvedClientName}
+                />
               </TabsContent>
             </Tabs>
           </div>
