@@ -76,11 +76,11 @@ export function ReferenceRemixPanel({
   activeClientName,
   activeProductFocus,
 }: ReferenceRemixPanelProps) {
-  const [referenceImage, setReferenceImage] = useState<ReferenceImage | null>(null)
+  const MAX_REFERENCE_SELECTION = 5
+  const [selectedReferences, setSelectedReferences] = useState<string[]>([])
   const [brief, setBrief] = useState("")
   const [brandProfile, setBrandProfile] = useState<ClientProfileSummary | null>(null)
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -299,6 +299,10 @@ export function ReferenceRemixPanel({
   }, [selectedClientId, loadMaterialImages])
 
   useEffect(() => {
+    setSelectedReferences([])
+  }, [selectedClientId, selectedProductFocus])
+
+  useEffect(() => {
     const selectedClient = clients.find((client) => client.id === selectedClientId)
     setColorPalette(selectedClient?.colorPalette || [])
   }, [selectedClientId, clients])
@@ -349,118 +353,36 @@ export function ReferenceRemixPanel({
     [loadMaterialImages, selectedClientId],
   )
 
-  const revokePreview = useCallback((url?: string) => {
-    if (url?.startsWith("blob:")) {
-      URL.revokeObjectURL(url)
-    }
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      revokePreview(referenceImage?.previewUrl)
-    }
-  }, [referenceImage?.previewUrl, revokePreview])
-
-  const acceptFile = useCallback(
-    (file: File) => {
-      if (!file.type.startsWith("image/")) {
-        setErrorMessage("กรุณาเลือกรูปภาพเท่านั้น")
-        return
-      }
-
-      setErrorMessage(null)
-      revokePreview(referenceImage?.previewUrl)
-      const previewUrl = URL.createObjectURL(file)
-      setReferenceImage({
-        file,
-        previewUrl,
-        uploadedUrl: undefined,
-        name: file.name,
+  const addReferencesToSelection = useCallback(
+    (urls: string[]) => {
+      setSelectedReferences((prev) => {
+        const next = [...prev]
+        urls.forEach((url) => {
+          if (url && !next.includes(url) && next.length < MAX_REFERENCE_SELECTION) {
+            next.push(url)
+          }
+        })
+        return next
       })
     },
-    [referenceImage?.previewUrl, revokePreview],
+    [MAX_REFERENCE_SELECTION],
   )
 
-  const handleFiles = useCallback(
-    (files: FileList | File[]) => {
-      const imageFile = Array.from(files).find((file) => file.type.startsWith("image/"))
-      if (!imageFile) {
-        setErrorMessage("ไม่พบไฟล์รูปภาพในสิ่งที่คุณวาง")
-        return
-      }
-      acceptFile(imageFile)
-    },
-    [acceptFile],
-  )
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setIsDragging(false)
-    if (event.dataTransfer?.files?.length) {
-      handleFiles(event.dataTransfer.files)
-    }
-  }
-
-  const handlePasteEvent = useCallback(
-    (event: ClipboardEvent) => {
-      if (!dropzoneRef.current) return
-      const target = event.target as Node | null
-      if (target && !dropzoneRef.current.contains(target)) {
-        return
-      }
-
-      if (event.clipboardData?.files?.length) {
-        const imageFile = Array.from(event.clipboardData.files).find((file) =>
-          file.type.startsWith("image/"),
-        )
-        if (imageFile) {
-          event.preventDefault()
-          acceptFile(imageFile)
+  const toggleReferenceSelection = useCallback(
+    (url: string) => {
+      setSelectedReferences((prev) => {
+        if (prev.includes(url)) {
+          return prev.filter((item) => item !== url)
         }
-      }
+        if (prev.length >= MAX_REFERENCE_SELECTION) {
+          alert(`เลือกได้สูงสุด ${MAX_REFERENCE_SELECTION} รูป`)
+          return prev
+        }
+        return [...prev, url]
+      })
     },
-    [acceptFile],
+    [MAX_REFERENCE_SELECTION],
   )
-
-  useEffect(() => {
-    window.addEventListener("paste", handlePasteEvent)
-    return () => window.removeEventListener("paste", handlePasteEvent)
-  }, [handlePasteEvent])
-
-  const triggerFileDialog = () => {
-    fileInputRef.current?.click()
-  }
-
-  const uploadReferenceImage = useCallback(async () => {
-    if (!referenceImage?.file) {
-      return referenceImage?.uploadedUrl
-    }
-
-    const storageClient = getStorageClient()
-    if (!storageClient) {
-      throw new Error("ไม่สามารถเชื่อมต่อที่จัดเก็บรูปภาพได้")
-    }
-
-    setIsUploading(true)
-
-    try {
-      const extension = referenceImage.file.name.split(".").pop() || "png"
-      const fileName = `quick-ref-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
-      const path = `references/${fileName}`
-      const { error } = await storageClient.from("ads-creative-image").upload(path, referenceImage.file)
-
-      if (error) {
-        throw error
-      }
-
-      const { data: urlData } = storageClient.from("ads-creative-image").getPublicUrl(path)
-      const publicUrl = urlData.publicUrl
-      setReferenceImage((prev) => (prev ? { ...prev, uploadedUrl: publicUrl } : prev))
-      return publicUrl
-    } finally {
-      setIsUploading(false)
-    }
-  }, [referenceImage])
 
   const brandHighlights = useMemo(() => {
     if (!brandProfile) return []
@@ -554,8 +476,8 @@ export function ReferenceRemixPanel({
       return
     }
 
-    if (!referenceImage) {
-      setErrorMessage("กรุณาใส่รูป Reference ก่อน")
+    if (selectedReferences.length === 0) {
+      setErrorMessage("กรุณาเลือกรูป Reference อย่างน้อย 1 รูป")
       return
     }
 
@@ -563,15 +485,11 @@ export function ReferenceRemixPanel({
     setIsGenerating(true)
 
     try {
-      const referenceUrl = await uploadReferenceImage()
-      if (!referenceUrl) {
-        throw new Error("อัปโหลดรูปภาพไม่สำเร็จ")
-      }
-
       const prompt = buildPrompt()
       const payload = {
         prompt,
-        reference_image_url: referenceUrl,
+        reference_image_url: selectedReferences[0] || null,
+        reference_image_urls: selectedReferences,
         client_name: resolvedClientName,
         product_focus: resolvedProductFocus,
         selected_topics: [],
@@ -660,11 +578,6 @@ export function ReferenceRemixPanel({
     } catch (error) {
       console.error("Copy failed:", error)
     }
-  }
-
-  const clearReferenceImage = () => {
-    revokePreview(referenceImage?.previewUrl)
-    setReferenceImage(null)
   }
 
   const sanitizeColorValue = (value: string) => value.replace(/[^0-9a-fA-F]/g, "").substring(0, 6).toUpperCase()
@@ -778,19 +691,31 @@ export function ReferenceRemixPanel({
       if (!storageClient) return
       setIsUploadingReferences(true)
       try {
-        for (const file of Array.from(files)) {
-          if (!file.type.startsWith("image/")) continue
-          const fileExt = file.name.split(".").pop()
-          const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
-          const fullPath = `references/${fileName}`
-          const { error } = await storageClient.from("ads-creative-image").upload(fullPath, file)
-          if (error) {
-            console.error("Reference upload error:", error)
-            throw error
-          }
+        const uploads = await Promise.all(
+          Array.from(files)
+            .filter((file) => file.type.startsWith("image/"))
+            .map(async (file) => {
+              const fileExt = file.name.split(".").pop()
+              const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
+              const fullPath = `references/${fileName}`
+              const { error } = await storageClient.from("ads-creative-image").upload(fullPath, file)
+              if (error) throw error
+              const { data: urlData } = storageClient.from("ads-creative-image").getPublicUrl(fullPath)
+              return {
+                name: file.name,
+                previewUrl: urlData.publicUrl,
+                uploadedUrl: urlData.publicUrl,
+                url: urlData.publicUrl,
+                size: file.size,
+                created_at: new Date().toISOString(),
+              } satisfies ReferenceImage
+            }),
+        )
+
+        if (uploads.length > 0) {
+          setReferenceLibrary((prev) => [...uploads, ...prev])
+          addReferencesToSelection(uploads.map((item) => item.url || ""))
         }
-        await loadReferenceLibrary()
-        alert("อัปโหลดรูปอ้างอิงแล้ว")
       } catch (error) {
         console.error("Failed to upload reference images:", error)
         alert("เกิดข้อผิดพลาดในการอัปโหลดรูปอ้างอิง")
@@ -801,20 +726,52 @@ export function ReferenceRemixPanel({
         }
       }
     },
-    [loadReferenceLibrary],
+    [addReferencesToSelection],
   )
 
-  const handleSelectReferenceFromLibrary = useCallback((image: ReferenceImage) => {
-    setReferenceImage({
-      file: undefined,
-      previewUrl: image.previewUrl,
-      uploadedUrl: image.uploadedUrl,
-      name: image.name,
-      size: image.size,
-      created_at: image.created_at,
-    })
-    setErrorMessage(null)
-  }, [])
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      setIsDragging(false)
+      if (event.dataTransfer?.files?.length) {
+        handleReferenceLibraryUpload(event.dataTransfer.files)
+      }
+    },
+    [handleReferenceLibraryUpload],
+  )
+
+  const handlePasteEvent = useCallback(
+    (event: ClipboardEvent) => {
+      if (!dropzoneRef.current) return
+      const target = event.target as Node | null
+      if (target && !dropzoneRef.current.contains(target)) return
+      if (event.clipboardData?.files?.length) {
+        const imageList = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith("image/"))
+        if (imageList.length) {
+          event.preventDefault()
+          const dataTransfer = new DataTransfer()
+          imageList.forEach((file) => dataTransfer.items.add(file))
+          handleReferenceLibraryUpload(dataTransfer.files)
+        }
+      }
+    },
+    [handleReferenceLibraryUpload],
+  )
+
+  useEffect(() => {
+    window.addEventListener("paste", handlePasteEvent)
+    return () => window.removeEventListener("paste", handlePasteEvent)
+  }, [handlePasteEvent])
+
+  const handleSelectReferenceFromLibrary = useCallback(
+    (image: ReferenceImage) => {
+      const url = image.url || image.uploadedUrl || image.previewUrl
+      if (!url) return
+      toggleReferenceSelection(url)
+      setErrorMessage(null)
+    },
+    [toggleReferenceSelection],
+  )
 
   return (
     <div className="space-y-6">
@@ -884,17 +841,20 @@ export function ReferenceRemixPanel({
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-wide text-[#8e8e93]">Step 1</p>
-                <h3 className="text-lg font-semibold text-black">อัปโหลดรูปต้นแบบ</h3>
+                <h3 className="text-lg font-semibold text-black">เพิ่มรูป Reference</h3>
                 <p className="text-sm text-[#6c6c70]">ลากวาง, กด Ctrl+V หรือกดปุ่มเพื่ออัปโหลดไฟล์ JPG/PNG/WebP</p>
               </div>
-              <Button variant="outline" size="sm" className="border-dashed" onClick={triggerFileDialog}>
+              <Button variant="outline" size="sm" className="border-dashed" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="w-4 h-4 mr-2" />
-                เลือกรูปภาพ
+                เพิ่มรูปภาพ
               </Button>
             </div>
             <div
               ref={dropzoneRef}
-              onDragOver={(event) => { event.preventDefault(); setIsDragging(true) }}
+              onDragOver={(event) => {
+                event.preventDefault()
+                setIsDragging(true)
+              }}
               onDragLeave={(event) => {
                 const nextTarget = event.relatedTarget as Node | null
                 if (!nextTarget || !dropzoneRef.current?.contains(nextTarget)) {
@@ -902,39 +862,36 @@ export function ReferenceRemixPanel({
                 }
               }}
               onDrop={handleDrop}
-              className={`relative rounded-2xl border-2 border-dashed transition-colors p-6 text-center flex flex-col justify-center items-center min-h-[320px] ${isDragging ? "border-blue-500 bg-blue-50" : "border-[#d1d1d6] bg-[#f8f8fa]"}`}
+              className={`relative rounded-2xl border-2 border-dashed transition-colors p-6 text-center flex flex-col justify-center items-center min-h-[240px] ${
+                isDragging ? "border-blue-500 bg-blue-50" : "border-[#d1d1d6] bg-[#f8f8fa]"
+              }`}
             >
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => { if (event.target.files?.length) { handleFiles(event.target.files) } }} />
-              {referenceImage ? (
-                <div className="space-y-4">
-                  <div className="relative mx-auto h-56 w-56 overflow-hidden rounded-xl border bg-white">
-                    <Image src={referenceImage.previewUrl} alt="Reference preview" fill sizes="224px" className="object-cover" unoptimized />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Button variant="outline" size="sm" onClick={clearReferenceImage}>
-                      <Trash2 className="w-4 h-4 mr-2" />เปลี่ยนรูป
-                    </Button>
-                    <Button variant="outline" size="sm" className="border-dashed" onClick={triggerFileDialog}>
-                      <Upload className="w-4 h-4 mr-2" />อัปโหลดเพิ่ม
-                    </Button>
-                  </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(event) => handleReferenceLibraryUpload(event.target.files)}
+              />
+              <div className="flex flex-col items-center gap-3 text-[#6c6c70]">
+                <div className="w-16 h-16 rounded-2xl bg-white shadow flex items-center justify-center">
+                  <ImageIcon className="w-7 h-7 text-[#1d4ed8]" />
                 </div>
-              ) : (
-                <div className="flex flex-col items-center gap-3 text-[#6c6c70]">
-                  <div className="w-16 h-16 rounded-2xl bg-white shadow flex items-center justify-center">
-                    <ImageIcon className="w-7 h-7 text-[#1d4ed8]" />
-                  </div>
-                  <p className="text-base font-semibold text-black">ลากและวาง หรือกด Ctrl + V เพื่อวาง</p>
-                  <p className="text-sm max-w-xs">รองรับ JPG, PNG, WebP หรือจะกดปุ่มเลือกไฟล์ก็ได้</p>
-                </div>
-              )}
-              {isUploading && (
+                <p className="text-base font-semibold text-black">ลากและวาง หรือกด Ctrl + V เพื่อวาง</p>
+                <p className="text-sm max-w-xs">รูปภาพจะถูกเพิ่มเข้า “คลัง Reference” เพื่อเลือกใช้สูงสุด {MAX_REFERENCE_SELECTION} รูป</p>
+                <Button variant="outline" className="border-[#1d4ed8] text-[#1d4ed8]" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  เลือกรูปภาพ
+                </Button>
+              </div>
+              {isUploadingReferences && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/70">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div>
               )}
             </div>
-            <p className="text-xs text-[#6c6c70] text-center">เมื่อกดสร้าง ระบบจะบันทึกภาพนี้ลงคลัง Reference อัตโนมัติ</p>
+            <p className="text-xs text-[#6c6c70] text-center">แตะรูปในคลังเพื่อเลือก Reference (สูงสุด {MAX_REFERENCE_SELECTION} รูป)</p>
           </Card>
 
           <Card className="p-4 md:p-6 border border-[#e5e7eb] bg-white space-y-4">
@@ -997,25 +954,31 @@ export function ReferenceRemixPanel({
                 <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
               </div>
             ) : referenceLibrary.length > 0 ? (
-              <div className="max-h-64 overflow-y-auto pr-1">
+              <div className="max-h-96 overflow-y-auto pr-1">
                 <div className="grid grid-cols-3 gap-2">
                   {referenceLibrary.map((image: ReferenceImage) => {
                     const imageUrl = image.url || image.uploadedUrl || image.previewUrl
-                    const isSelected =
-                      !!imageUrl &&
-                      ((referenceImage?.uploadedUrl && referenceImage.uploadedUrl === imageUrl) ||
-                        (!referenceImage?.uploadedUrl && referenceImage?.previewUrl === imageUrl))
+                    const isSelected = !!imageUrl && selectedReferences.includes(imageUrl)
+                    const isDisabled = !isSelected && selectedReferences.length >= MAX_REFERENCE_SELECTION
                     return (
                       <button
                         key={imageUrl || image.name}
                         type="button"
+                        disabled={isDisabled}
                         onClick={() => handleSelectReferenceFromLibrary(image)}
-                        className={`relative h-20 w-full overflow-hidden rounded-lg border ${
+                        className={`relative h-20 w-full overflow-hidden rounded-lg border transition ${
                           isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"
-                        }`}
+                        } ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
                       >
                         <Image src={image.previewUrl} alt={image.name || "Reference"} fill sizes="120px" className="object-cover" />
                         <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition" />
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                            <div className="bg-blue-500 rounded-full p-2">
+                              <CheckCircle className="w-4 h-4 text-white" />
+                            </div>
+                          </div>
+                        )}
                       </button>
                     )
                   })}
@@ -1026,7 +989,9 @@ export function ReferenceRemixPanel({
                 ยังไม่มีรูปในคลัง เริ่มอัปโหลดเพื่อใช้เป็น Reference ได้เลย
               </div>
             )}
-            <p className="text-xs text-[#8e8e93]">แตะรูปเพื่อใช้เป็นรูปอ้างอิงทันที</p>
+            <p className="text-xs text-[#8e8e93]">
+              เลือกแล้ว {selectedReferences.length}/{MAX_REFERENCE_SELECTION} รูป
+            </p>
           </Card>
 
           <Card className="p-4 space-y-3">
@@ -1140,7 +1105,11 @@ export function ReferenceRemixPanel({
           <div className="text-xs text-[#6c6c70]">
             ระบบจะใช้ข้อมูลของ {resolvedClientName || "ลูกค้า"}{resolvedProductFocus ? ` - ${resolvedProductFocus}` : ""} ในการคุมโทน
           </div>
-          <Button onClick={handleGenerate} disabled={isGenerating || isUploading || !referenceImage} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+          <Button
+            onClick={handleGenerate}
+            disabled={isGenerating || selectedReferences.length === 0}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+          >
             {isGenerating ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

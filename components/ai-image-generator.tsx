@@ -108,8 +108,9 @@ export function AIImageGenerator({
   const [loadingTopics, setLoadingTopics] = useState(false)
   
   // Reference image selection
+  const MAX_REFERENCE_SELECTION = 5
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([])
-  const [selectedReferenceImage, setSelectedReferenceImage] = useState<string>('')
+  const [selectedReferenceImages, setSelectedReferenceImages] = useState<string[]>([])
   const [loadingReferenceImages, setLoadingReferenceImages] = useState(false)
   const [materialImages, setMaterialImages] = useState<ReferenceImage[]>([])
   const [loadingMaterialImages, setLoadingMaterialImages] = useState(false)
@@ -453,14 +454,14 @@ export function AIImageGenerator({
 
   useEffect(() => {
     if (selectedClientId && selectedProductFocus) {
-      setSelectedReferenceImage("")
+      setSelectedReferenceImages([])
       loadSavedTopics()
       loadReferenceImages()
       loadMaterialImages(selectedClientId)
     } else {
       setMaterialImages([])
       setSelectedMaterials([])
-      setSelectedReferenceImage("")
+      setSelectedReferenceImages([])
     }
   }, [selectedClientId, selectedProductFocus])
 
@@ -502,7 +503,8 @@ export function AIImageGenerator({
         },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          reference_image_url: selectedReferenceImage || null,
+          reference_image_url: selectedReferenceImages[0] || null,
+          reference_image_urls: selectedReferenceImages,
           client_name: selectedClient?.clientName,
           product_focus: selectedProductFocus,
           selected_topics: selectedTopicData ? [selectedTopicData] : [],
@@ -575,7 +577,7 @@ export function AIImageGenerator({
                 ...img, 
                 url: result.image_url, 
                 status: 'completed',
-                reference_image: selectedReferenceImage || undefined,
+                reference_image: selectedReferenceImages[0] || undefined,
                 source: result.provider || result.model || 'gemini'
               }
             : img
@@ -591,7 +593,7 @@ export function AIImageGenerator({
           id: `${newImageId}-${index}`,
           url: img.url,
           prompt: prompt.trim(),
-          reference_image: selectedReferenceImage || undefined,
+          reference_image: selectedReferenceImages[0] || undefined,
           status: 'completed' as const,
           created_at: new Date().toISOString(),
           source: img.source,
@@ -1231,44 +1233,53 @@ export function AIImageGenerator({
                     <span className="ml-2 text-gray-500">กำลังโหลดรูปภาพ...</span>
                   </div>
                 ) : referenceImages.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto pr-1">
-                      {referenceImages.map((image) => (
-                        <Card
-                          key={image.url}
-                          className={`group overflow-hidden cursor-pointer transition-all ${
-                            selectedReferenceImage === image.url
-                              ? "ring-2 ring-blue-500 shadow-lg"
-                              : "hover:shadow-lg"
-                          }`}
-                          onClick={() => {
-                            setSelectedReferenceImage((prev) => (prev === image.url ? "" : image.url))
-                          }}
-                        >
-                          <div className="relative aspect-video">
-                            <Image
-                              src={image.url}
-                              alt="Reference image"
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 768px) 100vw, 50vw"
-                            />
-                            {selectedReferenceImage === image.url && (
-                              <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                                <div className="bg-blue-500 rounded-full p-2">
-                                  <CheckCircle className="w-4 h-4 text-white" />
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
+                      {referenceImages.map((image) => {
+                        const isSelected = selectedReferenceImages.includes(image.url)
+                        const isLimitReached =
+                          !isSelected && selectedReferenceImages.length >= MAX_REFERENCE_SELECTION
+                        return (
+                          <Card
+                            key={image.url}
+                            className={`group overflow-hidden cursor-pointer transition-all ${
+                              isSelected ? "ring-2 ring-blue-500 shadow-lg" : "hover:shadow-lg"
+                            } ${isLimitReached ? "opacity-60 cursor-not-allowed" : ""}`}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedReferenceImages((prev) => prev.filter((url) => url !== image.url))
+                              } else if (!isLimitReached) {
+                                setSelectedReferenceImages((prev) => [...prev, image.url].slice(0, MAX_REFERENCE_SELECTION))
+                              } else {
+                                alert(`เลือกได้สูงสุด ${MAX_REFERENCE_SELECTION} รูป`)
+                              }
+                            }}
+                          >
+                            <div className="relative aspect-video">
+                              <Image
+                                src={image.url}
+                                alt="Reference image"
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                              />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                  <div className="bg-blue-500 rounded-full p-2">
+                                    <CheckCircle className="w-4 h-4 text-white" />
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </Card>
-                      ))}
+                              )}
+                              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </Card>
+                        )
+                      })}
                     </div>
 
-                    {referenceImages.length > 0 && (
-                      <div className="text-center text-xs text-[#8e8e93]">เลื่อนเพื่อดูรูปภาพทั้งหมด</div>
-                    )}
+                    <div className="text-xs text-[#2563eb] text-center">
+                      เลือกแล้ว {selectedReferenceImages.length}/{MAX_REFERENCE_SELECTION} รูป
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
@@ -1279,9 +1290,9 @@ export function AIImageGenerator({
                 )}
 
                 <div className="text-xs text-[#2563eb]">
-                  {selectedReferenceImage
-                    ? "เลือกรูปภาพอ้างอิงแล้ว"
-                    : "ยังไม่ได้เลือกรูปภาพอ้างอิง (เลือกหรือไม่เลือกก็ได้)"}
+                  {selectedReferenceImages.length > 0
+                    ? `เลือกรูปภาพอ้างอิงแล้ว ${selectedReferenceImages.length}/${MAX_REFERENCE_SELECTION}`
+                    : `ยังไม่ได้เลือกรูปภาพอ้างอิง (เลือกได้สูงสุด ${MAX_REFERENCE_SELECTION} รูป)`}
                 </div>
               </Card>
             </div>
