@@ -106,7 +106,7 @@ export function ReferenceRemixPanel({
   const [previewImage, setPreviewImage] = useState<string | null>(null)
 
   const REMIX_WEBHOOK_URL =
-    "https://n8n.srv934175.hstgr.cloud/webhook-test/44bffd94-9280-441a-a166-cdad46ab7981"
+    "https://n8n.srv934175.hstgr.cloud/webhook/44bffd94-9280-441a-a166-cdad46ab7981"
 
   const selectedClient = useMemo(() => {
     if (!selectedClientId) return null
