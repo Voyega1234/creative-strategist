@@ -763,6 +763,16 @@ export function ReferenceRemixPanel({
     return () => window.removeEventListener("paste", handlePasteEvent)
   }, [handlePasteEvent])
 
+  const resolveReferenceSrc = useCallback(
+    (url: string) => {
+      const matched = referenceLibrary.find(
+        (img) => img.url === url || img.uploadedUrl === url || img.previewUrl === url,
+      )
+      return matched?.previewUrl || url
+    },
+    [referenceLibrary],
+  )
+
   const handleSelectReferenceFromLibrary = useCallback(
     (image: ReferenceImage) => {
       const url = image.url || image.uploadedUrl || image.previewUrl
@@ -891,7 +901,30 @@ export function ReferenceRemixPanel({
                 </div>
               )}
             </div>
-            <p className="text-xs text-[#6c6c70] text-center">แตะรูปในคลังเพื่อเลือก Reference (สูงสุด {MAX_REFERENCE_SELECTION} รูป)</p>
+            <div className="space-y-2">
+              <p className="text-xs text-[#8e8e93] text-center">
+                เลือกแล้ว {selectedReferences.length}/{MAX_REFERENCE_SELECTION} รูป
+              </p>
+                {selectedReferences.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedReferences.map((url) => (
+                      <div
+                        key={url}
+                        className="relative h-20 w-full overflow-hidden rounded-lg border border-blue-500 ring-2 ring-blue-200"
+                      >
+                        <Image src={resolveReferenceSrc(url)} alt="Selected reference" fill sizes="120px" className="object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => toggleReferenceSelection(url)}
+                          className="absolute top-1 right-1 bg-white/80 rounded-full px-2 py-0.5 text-[10px] text-blue-600 hover:bg-white"
+                        >
+                          นำออก
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
           </Card>
 
           <Card className="p-4 md:p-6 border border-[#e5e7eb] bg-white space-y-4">
@@ -956,32 +989,32 @@ export function ReferenceRemixPanel({
             ) : referenceLibrary.length > 0 ? (
               <div className="max-h-96 overflow-y-auto pr-1">
                 <div className="grid grid-cols-3 gap-2">
-                  {referenceLibrary.map((image: ReferenceImage) => {
-                    const imageUrl = image.url || image.uploadedUrl || image.previewUrl
-                    const isSelected = !!imageUrl && selectedReferences.includes(imageUrl)
-                    const isDisabled = !isSelected && selectedReferences.length >= MAX_REFERENCE_SELECTION
-                    return (
-                      <button
-                        key={imageUrl || image.name}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => handleSelectReferenceFromLibrary(image)}
-                        className={`relative h-20 w-full overflow-hidden rounded-lg border transition ${
-                          isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"
-                        } ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
-                      >
-                        <Image src={image.previewUrl} alt={image.name || "Reference"} fill sizes="120px" className="object-cover" />
-                        <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition" />
-                        {isSelected && (
-                          <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                            <div className="bg-blue-500 rounded-full p-2">
-                              <CheckCircle className="w-4 h-4 text-white" />
+                    {referenceLibrary.map((image: ReferenceImage) => {
+                      const imageUrl = image.url || image.uploadedUrl || image.previewUrl
+                      const isSelected = !!imageUrl && selectedReferences.includes(imageUrl)
+                      const isDisabled = !isSelected && selectedReferences.length >= MAX_REFERENCE_SELECTION
+                      return (
+                        <button
+                          key={imageUrl || image.name}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => handleSelectReferenceFromLibrary(image)}
+                          className={`relative h-20 w-full overflow-hidden rounded-lg border transition ${
+                            isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"
+                          } ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                        >
+                          <Image src={image.previewUrl} alt={image.name || "Reference"} fill sizes="120px" className="object-cover" />
+                          <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition" />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                              <div className="bg-blue-500 rounded-full p-2">
+                                <CheckCircle className="w-4 h-4 text-white" />
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </button>
-                    )
-                  })}
+                          )}
+                        </button>
+                      )
+                    })}
                 </div>
               </div>
             ) : (
