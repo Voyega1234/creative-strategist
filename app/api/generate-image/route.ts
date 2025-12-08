@@ -30,6 +30,8 @@ export async function POST(request: Request) {
       copywriting,
       color_palette,
       material_image_urls,
+      aspect_ratio,
+      image_count,
     } = body;
     
     // Prompt is now optional - user can generate from saved ideas and reference image only
@@ -47,6 +49,12 @@ export async function POST(request: Request) {
     if (material_image_urls?.length) {
       console.log("[generate-image] Material images selected:", material_image_urls.length)
     }
+    const parsedImageCount = typeof image_count === 'string' ? parseInt(image_count, 10) : image_count
+    const numericImageCount = typeof parsedImageCount === 'number' ? parsedImageCount : Number(parsedImageCount)
+    const sanitizedImageCount = Math.min(5, Math.max(1, Number.isFinite(numericImageCount) ? numericImageCount : 1))
+    const selectedAspectRatio = typeof aspect_ratio === 'string' && aspect_ratio.trim().length > 0 ? aspect_ratio : '1:1'
+    console.log('[generate-image] Image count requested:', sanitizedImageCount)
+    console.log('[generate-image] Aspect ratio selected:', selectedAspectRatio)
 
     try {
       // Call N8N AI image generation webhook (no timeout)
@@ -62,6 +70,10 @@ export async function POST(request: Request) {
         copywriting: copywriting || null,
         color_palette: color_palette || [],
         material_image_urls: material_image_urls || [],
+        aspect_ratio: selectedAspectRatio,
+        image_count: sanitizedImageCount,
+        imageCount: sanitizedImageCount,
+        aspectRatio: selectedAspectRatio,
       }
 
       if (reference_image_url) {

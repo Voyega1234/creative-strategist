@@ -28,6 +28,19 @@ import Image from "next/image"
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
 import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal"
 
+const ASPECT_RATIO_OPTIONS = [
+  "1:1",
+  "2:3",
+  "3:2",
+  "3:4",
+  "4:3",
+  "4:5",
+  "5:4",
+  "9:16",
+  "16:9",
+  "21:9",
+]
+
 interface ReferenceImage {
   name: string
   url: string
@@ -119,6 +132,8 @@ export function AIImageGenerator({
   const [colorPalette, setColorPalette] = useState<string[]>([])
   const [colorInput, setColorInput] = useState("")
   const [isSavingPalette, setIsSavingPalette] = useState(false)
+  const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
+  const [imageCount, setImageCount] = useState<number>(1)
   
   // AI generation results pagination
   const [showAllResults, setShowAllResults] = useState(false)
@@ -515,6 +530,8 @@ export function AIImageGenerator({
           copywriting: selectedTopicData?.copywriting || null,
           color_palette: colorPalette,
           material_image_urls: selectedMaterials,
+          aspect_ratio: aspectRatio,
+          image_count: Math.min(5, Math.max(1, imageCount)),
         }),
       })
 
@@ -1371,6 +1388,51 @@ export function AIImageGenerator({
             <p className="text-xs text-[#8e8e93]">
               อธิบายภาพที่ต้องการให้ AI สร้าง หรือใช้เฉพาะไอเดียและรูปภาพอ้างอิงก็ได้
             </p>
+          </div>
+
+          {/* Aspect ratio & image count */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-black">
+                อัตราส่วนภาพ (Aspect ratio)
+              </label>
+              <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                <SelectTrigger className="border-[#d1d1d6] focus:border-black focus:ring-0 bg-white">
+                  <SelectValue placeholder="เลือกอัตราส่วนภาพ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASPECT_RATIO_OPTIONS.map((ratio) => (
+                    <SelectItem key={ratio} value={ratio}>
+                      {ratio}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-[#8e8e93]">
+                เลือกอัตราส่วนภาพที่ต้องการ ค่าเริ่มต้นคือ 1:1
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-black">
+                จำนวนภาพที่ต้องการให้ AI สร้าง
+              </label>
+              <Select value={String(imageCount)} onValueChange={(value) => setImageCount(Number(value))}>
+                <SelectTrigger className="border-[#d1d1d6] focus:border-black focus:ring-0 bg-white">
+                  <SelectValue placeholder="เลือกจำนวนภาพ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5].map((count) => (
+                    <SelectItem key={count} value={String(count)}>
+                      {count} ภาพ
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-[#8e8e93]">
+                สร้างได้สูงสุด 5 ภาพต่อครั้ง (ค่าเริ่มต้น 1 ภาพ)
+              </p>
+            </div>
           </div>
 
 

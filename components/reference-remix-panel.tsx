@@ -28,6 +28,9 @@ import {
   Palette,
 } from "lucide-react"
 
+const ASPECT_RATIO_OPTIONS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]
+const IMAGE_COUNT_OPTIONS = [1, 2, 3, 4, 5]
+
 type ReferenceImage = {
   file?: File
   previewUrl: string
@@ -88,6 +91,7 @@ export function ReferenceRemixPanel({
   const dropzoneRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [clients, setClients] = useState<ClientOption[]>([])
+  const [clientSearchTerm, setClientSearchTerm] = useState("")
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [selectedProductFocus, setSelectedProductFocus] = useState<string>("")
   const [loadingClients, setLoadingClients] = useState(false)
@@ -99,19 +103,28 @@ export function ReferenceRemixPanel({
   const [colorPalette, setColorPalette] = useState<string[]>([])
   const [colorInput, setColorInput] = useState("")
   const [isSavingPalette, setIsSavingPalette] = useState(false)
+  const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
+  const [imageCount, setImageCount] = useState<number>(1)
   const [referenceLibrary, setReferenceLibrary] = useState<ReferenceImage[]>([])
   const [loadingReferenceLibrary, setLoadingReferenceLibrary] = useState(false)
   const [isUploadingReferences, setIsUploadingReferences] = useState(false)
   const referenceLibraryInputRef = useRef<HTMLInputElement | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [referencePanelTab, setReferencePanelTab] = useState<"upload" | "library">("upload")
 
   const REMIX_WEBHOOK_URL =
-    "https://n8n.srv934175.hstgr.cloud/webhook/44bffd94-9280-441a-a166-cdad46ab7981"
+    "https://n8n.srv934175.hstgr.cloud/webhook-test/44bffd94-9280-441a-a166-cdad46ab7981"
 
   const selectedClient = useMemo(() => {
     if (!selectedClientId) return null
     return clients.find((client) => client.id === selectedClientId) || null
   }, [clients, selectedClientId])
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearchTerm.trim()) return clients
+    const query = clientSearchTerm.toLowerCase()
+    return clients.filter((client) => client.clientName.toLowerCase().includes(query))
+  }, [clients, clientSearchTerm])
 
   const resolvedClientName =
     selectedClient?.clientName || activeClientName || "No Client Selected"
@@ -212,6 +225,7 @@ export function ReferenceRemixPanel({
   const handleClientSelection = useCallback(
     (value: string) => {
       setSelectedClientId(value)
+      setClientSearchTerm("")
       const targetClient = clients.find((client) => client.id === value)
       const firstProductFocus = targetClient?.productFocuses[0]?.productFocus || ""
       setSelectedProductFocus(firstProductFocus)
@@ -486,6 +500,7 @@ export function ReferenceRemixPanel({
 
     try {
       const prompt = buildPrompt()
+      const normalizedImageCount = Math.min(5, Math.max(1, Number(imageCount) || 1))
       const payload = {
         prompt,
         reference_image_url: selectedReferences[0] || null,
@@ -504,6 +519,10 @@ export function ReferenceRemixPanel({
         product_focus_name: resolvedProductFocus,
         brief_text: brief.trim(),
         brand_profile_snapshot: brandProfile,
+        aspect_ratio: aspectRatio,
+        aspectRatio,
+        image_count: normalizedImageCount,
+        imageCount: normalizedImageCount,
       }
 
       const response = await fetch(REMIX_WEBHOOK_URL, {
@@ -806,11 +825,20 @@ export function ReferenceRemixPanel({
               <SelectTrigger className="bg-white">
                 <SelectValue placeholder={loadingClients ? "กำลังโหลด..." : "เลือก Client"} />
               </SelectTrigger>
-              <SelectContent>
-                {clients.length === 0 ? (
-                  <SelectItem value="none" disabled>{loadingClients ? "กำลังโหลด..." : "ยังไม่มีข้อมูลลูกค้า"}</SelectItem>
+              <SelectContent className="max-h-64">
+                <div className="px-2 py-1 sticky top-0 bg-white z-10 border-b border-gray-100">
+                  <Input
+                    value={clientSearchTerm}
+                    placeholder="ค้นหาชื่อลูกค้า..."
+                    className="h-8 text-sm"
+                    onChange={(event) => setClientSearchTerm(event.target.value)}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  />
+                </div>
+                {filteredClients.length === 0 ? (
+                  <SelectItem value="none" disabled>ไม่พบลูกค้า</SelectItem>
                 ) : (
-                  clients.map((client) => (
+                  filteredClients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.clientName}
                     </SelectItem>
@@ -859,6 +887,29 @@ export function ReferenceRemixPanel({
                 เพิ่มรูปภาพ
               </Button>
             </div>
+
+            <div className="flex items-center gap-2 rounded-xl bg-[#f4f4f5] p-1 w-fit">
+              {[
+                { key: "upload", label: "อัปโหลดใหม่" },
+                { key: "library", label: "เลือกจากคลัง" },
+              ].map((tab) => {
+                const isActive = referencePanelTab === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setReferencePanelTab(tab.key as "upload" | "library")}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      isActive ? "bg-white shadow text-black" : "text-[#8e8e93]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {referencePanelTab === "upload" ? (
             <div
               ref={dropzoneRef}
               onDragOver={(event) => {
@@ -901,6 +952,78 @@ export function ReferenceRemixPanel({
                 </div>
               )}
             </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-black flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-blue-500" />
+                      เลือกจากคลัง Reference
+                    </p>
+                    <p className="text-xs text-[#8e8e93]">แตะรูปเพื่อเลือกเป็น Reference สูงสุด {MAX_REFERENCE_SELECTION} รูป</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={referenceLibraryInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => handleReferenceLibraryUpload(event.target.files)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => referenceLibraryInputRef.current?.click()}
+                      disabled={isUploadingReferences}
+                    >
+                      <Upload className="w-4 h-4 mr-1" />
+                      {isUploadingReferences ? "กำลังอัปโหลด..." : "อัปโหลดภาพ"}
+                    </Button>
+                  </div>
+                </div>
+                {loadingReferenceLibrary ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                  </div>
+                ) : referenceLibrary.length > 0 ? (
+                  <div className="max-h-96 overflow-y-auto pr-1">
+                    <div className="grid grid-cols-3 gap-2">
+                        {referenceLibrary.map((image: ReferenceImage) => {
+                          const imageUrl = image.url || image.uploadedUrl || image.previewUrl
+                          const isSelected = !!imageUrl && selectedReferences.includes(imageUrl)
+                          const isDisabled = !isSelected && selectedReferences.length >= MAX_REFERENCE_SELECTION
+                          return (
+                            <button
+                              key={imageUrl || image.name}
+                              type="button"
+                              disabled={isDisabled}
+                              onClick={() => handleSelectReferenceFromLibrary(image)}
+                              className={`relative h-20 w-full overflow-hidden rounded-lg border transition ${
+                                isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"
+                              } ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                            >
+                              <Image src={image.previewUrl} alt={image.name || "Reference"} fill sizes="120px" className="object-cover" />
+                              <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition" />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                  <div className="bg-blue-500 rounded-full p-2">
+                                    <CheckCircle className="w-4 h-4 text-white" />
+                                  </div>
+                                </div>
+                              )}
+                            </button>
+                          )
+                        })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center text-sm text-[#9ca3af]">
+                    ยังไม่มีรูปในคลัง สามารถอัปโหลดจากแท็บด้านบน
+                  </div>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <p className="text-xs text-[#8e8e93] text-center">
                 เลือกแล้ว {selectedReferences.length}/{MAX_REFERENCE_SELECTION} รูป
@@ -925,6 +1048,7 @@ export function ReferenceRemixPanel({
                   </div>
                 )}
             </div>
+
           </Card>
 
           <Card className="p-4 md:p-6 border border-[#e5e7eb] bg-white space-y-4">
@@ -952,80 +1076,53 @@ export function ReferenceRemixPanel({
           </Card>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-black flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-blue-500" />
-                  เพิ่มรูป Reference เข้าคลัง
-                </p>
-                <p className="text-xs text-[#8e8e93]">อัปโหลดหลายรูปแล้วแตะเพื่อใช้เป็นภาพต้นแบบ</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  ref={referenceLibraryInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => handleReferenceLibraryUpload(event.target.files)}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => referenceLibraryInputRef.current?.click()}
-                  disabled={isUploadingReferences}
-                >
-                  <Upload className="w-4 h-4 mr-1" />
-                  {isUploadingReferences ? "กำลังอัปโหลด..." : "อัปโหลดภาพ"}
-                </Button>
-              </div>
-            </div>
-            {loadingReferenceLibrary ? (
-              <div className="flex items-center justify-center py-6">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-              </div>
-            ) : referenceLibrary.length > 0 ? (
-              <div className="max-h-96 overflow-y-auto pr-1">
-                <div className="grid grid-cols-3 gap-2">
-                    {referenceLibrary.map((image: ReferenceImage) => {
-                      const imageUrl = image.url || image.uploadedUrl || image.previewUrl
-                      const isSelected = !!imageUrl && selectedReferences.includes(imageUrl)
-                      const isDisabled = !isSelected && selectedReferences.length >= MAX_REFERENCE_SELECTION
-                      return (
-                        <button
-                          key={imageUrl || image.name}
-                          type="button"
-                          disabled={isDisabled}
-                          onClick={() => handleSelectReferenceFromLibrary(image)}
-                          className={`relative h-20 w-full overflow-hidden rounded-lg border transition ${
-                            isSelected ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"
-                          } ${isDisabled ? "opacity-60 cursor-not-allowed" : ""}`}
-                        >
-                          <Image src={image.previewUrl} alt={image.name || "Reference"} fill sizes="120px" className="object-cover" />
-                          <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition" />
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                              <div className="bg-blue-500 rounded-full p-2">
-                                <CheckCircle className="w-4 h-4 text-white" />
-                              </div>
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center text-sm text-[#9ca3af]">
-                ยังไม่มีรูปในคลัง เริ่มอัปโหลดเพื่อใช้เป็น Reference ได้เลย
-              </div>
-            )}
+        <Card className="p-4 md:p-6 border border-[#e5e7eb] bg-white space-y-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-semibold text-black flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-blue-500" />
+              ตั้งค่าการสร้างภาพ
+            </h3>
             <p className="text-xs text-[#8e8e93]">
-              เลือกแล้ว {selectedReferences.length}/{MAX_REFERENCE_SELECTION} รูป
+              เลือกอัตราส่วนและจำนวนภาพที่จะให้ระบบสร้างก่อนกดปุ่ม “สร้างภาพตามรีเฟอเรนซ์”
             </p>
-          </Card>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-[#6c6c70] uppercase tracking-wide">อัตราส่วนภาพ</p>
+              <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                <SelectTrigger className="bg-white border-[#d1d1d6] focus:border-black focus:ring-0">
+                  <SelectValue placeholder="เลือกอัตราส่วนภาพ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASPECT_RATIO_OPTIONS.map((ratio) => (
+                    <SelectItem key={ratio} value={ratio}>
+                      {ratio}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-[#a0a0a6]">ค่าเริ่มต้นคือ 1:1</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-[#6c6c70] uppercase tracking-wide">จำนวนภาพ</p>
+              <Select value={String(imageCount)} onValueChange={(value) => setImageCount(Number(value))}>
+                <SelectTrigger className="bg-white border-[#d1d1d6] focus:border-black focus:ring-0">
+                  <SelectValue placeholder="เลือกจำนวนภาพ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMAGE_COUNT_OPTIONS.map((count) => (
+                    <SelectItem key={count} value={String(count)}>
+                      {count} ภาพ
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-[#a0a0a6]">สูงสุด 5 ภาพต่อครั้ง</p>
+            </div>
+          </div>
+        </Card>
+
+        <div className="grid gap-4 lg:grid-cols-2">
 
           <Card className="p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -1127,7 +1224,6 @@ export function ReferenceRemixPanel({
             </Card>
           )}
         </div>
-
         {errorMessage && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             {errorMessage}
