@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 
 const ASPECT_RATIO_OPTIONS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]
-const IMAGE_COUNT_OPTIONS = [1, 2, 3, 4, 5]
+const DEFAULT_IMAGE_COUNT = 1
 
 type ReferenceImage = {
   file?: File
@@ -104,7 +104,6 @@ export function ReferenceRemixPanel({
   const [colorInput, setColorInput] = useState("")
   const [isSavingPalette, setIsSavingPalette] = useState(false)
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
-  const [imageCount, setImageCount] = useState<number>(1)
   const [referenceLibrary, setReferenceLibrary] = useState<ReferenceImage[]>([])
   const [loadingReferenceLibrary, setLoadingReferenceLibrary] = useState(false)
   const [isUploadingReferences, setIsUploadingReferences] = useState(false)
@@ -113,7 +112,7 @@ export function ReferenceRemixPanel({
   const [referencePanelTab, setReferencePanelTab] = useState<"upload" | "library">("upload")
 
   const REMIX_WEBHOOK_URL =
-    "https://n8n.srv934175.hstgr.cloud/webhook-test/44bffd94-9280-441a-a166-cdad46ab7981"
+    "https://n8n.srv934175.hstgr.cloud/webhook/44bffd94-9280-441a-a166-cdad46ab7981"
 
   const selectedClient = useMemo(() => {
     if (!selectedClientId) return null
@@ -500,7 +499,7 @@ export function ReferenceRemixPanel({
 
     try {
       const prompt = buildPrompt()
-      const normalizedImageCount = Math.min(5, Math.max(1, Number(imageCount) || 1))
+      const normalizedImageCount = DEFAULT_IMAGE_COUNT
       const payload = {
         prompt,
         reference_image_url: selectedReferences[0] || null,
@@ -1083,42 +1082,24 @@ export function ReferenceRemixPanel({
               ตั้งค่าการสร้างภาพ
             </h3>
             <p className="text-xs text-[#8e8e93]">
-              เลือกอัตราส่วนและจำนวนภาพที่จะให้ระบบสร้างก่อนกดปุ่ม “สร้างภาพตามรีเฟอเรนซ์”
+              เลือกอัตราส่วนภาพที่ต้องการก่อนกดปุ่ม “สร้างภาพตามรีเฟอเรนซ์”
             </p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-[#6c6c70] uppercase tracking-wide">อัตราส่วนภาพ</p>
-              <Select value={aspectRatio} onValueChange={setAspectRatio}>
-                <SelectTrigger className="bg-white border-[#d1d1d6] focus:border-black focus:ring-0">
-                  <SelectValue placeholder="เลือกอัตราส่วนภาพ" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ASPECT_RATIO_OPTIONS.map((ratio) => (
-                    <SelectItem key={ratio} value={ratio}>
-                      {ratio}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-[#a0a0a6]">ค่าเริ่มต้นคือ 1:1</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-[#6c6c70] uppercase tracking-wide">จำนวนภาพ</p>
-              <Select value={String(imageCount)} onValueChange={(value) => setImageCount(Number(value))}>
-                <SelectTrigger className="bg-white border-[#d1d1d6] focus:border-black focus:ring-0">
-                  <SelectValue placeholder="เลือกจำนวนภาพ" />
-                </SelectTrigger>
-                <SelectContent>
-                  {IMAGE_COUNT_OPTIONS.map((count) => (
-                    <SelectItem key={count} value={String(count)}>
-                      {count} ภาพ
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-[#a0a0a6]">สูงสุด 5 ภาพต่อครั้ง</p>
-            </div>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-[#6c6c70] uppercase tracking-wide">อัตราส่วนภาพ</p>
+            <Select value={aspectRatio} onValueChange={setAspectRatio}>
+              <SelectTrigger className="bg-white border-[#d1d1d6] focus:border-black focus:ring-0">
+                <SelectValue placeholder="เลือกอัตราส่วนภาพ" />
+              </SelectTrigger>
+              <SelectContent>
+                {ASPECT_RATIO_OPTIONS.map((ratio) => (
+                  <SelectItem key={ratio} value={ratio}>
+                    {ratio}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-[#a0a0a6]">ค่าเริ่มต้นคือ 1:1</p>
           </div>
         </Card>
 

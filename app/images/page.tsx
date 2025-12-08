@@ -205,15 +205,15 @@ function MainContent() {
               <TabsList className="grid w-full grid-cols-3 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
                 <TabsTrigger value="reference-search" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Images className="w-4 h-4" />
-                  ค้นหาภาพตัวอย่าง
+                  Reference Search
                 </TabsTrigger>
                 <TabsTrigger value="generate" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <Sparkles className="w-4 h-4" />
-                  สร้าง/อัปโหลด (มีไอเดีย Compass)
+                  Generate / Upload (Compass Ideas)
                 </TabsTrigger>
                 <TabsTrigger value="reference-remix" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
                   <ImageIcon className="w-4 h-4" />
-                  ทำภาพตามตัวอย่าง
+                  Remix From Reference
                 </TabsTrigger>
               </TabsList>
 
