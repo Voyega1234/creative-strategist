@@ -452,34 +452,64 @@ export function ReferenceRemixPanel({
       .join("\n\n")
   }
 
-  const normalizeImageEntries = (entry: any): Array<{ url: string; source?: string }> => {
-    const entries: Array<{ url: string; source?: string }> = []
-    if (!entry) return entries
+  const isPlainObject = (value: any): value is Record<string, any> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value)
 
-    if (typeof entry === "string") {
-      entries.push({ url: entry })
-      return entries
+  const extractDirectPairs = (value: any): Array<{ url: string; source?: string }> => {
+    if (!isPlainObject(value)) return []
+    return Object.entries(value)
+      .filter(([, entryValue]) => typeof entryValue === "string")
+      .map(([key, url]) => ({ url, source: key }))
+  }
+
+  const extractImageEntries = (payload: any): Array<{ url: string; source?: string }> => {
+    const entries: Array<{ url: string; source?: string }> = []
+    const seen = new Set<string>()
+
+    const addEntry = (url?: string, source?: string) => {
+      if (!url || seen.has(url)) return
+      if (typeof url === "string" && url.trim().length === 0) return
+      seen.add(url)
+      entries.push({ url, source })
     }
 
-    if (typeof entry === "object") {
-      if (entry.url || entry.image_url) {
-        entries.push({ url: entry.url || entry.image_url, source: entry.source || entry.provider })
+    const visit = (value: any, sourceHint?: string) => {
+      if (!value) return
+
+      if (typeof value === "string") {
+        addEntry(value, sourceHint)
+        return
       }
-      const altKeys = ["gemini", "ideogram", "dalle", "stable_diffusion"]
-      altKeys.forEach((key) => {
-        if (entry[key]) {
-          entries.push({ url: entry[key], source: key })
-        }
-      })
-      if (!entries.length) {
-        Object.keys(entry).forEach((key) => {
-          if (typeof entry[key] === "string") {
-            entries.push({ url: entry[key], source: key })
+
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => {
+          const hint = typeof item === "string" ? sourceHint ?? `Image ${index + 1}` : undefined
+          visit(item, hint)
+        })
+        return
+      }
+
+      if (typeof value === "object") {
+        const metaSource =
+          typeof value.source === "string"
+            ? value.source
+            : typeof value.provider === "string"
+              ? value.provider
+              : undefined
+
+        visit(value.url || value.image_url, metaSource ?? sourceHint)
+
+        Object.entries(value).forEach(([key, nestedValue]) => {
+          if (["url", "image_url", "source", "provider"].includes(key)) {
+            return
           }
+          const nextHint = typeof nestedValue === "string" ? key : sourceHint
+          visit(nestedValue, nextHint)
         })
       }
     }
 
+    visit(payload)
     return entries
   }
 
@@ -539,19 +569,30 @@ export function ReferenceRemixPanel({
         throw new Error("ผลการสร้างภาพไม่ถูกต้อง")
       }
 
+      console.log("[Reference Remix] raw result:", result)
+
       if (!response.ok) {
         throw new Error(result?.error || "สร้างภาพไม่สำเร็จ")
       }
 
-      const rawEntries: any[] = Array.isArray(result)
+      const directEntriesCandidate = Array.isArray(result)
         ? result
-        : Array.isArray(result.images)
+        : Array.isArray(result?.images)
           ? result.images
-          : result.image_url
-            ? [{ url: result.image_url, source: result.provider || result.model }]
-            : [result]
+          : null
 
-      const images = rawEntries.flatMap((entry) => normalizeImageEntries(entry))
+      const directImages =
+        directEntriesCandidate && directEntriesCandidate.every((entry) => isPlainObject(entry))
+          ? directEntriesCandidate.flatMap((entry, index) => {
+              const pairs = extractDirectPairs(entry)
+              if (pairs.length) return pairs
+              const fallback = typeof entry === "string" ? entry : null
+              return fallback ? [{ url: fallback, source: `Version ${index + 1}` }] : []
+            })
+          : []
+
+      const images = directImages.length > 0 ? directImages : extractImageEntries(result)
+      console.log("[Reference Remix] normalized images:", images)
 
       if (!images.length) {
         throw new Error("ไม่พบรูปภาพที่สร้างกลับมา")
