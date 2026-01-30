@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Settings, UserPlus, Loader2, Image as ImageIcon } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Sparkles, Settings, UserPlus, Loader2, Image as ImageIcon, Building2, Globe, X, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { useClient } from "@/contexts/client-context"
 
-type AppHeaderProps = {
-  activeClientId: string | null
-  activeProductFocus?: string | null
-  activeClientName?: string | null
+type ClientOption = {
+  id: string
+  clientName: string
+  productFocuses: string[]
 }
 
 // Check if there are new results available
@@ -34,11 +36,17 @@ const checkForNewResults = (clientName: string | null, productFocus: string | nu
   return false
 }
 
-export function AppHeader({ activeClientId, activeProductFocus, activeClientName }: AppHeaderProps) {
+export function AppHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const [isNavigating, setIsNavigating] = useState(false)
   const [hasNewResults, setHasNewResults] = useState(false)
+  const [clients, setClients] = useState<ClientOption[]>([])
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
+  const [clientSearchTerm, setClientSearchTerm] = useState("")
+  const [loadingClients, setLoadingClients] = useState(false)
+  
+  const { activeClientId, activeProductFocus, activeClientName, setActiveClientId, setActiveProductFocus } = useClient()
   
   // Build URLs with all available parameters
   let configureHref = "/configure"
@@ -91,6 +99,63 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
     
     return () => clearInterval(interval)
   }, [activeClientName, activeProductFocus])
+
+  // Load clients
+  useEffect(() => {
+    const loadClients = async () => {
+      setLoadingClients(true)
+      try {
+        const response = await fetch('/api/clients')
+        if (response.ok) {
+          const data = await response.json()
+          setClients(data)
+        }
+      } catch (error) {
+        console.error('Failed to load clients:', error)
+      } finally {
+        setLoadingClients(false)
+      }
+    }
+    
+    loadClients()
+  }, [])
+
+  // Filter clients based on search
+  const filteredClients = clients.filter(client =>
+    clientSearchTerm === "" ||
+    client.clientName.toLowerCase().includes(clientSearchTerm.toLowerCase())
+  )
+
+  // Get current client
+  const selectedClient = clients.find(c => c.id === activeClientId)
+
+  // Handle client selection
+  const handleClientSelection = (clientId: string) => {
+    setActiveClientId(clientId)
+    setClientDropdownOpen(false)
+    setClientSearchTerm("")
+    
+    // Update URL params
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (clientId === "general") {
+        url.searchParams.delete('clientId')
+        url.searchParams.delete('clientName')
+        url.searchParams.delete('productFocus')
+      } else {
+        const client = clients.find(c => c.id === clientId)
+        if (client) {
+          url.searchParams.set('clientId', clientId)
+          url.searchParams.set('clientName', client.clientName)
+          // Set first product focus if none selected
+          if (!activeProductFocus && client.productFocuses.length > 0) {
+            url.searchParams.set('productFocus', client.productFocuses[0])
+          }
+        }
+      }
+      window.history.pushState({}, '', url.toString())
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 h-20 bg-white border-b border-gray-200 shadow-sm">
@@ -166,21 +231,99 @@ export function AppHeader({ activeClientId, activeProductFocus, activeClientName
           </Link>
         </div>
 
-        {/* Right Side - New Client Button */}
+        {/* Right Side - Client Selection */}
         <div className="flex items-center">
-          <Link href="/new-client" passHref>
-            <Button 
-              variant="outline" 
-              className="relative bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 hover:border-gray-300 px-6 py-3 rounded-xl font-medium shadow-sm transition-all duration-200 hover:shadow-md group"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 bg-black rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <UserPlus className="w-3 h-3 text-white" />
+          <div className="relative">
+            <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-2 shadow-sm">
+              {selectedClient ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                    <Building2 className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">{selectedClient.clientName}</span>
+                  {activeProductFocus && (
+                    <span className="text-xs text-gray-500">• {activeProductFocus}</span>
+                  )}
                 </div>
-                <span>New Client</span>
+              ) : (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <div className="w-6 h-6 rounded-lg bg-gray-200 flex items-center justify-center">
+                    <Globe className="w-3.5 h-3.5 text-gray-600" />
+                  </div>
+                  <span className="text-sm">Select Client</span>
+                </div>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
+                className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+              {selectedClient && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleClientSelection("")}
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            
+            {clientDropdownOpen && (
+              <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50">
+                <div className="p-3 border-b border-gray-100">
+                  <Input
+                    value={clientSearchTerm}
+                    placeholder="Search clients..."
+                    className="h-8 text-sm"
+                    onChange={(e) => setClientSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setClientDropdownOpen(false)
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleClientSelection("general")}
+                  className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors border-b border-gray-100 flex items-center gap-3"
+                >
+                  <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                    <Globe className="w-3 h-3 text-gray-600" />
+                  </div>
+                  <div>
+                    <div className="font-medium">General Mode</div>
+                    <div className="text-xs text-gray-500">Use session materials</div>
+                  </div>
+                </button>
+                <div className="max-h-64 overflow-y-auto">
+                  {filteredClients.length === 0 ? (
+                    <div className="px-4 py-3 text-sm text-gray-500">No clients found</div>
+                  ) : (
+                    filteredClients.map((client) => (
+                      <button
+                        key={client.id}
+                        type="button"
+                        onClick={() => handleClientSelection(client.id)}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors flex items-center gap-3"
+                      >
+                        <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                          <Building2 className="w-3 h-3 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium">{client.clientName}</div>
+                          <div className="text-xs text-gray-500">{client.productFocuses.length} products</div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
-            </Button>
-          </Link>
+            )}
+          </div>
         </div>
       </div>
     </header>

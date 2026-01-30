@@ -23,6 +23,7 @@ import {
   Download,
   Copy,
   CheckCircle,
+  Check,
   Palette,
   Settings,
   Send,
@@ -33,8 +34,8 @@ import {
   RotateCcw,
   User,
   Users,
-  Globe,
   Building2,
+  Globe,
   Target,
   Package,
   Info,
@@ -44,7 +45,7 @@ import {
 
 type ChatContentPart =
   | { type: "text"; text: string }
-  | { type: "image"; url: string }
+  | { type: "image"; url: string; isSelection?: boolean }
 
 type ChatMessage = {
   id: string
@@ -114,6 +115,38 @@ function getLastGeneratedImageUrl(msgs: ChatMessage[]): string | null {
   return null
 }
 
+function getAllGeneratedImageUrls(msgs: ChatMessage[]): string[] {
+  const urls: string[] = []
+  for (const msg of msgs) {
+    if (msg.role === "model") {
+      msg.parts.forEach((part) => {
+        if (part.type === "image") urls.push(part.url)
+      })
+    }
+  }
+  return urls
+}
+
+// Handle image selection for editing
+function handleImageSelection(url: string, messages: ChatMessage[], setMessages: (msgs: ChatMessage[]) => void, setSelectedImage: (url: string) => void) {
+  setSelectedImage(url)
+  
+  // Replace selection message with selected image
+  const updatedMessages = messages.map(msg => {
+    if (msg.id.startsWith('selection-')) {
+      return {
+        ...msg,
+        parts: [
+          { type: "text" as const, text: "เลือกรูปภาพนี้สำหรับแก้ไข:" },
+          { type: "image" as const, url }
+        ]
+      }
+    }
+    return msg
+  })
+  setMessages(updatedMessages)
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 export function RemixChatPanel({
@@ -121,6 +154,31 @@ export function RemixChatPanel({
   activeClientName,
   activeProductFocus,
 }: RemixChatPanelProps) {
+  // Settings notification state
+  const [showSettingsTooltip, setShowSettingsTooltip] = useState(true)
+  const [settingsTooltipDismissed, setSettingsTooltipDismissed] = useState(false)
+
+  // Auto-hide settings tooltip after 10 seconds
+  useEffect(() => {
+    if (showSettingsTooltip && !settingsTooltipDismissed) {
+      const timer = setTimeout(() => {
+        setShowSettingsTooltip(false)
+      }, 10000)
+      return () => clearTimeout(timer)
+    }
+  }, [showSettingsTooltip, settingsTooltipDismissed])
+
+  // Get current settings summary for tooltip
+  const getCurrentSettingsSummary = () => {
+    const client = selectedClient || (activeClientId ? clients.find(c => c.id === activeClientId) : null)
+    
+    if (client) {
+      return client.clientName
+    }
+    
+    return 'No client selected'
+  }
+
   // Phase state: "generate" = initial form, "chat" = editing via chat
   const [phase, setPhase] = useState<"generate" | "chat">("chat")
 
@@ -131,6 +189,7 @@ export function RemixChatPanel({
   const [isGenerating, setIsGenerating] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
+  const [selectedImageForEditing, setSelectedImageForEditing] = useState<string>("")
 
   // Client / product state
   const [clients, setClients] = useState<ClientOption[]>([])
@@ -614,7 +673,7 @@ export function RemixChatPanel({
 
   // ─── Core webhook call ─────────────────────────────────────
 
-  const callRemixWebhook = async (referenceUrls: string[], briefText: string): Promise<string[]> => {
+  const callRemixWebhook = async (referenceUrls: string[], briefText: string, isEdit: boolean = false): Promise<string[]> => {
     const prompt = buildPrompt(briefText)
     const payload = {
       prompt,
@@ -638,6 +697,8 @@ export function RemixChatPanel({
       aspectRatio,
       image_count: DEFAULT_IMAGE_COUNT,
       imageCount: DEFAULT_IMAGE_COUNT,
+      // Add edit flag to payload
+      ...(isEdit && { request_type: "edit image" })
     }
 
     const res = await fetch(REMIX_WEBHOOK_URL, {
@@ -694,7 +755,7 @@ export function RemixChatPanel({
     const images = [...pendingImages]
 
     if (!selectedClientId || !resolvedProductFocus || !resolvedClientName || resolvedClientName === "No Client Selected") {
-      alert("กรุณาเลือกลูกค้าและ Product Focus ก่อน")
+      alert("⚠️ Please select a client and product focus above before generating images")
       return
     }
 
@@ -702,6 +763,8 @@ export function RemixChatPanel({
       alert("กรุณาเลือกรูป Reference อย่างน้อย 1 รูป")
       return
     }
+
+    // Text is optional - user can generate images with just reference images
 
     // Build user message
     const userParts: ChatContentPart[] = []
@@ -724,11 +787,18 @@ export function RemixChatPanel({
 
     try {
       const generatedUrls = await callRemixWebhook(images, text)
-      const modelParts: ChatContentPart[] = generatedUrls.map((url) => ({
-        type: "image" as const,
-        url,
-      }))
-      addModelMessage(modelParts)
+      
+      // Add generated images directly to chat
+      if (generatedUrls.length > 0) {
+        const modelParts: ChatContentPart[] = generatedUrls.map((url) => ({
+          type: "image" as const,
+          url,
+        }))
+        addModelMessage(modelParts)
+        
+        // Automatically set the first generated image as the reference for editing
+        setSelectedImageForEditing(generatedUrls[0])
+      }
     } catch (err: any) {
       console.error("Generate failed:", err)
       addModelMessage([{ type: "text", text: err?.message || "เกิดข้อผิดพลาดในการสร้างภาพ" }])
@@ -744,14 +814,21 @@ export function RemixChatPanel({
     if (!text && pendingImages.length === 0) return
 
     if (!selectedClientId || !resolvedProductFocus || !resolvedClientName || resolvedClientName === "No Client Selected") {
-      addModelMessage([{ type: "text", text: "กรุณาเลือกลูกค้าและ Product Focus ก่อนส่งข้อความ" }])
+      addModelMessage([{ type: "text", text: "⚠️ Please select a client and product focus above before sending messages" }])
+      return
+    }
+
+    // Require image selection before allowing chat editing
+    if (!selectedImageForEditing) {
+      addModelMessage([{ type: "text", text: "กรุณาเลือกรูปภาพที่ต้องการแก้ไขก่อนส่งข้อความ" }])
       return
     }
 
     // Determine references for webhook:
-    // If user attached new images, use those. Otherwise, use the last generated image.
-    const lastImage = getLastGeneratedImageUrl(messages)
-    const webhookRefs = pendingImages.length > 0 ? [...pendingImages] : lastImage ? [lastImage] : []
+    // Always use the selected image for editing
+    const webhookRefs = pendingImages.length > 0 
+      ? [...pendingImages] 
+      : [selectedImageForEditing]
 
     if (webhookRefs.length === 0) {
       addModelMessage([{ type: "text", text: "ไม่พบรูปภาพอ้างอิง กรุณาแนบรูปใหม่หรือเริ่มแชทใหม่" }])
@@ -778,12 +855,17 @@ export function RemixChatPanel({
     setIsGenerating(true)
 
     try {
-      const generatedUrls = await callRemixWebhook(webhookRefs, text)
+      const generatedUrls = await callRemixWebhook(webhookRefs, text, true)
       const modelParts: ChatContentPart[] = generatedUrls.map((url) => ({
         type: "image" as const,
         url,
       }))
       addModelMessage(modelParts)
+      
+      // Automatically set the first generated image as the new reference for continuous editing
+      if (generatedUrls.length > 0) {
+        setSelectedImageForEditing(generatedUrls[0])
+      }
     } catch (err: any) {
       console.error("Edit failed:", err)
       addModelMessage([{ type: "text", text: err?.message || "เกิดข้อผิดพลาดในการแก้ไขภาพ" }])
@@ -1337,11 +1419,15 @@ export function RemixChatPanel({
     <div className="flex flex-col h-full bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden">
       {/* Header bar */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e5e7eb] bg-white flex-shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
-          <Sparkles className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+          <img
+            src="/SCR-20250730-myam-Photoroom.png"
+            alt="Compass Creator Logo"
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className="flex-1">
-          <h1 className="text-sm font-medium text-[#1c1c1e]">Remix From Reference</h1>
+          <h1 className="text-sm font-medium text-[#1c1c1e]">Compass Creator</h1>
           <p className="text-xs text-[#8e8e93]">Upload reference images and generate remixes</p>
         </div>
         <Button variant="ghost" size="sm" onClick={handleNewChat} className="text-xs text-[#8e8e93] hover:text-black">
@@ -1357,13 +1443,135 @@ export function RemixChatPanel({
             <div className="space-y-6">
               {/* Header */}
               <div className="flex flex-col items-center pt-8 pb-2">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg mb-5">
-                  <Sparkles className="w-8 h-8 text-white" />
+                <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg mb-5">
+                  <img
+                    src="/SCR-20250730-myam-Photoroom.png"
+                    alt="Compass Creator Logo"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-                <h2 className="text-xl font-bold text-black mb-2">Remix From Reference</h2>
+                <h2 className="text-xl font-bold text-black mb-2">Compass Creator</h2>
                 <p className="text-sm text-[#8e8e93] text-center max-w-md">
                   อัปโหลดรูป Reference แล้วเขียนบรีฟเพื่อสร้างภาพ หลังจากนั้นสามารถแชทแก้ไขต่อได้
                 </p>
+              </div>
+
+              {/* Client Selection - Required for generation */}
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                      <Users className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-[#1c1c1e]">Client & Product</h3>
+                      <p className="text-xs text-[#6b7280">Required for generation</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="relative">
+                  <div className="flex items-center gap-3 bg-white rounded-lg border border-blue-300 px-3 py-2">
+                    {selectedClient ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                          <Building2 className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{selectedClient.clientName}</span>
+                        {selectedProductFocus && (
+                          <span className="text-xs text-gray-500">• {selectedProductFocus}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <div className="w-6 h-6 rounded-lg bg-gray-200 flex items-center justify-center">
+                          <Globe className="w-3.5 h-3.5 text-gray-600" />
+                        </div>
+                        <span className="text-sm">Select Client</span>
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
+                      className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                    {selectedClient && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedClientId("")
+                          setSelectedProductFocus("")
+                        }}
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {clientDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-blue-300 rounded-xl shadow-xl">
+                      <div className="p-3 border-b border-blue-100">
+                        <Input
+                          value={clientSearchTerm}
+                          placeholder="Search clients..."
+                          className="h-8 text-sm"
+                          onChange={(e) => setClientSearchTerm(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") setClientDropdownOpen(false)
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedClientId("general")
+                          setSelectedProductFocus("")
+                          setClientDropdownOpen(false)
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-blue-50 transition-colors border-b border-blue-100 flex items-center gap-3"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                          <Globe className="w-3 h-3 text-gray-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium">General Mode</div>
+                          <div className="text-xs text-gray-500">Use session materials</div>
+                        </div>
+                      </button>
+                      <div className="max-h-64 overflow-y-auto">
+                        {filteredClients.length === 0 ? (
+                          <div className="px-4 py-3 text-sm text-gray-500">No clients found</div>
+                        ) : (
+                          filteredClients.map((client) => (
+                            <button
+                              key={client.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedClientId(client.id)
+                                setSelectedProductFocus(client.productFocuses[0]?.productFocus || "")
+                                setClientDropdownOpen(false)
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm hover:bg-blue-50 transition-colors flex items-center gap-3"
+                            >
+                              <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                                <Building2 className="w-3 h-3 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-medium">{client.clientName}</div>
+                                <div className="text-xs text-gray-500">{client.productFocuses.length} products</div>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Reference Images */}
@@ -1488,12 +1696,16 @@ export function RemixChatPanel({
                   {isGenerating ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      กำลังสร้างภาพ...
+                      Generating...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      สร้างภาพ
+                      <img
+                        src="/SCR-20250730-myam-Photoroom.png"
+                        alt="Generate"
+                        className="w-4 h-4 mr-2"
+                      />
+                      Generate Image
                     </>
                   )}
                 </Button>
@@ -1573,18 +1785,22 @@ export function RemixChatPanel({
               <div className="flex justify-center pt-1">
                 <Button
                   onClick={handleGenerate}
-                  disabled={isGenerating || pendingImages.length === 0 || !inputText.trim()}
+                  disabled={isGenerating || pendingImages.length === 0}
                   className="h-10 px-6 text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isGenerating ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      กำลังสร้างภาพ...
+                      Generating...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      สร้างภาพ
+                      <img
+                        src="/SCR-20250730-myam-Photoroom.png"
+                        alt="Generate"
+                        className="w-4 h-4 mr-2"
+                      />
+                      Generate Image
                     </>
                   )}
                 </Button>
@@ -1593,6 +1809,28 @@ export function RemixChatPanel({
           )}
 
           {/* ─── Phase 2: Chat Messages ───────────────────── */}
+          {/* Current Editing Status */}
+          {selectedImageForEditing && (
+            <div data-editing-status className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center">
+                <Check className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">Currently Editing</p>
+                <p className="text-xs text-green-600">This image will be used as reference for your edits</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedImageForEditing("")}
+                className="h-7 px-2 text-xs border-green-300 text-green-700 hover:bg-green-50"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Change
+              </Button>
+            </div>
+          )}
+          
           <div className="space-y-6">
               {filteredMessages.map((msg) => (
                 <div key={msg.id} className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}>
@@ -1604,14 +1842,20 @@ export function RemixChatPanel({
                       {msg.role === "user" ? (
                         <User className="w-4 h-4 text-[#6c6c70]" />
                       ) : (
-                        <Sparkles className="w-4 h-4 text-white" />
+                        <div className="w-4 h-4 rounded overflow-hidden">
+                          <img
+                            src="/SCR-20250730-myam-Photoroom.png"
+                            alt="Compass Creator"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                       )}
                     </div>
 
                     {/* Content */}
                     <div className={`space-y-2 ${msg.role === "user" ? "text-right" : "text-left"}`}>
                       <p className="text-[11px] text-[#8e8e93] font-medium">
-                        {msg.role === "user" ? "You" : "Remix AI"}
+                        {msg.role === "user" ? "You" : "Compass Creator"}
                       </p>
                       <div className={`rounded-2xl ${
                         msg.role === "user"
@@ -1627,21 +1871,53 @@ export function RemixChatPanel({
                             )
                           }
                           if (part.type === "image") {
+                            const isCurrentlyEditing = selectedImageForEditing === part.url
+                            
                             return (
                               <div key={pi} className={`${msg.role === "user" ? "inline-block" : "relative group"} mt-1`}>
-                                <div className={`relative overflow-hidden rounded-xl border border-[#e5e7eb] ${
+                                <div className={`relative overflow-hidden rounded-xl border ${
                                   msg.role === "user" ? "h-20 w-20" : "max-w-sm"
+                                } ${
+                                  isCurrentlyEditing ? "border-green-500 ring-2 ring-green-200" : "border-[#e5e7eb]"
                                 }`}>
                                   {msg.role === "user" ? (
                                     <Image src={part.url} alt="Reference" fill sizes="80px" className="object-cover" />
                                   ) : (
-                                    <button type="button" className="block" onClick={() => setPreviewImage(part.url)}>
+                                    <button 
+                                      type="button" 
+                                      className="block w-full" 
+                                      onClick={() => setPreviewImage(part.url)}
+                                    >
                                       <Image src={part.url} alt="Generated" width={400} height={400} className="w-full h-auto object-cover" />
+                                      {isCurrentlyEditing && (
+                                        <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                          <Check className="w-3 h-3" />
+                                          Editing
+                                        </div>
+                                      )}
                                     </button>
                                   )}
                                 </div>
                                 {msg.role === "model" && (
                                   <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-7 px-2 text-xs text-[#8e8e93] hover:text-black" 
+                                      onClick={() => {
+                                        setSelectedImageForEditing(part.url)
+                                        // Scroll to bottom (latest message)
+                                        setTimeout(() => {
+                                          const chatContainer = chatContainerRef.current
+                                          if (chatContainer) {
+                                            chatContainer.scrollTop = chatContainer.scrollHeight
+                                          }
+                                        }, 100)
+                                      }}
+                                    >
+                                      <Settings className="w-3.5 h-3.5 mr-1" />
+                                      Edit
+                                    </Button>
                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(part.url)}>
                                       <Download className="w-3.5 h-3.5 mr-1" />
                                       Download
@@ -1666,11 +1942,15 @@ export function RemixChatPanel({
               {/* Loading indicator */}
               {isGenerating && (
                 <div className="flex items-start gap-3 animate-fade-in">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-white animate-pulse" />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center overflow-hidden">
+                    <img
+                      src="/SCR-20250730-myam-Photoroom.png"
+                      alt="Compass Creator"
+                      className="w-6 h-6 object-cover animate-pulse"
+                    />
                   </div>
                   <div className="space-y-1 pt-1">
-                    <p className="text-[11px] text-[#8e8e93] font-medium">Remix AI</p>
+                    <p className="text-[11px] text-[#8e8e93] font-medium">Compass Creator</p>
                     <div className="flex items-center gap-2 text-sm text-[#8e8e93]">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>{loadingText}</span>
@@ -1750,16 +2030,49 @@ export function RemixChatPanel({
                 </button>
 
                 {/* Settings toggle */}
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen(!settingsOpen)}
-                  className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                    settingsOpen ? "text-[#1d4ed8] bg-blue-50" : "text-[#8e8e93] hover:text-[#1d4ed8] hover:bg-blue-50"
-                  }`}
-                  title="แก้ไขภาพและวัสดุ: เลือกวัสดุอ้างอิง, ปรับสี และอัตราส่วนภาพ"
-                >
-                  <Settings className="w-5 h-5" />
-                </button>
+                <div className="relative">
+                  {showSettingsTooltip && !settingsTooltipDismissed && (
+                    <div className="absolute bottom-full right-0 mb-2 z-50 animate-bounce">
+                      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap border border-blue-500">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-yellow-300 rounded-full animate-pulse"></div>
+                            <span className="font-semibold">Check your material first!</span>
+                          </div>
+                          <div className="text-xs opacity-90">
+                            {getCurrentSettingsSummary()}
+                          </div>
+                        </div>
+                        <div className="absolute bottom-full right-3 w-0 h-0 border-l-3 border-l-transparent border-r-3 border-r-transparent border-b-3 border-b-blue-600"></div>
+                      </div>
+                      <button
+                        onClick={() => setSettingsTooltipDismissed(true)}
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full text-blue-600 text-xs hover:bg-gray-100 flex items-center justify-center shadow-md"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsOpen(!settingsOpen)
+                      // Hide tooltip when settings is clicked
+                      if (showSettingsTooltip) {
+                        setShowSettingsTooltip(false)
+                        setSettingsTooltipDismissed(true)
+                      }
+                    }}
+                    className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                      settingsOpen ? "text-[#1d4ed8] bg-blue-50" : "text-[#8e8e93] hover:text-[#1d4ed8] hover:bg-blue-50"
+                    } ${
+                      showSettingsTooltip && !settingsTooltipDismissed ? "ring-2 ring-blue-400 ring-offset-2 animate-pulse" : ""
+                    }`}
+                    title="แก้ไขภาพและวัสดุ: เลือกวัสดุอ้างอิง, ปรับสี และอัตราส่วนภาพ"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                </div>
 
                 {/* Textarea */}
                 <textarea

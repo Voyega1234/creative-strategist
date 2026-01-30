@@ -163,7 +163,7 @@ function MainContent() {
                 className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 py-4"
               >
                 <ImageIcon className="w-4 h-4" />
-                Remix From Reference
+                Compass Creator
               </TabsTrigger>
               <TabsTrigger 
                 value="generate" 
@@ -197,7 +197,7 @@ function MainContent() {
                 </div>
               </TabsContent>
 
-              {/* Remix From Reference Chat Tab */}
+              {/* Compass Creator Chat Tab */}
               <TabsContent value="reference-remix" className="flex-1 overflow-hidden p-0 m-0">
                 <div className="h-full flex flex-col">
                   <RemixChatPanel
