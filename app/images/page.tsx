@@ -5,16 +5,15 @@ import { useState, useEffect, useMemo, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Upload, Image as ImageIcon, Sparkles, Images, Home, Bookmark } from "lucide-react"
+import { Plus, Upload, Image as ImageIcon, Sparkles, Home, Bookmark } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { ImageUpload } from "@/components/image-upload"
-import { ReferenceImageSearch } from "@/components/reference-image-search"
 import { AIImageGenerator } from "@/components/ai-image-generator"
 import { LoadingPopup } from "@/components/loading-popup"
 import { SavedIdeas } from "@/components/saved-ideas"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
 import { MainSidebar } from "@/components/main-sidebar"
-import { ReferenceRemixPanel } from "@/components/reference-remix-panel"
+import { RemixChatPanel } from "@/components/remix-chat-panel"
 
 type ClientWithProductFocus = {
   id: string
@@ -140,8 +139,8 @@ function MainContent() {
   }
 
   return (
-    <div className="flex min-h-screen bg-white relative">
-      <div className="flex w-full relative z-10">
+    <div className="flex flex-col h-screen bg-white">
+      <div className="flex flex-1 overflow-hidden">
         <MainSidebar
           clients={clients}
           activeClientName={resolvedClientName}
@@ -153,142 +152,62 @@ function MainContent() {
         />
 
         {/* Main Content */}
-        <main className="flex-1 p-6 flex flex-col min-h-screen bg-transparent overflow-y-auto">
-          <div className="w-full flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end mb-6">
-            <Button
-              onClick={handleNewClientNavigation}
-              size="sm"
-              variant="outline"
-              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              disabled={isNavigatingToNewClient}
-            >
-              <Plus className="mr-2 h-3 w-3" />
-              เพิ่มรายชื่อ
-            </Button>
-            <Button
-              onClick={handleViewSavedIdeas}
-              size="sm"
-              variant="outline"
-              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-            >
-              <Bookmark className="mr-2 h-3 w-3" />
-              รายการที่บันทึก
-            </Button>
-            <Button
-              onClick={handleHomeNavigation}
-              size="sm"
-              variant="outline"
-              className="text-xs text-[#063def] border-[#d1d5db] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-              disabled={isNavigatingToHome}
-            >
-              <Home className="mr-2 h-3 w-3" />
-              กลับหน้าหลัก
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header Section */}
-            <div className="flex items-center justify-between border-b border-[#d1d1d6] pb-6">
-              <div>
-                <h1 className="text-2xl font-bold text-black flex items-center gap-4">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <ImageIcon className="w-5 h-5 text-white" />
-                  </div>
-                  ค้นหาและสร้างภาพที่ใช่สำหรับไอเดียคุณ
-                </h1>
-                <p className="text-[#8e8e93] mt-2 text-lg">จัดการ ค้นหา และสร้างตัวอย่างรูปภาพโฆษณาสำหรับแคมเปญ</p>
-              </div>
-            </div>
+        <main className="flex-1 flex flex-col bg-white overflow-hidden">
+          <Tabs 
+            defaultValue="reference-remix" 
+            className="flex flex-col h-[calc(100vh-4rem)]"
+          >
+            <TabsList className="flex-shrink-0 grid w-full grid-cols-2 bg-[#f2f2f7] border-b border-[#d1d1d6] p-1 rounded-none h-12">
+              <TabsTrigger 
+                value="reference-remix" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 py-4"
+              >
+                <ImageIcon className="w-4 h-4" />
+                Remix From Reference
+              </TabsTrigger>
+              <TabsTrigger 
+                value="generate" 
+                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 py-4"
+              >
+                <Sparkles className="w-4 h-4" />
+                Generate / Upload (Compass Ideas)
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Main Content Tabs */}
-            <Tabs defaultValue="reference-search" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3 bg-[#f2f2f7] border border-[#d1d1d6] p-1 rounded-xl">
-                <TabsTrigger value="reference-search" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
-                  <Images className="w-4 h-4" />
-                  Reference Search
-                </TabsTrigger>
-                <TabsTrigger value="generate" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
-                  <Sparkles className="w-4 h-4" />
-                  Generate / Upload (Compass Ideas)
-                </TabsTrigger>
-                <TabsTrigger value="reference-remix" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200">
-                  <ImageIcon className="w-4 h-4" />
-                  Remix From Reference
-                </TabsTrigger>
-              </TabsList>
-
-
-              {/* Reference Search Tab */}
-              <TabsContent value="reference-search" className="space-y-6">
-                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
-                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <Images className="w-6 h-6 text-[#1d4ed8]" />
-                        ค้นหารูปภาพอ้างอิง
-                      </h2>
-                      <p className="text-[#8e8e93] text-sm mt-1">ค้นหาและเก็บภาพอ้างอิงจาก Pinterest หรือ Facebook</p>
-                    </div>
-                  </div>
-                  
-                  <ReferenceImageSearch 
-                    activeClientId={resolvedClientId}
-                    activeProductFocus={resolvedProductFocus}
-                    activeClientName={resolvedClientName}
-                  />
-                </Card>
-              </TabsContent>
-
-              {/* Generate and Upload Images Tab */}
-              <TabsContent value="generate" className="space-y-6">
+            {/* Generate and Upload Images Tab */}
+            <TabsContent value="generate" className="flex-1 overflow-auto p-4">
+              <div className="max-w-4xl mx-auto space-y-6">
                 {/* AI Image Generation Section */}
-                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
-                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <Sparkles className="w-6 h-6 text-[#1d4ed8]" />
-                        สร้างภาพด้วย AI
-                      </h2>
-                      <p className="text-[#8e8e93] text-sm mt-1">สร้างภาพใหม่ด้วยเทคโนโลยี AI ผ่าน N8N</p>
-                    </div>
+                <Card className="border-2 border-[#d1d1d6] shadow-sm bg-white">
+                  <div className="p-6">
+                    <AIImageGenerator 
+                      activeClientId={resolvedClientId}
+                      activeProductFocus={resolvedProductFocus}
+                      activeClientName={resolvedClientName}
+                    />
                   </div>
-                  
-                  <AIImageGenerator 
+                </Card>
+
+                  {/* Upload Images Section */}
+                  <Card className="border-2 border-[#d1d1d6] shadow-sm bg-white">
+                    <div className="p-6">
+                      <ImageUpload />
+                    </div>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Remix From Reference Chat Tab */}
+              <TabsContent value="reference-remix" className="flex-1 overflow-hidden p-0 m-0">
+                <div className="h-full flex flex-col">
+                  <RemixChatPanel
                     activeClientId={resolvedClientId}
                     activeProductFocus={resolvedProductFocus}
                     activeClientName={resolvedClientName}
                   />
-                </Card>
-
-                {/* Upload Images Section */}
-                <Card className="p-6 border-2 border-[#d1d1d6] shadow-sm bg-white">
-                  <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-black flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                          <Upload className="w-5 h-5 text-white" />
-                        </div>
-                        อัปโหลดรูปภาพอ้างอิง
-                      </h2>
-                      <p className="text-[#8e8e93] text-sm mt-1">เพิ่มรูปภาพโฆษณาใหม่เข้าสู่คลัง</p>
-                    </div>
-                  </div>
-                  
-                  <ImageUpload />
-                </Card>
-              </TabsContent>
-
-              {/* Direct Reference Remix Tab */}
-              <TabsContent value="reference-remix" className="space-y-6">
-                <ReferenceRemixPanel 
-                  activeClientId={resolvedClientId}
-                  activeProductFocus={resolvedProductFocus}
-                  activeClientName={resolvedClientName}
-                />
+                </div>
               </TabsContent>
             </Tabs>
-          </div>
-          </div>
         </main>
       </div>
 
