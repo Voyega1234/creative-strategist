@@ -5,11 +5,24 @@ import { revalidatePath } from "next/cache"
 import type { ClientProfile } from "@/lib/data/client-profile"
 import type { Competitor } from "@/lib/data/competitors" // Import Competitor type
 import { v4 as uuidv4 } from "uuid" // For generating unique IDs
+import { invalidateCache } from "@/lib/utils/server-cache"
 
 export async function updateClientProfile(profile: ClientProfile) {
   const supabase = getSupabase()
 
   const { id, services, pricing, usp, specialty, strengths, weaknesses, ...clientUpdates } = profile
+
+  // Fetch the existing client so we know how to sync dependent tables
+  const { data: existingClient, error: existingClientError } = await supabase
+    .from("Clients")
+    .select("clientName, productFocus")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (existingClientError) {
+    console.error("Error fetching existing client profile:", existingClientError)
+    return { success: false, message: existingClientError.message }
+  }
 
   // Update Clients table (fields that belong to Clients table)
   const { data: clientData, error: clientError } = await supabase
@@ -22,6 +35,8 @@ export async function updateClientProfile(profile: ClientProfile) {
     console.error("Error updating client profile:", clientError)
     return { success: false, message: clientError.message }
   }
+
+  const updatedClient = clientData[0]
 
   // Update Competitor table (business profile fields) if any business profile fields are provided
   const businessProfileFields = { services, pricing, usp, specialty, strengths, weaknesses }
@@ -40,6 +55,45 @@ export async function updateClientProfile(profile: ClientProfile) {
       console.error("Error updating competitor business profile:", competitorError)
       // Don't fail the entire operation if competitor update fails
       console.log("Continuing with client update despite competitor update failure")
+    }
+  }
+
+  // Sync client name/product focus changes with research_market table so downstream data stays aligned
+  if (existingClient) {
+    const researchMarketUpdates: { client_name?: string | null; product_focus?: string | null } = {}
+    if (existingClient.clientName !== updatedClient.clientName) {
+      researchMarketUpdates.client_name = updatedClient.clientName
+    }
+    if (existingClient.productFocus !== updatedClient.productFocus) {
+      researchMarketUpdates.product_focus = updatedClient.productFocus
+    }
+
+    if (Object.keys(researchMarketUpdates).length > 0) {
+      let researchQuery = supabase.from("research_market").update(researchMarketUpdates)
+
+      if (existingClient.clientName) {
+        researchQuery = researchQuery.eq("client_name", existingClient.clientName)
+      } else if (updatedClient.clientName) {
+        researchQuery = researchQuery.eq("client_name", updatedClient.clientName)
+      }
+
+      if (existingClient.productFocus) {
+        researchQuery = researchQuery.eq("product_focus", existingClient.productFocus)
+      } else if (updatedClient.productFocus) {
+        researchQuery = researchQuery.eq("product_focus", updatedClient.productFocus)
+      }
+
+      const { error: researchMarketError } = await researchQuery
+
+      if (researchMarketError) {
+        console.error("Error syncing research market data:", researchMarketError)
+      } else {
+        const oldCacheKey = `research-market:${existingClient.clientName || ""}:${existingClient.productFocus || ""}`
+        const newCacheKey = `research-market:${updatedClient.clientName || ""}:${updatedClient.productFocus || ""}`
+        invalidateCache(oldCacheKey)
+        invalidateCache(newCacheKey)
+        invalidateCache(`research-market:run:${id}`)
+      }
     }
   }
 
