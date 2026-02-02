@@ -685,14 +685,14 @@ export function RemixChatPanel({
 
     // Determine request type based on PMAX toggle and edit status
     let requestType = undefined
-    if (isPmaxEnabled) {
-      requestType = "pmax image"
-    } else if (isEdit) {
+    if (isEdit) {
       requestType = "edit image"
+    } else if (isPmaxEnabled) {
+      requestType = "pmax image"
     }
 
-    // For PMAX, send multiple aspect ratios; otherwise send single selected ratio
-    const aspectRatiosToSend = isPmaxEnabled ? PMAX_ASPECT_RATIOS : [aspectRatio]
+    // For PMAX generation, send multiple aspect ratios; for editing or normal generation, send single selected ratio
+    const aspectRatiosToSend = (isEdit || !isPmaxEnabled) ? [aspectRatio] : PMAX_ASPECT_RATIOS
 
     const payload = {
       prompt,
@@ -712,8 +712,8 @@ export function RemixChatPanel({
       product_focus_name: resolvedProductFocus,
       brief_text: briefText,
       brand_profile_snapshot: brandProfile,
-      aspect_ratio: isPmaxEnabled ? PMAX_ASPECT_RATIOS[0] : aspectRatio, // Primary aspect ratio
-      aspectRatio: isPmaxEnabled ? PMAX_ASPECT_RATIOS[0] : aspectRatio,
+      aspect_ratio: (isEdit || !isPmaxEnabled) ? aspectRatio : PMAX_ASPECT_RATIOS[0], // Primary aspect ratio
+      aspectRatio: (isEdit || !isPmaxEnabled) ? aspectRatio : PMAX_ASPECT_RATIOS[0],
       aspect_ratios: aspectRatiosToSend, // Array of all aspect ratios to generate
       image_count: DEFAULT_IMAGE_COUNT,
       imageCount: DEFAULT_IMAGE_COUNT,
