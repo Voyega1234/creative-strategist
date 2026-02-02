@@ -1746,7 +1746,7 @@ export function RemixChatPanel({
                   <div className="flex flex-col items-center gap-2">
                     <ImageIcon className="w-8 h-8 text-blue-400" />
                     <div>
-                      <p className="text-sm text-[#8e8e93]">ลารูปโฆษณา/สไตล์ที่ต้องการให้ AI เลียนแบบ</p>
+                      <p className="text-sm text-[#8e8e93]">Drag and drop images</p>
                       <p className="text-xs text-[#c7c7cc] mt-1">หรือกดอัปโหลดด้านบน</p>
                     </div>
                   </div>
@@ -1867,7 +1867,7 @@ export function RemixChatPanel({
                     <div className="flex flex-col items-center gap-2">
                       <Package className="w-8 h-8 text-orange-400" />
                       <div>
-                        <p className="text-sm text-[#8e8e93]">ลารูปสินค้า/โลโก้/วัสดุมาที่นี่</p>
+                        <p className="text-sm text-[#8e8e93]">Drag and drop images</p>
                         <p className="text-xs text-[#c7c7cc] mt-1">หรือกดอัปโหลดด้านบน</p>
                       </div>
                     </div>
