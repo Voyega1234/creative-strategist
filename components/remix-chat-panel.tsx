@@ -43,9 +43,15 @@ import {
 
 // ─── Types ───────────────────────────────────────────────
 
+type PmaxImageSet = {
+  Version1: string | null
+  Version2: string | null
+}
+
 type ChatContentPart =
   | { type: "text"; text: string }
   | { type: "image"; url: string; isSelection?: boolean }
+  | { type: "pmax-collection"; images: PmaxImageSet[]; aspectRatios: string[] }
 
 type ChatMessage = {
   id: string
@@ -95,6 +101,9 @@ const DEFAULT_IMAGE_COUNT = 1
 const MAX_REFERENCE_SELECTION = 5
 const REMIX_WEBHOOK_URL =
   "https://n8n.srv934175.hstgr.cloud/webhook/44bffd94-9280-441a-a166-cdad46ab7981"
+
+// Performance Max required aspect ratios based on Google Ads specs
+const PMAX_ASPECT_RATIOS = ["1:1", "4:5", "16:9", "9:16"]
 
 const SUGGESTED_PROMPTS = [
   "สร้างภาพโฆษณาตาม Reference ที่อัปโหลด",
@@ -190,6 +199,8 @@ export function RemixChatPanel({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false)
   const [selectedImageForEditing, setSelectedImageForEditing] = useState<string>("")
+  const [referenceExpanded, setReferenceExpanded] = useState(true)
+  const [materialsExpanded, setMaterialsExpanded] = useState(true)
 
   // Client / product state
   const [clients, setClients] = useState<ClientOption[]>([])
@@ -220,6 +231,9 @@ export function RemixChatPanel({
 
   // Aspect ratio
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
+
+  // PMAX toggle
+  const [isPmaxEnabled, setIsPmaxEnabled] = useState(false)
 
   // Reference library
   const [referenceLibrary, setReferenceLibrary] = useState<ReferenceImage[]>([])
@@ -300,14 +314,7 @@ export function RemixChatPanel({
         const data = await res.json()
         if (Array.isArray(data)) {
           setClients(data)
-          if (!selectedClientId && data.length > 0) {
-            const target = data.find((c: ClientOption) => c.id === activeClientId) || data[0]
-            setSelectedClientId(target.id)
-            const pf =
-              target.productFocuses.find((p: { productFocus: string }) => p.productFocus === activeProductFocus)?.productFocus ||
-              target.productFocuses[0]?.productFocus || ""
-            setSelectedProductFocus(pf)
-          }
+          // Don't auto-select - let user choose manually
         }
       } catch (err) {
         console.error("Failed to load clients:", err)
@@ -673,8 +680,20 @@ export function RemixChatPanel({
 
   // ─── Core webhook call ─────────────────────────────────────
 
-  const callRemixWebhook = async (referenceUrls: string[], briefText: string, isEdit: boolean = false): Promise<string[]> => {
+  const callRemixWebhook = async (referenceUrls: string[], briefText: string, isEdit: boolean = false): Promise<string[] | { isPmaxCollection: true; data: any[]; aspectRatios: string[] }> => {
     const prompt = buildPrompt(briefText)
+
+    // Determine request type based on PMAX toggle and edit status
+    let requestType = undefined
+    if (isPmaxEnabled) {
+      requestType = "pmax image"
+    } else if (isEdit) {
+      requestType = "edit image"
+    }
+
+    // For PMAX, send multiple aspect ratios; otherwise send single selected ratio
+    const aspectRatiosToSend = isPmaxEnabled ? PMAX_ASPECT_RATIOS : [aspectRatio]
+
     const payload = {
       prompt,
       reference_image_url: referenceUrls[0] || null,
@@ -693,12 +712,13 @@ export function RemixChatPanel({
       product_focus_name: resolvedProductFocus,
       brief_text: briefText,
       brand_profile_snapshot: brandProfile,
-      aspect_ratio: aspectRatio,
-      aspectRatio,
+      aspect_ratio: isPmaxEnabled ? PMAX_ASPECT_RATIOS[0] : aspectRatio, // Primary aspect ratio
+      aspectRatio: isPmaxEnabled ? PMAX_ASPECT_RATIOS[0] : aspectRatio,
+      aspect_ratios: aspectRatiosToSend, // Array of all aspect ratios to generate
       image_count: DEFAULT_IMAGE_COUNT,
       imageCount: DEFAULT_IMAGE_COUNT,
-      // Add edit flag to payload
-      ...(isEdit && { request_type: "edit image" })
+      pmax_enabled: isPmaxEnabled,
+      ...(requestType && { request_type: requestType })
     }
 
     const res = await fetch(REMIX_WEBHOOK_URL, {
@@ -715,6 +735,50 @@ export function RemixChatPanel({
 
     if (!res.ok) throw new Error(result?.error || "สร้างภาพไม่สำเร็จ")
 
+    // Debug logging
+    console.log('🔍 PMAX Debug:', {
+      isPmaxEnabled,
+      isArray: Array.isArray(result),
+      hasData: result[0]?.data,
+      hasDirectData: result?.data,
+      result: JSON.stringify(result).substring(0, 200)
+    })
+
+    // Check if response is PMAX format: object with data property (your actual format)
+    if (isPmaxEnabled && result?.data && Array.isArray(result.data)) {
+      console.log('🎯 Found PMAX format with direct data property')
+      const pmaxData = result.data
+      if (pmaxData.length > 0 &&
+          pmaxData.every((item: any) => 'Version1' in item || 'Version2' in item)) {
+        console.log('✅ PMAX data validation passed, returning collection')
+        // Return PMAX collection wrapped in special format
+        return { isPmaxCollection: true, data: pmaxData, aspectRatios: PMAX_ASPECT_RATIOS } as any
+      }
+    }
+
+    // Check if response is PMAX format: array with data property (backup)
+    if (isPmaxEnabled && Array.isArray(result) && result.length > 0 && result[0]?.data) {
+      console.log('🎯 Found PMAX format with data property in array')
+      const pmaxData = result[0].data
+      if (Array.isArray(pmaxData) && pmaxData.length > 0 &&
+          pmaxData.every((item: any) => 'Version1' in item || 'Version2' in item)) {
+        console.log('✅ PMAX data validation passed, returning collection')
+        // Return PMAX collection wrapped in special format
+        return { isPmaxCollection: true, data: pmaxData, aspectRatios: PMAX_ASPECT_RATIOS } as any
+      }
+    }
+
+    // Also handle direct array format (Version1/Version2 objects)
+    if (isPmaxEnabled && Array.isArray(result) && result.length > 0 &&
+        result.every((item: any) => 'Version1' in item || 'Version2' in item)) {
+      console.log('✅ Found direct PMAX format, returning collection')
+      // Return PMAX collection wrapped in special format
+      return { isPmaxCollection: true, data: result, aspectRatios: PMAX_ASPECT_RATIOS } as any
+    }
+
+    console.log('❌ No PMAX format detected, using normal flow')
+
+    // Normal flow for non-PMAX responses
     const directCandidate = Array.isArray(result)
       ? result
       : Array.isArray(result?.images) ? result.images : null
@@ -748,97 +812,60 @@ export function RemixChatPanel({
     setMessages((prev) => [...prev, msg])
   }
 
-  // ─── Phase 1: Initial generate ─────────────────────────────
 
-  const handleGenerate = async () => {
-    const text = inputText.trim()
-    const images = [...pendingImages]
-
-    if (!selectedClientId || !resolvedProductFocus || !resolvedClientName || resolvedClientName === "No Client Selected") {
-      alert("⚠️ Please select a client and product focus above before generating images")
-      return
-    }
-
-    if (images.length === 0) {
-      alert("กรุณาเลือกรูป Reference อย่างน้อย 1 รูป")
-      return
-    }
-
-    // Text is optional - user can generate images with just reference images
-
-    // Build user message
-    const userParts: ChatContentPart[] = []
-    images.forEach((url) => userParts.push({ type: "image", url }))
-    if (text) userParts.push({ type: "text", text })
-
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      parts: userParts,
-      timestamp: Date.now(),
-    }
-
-    // Transition to chat phase immediately
-    setMessages([userMsg])
-    setPhase("chat")
-    setInputText("")
-    setPendingImages([])
-    setIsGenerating(true)
-
-    try {
-      const generatedUrls = await callRemixWebhook(images, text)
-      
-      // Add generated images directly to chat
-      if (generatedUrls.length > 0) {
-        const modelParts: ChatContentPart[] = generatedUrls.map((url) => ({
-          type: "image" as const,
-          url,
-        }))
-        addModelMessage(modelParts)
-        
-        // Automatically set the first generated image as the reference for editing
-        setSelectedImageForEditing(generatedUrls[0])
-      }
-    } catch (err: any) {
-      console.error("Generate failed:", err)
-      addModelMessage([{ type: "text", text: err?.message || "เกิดข้อผิดพลาดในการสร้างภาพ" }])
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  // ─── Phase 2: Chat edit send ───────────────────────────────
+  // ─── Unified send handler (handles both initial generation and edits) ───
 
   const handleChatSend = async () => {
     const text = inputText.trim()
-    if (!text && pendingImages.length === 0) return
+    const images = [...pendingImages]
+    const isInitialGeneration = filteredMessages.length === 0
 
+    // For initial generation, require at least images (text is optional)
+    if (isInitialGeneration && images.length === 0) {
+      return
+    }
+
+    // For edits, require at least text or new images
+    if (!isInitialGeneration && !text && images.length === 0) {
+      return
+    }
+
+    // Always require client and product focus
     if (!selectedClientId || !resolvedProductFocus || !resolvedClientName || resolvedClientName === "No Client Selected") {
-      addModelMessage([{ type: "text", text: "⚠️ Please select a client and product focus above before sending messages" }])
+      const message = isInitialGeneration
+        ? "⚠️ Please select a client and product focus above before generating images"
+        : "⚠️ Please select a client and product focus above before sending messages"
+
+      if (isInitialGeneration) {
+        alert(message)
+      } else {
+        addModelMessage([{ type: "text", text: message }])
+      }
       return
     }
 
-    // Require image selection before allowing chat editing
-    if (!selectedImageForEditing) {
-      addModelMessage([{ type: "text", text: "กรุณาเลือกรูปภาพที่ต้องการแก้ไขก่อนส่งข้อความ" }])
+    // For edits (not initial generation), require image selection or new images
+    if (!isInitialGeneration && !selectedImageForEditing && images.length === 0) {
+      addModelMessage([{ type: "text", text: "กรุณาเลือกรูปภาพที่ต้องการแก้ไขก่อนส่งข้อความ หรืออัปโหลดรูปใหม่" }])
       return
     }
 
-    // Determine references for webhook:
-    // Always use the selected image for editing
-    const webhookRefs = pendingImages.length > 0 
-      ? [...pendingImages] 
-      : [selectedImageForEditing]
+    // Determine references for webhook
+    const webhookRefs = images.length > 0
+      ? images
+      : isInitialGeneration
+        ? [] // Should not happen due to validation above
+        : [selectedImageForEditing]
 
     if (webhookRefs.length === 0) {
       addModelMessage([{ type: "text", text: "ไม่พบรูปภาพอ้างอิง กรุณาแนบรูปใหม่หรือเริ่มแชทใหม่" }])
       return
     }
 
-    // Build user message (only show explicitly attached images + text)
+    // Build user message
     const userParts: ChatContentPart[] = []
-    if (pendingImages.length > 0) {
-      pendingImages.forEach((url) => userParts.push({ type: "image", url }))
+    if (images.length > 0) {
+      images.forEach((url) => userParts.push({ type: "image", url }))
     }
     if (text) userParts.push({ type: "text", text })
 
@@ -848,27 +875,72 @@ export function RemixChatPanel({
       parts: userParts,
       timestamp: Date.now(),
     }
-    setMessages((prev) => [...prev, userMsg])
+
+    // For initial generation, replace messages; for edits, append
+    if (isInitialGeneration) {
+      setMessages([userMsg])
+      setPhase("chat")
+    } else {
+      setMessages((prev) => [...prev, userMsg])
+    }
 
     setInputText("")
     setPendingImages([])
     setIsGenerating(true)
 
     try {
-      const generatedUrls = await callRemixWebhook(webhookRefs, text, true)
-      const modelParts: ChatContentPart[] = generatedUrls.map((url) => ({
-        type: "image" as const,
-        url,
-      }))
-      addModelMessage(modelParts)
+      console.log('🚀 Starting webhook call:', { 
+        isPmaxEnabled, 
+        isInitialGeneration, 
+        webhookRefsLength: webhookRefs.length,
+        text: text.substring(0, 50)
+      })
       
-      // Automatically set the first generated image as the new reference for continuous editing
-      if (generatedUrls.length > 0) {
-        setSelectedImageForEditing(generatedUrls[0])
+      const result = await callRemixWebhook(webhookRefs, text, !isInitialGeneration)
+      
+      console.log('📥 Webhook result type:', typeof result)
+      console.log('📥 Webhook result:', result)
+
+      // Check if result is PMAX collection
+      if (typeof result === 'object' && (result as any).isPmaxCollection) {
+        console.log('✅ Detected PMAX collection, processing...')
+        const pmaxData = result as any
+        const modelParts: ChatContentPart[] = [{
+          type: "pmax-collection" as const,
+          images: pmaxData.data,
+          aspectRatios: pmaxData.aspectRatios
+        }]
+        addModelMessage(modelParts)
+
+        // Set first available image for editing
+        const firstImage = pmaxData.data[0]?.Version1 || pmaxData.data[0]?.Version2
+        if (firstImage) {
+          setSelectedImageForEditing(firstImage)
+        }
+      } else {
+        console.log('📷 Processing normal image array...')
+        // Normal image array response
+        const generatedUrls = result as string[]
+        const modelParts: ChatContentPart[] = generatedUrls.map((url) => ({
+          type: "image" as const,
+          url,
+        }))
+        addModelMessage(modelParts)
+
+        // Automatically set the first generated image as the reference for editing
+        if (generatedUrls.length > 0) {
+          setSelectedImageForEditing(generatedUrls[0])
+        }
+      }
+
+      // Collapse reference and materials sections after first generation
+      if (isInitialGeneration) {
+        setReferenceExpanded(false)
+        setMaterialsExpanded(false)
       }
     } catch (err: any) {
-      console.error("Edit failed:", err)
-      addModelMessage([{ type: "text", text: err?.message || "เกิดข้อผิดพลาดในการแก้ไขภาพ" }])
+      console.error(isInitialGeneration ? "Generate failed:" : "Edit failed:", err)
+      addModelMessage([{ type: "text", text: err?.message || "เกิดข้อผิดพลาดในการสร้างภาพ" }])
     } finally {
       setIsGenerating(false)
     }
@@ -893,6 +965,25 @@ export function RemixChatPanel({
     }
   }
 
+  const handleDownloadAll = async (images: PmaxImageSet[]) => {
+    try {
+      for (let i = 0; i < images.length; i++) {
+        const set = images[i]
+        if (set.Version1) {
+          await handleDownload(set.Version1)
+          // Small delay between downloads
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        if (set.Version2) {
+          await handleDownload(set.Version2)
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    } catch (err) {
+      console.error("Download all failed:", err)
+    }
+  }
+
   const handleCopyUrl = async (url: string) => {
     try { await navigator.clipboard.writeText(url) } catch {}
   }
@@ -904,8 +995,12 @@ export function RemixChatPanel({
     setInputText("")
     setPendingImages([])
     setIsGenerating(false)
-    setPhase("generate")
+    setPhase("chat")
     setSettingsOpen(false)
+    setSelectedImageForEditing("")
+    setReferenceExpanded(true)
+    setMaterialsExpanded(true)
+    setIsPmaxEnabled(false)
   }
 
   // ─── Keyboard handler ─────────────────────────────────────
@@ -1085,127 +1180,6 @@ export function RemixChatPanel({
           </div>
         </div>
 
-        {/* Materials - show for any selected client including general mode */}
-        {selectedClientId && selectedClientId !== "" && (
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
-                  <Package className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-[#1c1c1e]">วัสดุอ้างอิง</h3>
-                  <p className="text-xs text-[#6b7280]">ภาพสินค้าและวัสดุ</p>
-                </div>
-              </div>
-              <input ref={materialInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleMaterialUpload(e.target.files)} />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs border-orange-200 text-orange-600 hover:bg-orange-50"
-                onClick={() => materialInputRef.current?.click()}
-                disabled={isUploadingMaterials}
-              >
-                <Upload className="w-3 h-3 mr-1" />
-                {isUploadingMaterials ? "กำลัง..." : "อัปโหลด"}
-              </Button>
-            </div>
-
-            {selectedClientId === "general" ? (
-              // General mode - show session materials
-              sessionMaterials.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-lg">
-                    {sessionMaterials.map((img) => {
-                      const url = img.url || img.uploadedUrl || img.previewUrl
-                      const selected = !!url && selectedMaterials.includes(url)
-                      return (
-                        <button
-                          key={url || img.name}
-                          type="button"
-                          onClick={() => url && handleMaterialToggle(url)}
-                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${selected ? "border-orange-500 ring-2 ring-orange-200 shadow-sm" : "border-gray-200 hover:border-orange-300"}`}
-                        >
-                          <Image src={img.previewUrl} alt={img.name || "Material"} fill sizes="80px" className="object-cover" />
-                          {selected && (
-                            <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
-                              <CheckCircle className="w-5 h-5 text-orange-500" />
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {selectedMaterials.length > 0 && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-orange-600 font-medium">เลือกแล้ว {selectedMaterials.length} ภาพ</span>
-                      <button
-                        onClick={() => setSelectedMaterials([])}
-                        className="text-gray-500 hover:text-red-500"
-                      >
-                        ล้างทั้งหมด
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg">
-                  <Package className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">ยังไม่มีวัสดุ</p>
-                  <p className="text-xs text-gray-400 mt-1">อัปโหลดภาพสินค้าเพื่อเริ่มใช้งาน</p>
-                </div>
-              )
-            ) : (
-              // Client mode - show database materials
-              loadingMaterialImages ? (
-                <div className="flex items-center justify-center py-6 border-2 border-dashed border-gray-200 rounded-lg">
-                  <Loader2 className="w-5 h-5 animate-spin text-orange-500 mr-2" />
-                  <span className="text-sm text-gray-500">กำลังโหลดวัสดุ...</span>
-                </div>
-              ) : materialImages.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-lg">
-                    {materialImages.map((img) => {
-                      const url = img.url || img.uploadedUrl || img.previewUrl
-                      const selected = !!url && selectedMaterials.includes(url)
-                      return (
-                        <button
-                          key={url || img.name}
-                          type="button"
-                          onClick={() => url && handleMaterialToggle(url)}
-                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${selected ? "border-orange-500 ring-2 ring-orange-200 shadow-sm" : "border-gray-200 hover:border-orange-300"}`}
-                        >
-                          <Image src={img.previewUrl} alt={img.name || "Material"} fill sizes="80px" className="object-cover" />
-                          {selected && (
-                            <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
-                              <CheckCircle className="w-5 h-5 text-orange-500" />
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {selectedMaterials.length > 0 && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-orange-600 font-medium">เลือกแล้ว {selectedMaterials.length} ภาพ</span>
-                      <button
-                        onClick={() => setSelectedMaterials([])}
-                        className="text-gray-500 hover:text-red-500"
-                      >
-                        ล้างทั้งหมด
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-lg">
-                  <Package className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">ยังไม่มีวัสดุ</p>
-                  <p className="text-xs text-gray-400 mt-1">อัปโหลดภาพสินค้าเพื่อเริ่มใช้งาน</p>
-                </div>
-              ))}
-          </div>
-        )}
 
         {/* Color palette - show for any selected client including general mode */}
         {selectedClientId && selectedClientId !== "" && (
@@ -1435,6 +1409,21 @@ export function RemixChatPanel({
           New Chat
         </Button>
       </div>
+
+      {/* Client Selection Required Notification */}
+      {(!selectedClientId || selectedClientId === "") && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200 px-4 py-3">
+          <div className="max-w-3xl mx-auto flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+              <Info className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-900">กรุณาเลือกลูกค้าก่อนใช้งาน</p>
+              <p className="text-xs text-amber-700 mt-0.5">Please select a client from the sidebar to start generating images</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main area */}
       <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4">
@@ -1687,59 +1676,81 @@ export function RemixChatPanel({
               </div>
 
               {/* Generate button */}
-              <div className="flex justify-center pt-2 pb-4">
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || pendingImages.length === 0}
-                  className="h-11 px-8 text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <img
-                        src="/SCR-20250730-myam-Photoroom.png"
-                        alt="Generate"
-                        className="w-4 h-4 mr-2"
-                      />
-                      Generate Image
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
           )}
 
-          {filteredMessages.length === 0 && (
-            <div className="mb-6 rounded-2xl border border-[#e5e7eb] bg-[#fafafa] p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-[#6c6c70] uppercase tracking-wide flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                  Reference & Brief
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="w-3.5 h-3.5 mr-1.5" />
-                  อัปโหลดรูป
-                </Button>
-              </div>
+          {/* Two-column layout for Reference Images and Brand Materials */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            {/* Reference Images Section - Always visible but collapsible after first generation */}
+            <div className="rounded-2xl border border-[#e5e7eb] bg-[#fafafa] overflow-hidden">
               <div
-                className="rounded-xl border border-dashed border-[#d1d1d6] bg-white px-4 py-4 text-xs text-[#8e8e93] text-center"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  handleReferenceUpload(e.dataTransfer.files)
-                }}
+                className="flex items-center justify-between p-3 cursor-pointer hover:bg-[#f5f5f5] transition-colors"
+                onClick={() => setReferenceExpanded(!referenceExpanded)}
               >
-                ลากรูปมาใส่ที่นี่ หรือกดอัปโหลดเพื่อเลือก Reference
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-blue-500" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#1c1c1e]">Reference Images</p>
+                    <p className="text-[10px] text-[#9ca3af]">รูปโฆษณา/สไตล์ที่ต้องการให้ AI เลียนแบบ</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {pendingImages.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {pendingImages.length} รูป
+                    </Badge>
+                  )}
+                  {referenceExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-[#8e8e93]" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-[#8e8e93]" />
+                  )}
+                </div>
               </div>
+
+              {referenceExpanded && (
+              <div className="p-4 pt-0 space-y-3">
+                <div className="flex items-center justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      fileInputRef.current?.click()
+                    }}
+                  >
+                    <Upload className="w-3.5 h-3.5 mr-1.5" />
+                    อัปโหลดรูป
+                  </Button>
+                </div>
+                <div
+                  className="rounded-xl border border-dashed border-[#d1d1d6] bg-white px-4 py-6 text-center transition-colors"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    e.currentTarget.classList.add('border-blue-300', 'bg-blue-50')
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    e.currentTarget.classList.remove('border-blue-300', 'bg-blue-50')
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    e.currentTarget.classList.remove('border-blue-300', 'bg-blue-50')
+                    handleReferenceUpload(e.dataTransfer.files)
+                  }}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <ImageIcon className="w-8 h-8 text-blue-400" />
+                    <div>
+                      <p className="text-sm text-[#8e8e93]">ลารูปโฆษณา/สไตล์ที่ต้องการให้ AI เลียนแบบ</p>
+                      <p className="text-xs text-[#c7c7cc] mt-1">หรือกดอัปโหลดด้านบน</p>
+                    </div>
+                  </div>
+                </div>
               {loadingReferenceLibrary ? (
                 <div className="flex items-center gap-2 py-1 text-xs text-[#8e8e93]">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
@@ -1748,7 +1759,7 @@ export function RemixChatPanel({
               ) : referenceLibrary.length > 0 ? (
                 <div>
                   <p className="text-[11px] text-[#8e8e93] mb-2">หรือเลือกจากคลัง:</p>
-                  <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-[160px] overflow-y-auto">
+                  <div className="grid grid-cols-3 gap-4 max-h-[240px] overflow-y-auto">
                     {referenceLibrary.map((img) => {
                       const url = img.url || img.uploadedUrl || img.previewUrl
                       const isSelected = !!url && pendingImages.includes(url)
@@ -1773,40 +1784,175 @@ export function RemixChatPanel({
                   </div>
                 </div>
               ) : null}
-              {pendingImages.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {pendingImages.map((url) => (
-                    <div key={url} className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#e5e7eb]">
-                      <Image src={url} alt="Selected reference" fill sizes="64px" className="object-cover" />
+                {pendingImages.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {pendingImages.map((url) => (
+                      <div key={url} className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#e5e7eb]">
+                        <Image src={url} alt="Selected reference" fill sizes="64px" className="object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            </div>
+
+            {/* Brand Materials Section - Collapsible */}
+            {selectedClientId && selectedClientId !== "" && (
+              <div className="rounded-2xl border border-[#e5e7eb] bg-[#fafafa] overflow-hidden">
+                <div
+                  className="flex items-center justify-between p-3 cursor-pointer hover:bg-[#f5f5f5] transition-colors"
+                  onClick={() => setMaterialsExpanded(!materialsExpanded)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-orange-500" />
+                    <div>
+                      <p className="text-sm font-semibold text-[#1c1c1e]">Brand Materials</p>
+                      <p className="text-[10px] text-[#9ca3af]">ภาพสินค้า/โลโก้/วัสดุของแบรนด์ที่จะใช้ในภาพ</p>
                     </div>
-                  ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedMaterials.length > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {selectedMaterials.length} ภาพ
+                      </Badge>
+                    )}
+                    {materialsExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-[#8e8e93]" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-[#8e8e93]" />
+                    )}
+                  </div>
+                </div>
+
+              {materialsExpanded && (
+                <div className="p-4 pt-0 space-y-3">
+                  <div className="flex items-center justify-end">
+                    <input ref={materialInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleMaterialUpload(e.target.files)} />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        materialInputRef.current?.click()
+                      }}
+                      disabled={isUploadingMaterials}
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5" />
+                      {isUploadingMaterials ? "กำลัง..." : "อัปโหลด"}
+                    </Button>
+                  </div>
+
+                  {/* Drag and Drop Area */}
+                  <div
+                    className="rounded-xl border border-dashed border-[#d1d1d6] bg-white px-4 py-6 text-center transition-colors"
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      e.currentTarget.classList.add('border-orange-300', 'bg-orange-50')
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      e.currentTarget.classList.remove('border-orange-300', 'bg-orange-50')
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      e.currentTarget.classList.remove('border-orange-300', 'bg-orange-50')
+                      handleMaterialUpload(e.dataTransfer.files)
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <Package className="w-8 h-8 text-orange-400" />
+                      <div>
+                        <p className="text-sm text-[#8e8e93]">ลารูปสินค้า/โลโก้/วัสดุมาที่นี่</p>
+                        <p className="text-xs text-[#c7c7cc] mt-1">หรือกดอัปโหลดด้านบน</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedClientId === "general" ? (
+                    // General mode - show session materials
+                    sessionMaterials.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-4">
+                          {sessionMaterials.map((img) => {
+                            const url = img.url || img.uploadedUrl || img.previewUrl
+                            const selected = !!url && selectedMaterials.includes(url)
+                            return (
+                              <button
+                                key={url || img.name}
+                                type="button"
+                                onClick={() => url && handleMaterialToggle(url)}
+                                className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                                  selected ? "border-orange-500 ring-1 ring-orange-200" : "border-transparent hover:border-[#d1d1d6]"
+                                }`}
+                              >
+                                <Image src={img.previewUrl} alt={img.name || "Material"} fill sizes="80px" className="object-cover" />
+                                {selected && (
+                                  <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center">
+                                    <CheckCircle className="w-4 h-4 text-white" />
+                                  </div>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {selectedMaterials.length > 0 && (
+                          <p className="text-xs text-orange-600">เลือกแล้ว {selectedMaterials.length} ภาพ</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#9ca3af]">ยังไม่มีวัสดุ อัปโหลดเพื่อเริ่มใช้งาน</p>
+                    )
+                  ) : (
+                    // Client mode - show database materials
+                    loadingMaterialImages ? (
+                      <div className="flex items-center gap-2 py-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-500" />
+                        <span className="text-xs text-[#8e8e93]">กำลังโหลดวัสดุ...</span>
+                      </div>
+                    ) : materialImages.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-4">
+                          {materialImages.map((img) => {
+                            const url = img.url || img.uploadedUrl || img.previewUrl
+                            const selected = !!url && selectedMaterials.includes(url)
+                            return (
+                              <button
+                                key={url || img.name}
+                                type="button"
+                                onClick={() => url && handleMaterialToggle(url)}
+                                className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                                  selected ? "border-orange-500 ring-1 ring-orange-200" : "border-transparent hover:border-[#d1d1d6]"
+                                }`}
+                              >
+                                <Image src={img.previewUrl} alt={img.name || "Material"} fill sizes="80px" className="object-cover" />
+                                {selected && (
+                                  <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center">
+                                    <CheckCircle className="w-4 h-4 text-white" />
+                                  </div>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {selectedMaterials.length > 0 && (
+                          <p className="text-xs text-orange-600">เลือกแล้ว {selectedMaterials.length} ภาพ</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#9ca3af]">ยังไม่มีวัสดุ อัปโหลดเพื่อเริ่มใช้งาน</p>
+                    )
+                  )}
                 </div>
               )}
-              <div className="flex justify-center pt-1">
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || pendingImages.length === 0}
-                  className="h-10 px-6 text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <img
-                        src="/SCR-20250730-myam-Photoroom.png"
-                        alt="Generate"
-                        className="w-4 h-4 mr-2"
-                      />
-                      Generate Image
-                    </>
-                  )}
-                </Button>
-              </div>
             </div>
-          )}
+            )}
+          </div>
+          {/* End two-column layout */}
 
           {/* ─── Phase 2: Chat Messages ───────────────────── */}
           {/* Current Editing Status */}
@@ -1928,6 +2074,146 @@ export function RemixChatPanel({
                                     </Button>
                                   </div>
                                 )}
+                              </div>
+                            )
+                          }
+                          if (part.type === "pmax-collection") {
+                            return (
+                              <div key={pi} className="space-y-3 mt-2">
+                                {/* Collection Header */}
+                                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                                      <Sparkles className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-semibold text-purple-900">Performance Max Collection</p>
+                                      <p className="text-xs text-purple-600">{part.images.length} aspect ratios • {part.images.filter(i => i.Version1 || i.Version2).length * 2} images total</p>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                                    onClick={() => handleDownloadAll(part.images)}
+                                  >
+                                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                                    Download All
+                                  </Button>
+                                </div>
+
+                                {/* Image Grid */}
+                                <div className="grid grid-cols-2 gap-3">
+                                  {part.images.map((imageSet, idx) => {
+                                    const aspectRatio = part.aspectRatios[idx] || `Ratio ${idx + 1}`
+                                    return (
+                                      <div key={idx} className="space-y-2">
+                                        <p className="text-xs font-semibold text-[#6c6c70] uppercase tracking-wide flex items-center gap-1">
+                                          <span className="w-5 h-5 rounded bg-purple-100 text-purple-600 flex items-center justify-center text-[10px] font-bold">
+                                            {aspectRatio}
+                                          </span>
+                                          Aspect {aspectRatio}
+                                        </p>
+                                        <div className="space-y-2">
+                                          {imageSet.Version1 && (
+                                            <div className="relative group">
+                                              <div className={`relative overflow-hidden rounded-xl border-2 transition-all ${
+                                                selectedImageForEditing === imageSet.Version1
+                                                  ? "border-green-500 ring-2 ring-green-200"
+                                                  : "border-[#e5e7eb]"
+                                              }`}>
+                                                <button
+                                                  type="button"
+                                                  className="block w-full"
+                                                  onClick={() => setPreviewImage(imageSet.Version1)}
+                                                >
+                                                  <Image src={imageSet.Version1} alt={`${aspectRatio} V1`} width={300} height={300} className="w-full h-auto object-cover" />
+                                                </button>
+                                                {selectedImageForEditing === imageSet.Version1 && (
+                                                  <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                                    <Check className="w-3 h-3" />
+                                                    Editing
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black"
+                                                  onClick={() => {
+                                                    setSelectedImageForEditing(imageSet.Version1!)
+                                                    setTimeout(() => {
+                                                      const chatContainer = chatContainerRef.current
+                                                      if (chatContainer) {
+                                                        chatContainer.scrollTop = chatContainer.scrollHeight
+                                                      }
+                                                    }, 100)
+                                                  }}
+                                                >
+                                                  <Settings className="w-3 h-3 mr-1" />
+                                                  Edit
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(imageSet.Version1!)}>
+                                                  <Download className="w-3 h-3 mr-1" />
+                                                  DL
+                                                </Button>
+                                              </div>
+                                              <p className="text-[10px] text-[#9ca3af] mt-1">Version 1</p>
+                                            </div>
+                                          )}
+                                          {imageSet.Version2 && (
+                                            <div className="relative group">
+                                              <div className={`relative overflow-hidden rounded-xl border-2 transition-all ${
+                                                selectedImageForEditing === imageSet.Version2
+                                                  ? "border-green-500 ring-2 ring-green-200"
+                                                  : "border-[#e5e7eb]"
+                                              }`}>
+                                                <button
+                                                  type="button"
+                                                  className="block w-full"
+                                                  onClick={() => setPreviewImage(imageSet.Version2)}
+                                                >
+                                                  <Image src={imageSet.Version2} alt={`${aspectRatio} V2`} width={300} height={300} className="w-full h-auto object-cover" />
+                                                </button>
+                                                {selectedImageForEditing === imageSet.Version2 && (
+                                                  <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                                    <Check className="w-3 h-3" />
+                                                    Editing
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black"
+                                                  onClick={() => {
+                                                    setSelectedImageForEditing(imageSet.Version2!)
+                                                    setTimeout(() => {
+                                                      const chatContainer = chatContainerRef.current
+                                                      if (chatContainer) {
+                                                        chatContainer.scrollTop = chatContainer.scrollHeight
+                                                      }
+                                                    }, 100)
+                                                  }}
+                                                >
+                                                  <Settings className="w-3 h-3 mr-1" />
+                                                  Edit
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(imageSet.Version2!)}>
+                                                  <Download className="w-3 h-3 mr-1" />
+                                                  DL
+                                                </Button>
+                                              </div>
+                                              <p className="text-[10px] text-[#9ca3af] mt-1">Version 2</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
                               </div>
                             )
                           }
@@ -2074,24 +2360,53 @@ export function RemixChatPanel({
                   </button>
                 </div>
 
+                {/* PMAX Toggle */}
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => setIsPmaxEnabled(!isPmaxEnabled)}
+                    className={`flex-shrink-0 px-3 h-8 rounded-lg flex items-center gap-1.5 text-xs font-medium transition-all ${
+                      isPmaxEnabled
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                        : "bg-white border border-[#d1d1d6] text-[#8e8e93] hover:border-purple-300 hover:text-purple-600"
+                    }`}
+                    title="สร้างชุดรูปภาพสำหรับ Performance Max"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>PMAX</span>
+                  </button>
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <div className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                      สร้างชุดรูปภาพสำหรับ Performance Max
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Textarea */}
                 <textarea
                   ref={textareaRef}
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="พิมพ์คำสั่งแก้ไขภาพ เช่น เปลี่ยนสีให้สดใสขึ้น..."
+                  placeholder={
+                    !selectedClientId || selectedClientId === ""
+                      ? "เลือกลูกค้าจากแถบด้านซ้ายเพื่อเริ่มใช้งาน..."
+                      : "พิมพ์คำสั่งแก้ไขภาพ เช่น เปลี่ยนสีให้สดใสขึ้น..."
+                  }
                   rows={1}
-                  className="flex-1 resize-none bg-transparent text-sm text-[#1c1c1e] placeholder:text-[#c7c7cc] focus:outline-none py-1.5 max-h-[120px] overflow-y-auto"
+                  disabled={!selectedClientId || selectedClientId === ""}
+                  className="flex-1 resize-none bg-transparent text-sm text-[#1c1c1e] placeholder:text-[#c7c7cc] focus:outline-none py-1.5 max-h-[120px] overflow-y-auto disabled:opacity-50"
                 />
 
                 {/* Send button */}
                 <button
                   type="button"
                   onClick={() => handleChatSend()}
-                  disabled={isGenerating || (!inputText.trim() && pendingImages.length === 0)}
+                  disabled={!selectedClientId || selectedClientId === "" || isGenerating || (!inputText.trim() && pendingImages.length === 0)}
                   className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    isGenerating || (!inputText.trim() && pendingImages.length === 0)
+                    !selectedClientId || selectedClientId === "" || isGenerating || (!inputText.trim() && pendingImages.length === 0)
                       ? "bg-[#e5e7eb] text-[#c7c7cc] cursor-not-allowed"
                       : "bg-[#1d4ed8] text-white hover:bg-[#1847c2] shadow-sm"
                   }`}
@@ -2102,15 +2417,23 @@ export function RemixChatPanel({
 
               {/* Status line */}
               <div className="flex items-center justify-between mt-1.5 px-1">
-                <p className="text-[11px] text-[#c7c7cc]">
-                  {pendingImages.length > 0
-                    ? `แนบรูปใหม่ ${pendingImages.length}/${MAX_REFERENCE_SELECTION}`
-                    : "จะใช้ภาพที่สร้างล่าสุดเป็น Reference • กด 📷 แนบรูปใหม่ หรือ Ctrl+V วาง"
-                  }
-                </p>
-                <p className="text-[11px] text-[#c7c7cc]">
-                  {aspectRatio} • {resolvedClientName !== "No Client Selected" ? resolvedClientName : "ยังไม่เลือกลูกค้า"}
-                </p>
+                {!selectedClientId || selectedClientId === "" ? (
+                  <p className="text-[11px] text-amber-600 font-medium">
+                    ⚠️ กรุณาเลือกลูกค้าจากแถบด้านซ้ายเพื่อเริ่มสร้างภาพ
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-[#c7c7cc]">
+                      {pendingImages.length > 0
+                        ? `แนบรูปใหม่ ${pendingImages.length}/${MAX_REFERENCE_SELECTION}`
+                        : "จะใช้ภาพที่สร้างล่าสุดเป็น Reference • กด 📷 แนบรูปใหม่ หรือ Ctrl+V วาง"
+                      }
+                    </p>
+                    <p className="text-[11px] text-[#c7c7cc]">
+                      {aspectRatio} • {resolvedClientName}
+                    </p>
+                  </>
+                )}
               </div>
             </>
           )}

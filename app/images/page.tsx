@@ -72,7 +72,8 @@ function MainContent() {
       const byName = clients.find((client) => client.clientName === activeClientNameParam)
       if (byName) return byName
     }
-    return clients[0] || null
+    // Don't auto-select first client - user must choose manually
+    return null
   }, [clients, activeClientIdParam, activeClientNameParam])
 
   const resolvedClientName =
