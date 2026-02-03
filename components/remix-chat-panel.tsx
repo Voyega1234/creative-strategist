@@ -39,6 +39,8 @@ import {
   Target,
   Package,
   Info,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────
@@ -680,7 +682,7 @@ export function RemixChatPanel({
 
   // ─── Core webhook call ─────────────────────────────────────
 
-  const callRemixWebhook = async (referenceUrls: string[], briefText: string, isEdit: boolean = false): Promise<string[] | { isPmaxCollection: true; data: any[]; aspectRatios: string[] }> => {
+  const callRemixWebhook = async (referenceUrls: string[], briefText: string, isEdit: boolean = false, isPmaxFromHover: boolean = false): Promise<string[] | { isPmaxCollection: true; data: any[]; aspectRatios: string[] }> => {
     const prompt = buildPrompt(briefText)
 
     // Determine request type based on PMAX toggle and edit status
@@ -689,10 +691,12 @@ export function RemixChatPanel({
       requestType = "edit image"
     } else if (isPmaxEnabled) {
       requestType = "pmax image"
+    } else if (isPmaxFromHover) {
+      requestType = "pmax optimize"
     }
 
     // For PMAX generation, send multiple aspect ratios; for editing or normal generation, send single selected ratio
-    const aspectRatiosToSend = (isEdit || !isPmaxEnabled) ? [aspectRatio] : PMAX_ASPECT_RATIOS
+    const aspectRatiosToSend = (isEdit || (!isPmaxEnabled && !isPmaxFromHover)) ? [aspectRatio] : PMAX_ASPECT_RATIOS
 
     const payload = {
       prompt,
@@ -712,8 +716,8 @@ export function RemixChatPanel({
       product_focus_name: resolvedProductFocus,
       brief_text: briefText,
       brand_profile_snapshot: brandProfile,
-      aspect_ratio: (isEdit || !isPmaxEnabled) ? aspectRatio : PMAX_ASPECT_RATIOS[0], // Primary aspect ratio
-      aspectRatio: (isEdit || !isPmaxEnabled) ? aspectRatio : PMAX_ASPECT_RATIOS[0],
+      aspect_ratio: (isEdit || (!isPmaxEnabled && !isPmaxFromHover)) ? aspectRatio : PMAX_ASPECT_RATIOS[0], // Primary aspect ratio
+      aspectRatio: (isEdit || (!isPmaxEnabled && !isPmaxFromHover)) ? aspectRatio : PMAX_ASPECT_RATIOS[0],
       aspect_ratios: aspectRatiosToSend, // Array of all aspect ratios to generate
       image_count: DEFAULT_IMAGE_COUNT,
       imageCount: DEFAULT_IMAGE_COUNT,
@@ -738,14 +742,15 @@ export function RemixChatPanel({
     // Debug logging
     console.log('🔍 PMAX Debug:', {
       isPmaxEnabled,
+      isPmaxFromHover,
       isArray: Array.isArray(result),
       hasData: result[0]?.data,
       hasDirectData: result?.data,
       result: JSON.stringify(result).substring(0, 200)
     })
 
-    // Check if response is PMAX format: object with data property (your actual format)
-    if (isPmaxEnabled && result?.data && Array.isArray(result.data)) {
+    // Check if response is PMAX format: direct data property
+    if ((isPmaxEnabled || isPmaxFromHover) && result?.data && Array.isArray(result.data)) {
       console.log('🎯 Found PMAX format with direct data property')
       const pmaxData = result.data
       if (pmaxData.length > 0 &&
@@ -757,7 +762,7 @@ export function RemixChatPanel({
     }
 
     // Check if response is PMAX format: array with data property (backup)
-    if (isPmaxEnabled && Array.isArray(result) && result.length > 0 && result[0]?.data) {
+    if ((isPmaxEnabled || isPmaxFromHover) && Array.isArray(result) && result.length > 0 && result[0]?.data) {
       console.log('🎯 Found PMAX format with data property in array')
       const pmaxData = result[0].data
       if (Array.isArray(pmaxData) && pmaxData.length > 0 &&
@@ -769,7 +774,7 @@ export function RemixChatPanel({
     }
 
     // Also handle direct array format (Version1/Version2 objects)
-    if (isPmaxEnabled && Array.isArray(result) && result.length > 0 &&
+    if ((isPmaxEnabled || isPmaxFromHover) && Array.isArray(result) && result.length > 0 &&
         result.every((item: any) => 'Version1' in item || 'Version2' in item)) {
       console.log('✅ Found direct PMAX format, returning collection')
       // Return PMAX collection wrapped in special format
@@ -986,6 +991,63 @@ export function RemixChatPanel({
 
   const handleCopyUrl = async (url: string) => {
     try { await navigator.clipboard.writeText(url) } catch {}
+  }
+
+  const handlePmaxGenerate = async (imageUrl: string) => {
+    if (!selectedClientId || !resolvedProductFocus || !resolvedClientName || resolvedClientName === "No Client Selected") {
+      addModelMessage([{ type: "text", text: "⚠️ Please select a client and product focus above before generating PMAX images" }])
+      return
+    }
+
+    // Create user message for PMAX generation
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      parts: [
+        { type: "image", url: imageUrl },
+        { type: "text", text: "Generate PMAX variations of this image" }
+      ],
+      timestamp: Date.now(),
+    }
+
+    setMessages((prev) => [...prev, userMsg])
+    setIsGenerating(true)
+
+    try {
+      console.log('🚀 Starting PMAX generation for image:', imageUrl)
+      
+      // Call webhook with PMAX from hover enabled
+      const result = await callRemixWebhook([imageUrl], "Generate PMAX variations of this image", false, true)
+      
+      console.log('📥 PMAX generation result:', result)
+
+      // Check if result is PMAX collection
+      if (typeof result === 'object' && (result as any).isPmaxCollection) {
+        console.log('✅ PMAX collection generated successfully')
+        const pmaxData = result as any
+        const modelParts: ChatContentPart[] = [{
+          type: "pmax-collection" as const,
+          images: pmaxData.data,
+          aspectRatios: pmaxData.aspectRatios
+        }]
+        addModelMessage(modelParts)
+
+        // Set first available image for editing
+        const firstImage = pmaxData.data[0]?.Version1 || pmaxData.data[0]?.Version2
+        if (firstImage) {
+          setSelectedImageForEditing(firstImage)
+        }
+      } else {
+        console.log('📷 Processing unexpected response format...')
+        // Handle unexpected response format
+        addModelMessage([{ type: "text", text: "PMAX generation completed but received unexpected format" }])
+      }
+    } catch (err: any) {
+      console.error("PMAX generation failed:", err)
+      addModelMessage([{ type: "text", text: err?.message || "เกิดข้อผิดพลาดในการสร้างภาพ PMAX" }])
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   // ─── New Chat ──────────────────────────────────────────────
@@ -1426,7 +1488,38 @@ export function RemixChatPanel({
       )}
 
       {/* Main area */}
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 relative">
+        {/* Navigation Buttons */}
+        <div className="fixed right-8 top-1/2 transform -translate-y-1/2 flex flex-col gap-2 z-50">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 w-10 p-0 bg-white shadow-lg hover:shadow-xl transition-all border-gray-200"
+            onClick={() => {
+              const chatContainer = chatContainerRef.current
+              if (chatContainer) {
+                chatContainer.scrollTop = 0
+              }
+            }}
+            title="Go to oldest message"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 w-10 p-0 bg-white shadow-lg hover:shadow-xl transition-all border-gray-200"
+            onClick={() => {
+              const chatContainer = chatContainerRef.current
+              if (chatContainer) {
+                chatContainer.scrollTop = chatContainer.scrollHeight
+              }
+            }}
+            title="Go to newest message"
+          >
+            <ArrowDown className="w-5 h-5" />
+          </Button>
+        </div>
         <div className="max-w-3xl mx-auto">
           {false && (
             <div className="space-y-6">
@@ -2064,6 +2157,15 @@ export function RemixChatPanel({
                                       <Settings className="w-3.5 h-3.5 mr-1" />
                                       Edit
                                     </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-7 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50" 
+                                      onClick={() => handlePmaxGenerate(part.url)}
+                                    >
+                                      <Sparkles className="w-3.5 h-3.5 mr-1" />
+                                      PMAX
+                                    </Button>
                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(part.url)}>
                                       <Download className="w-3.5 h-3.5 mr-1" />
                                       Download
@@ -2154,6 +2256,15 @@ export function RemixChatPanel({
                                                   <Settings className="w-3 h-3 mr-1" />
                                                   Edit
                                                 </Button>
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50" 
+                                                  onClick={() => handlePmaxGenerate(imageSet.Version1!)}
+                                                >
+                                                  <Sparkles className="w-3 h-3 mr-1" />
+                                                  PMAX
+                                                </Button>
                                                 <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(imageSet.Version1!)}>
                                                   <Download className="w-3 h-3 mr-1" />
                                                   DL
@@ -2200,6 +2311,15 @@ export function RemixChatPanel({
                                                 >
                                                   <Settings className="w-3 h-3 mr-1" />
                                                   Edit
+                                                </Button>
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="sm" 
+                                                  className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50" 
+                                                  onClick={() => handlePmaxGenerate(imageSet.Version2!)}
+                                                >
+                                                  <Sparkles className="w-3 h-3 mr-1" />
+                                                  PMAX
                                                 </Button>
                                                 <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(imageSet.Version2!)}>
                                                   <Download className="w-3 h-3 mr-1" />
