@@ -903,8 +903,8 @@ export function RemixChatPanel({
 
     const payload = {
       prompt,
-      reference_image_url: referenceUrls[0] || null,
-      reference_image_urls: referenceUrls,
+      reference_image_url: referenceUrls[0] || "",
+      reference_image_urls: referenceUrls.length > 0 ? referenceUrls : [""],
       client_name: resolvedClientName,
       product_focus: resolvedProductFocus,
       selected_topics: [],
