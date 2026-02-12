@@ -108,10 +108,10 @@ const REMIX_WEBHOOK_URL =
 const PMAX_ASPECT_RATIOS = ["1:1", "4:5", "16:9", "9:16"]
 
 const SUGGESTED_PROMPTS = [
-  "สร้างภาพโฆษณาตาม Reference ที่อัปโหลด",
-  "รีมิกซ์ภาพนี้ให้เป็น mood ที่สดใส สว่าง",
-  "ทำภาพโฆษณา style minimal ตามแบรนด์",
-  "เปลี่ยนสีและ mood ตามพาเลตแบรนด์",
+  "สร้างภาพโฆษณาสินค้า minimal style บนพื้นหลังสีพาสเทล",
+  "สร้างภาพโฆษณา lifestyle สดใส สว่าง บรรยากาศธรรมชาติ",
+  "สร้างภาพโฆษณาสินค้า modern luxury style",
+  "ทำภาพโฆษณา flat lay composition แบบมินิมอล",
 ]
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -250,6 +250,9 @@ export function RemixChatPanel({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const chatContainerRef = useRef<HTMLDivElement | null>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const wasHiddenRef = useRef<boolean>(false)
+  const mainContainerRef = useRef<HTMLDivElement | null>(null)
 
   // ─── Derived state ─────────────────────────────────────────
 
@@ -331,6 +334,197 @@ export function RemixChatPanel({
   useEffect(() => {
     setPhase("chat")
   }, [])
+
+  // ─── Session Storage: Save & Restore Chat State ────────────
+
+  // Generate unique session key based on client and product focus
+  const getSessionKey = useCallback(() => {
+    // Freestyle mode uses default key
+    if (!selectedClientId || selectedClientId === "") {
+      return 'remix-chat-freestyle'
+    }
+    // Client mode uses client-specific key
+    const productKey = resolvedProductFocus ? resolvedProductFocus.replace(/\s+/g, '-') : 'default'
+    return `remix-chat-${selectedClientId}-${productKey}`
+  }, [selectedClientId, resolvedProductFocus])
+
+  // Save state to sessionStorage (debounced)
+  const saveSessionState = useCallback(() => {
+    const sessionKey = getSessionKey()
+    if (!sessionKey) return
+
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    // Debounce save operation (500ms)
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        const stateToSave = {
+          messages,
+          inputText,
+          pendingImages,
+          selectedImageForEditing,
+          selectedMaterials,
+          colorPalette,
+          aspectRatio,
+          isPmaxEnabled,
+          referenceExpanded,
+          materialsExpanded,
+          phase,
+          isGenerating, // Save generating state to detect interruptions
+          timestamp: Date.now(),
+        }
+        sessionStorage.setItem(sessionKey, JSON.stringify(stateToSave))
+        console.log('💾 Chat state saved to session:', sessionKey)
+      } catch (err) {
+        console.error('Failed to save session state:', err)
+      }
+    }, 500)
+  }, [
+    messages,
+    inputText,
+    pendingImages,
+    selectedImageForEditing,
+    selectedMaterials,
+    colorPalette,
+    aspectRatio,
+    isPmaxEnabled,
+    referenceExpanded,
+    materialsExpanded,
+    phase,
+    isGenerating,
+    getSessionKey,
+  ])
+
+  // Restore state from sessionStorage on mount
+  useEffect(() => {
+    const sessionKey = getSessionKey()
+    if (!sessionKey) return
+
+    try {
+      const savedState = sessionStorage.getItem(sessionKey)
+      if (savedState) {
+        const parsed = JSON.parse(savedState)
+
+        // Only restore if saved within last 24 hours
+        const ageInHours = (Date.now() - parsed.timestamp) / (1000 * 60 * 60)
+        if (ageInHours < 24) {
+          console.log('📂 Restoring chat state from session:', sessionKey)
+
+          let restoredMessages = parsed.messages || []
+
+          // Check if generation was interrupted (was generating when navigated away)
+          if (parsed.isGenerating && restoredMessages.length > 0) {
+            const lastMsg = restoredMessages[restoredMessages.length - 1]
+
+            // If last message was from user, add an interruption notice
+            if (lastMsg.role === "user") {
+              console.log('⚠️ Generation was interrupted, adding notice message')
+              restoredMessages = [
+                ...restoredMessages,
+                {
+                  id: `interrupted-${Date.now()}`,
+                  role: "model" as const,
+                  parts: [{
+                    type: "text" as const,
+                    text: "⚠️ การสร้างภาพถูกขัดจังหวะเนื่องจากคุณออกจากหน้านี้ไประหว่างที่กำลังสร้างภาพ กรุณากด Enter เพื่อส่งคำขอใหม่อีกครั้ง"
+                  }],
+                  timestamp: Date.now()
+                }
+              ]
+            }
+          }
+
+          setMessages(restoredMessages)
+          setInputText(parsed.inputText || "")
+          setPendingImages(parsed.pendingImages || [])
+          setSelectedImageForEditing(parsed.selectedImageForEditing || "")
+          setSelectedMaterials(parsed.selectedMaterials || [])
+          setColorPalette(parsed.colorPalette || [])
+          setAspectRatio(parsed.aspectRatio || ASPECT_RATIO_OPTIONS[0])
+          setIsPmaxEnabled(parsed.isPmaxEnabled || false)
+          setReferenceExpanded(parsed.referenceExpanded !== undefined ? parsed.referenceExpanded : true)
+          setMaterialsExpanded(parsed.materialsExpanded !== undefined ? parsed.materialsExpanded : true)
+          setPhase(parsed.phase || "chat")
+          setIsGenerating(false) // Always clear generating state on restore
+        } else {
+          // Clear old session data
+          sessionStorage.removeItem(sessionKey)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to restore session state:', err)
+    }
+    // Only run once when client/product focus is determined
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getSessionKey])
+
+  // Auto-save state whenever it changes
+  useEffect(() => {
+    // Always save state (freestyle mode will use default key)
+    saveSessionState()
+  }, [saveSessionState])
+
+  // Clear session storage on New Chat
+  const clearSessionState = useCallback(() => {
+    const sessionKey = getSessionKey()
+    if (sessionKey) {
+      sessionStorage.removeItem(sessionKey)
+      console.log('🗑️ Cleared session state:', sessionKey)
+    }
+  }, [getSessionKey])
+
+  // ─── Visibility Detection: Handle Tab Switching During Generation ────
+
+  useEffect(() => {
+    const container = mainContainerRef.current
+    if (!container) return
+
+    // Create Intersection Observer to detect when component becomes visible/hidden
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const isVisible = entry.isIntersecting
+
+          // Component became visible after being hidden
+          if (isVisible && wasHiddenRef.current && isGenerating) {
+            console.log('⚠️ Component became visible while generation was in progress')
+
+            // Cancel the orphaned generation state
+            setIsGenerating(false)
+
+            // Add interruption message if last message was from user
+            if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
+              const interruptionMessage: ChatMessage = {
+                id: `interrupted-${Date.now()}`,
+                role: "model",
+                parts: [{
+                  type: "text",
+                  text: "⚠️ การสร้างภาพถูกขัดจังหวะเนื่องจากคุณเปลี่ยน tab กรุณากด Enter เพื่อส่งคำขอใหม่อีกครั้ง"
+                }],
+                timestamp: Date.now()
+              }
+              setMessages((prev) => [...prev, interruptionMessage])
+            }
+          }
+
+          // Update hidden state
+          wasHiddenRef.current = !isVisible
+        })
+      },
+      {
+        threshold: 0.1, // Trigger when at least 10% of component is visible
+      }
+    )
+
+    observer.observe(container)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [isGenerating, messages])
 
   // Sync from parent props
   useEffect(() => {
@@ -478,15 +672,15 @@ export function RemixChatPanel({
   }, [])
 
   const handleMaterialUpload = useCallback(async (files: FileList | null) => {
-    if (!files || !selectedClientId) { alert("กรุณาเลือกโหมดก่อนอัปโหลดวัสดุ"); return }
-    
+    if (!files) { return }
+
     setIsUploadingMaterials(true)
     try {
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) continue
-        
-        if (selectedClientId === "general") {
-          // Session mode - store in local state
+
+        if (!selectedClientId || selectedClientId === "" || selectedClientId === "general") {
+          // Freestyle/Session mode - store in local state
           const reader = new FileReader()
           reader.onload = (e) => {
             const newMaterial: ReferenceImage = {
@@ -627,7 +821,7 @@ export function RemixChatPanel({
 
   // ─── Prompt builder ────────────────────────────────────────
 
-  const buildPrompt = (briefText: string) => {
+  const buildPrompt = (briefText: string, hasReferences: boolean = true) => {
     const parts = [
       resolvedClientName ? `แบรนด์: ${resolvedClientName}` : null,
       resolvedProductFocus ? `สินค้า/บริการ: ${resolvedProductFocus}` : null,
@@ -636,10 +830,16 @@ export function RemixChatPanel({
       brandProfile?.strengths ? `Strengths: ${brandProfile.strengths}` : null,
     ].filter(Boolean)
 
+    // For freestyle mode (no references), use user's prompt directly
+    // For reference-based mode, add instruction to follow reference
+    const baseInstruction = hasReferences
+      ? "สร้างรูปภาพโฆษณาตามรูปแบบและองค์ประกอบของรูปอ้างอิงที่ให้ไว้"
+      : briefText ? null : "สร้างรูปภาพโฆษณา"
+
     return [
-      "สร้างรูปภาพโฆษณาตามรูปแบบและองค์ประกอบของรูปอ้างอิงที่ให้ไว้",
+      baseInstruction,
       parts.length ? `ข้อมูลแบรนด์:\n${parts.join("\n")}` : null,
-      briefText ? `บรีฟเพิ่มเติม: ${briefText.trim()}` : null,
+      briefText ? (hasReferences ? `บรีฟเพิ่มเติม: ${briefText.trim()}` : briefText.trim()) : null,
     ].filter(Boolean).join("\n\n")
   }
 
@@ -683,9 +883,10 @@ export function RemixChatPanel({
   // ─── Core webhook call ─────────────────────────────────────
 
   const callRemixWebhook = async (referenceUrls: string[], briefText: string, isEdit: boolean = false, isPmaxFromHover: boolean = false): Promise<string[] | { isPmaxCollection: true; data: any[]; aspectRatios: string[] }> => {
-    const prompt = buildPrompt(briefText)
+    const hasReferences = referenceUrls.length > 0
+    const prompt = buildPrompt(briefText, hasReferences)
 
-    // Determine request type based on PMAX toggle and edit status
+    // Determine request type based on mode, PMAX toggle, and edit status
     let requestType = undefined
     if (isEdit) {
       requestType = "edit image"
@@ -693,6 +894,8 @@ export function RemixChatPanel({
       requestType = "pmax image"
     } else if (isPmaxFromHover) {
       requestType = "pmax optimize"
+    } else if (!selectedClientId || selectedClientId === "") {
+      requestType = "freestyle"
     }
 
     // For PMAX generation, send multiple aspect ratios; for editing or normal generation, send single selected ratio
@@ -825,27 +1028,13 @@ export function RemixChatPanel({
     const images = [...pendingImages]
     const isInitialGeneration = filteredMessages.length === 0
 
-    // For initial generation, require at least images (text is optional)
-    if (isInitialGeneration && images.length === 0) {
+    // For initial generation, require at least text or images (freestyle mode allows text-only)
+    if (isInitialGeneration && images.length === 0 && !text) {
       return
     }
 
     // For edits, require at least text or new images
     if (!isInitialGeneration && !text && images.length === 0) {
-      return
-    }
-
-    // Always require client and product focus
-    if (!selectedClientId || !resolvedProductFocus || !resolvedClientName || resolvedClientName === "No Client Selected") {
-      const message = isInitialGeneration
-        ? "⚠️ Please select a client and product focus above before generating images"
-        : "⚠️ Please select a client and product focus above before sending messages"
-
-      if (isInitialGeneration) {
-        alert(message)
-      } else {
-        addModelMessage([{ type: "text", text: message }])
-      }
       return
     }
 
@@ -855,17 +1044,12 @@ export function RemixChatPanel({
       return
     }
 
-    // Determine references for webhook
+    // Determine references for webhook (allow empty for freestyle generation)
     const webhookRefs = images.length > 0
       ? images
       : isInitialGeneration
-        ? [] // Should not happen due to validation above
+        ? [] // Freestyle mode: no references needed
         : [selectedImageForEditing]
-
-    if (webhookRefs.length === 0) {
-      addModelMessage([{ type: "text", text: "ไม่พบรูปภาพอ้างอิง กรุณาแนบรูปใหม่หรือเริ่มแชทใหม่" }])
-      return
-    }
 
     // Build user message
     const userParts: ChatContentPart[] = []
@@ -994,11 +1178,6 @@ export function RemixChatPanel({
   }
 
   const handlePmaxGenerate = async (imageUrl: string) => {
-    if (!selectedClientId || !resolvedProductFocus || !resolvedClientName || resolvedClientName === "No Client Selected") {
-      addModelMessage([{ type: "text", text: "⚠️ Please select a client and product focus above before generating PMAX images" }])
-      return
-    }
-
     // Create user message for PMAX generation
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -1053,6 +1232,9 @@ export function RemixChatPanel({
   // ─── New Chat ──────────────────────────────────────────────
 
   const handleNewChat = () => {
+    // Clear session storage for this client/product focus
+    clearSessionState()
+
     setMessages([])
     setInputText("")
     setPendingImages([])
@@ -1373,15 +1555,17 @@ export function RemixChatPanel({
                       <Plus className="w-3 h-3 mr-1" />
                       เพิ่ม
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-sm border-pink-200 text-pink-600 hover:bg-pink-50"
-                      onClick={handleSavePalette}
-                      disabled={isSavingPalette}
-                    >
-                      {isSavingPalette ? "กำลัง..." : "บันทึก"}
-                    </Button>
+                    {selectedClientId && selectedClientId !== "" && selectedClientId !== "general" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-sm border-pink-200 text-pink-600 hover:bg-pink-50"
+                        onClick={handleSavePalette}
+                        disabled={isSavingPalette}
+                      >
+                        {isSavingPalette ? "กำลัง..." : "บันทึก"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1407,15 +1591,17 @@ export function RemixChatPanel({
                       <Plus className="w-3 h-3 mr-1" />
                       เพิ่ม
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-sm border-pink-200 text-pink-600 hover:bg-pink-50"
-                      onClick={handleSavePalette}
-                      disabled={isSavingPalette}
-                    >
-                      {isSavingPalette ? "กำลัง..." : "บันทึก"}
-                    </Button>
+                    {selectedClientId && selectedClientId !== "" && selectedClientId !== "general" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-sm border-pink-200 text-pink-600 hover:bg-pink-50"
+                        onClick={handleSavePalette}
+                        disabled={isSavingPalette}
+                      >
+                        {isSavingPalette ? "กำลัง..." : "บันทึก"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               )
@@ -1452,7 +1638,7 @@ export function RemixChatPanel({
   // ─── Render ────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden">
+    <div ref={mainContainerRef} className="flex flex-col h-full bg-white rounded-2xl border border-[#e5e7eb] overflow-hidden">
       {/* Header bar */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e5e7eb] bg-white flex-shrink-0">
         <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
@@ -1472,16 +1658,16 @@ export function RemixChatPanel({
         </Button>
       </div>
 
-      {/* Client Selection Required Notification */}
+      {/* Client Selection Info Notification */}
       {(!selectedClientId || selectedClientId === "") && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200 px-4 py-3">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 px-4 py-3">
           <div className="max-w-3xl mx-auto flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
               <Info className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-900">กรุณาเลือกลูกค้าก่อนใช้งาน</p>
-              <p className="text-xs text-amber-700 mt-0.5">Please select a client from the sidebar to start generating images</p>
+              <p className="text-sm font-semibold text-blue-900">Freestyle Mode</p>
+              <p className="text-xs text-blue-700 mt-0.5">You can generate images freely with just a prompt. Select a client for brand-specific features (colors, materials, brand info).</p>
             </div>
           </div>
         </div>
@@ -1966,8 +2152,8 @@ export function RemixChatPanel({
                     </div>
                   </div>
 
-                  {selectedClientId === "general" ? (
-                    // General mode - show session materials
+                  {!selectedClientId || selectedClientId === "" || selectedClientId === "general" ? (
+                    // Freestyle/General mode - show session materials
                     sessionMaterials.length > 0 ? (
                       <div className="space-y-2">
                         <div className="grid grid-cols-3 gap-4">
@@ -2511,22 +2697,21 @@ export function RemixChatPanel({
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={
-                    !selectedClientId || selectedClientId === ""
-                      ? "เลือกลูกค้าจากแถบด้านซ้ายเพื่อเริ่มใช้งาน..."
+                    filteredMessages.length === 0
+                      ? "อธิบายภาพที่ต้องการสร้าง หรือแนบรูปอ้างอิง..."
                       : "พิมพ์คำสั่งแก้ไขภาพ เช่น เปลี่ยนสีให้สดใสขึ้น..."
                   }
                   rows={1}
-                  disabled={!selectedClientId || selectedClientId === ""}
-                  className="flex-1 resize-none bg-transparent text-sm text-[#1c1c1e] placeholder:text-[#c7c7cc] focus:outline-none py-1.5 max-h-[120px] overflow-y-auto disabled:opacity-50"
+                  className="flex-1 resize-none bg-transparent text-sm text-[#1c1c1e] placeholder:text-[#c7c7cc] focus:outline-none py-1.5 max-h-[120px] overflow-y-auto"
                 />
 
                 {/* Send button */}
                 <button
                   type="button"
                   onClick={() => handleChatSend()}
-                  disabled={!selectedClientId || selectedClientId === "" || isGenerating || (!inputText.trim() && pendingImages.length === 0)}
+                  disabled={isGenerating || (!inputText.trim() && pendingImages.length === 0)}
                   className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    !selectedClientId || selectedClientId === "" || isGenerating || (!inputText.trim() && pendingImages.length === 0)
+                    isGenerating || (!inputText.trim() && pendingImages.length === 0)
                       ? "bg-[#e5e7eb] text-[#c7c7cc] cursor-not-allowed"
                       : "bg-[#1d4ed8] text-white hover:bg-[#1847c2] shadow-sm"
                   }`}
@@ -2538,8 +2723,11 @@ export function RemixChatPanel({
               {/* Status line */}
               <div className="flex items-center justify-between mt-1.5 px-1">
                 {!selectedClientId || selectedClientId === "" ? (
-                  <p className="text-[11px] text-amber-600 font-medium">
-                    ⚠️ กรุณาเลือกลูกค้าจากแถบด้านซ้ายเพื่อเริ่มสร้างภาพ
+                  <p className="text-[11px] text-[#9ca3af]">
+                    {pendingImages.length > 0
+                      ? `แนบรูปใหม่ ${pendingImages.length}/${MAX_REFERENCE_SELECTION}`
+                      : "💡 Freestyle Mode: อธิบายภาพที่ต้องการ หรือแนบรูปอ้างอิง • เลือกลูกค้าเพื่อใช้ข้อมูลแบรนด์"
+                    }
                   </p>
                 ) : (
                   <>
