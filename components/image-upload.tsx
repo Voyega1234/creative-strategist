@@ -214,34 +214,59 @@ export function ImageUpload() {
   const errorCount = files.filter(f => f.status === 'error').length
 
   return (
-    <div className="space-y-6">
+    <section className="space-y-6">
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,_#ffffff_0%,_#f8fafc_100%)] p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <Badge className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white hover:bg-slate-900">
+              Reference Library
+            </Badge>
+            <div>
+              <h3 className="text-2xl font-semibold tracking-tight text-slate-950">
+                Upload inspiration images for the gallery
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                รูปที่อัปโหลดที่นี่จะเข้าไปอยู่ในคลัง reference กลาง และสามารถเลือกกลับไปใช้ใน Compass Ideas ได้ทันที
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {pendingCount > 0 && <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">{pendingCount} รออัปโหลด</Badge>}
+            {uploadingCount > 0 && <Badge className="rounded-full bg-blue-50 text-blue-700 hover:bg-blue-50">{uploadingCount} กำลังอัปโหลด</Badge>}
+            {successCount > 0 && <Badge className="rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-50">{successCount} สำเร็จ</Badge>}
+            {errorCount > 0 && <Badge className="rounded-full bg-rose-50 text-rose-700 hover:bg-rose-50">{errorCount} ล้มเหลว</Badge>}
+          </div>
+        </div>
+      </div>
+
       {/* Upload Area */}
       <Card 
-        className={`relative border-2 border-dashed transition-colors ${
+        className={`relative overflow-hidden rounded-[28px] border-2 border-dashed shadow-sm transition-colors ${
           isDragging 
             ? 'border-blue-400 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400'
+            : 'border-slate-200 bg-white hover:border-slate-300'
         }`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
-        <div className="p-12 text-center">
+        <div className="p-12 text-center sm:p-16">
           <div className="flex flex-col items-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mb-4">
-              <Cloud className="w-8 h-8 text-blue-600" />
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-900 text-white shadow-sm">
+              <Cloud className="h-8 w-8" />
             </div>
             
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 className="mb-2 text-xl font-semibold text-slate-950">
               ลากและวางรูปภาพที่นี่
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="mb-6 max-w-xl text-sm leading-6 text-slate-600">
               หรือคลิกเพื่อเลือกไฟล์ รองรับ JPG, PNG, GIF, WebP
             </p>
             
             <Button 
               onClick={() => fileInputRef.current?.click()}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              className="h-11 rounded-full bg-slate-900 px-5 text-white hover:bg-slate-800"
             >
               <Upload className="w-4 h-4 mr-2" />
               เลือกรูปภาพ
@@ -261,26 +286,26 @@ export function ImageUpload() {
 
       {/* Upload Queue */}
       {files.length > 0 && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
+        <Card className="rounded-[28px] border-slate-200 p-6 shadow-sm">
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold">คิวการอัปโหลด</h3>
-              <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                {pendingCount > 0 && <Badge variant="secondary">{pendingCount} รอ</Badge>}
-                {uploadingCount > 0 && <Badge className="bg-blue-100 text-blue-800">{uploadingCount} กำลังอัปโหลด</Badge>}
-                {successCount > 0 && <Badge className="bg-green-100 text-green-800">{successCount} สำเร็จ</Badge>}
-                {errorCount > 0 && <Badge variant="destructive">{errorCount} ล้มเหลว</Badge>}
+              <h3 className="text-lg font-semibold text-slate-950">Upload Queue</h3>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                {pendingCount > 0 && <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">{pendingCount} รอ</Badge>}
+                {uploadingCount > 0 && <Badge className="rounded-full bg-blue-50 text-blue-700 hover:bg-blue-50">{uploadingCount} กำลังอัปโหลด</Badge>}
+                {successCount > 0 && <Badge className="rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-50">{successCount} สำเร็จ</Badge>}
+                {errorCount > 0 && <Badge className="rounded-full bg-rose-50 text-rose-700 hover:bg-rose-50">{errorCount} ล้มเหลว</Badge>}
               </div>
             </div>
             
             <div className="flex items-center gap-2">
               {successCount > 0 && (
-                <Button variant="outline" size="sm" onClick={clearCompleted}>
+                <Button variant="outline" size="sm" onClick={clearCompleted} className="rounded-full border-slate-200">
                   ล้างที่เสร็จแล้ว
                 </Button>
               )}
               {pendingCount > 0 && (
-                <Button onClick={uploadAllFiles} disabled={uploadingCount > 0}>
+                <Button onClick={uploadAllFiles} disabled={uploadingCount > 0} className="rounded-full bg-slate-900 text-white hover:bg-slate-800">
                   <Upload className="w-4 h-4 mr-2" />
                   อัปโหลดทั้งหมด
                 </Button>
@@ -290,14 +315,14 @@ export function ImageUpload() {
 
           <div className="space-y-3">
             {files.map((file) => (
-              <div key={file.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+              <div key={file.id} className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
                 {/* Preview */}
-                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200">
+                <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-200">
                   <Image
                     src={file.preview}
                     alt={file.file.name}
-                    width={48}
-                    height={48}
+                    width={56}
+                    height={56}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -305,8 +330,8 @@ export function ImageUpload() {
                 {/* File Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-medium text-sm truncate">{file.file.name}</h4>
-                    <span className="text-xs text-gray-500">{formatFileSize(file.file.size)}</span>
+                    <h4 className="truncate text-sm font-medium text-slate-950">{file.file.name}</h4>
+                    <span className="text-xs text-slate-500">{formatFileSize(file.file.size)}</span>
                   </div>
                   
                   {/* Progress Bar */}
@@ -316,7 +341,7 @@ export function ImageUpload() {
                   
                   {/* Error Message */}
                   {file.status === 'error' && file.error && (
-                    <p className="text-xs text-red-600">{file.error}</p>
+                    <p className="text-xs text-rose-600">{file.error}</p>
                   )}
                 </div>
 
@@ -333,11 +358,12 @@ export function ImageUpload() {
                   )}
                   {file.status === 'error' && (
                     <>
-                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <AlertCircle className="w-5 h-5 text-rose-600" />
                       <Button 
                         size="sm" 
                         variant="outline" 
                         onClick={() => retryUpload(file.id)}
+                        className="rounded-full border-slate-200"
                       >
                         ลองใหม่
                       </Button>
@@ -349,6 +375,7 @@ export function ImageUpload() {
                     variant="ghost"
                     onClick={() => removeFile(file.id)}
                     disabled={file.status === 'uploading'}
+                    className="rounded-full"
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -360,14 +387,14 @@ export function ImageUpload() {
       )}
 
       {/* Tips */}
-      <Card className="p-4 bg-blue-50 border-blue-200">
+      <Card className="rounded-[28px] border border-blue-100 bg-[linear-gradient(135deg,_#eff6ff_0%,_#ffffff_100%)] p-5 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <ImageIcon className="w-3 h-3 text-white" />
+          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white">
+            <ImageIcon className="h-4 w-4" />
           </div>
           <div>
-            <h4 className="font-medium text-blue-900 mb-1">เคล็ดลับการอัปโหลด</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
+            <h4 className="mb-2 font-medium text-slate-950">เคล็ดลับการอัปโหลด</h4>
+            <ul className="space-y-1 text-sm text-slate-600">
               <li>• รูปภาพที่มีคุณภาพสูงจะช่วยในการวิเคราะห์และเป็นแรงบันดาลใจ</li>
               <li>• ใช้ชื่อไฟล์ที่อธิบายเนื้อหาเพื่อให้ค้นหาง่าย</li>
               <li>• ขนาดไฟล์ที่แนะนำ: 1-5 MB ต่อรูป</li>
@@ -375,6 +402,6 @@ export function ImageUpload() {
           </div>
         </div>
       </Card>
-    </div>
+    </section>
   )
 }

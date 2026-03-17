@@ -2,16 +2,11 @@
 
 // Performance optimization for client-side rendering
 import { useState, useEffect, useMemo, Suspense } from "react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Upload, Image as ImageIcon, Sparkles, Home, Bookmark } from "lucide-react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { ImageUpload } from "@/components/image-upload"
+import { Image as ImageIcon, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 import { AIImageGenerator } from "@/components/ai-image-generator"
-import { LoadingPopup } from "@/components/loading-popup"
-import { SavedIdeas } from "@/components/saved-ideas"
-import { IdeaDetailModal } from "@/components/idea-detail-modal"
+import { Button } from "@/components/ui/button"
 import { MainSidebar } from "@/components/main-sidebar"
 import { RemixChatPanel } from "@/components/remix-chat-panel"
 
@@ -27,14 +22,8 @@ type ClientWithProductFocus = {
 // Client component that uses useSearchParams
 function MainContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const [clients, setClients] = useState<ClientWithProductFocus[]>([])
-  const [isNavigatingToHome, setIsNavigatingToHome] = useState(false)
-  const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
-  
-  // Saved Ideas modal state
-  const [savedIdeasOpen, setSavedIdeasOpen] = useState(false)
-  const [selectedDetailIdea, setSelectedDetailIdea] = useState<any>(null)
+  const [isSidebarHidden, setIsSidebarHidden] = useState(false)
   
   // Get URL parameters
   const activeProductFocusParam = searchParams.get('productFocus') || null
@@ -86,121 +75,71 @@ function MainContent() {
 
   const resolvedClientId = activeClientRecord?.id || null
 
-  const handleNewClientNavigation = async () => {
-    setIsNavigatingToNewClient(true)
-    try {
-      router.push('/new-client')
-    } catch (error) {
-      setIsNavigatingToNewClient(false)
-    }
-  }
-
-  const handleHomeNavigation = async () => {
-    setIsNavigatingToHome(true)
-    
-    try {
-      let homeUrl = "/"
-      if (resolvedClientName && resolvedClientName !== "No Client Selected" && resolvedClientId) {
-        const targetFocus = activeClientRecord?.productFocuses.find(
-          (pf) => pf.productFocus === resolvedProductFocus,
-        )
-        const params = new URLSearchParams()
-        params.set("clientId", targetFocus?.id || resolvedClientId)
-        params.set("clientName", resolvedClientName)
-        if (resolvedProductFocus) {
-          params.set("productFocus", resolvedProductFocus)
-        }
-        homeUrl = `/?${params.toString()}`
-      }
-      
-      router.push(homeUrl)
-    } catch (error) {
-      setIsNavigatingToHome(false)
-    }
-  }
-
-  const handleViewSavedIdeas = () => {
-    if (
-      !resolvedClientName ||
-      resolvedClientName === "No Client Selected" ||
-      !resolvedProductFocus
-    ) {
-      alert('กรุณาเลือกลูกค้าและ Product Focus ก่อน')
-      return
-    }
-    setSavedIdeasOpen(true)
-  }
-
-  const handleViewDetails = (idea: any, savedId: string) => {
-    setSelectedDetailIdea(idea)
-  }
-
-  const handleCloseDetail = () => {
-    setSelectedDetailIdea(null)
-  }
-
   return (
     <div className="flex flex-col h-screen bg-white">
-      <div className="flex flex-1 overflow-hidden">
-        <MainSidebar
-          clients={clients}
-          activeClientName={resolvedClientName}
-          activeProductFocus={resolvedProductFocus}
-          activeClientId={resolvedClientId}
-          showHistory={false}
-          showServiceFilters={false}
-          mode="images"
-        />
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {!isSidebarHidden && (
+          <MainSidebar
+            clients={clients}
+            activeClientName={resolvedClientName}
+            activeProductFocus={resolvedProductFocus}
+            activeClientId={resolvedClientId}
+            showHistory={false}
+            showServiceFilters={false}
+            mode="images"
+          />
+        )}
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col bg-white overflow-hidden">
+        <main className="flex min-h-0 flex-1 flex-col bg-white overflow-hidden">
           <Tabs 
             defaultValue="reference-remix" 
-            className="flex flex-col h-[calc(100vh-4rem)]"
+            className="flex min-h-0 flex-1 flex-col"
           >
-            <TabsList className="flex-shrink-0 grid w-full grid-cols-2 bg-[#f2f2f7] border-b border-[#d1d1d6] p-1 rounded-none h-12">
-              <TabsTrigger 
-                value="reference-remix" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 py-4"
+            <div className="flex flex-none items-center gap-3 border-b border-[#d1d1d6] bg-white px-4 py-3 lg:px-6">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setIsSidebarHidden((value) => !value)}
+                className="h-10 w-10 rounded-full border-slate-200"
               >
-                <ImageIcon className="w-4 h-4" />
-                Compass Creator
-              </TabsTrigger>
-              <TabsTrigger 
-                value="generate" 
-                className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 py-4"
-              >
-                <Sparkles className="w-4 h-4" />
-                Generate / Upload (Compass Ideas)
-              </TabsTrigger>
-            </TabsList>
+                {isSidebarHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                <span className="sr-only">{isSidebarHidden ? "Show sidebar" : "Hide sidebar"}</span>
+              </Button>
+
+              <TabsList className="grid h-11 flex-1 grid-cols-2 rounded-full bg-[#f2f2f7] p-1">
+                <TabsTrigger 
+                  value="reference-remix" 
+                  className="flex items-center gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Compass Creator
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="generate" 
+                  className="flex items-center gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Generate / Upload (Compass Ideas)
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* Generate and Upload Images Tab */}
-            <TabsContent value="generate" className="flex-1 overflow-auto p-4">
-              <div className="max-w-4xl mx-auto space-y-6">
-                {/* AI Image Generation Section */}
-                <Card className="border-2 border-[#d1d1d6] shadow-sm bg-white">
-                  <div className="p-6">
-                    <AIImageGenerator 
-                      activeClientId={resolvedClientId}
-                      activeProductFocus={resolvedProductFocus}
-                      activeClientName={resolvedClientName}
-                    />
-                  </div>
-                </Card>
-
-                  {/* Upload Images Section */}
-                  <Card className="border-2 border-[#d1d1d6] shadow-sm bg-white">
-                    <div className="p-6">
-                      <ImageUpload />
-                    </div>
-                  </Card>
-                </div>
-              </TabsContent>
+            <TabsContent value="generate" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
+              <div className="mx-auto max-w-[1480px]">
+                <AIImageGenerator
+                  activeClientId={resolvedClientId}
+                  activeProductFocus={resolvedProductFocus}
+                  activeClientName={resolvedClientName}
+                />
+              </div>
+            </TabsContent>
 
               {/* Compass Creator Chat Tab */}
-              <TabsContent value="reference-remix" className="flex-1 overflow-hidden p-0 m-0">
-                <div className="h-full flex flex-col">
+              <TabsContent value="reference-remix" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
+                <div className="flex h-full min-h-0 flex-col">
                   <RemixChatPanel
                     activeClientId={resolvedClientId}
                     activeProductFocus={resolvedProductFocus}
@@ -211,30 +150,6 @@ function MainContent() {
             </Tabs>
         </main>
       </div>
-
-      {/* Loading Popups */}
-      <LoadingPopup
-        isOpen={isNavigatingToHome}
-        message="กลับสู่หน้าหลัก กำลังเตรียมข้อมูลสำหรับคุณ..."
-      />
-
-      {/* Saved Ideas Modal */}
-      <SavedIdeas 
-        isOpen={savedIdeasOpen}
-        onClose={() => setSavedIdeasOpen(false)}
-        activeClientName={resolvedClientName !== "No Client Selected" ? resolvedClientName : undefined}
-        activeProductFocus={resolvedProductFocus || undefined}
-        onViewDetails={handleViewDetails}
-      />
-
-      {/* Idea Detail Modal */}
-      {selectedDetailIdea && (
-        <IdeaDetailModal
-          isOpen={true}
-          onClose={handleCloseDetail}
-          idea={selectedDetailIdea}
-        />
-      )}
     </div>
   )
 }
