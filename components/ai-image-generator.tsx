@@ -45,6 +45,11 @@ import Image from "next/image"
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
 import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal"
 import { cn } from "@/lib/utils"
+import {
+  buildCustomIdeaFallback,
+  getTopicPreviewText,
+  type ParsedCustomIdea,
+} from "@/lib/custom-idea-parser"
 
 const ASPECT_RATIO_OPTIONS = [
   "1:1",
@@ -79,7 +84,16 @@ interface GeneratedImage {
   status: 'generating' | 'completed' | 'error'
   created_at: string
   source?: string
+  aspectRatio?: string
+  resolution?: string
+  operation?: 'generate' | 'upscale'
+  sourceImageUrl?: string
+  sourceImageId?: string
 }
+
+const GENERATED_IMAGES_STORAGE_PREFIX = "cvc_generated_images"
+const GENERATED_IMAGES_STORAGE_TTL = 30 * 24 * 60 * 60 * 1000
+const MAX_STORED_GENERATED_IMAGES = 60
 
 interface ClientOption {
   id: string
@@ -88,6 +102,63 @@ interface ClientOption {
     productFocus: string
   }>
   colorPalette?: string[]
+}
+
+function getGeneratedImagesStorageKey(clientId: string, productFocus: string) {
+  return `${GENERATED_IMAGES_STORAGE_PREFIX}_${clientId}_${productFocus}`
+}
+
+function loadGeneratedImagesFromStorage(storageKey: string): GeneratedImage[] {
+  if (typeof window === "undefined") return []
+
+  try {
+    const raw = localStorage.getItem(storageKey)
+    if (!raw) return []
+
+    const parsed = JSON.parse(raw)
+    const timestamp = typeof parsed?.timestamp === "number" ? parsed.timestamp : 0
+    const images = Array.isArray(parsed?.images) ? parsed.images : []
+
+    if (!timestamp || Date.now() - timestamp > GENERATED_IMAGES_STORAGE_TTL) {
+      localStorage.removeItem(storageKey)
+      return []
+    }
+
+    return images
+      .filter((image): image is GeneratedImage => !!image && typeof image.url === "string")
+      .map((image) => ({
+        ...image,
+        status: "completed",
+      }))
+  } catch (error) {
+    console.error("[AI Image Generator] Error loading generated images from storage:", error)
+    return []
+  }
+}
+
+function saveGeneratedImagesToStorage(storageKey: string, images: GeneratedImage[]) {
+  if (typeof window === "undefined") return
+
+  try {
+    const persistedImages = images
+      .filter((image) => image.status === "completed" && image.url)
+      .slice(0, MAX_STORED_GENERATED_IMAGES)
+
+    if (persistedImages.length === 0) {
+      localStorage.removeItem(storageKey)
+      return
+    }
+
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        timestamp: Date.now(),
+        images: persistedImages,
+      }),
+    )
+  } catch (error) {
+    console.error("[AI Image Generator] Error saving generated images to storage:", error)
+  }
 }
 
 interface SavedTopic {
@@ -121,25 +192,6 @@ interface AIImageGeneratorProps {
 
 type EditableIdeaType = NonNullable<ComponentProps<typeof EditableSavedIdeaModal>["idea"]>
 
-function getTopicPreviewText(description: string) {
-  try {
-    const parsed = JSON.parse(description)
-    if (parsed && typeof parsed === "object" && "summary" in parsed && parsed.summary) {
-      return String(parsed.summary)
-    }
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const firstItem = parsed[0]
-      if (firstItem && typeof firstItem === "object" && "text" in firstItem && firstItem.text) {
-        return String(firstItem.text)
-      }
-    }
-  } catch {
-    return description
-  }
-
-  return description
-}
-
 export function AIImageGenerator({ 
   activeClientId, 
   activeProductFocus, 
@@ -159,6 +211,10 @@ export function AIImageGenerator({
   // Strategic insights and topics
   const [savedTopics, setSavedTopics] = useState<SavedTopic[]>([])
   const [selectedTopic, setSelectedTopic] = useState<string>('')
+  const [customIdeaInput, setCustomIdeaInput] = useState("")
+  const [isCustomIdeaDialogOpen, setIsCustomIdeaDialogOpen] = useState(false)
+  const [isParsingCustomIdea, setIsParsingCustomIdea] = useState(false)
+  const [deletingTopicId, setDeletingTopicId] = useState<string | null>(null)
   const [topicEditModalOpen, setTopicEditModalOpen] = useState(false)
   const [topicBeingEdited, setTopicBeingEdited] = useState<SavedTopic | null>(null)
   const [loadingTopics, setLoadingTopics] = useState(false)
@@ -187,11 +243,13 @@ export function AIImageGenerator({
   // AI generation results pagination
   const [showAllResults, setShowAllResults] = useState(false)
   const [savingImageId, setSavingImageId] = useState<string | null>(null)
+  const [upscalingImageIds, setUpscalingImageIds] = useState<string[]>([])
   
   // Image preview modal
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
   const materialInputRef = useRef<HTMLInputElement | null>(null)
   const referenceInputRef = useRef<HTMLInputElement | null>(null)
+  const hydratedGalleryKeyRef = useRef<string | null>(null)
   const currentClient = useMemo(() => {
     if (!selectedClientId) return null
     return clients.find((client) => client.id === selectedClientId) || null
@@ -206,12 +264,17 @@ export function AIImageGenerator({
   const errorImages = generatedImages.filter((image) => image.status === "error")
   const visibleImages = showAllResults ? generatedImages : generatedImages.slice(0, 12)
   const visibleTopics = showAllTopics ? savedTopics : savedTopics.slice(0, 4)
+  const generatedImagesStorageKey = useMemo(() => {
+    if (!selectedClientId || !selectedProductFocus) return null
+    return getGeneratedImagesStorageKey(selectedClientId, selectedProductFocus)
+  }, [selectedClientId, selectedProductFocus])
 
   const getSourceLabel = (value?: string) => {
     if (!value) return null
     const normalized = value.toLowerCase()
     const map: Record<string, string> = {
       gemini: "Gemini",
+      gemini_2k: "Gemini 2K",
       ideogram: "Ideogram",
       dalle: "DALL·E",
       stable_diffusion: "Stable Diffusion",
@@ -230,6 +293,25 @@ export function AIImageGenerator({
     const selectedClient = clients.find((client) => client.id === selectedClientId)
     setColorPalette(selectedClient?.colorPalette || [])
   }, [selectedClientId, clients])
+
+  useEffect(() => {
+    if (!generatedImagesStorageKey) {
+      hydratedGalleryKeyRef.current = null
+      setGeneratedImages([])
+      return
+    }
+
+    const storedImages = loadGeneratedImagesFromStorage(generatedImagesStorageKey)
+    setGeneratedImages(storedImages)
+    hydratedGalleryKeyRef.current = generatedImagesStorageKey
+  }, [generatedImagesStorageKey])
+
+  useEffect(() => {
+    if (!generatedImagesStorageKey) return
+    if (hydratedGalleryKeyRef.current !== generatedImagesStorageKey) return
+
+    saveGeneratedImagesToStorage(generatedImagesStorageKey, generatedImages)
+  }, [generatedImages, generatedImagesStorageKey])
 
   // Update selection when props change (from URL parameters)
   useEffect(() => {
@@ -568,6 +650,11 @@ export function AIImageGenerator({
       status: 'generating',
       created_at: new Date().toISOString(),
       source: undefined,
+      aspectRatio: aspectRatio,
+      resolution: undefined,
+      operation: 'generate',
+      sourceImageUrl: undefined,
+      sourceImageId: undefined,
     }))
 
     setGeneratedImages(prev => [...pendingImages, ...prev])
@@ -679,6 +766,9 @@ export function AIImageGenerator({
                 status: 'completed',
                 reference_image: selectedReferenceImages[0] || undefined,
                 source: finalImage!.source,
+                aspectRatio: aspectRatio,
+                operation: 'generate',
+                sourceImageId: undefined,
               }
             : img,
         ))
@@ -796,6 +886,119 @@ export function AIImageGenerator({
     }
   }
 
+  const uploadGeneratedBlobToStorage = async (blob: Blob, mimeType: string) => {
+    const storageClient = getStorageClient()
+    if (!storageClient) {
+      throw new Error("Storage client not available")
+    }
+
+    const extensionMap: Record<string, string> = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/webp": "webp",
+    }
+
+    const extension = extensionMap[mimeType] || "png"
+    const path = `generated/${selectedClientId || "general"}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}-4k.${extension}`
+
+    const { data, error } = await storageClient.from("ads-creative-image").upload(path, blob, {
+      contentType: mimeType,
+    })
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    const { data: publicUrlData } = storageClient.from("ads-creative-image").getPublicUrl(data.path)
+    return publicUrlData.publicUrl
+  }
+
+  const upscaleImageTo2K = async (image: GeneratedImage) => {
+    if (image.status !== "completed" || !image.url) {
+      return
+    }
+
+    const upscaleJobId = crypto.randomUUID()
+    const targetAspectRatio = image.aspectRatio || aspectRatio
+
+    const pendingUpscale: GeneratedImage = {
+      id: upscaleJobId,
+      url: "",
+      prompt: image.prompt,
+      topicTitle: image.topicTitle,
+      topicSummary: image.topicSummary,
+      reference_image: image.reference_image,
+      status: "generating",
+      created_at: new Date().toISOString(),
+      source: "gemini_2k",
+      aspectRatio: targetAspectRatio,
+      resolution: "2K",
+      operation: "upscale",
+      sourceImageUrl: image.url,
+      sourceImageId: image.id,
+    }
+
+    setUpscalingImageIds((prev) => [...prev, image.id])
+    setGeneratedImages((prev) => [pendingUpscale, ...prev])
+
+    try {
+      const response = await fetch("/api/upscale-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image_url: image.url,
+          prompt: image.prompt || image.topicSummary || "",
+          aspect_ratio: targetAspectRatio,
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result.success || !result.image_base64) {
+        throw new Error(result?.error || "ไม่สามารถ upscale ภาพได้")
+      }
+
+      const byteCharacters = atob(result.image_base64)
+      const byteArray = Uint8Array.from(byteCharacters, (char) => char.charCodeAt(0))
+      const mimeType = result.mime_type || "image/png"
+      const publicUrl = await uploadGeneratedBlobToStorage(
+        new Blob([byteArray], { type: mimeType }),
+        mimeType,
+      )
+
+      setGeneratedImages((prev) =>
+        prev.map((item) =>
+          item.id === upscaleJobId
+            ? {
+                ...item,
+                url: publicUrl,
+                status: "completed",
+                source: "gemini_2k",
+                aspectRatio: result.aspect_ratio || targetAspectRatio,
+                resolution: "2K",
+              }
+            : item,
+        ),
+      )
+    } catch (error) {
+      console.error("Error upscaling image:", error)
+      setGeneratedImages((prev) =>
+        prev.map((item) =>
+          item.id === upscaleJobId
+            ? {
+                ...item,
+                status: "error",
+              }
+            : item,
+        ),
+      )
+      alert(error instanceof Error ? error.message : "ไม่สามารถ upscale ภาพได้")
+    } finally {
+      setUpscalingImageIds((prev) => prev.filter((id) => id !== image.id))
+    }
+  }
+
   const saveImageToSupabase = async (imageUrl: string, imageId: string) => {
     try {
       setSavingImageId(imageId)
@@ -844,6 +1047,17 @@ export function AIImageGenerator({
   const retryGeneration = (imageId: string) => {
     const image = generatedImages.find(img => img.id === imageId)
     if (image) {
+      if (image.operation === "upscale" && image.sourceImageUrl) {
+        setGeneratedImages(prev => prev.filter(img => img.id !== imageId))
+        void upscaleImageTo2K({
+          ...image,
+          id: image.sourceImageId || image.id,
+          url: image.sourceImageUrl,
+          status: "completed",
+        })
+        return
+      }
+
       setPrompt(image.prompt)
       // Remove the failed image
       setGeneratedImages(prev => prev.filter(img => img.id !== imageId))
@@ -1006,6 +1220,205 @@ export function AIImageGenerator({
     )
     if (updatedIdea.title && selectedTopic === topicBeingEdited?.title) {
       setSelectedTopic(updatedIdea.title)
+    }
+  }
+
+  const buildSavedTopicFromParsedIdea = (
+    parsedIdea: ParsedCustomIdea,
+    fallbackClientName: string | null,
+    fallbackProductFocus: string | null,
+  ): SavedTopic => ({
+    id: `custom-${crypto.randomUUID()}`,
+    clientname: fallbackClientName || "",
+    productfocus: fallbackProductFocus || "",
+    title: parsedIdea.title,
+    description: parsedIdea.description,
+    category: parsedIdea.category,
+    concept_type: parsedIdea.concept_type,
+    competitiveGap: parsedIdea.competitiveGap,
+    tags: parsedIdea.tags,
+    content_pillar: parsedIdea.content_pillar,
+    product_focus: fallbackProductFocus || "",
+    concept_idea: parsedIdea.concept_idea,
+    copywriting: parsedIdea.copywriting,
+  })
+
+  const transformSavedIdeaRecordToTopic = (record: any): SavedTopic => {
+    let tags: string[] = []
+    try {
+      tags = Array.isArray(record?.tags) ? record.tags : JSON.parse(record?.tags || "[]")
+    } catch {
+      tags = typeof record?.tags === "string" ? record.tags.split(",").map((tag: string) => tag.trim()).filter(Boolean) : []
+    }
+
+    let bullets: string[] = []
+    try {
+      bullets = Array.isArray(record?.copywriting_bullets)
+        ? record.copywriting_bullets
+        : JSON.parse(record?.copywriting_bullets || "[]")
+    } catch {
+      bullets =
+        typeof record?.copywriting_bullets === "string"
+          ? record.copywriting_bullets.split(",").map((bullet: string) => bullet.trim()).filter(Boolean)
+          : []
+    }
+
+    return {
+      id: record?.id,
+      clientname: record?.clientname || currentClient?.clientName || activeClientName || "",
+      productfocus: record?.productfocus || selectedProductFocus,
+      title: record?.title || "Untitled Idea",
+      description: record?.description || "",
+      category: record?.category || "Educate",
+      concept_type: record?.concept_type || "",
+      competitiveGap: record?.competitivegap || record?.competitiveGap || "",
+      tags,
+      content_pillar: record?.content_pillar || "",
+      product_focus: record?.product_focus || selectedProductFocus || "",
+      concept_idea: record?.concept_idea || record?.description || "",
+      copywriting: {
+        headline: record?.copywriting_headline || record?.copywriting?.headline || "",
+        sub_headline_1: record?.copywriting_sub_headline_1 || record?.copywriting?.sub_headline_1 || "",
+        sub_headline_2: record?.copywriting_sub_headline_2 || record?.copywriting?.sub_headline_2 || "",
+        bullets,
+        cta: record?.copywriting_cta || record?.copywriting?.cta || "",
+      },
+    }
+  }
+
+  const handleAddCustomIdea = async () => {
+    const normalizedInput = customIdeaInput.trim()
+
+    if (!normalizedInput) {
+      alert("กรุณาใส่ idea ก่อน")
+      return
+    }
+
+    if (!selectedClientId || !selectedProductFocus) {
+      alert("กรุณาเลือกลูกค้าและ Product Focus ก่อน")
+      return
+    }
+
+    const fallbackClientName = currentClient?.clientName || activeClientName || null
+    if (!fallbackClientName || fallbackClientName === "No Client Selected") {
+      alert("ไม่พบชื่อลูกค้าที่ใช้บันทึกไอเดีย")
+      return
+    }
+
+    let parsedIdea = buildCustomIdeaFallback(normalizedInput)
+
+    try {
+      setIsParsingCustomIdea(true)
+      const response = await fetch("/api/parse-custom-idea", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputText: normalizedInput,
+          clientName: fallbackClientName,
+          productFocus: selectedProductFocus,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.idea) {
+          parsedIdea = result.idea as ParsedCustomIdea
+        }
+      } else {
+        console.error("[AI Image Generator] Failed to parse custom idea:", response.status)
+      }
+    } catch (error) {
+      console.error("[AI Image Generator] Error parsing custom idea:", error)
+    }
+
+    const customTopic = buildSavedTopicFromParsedIdea(
+      parsedIdea,
+      fallbackClientName,
+      selectedProductFocus,
+    )
+
+    try {
+      const saveResponse = await fetch("/api/save-idea", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          idea: customTopic,
+          clientName: fallbackClientName,
+          productFocus: selectedProductFocus,
+          action: "save",
+        }),
+      })
+
+      const saveResult = await saveResponse.json()
+
+      if (!saveResponse.ok || !saveResult.success) {
+        alert(saveResult?.error || "ไม่สามารถบันทึกไอเดียได้")
+        return
+      }
+
+      const persistedTopic = transformSavedIdeaRecordToTopic(saveResult.savedIdea || customTopic)
+
+      setSavedTopics((prev) => {
+        const withoutDuplicateTitle = prev.filter((topic) => topic.title !== persistedTopic.title)
+        return [persistedTopic, ...withoutDuplicateTitle]
+      })
+      setSelectedTopic(persistedTopic.title)
+      setShowAllTopics(false)
+      setCustomIdeaInput("")
+      setIsCustomIdeaDialogOpen(false)
+    } catch (error) {
+      console.error("[AI Image Generator] Error saving custom idea:", error)
+      alert("เกิดข้อผิดพลาดในการบันทึกไอเดีย")
+    } finally {
+      setIsParsingCustomIdea(false)
+    }
+  }
+
+  const handleDeleteTopic = async (topic: SavedTopic) => {
+    const topicKey = topic.id || topic.title
+    const isCustomTopic = topic.id?.startsWith("custom-")
+    const confirmed = window.confirm(`ลบไอเดีย "${topic.title}" ใช่หรือไม่?`)
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setDeletingTopicId(topicKey)
+
+      if (!isCustomTopic) {
+        const supabase = getSupabase()
+        const query = supabase.from("savedideas").delete()
+
+        const { error } = topic.id
+          ? await query.eq("id", topic.id)
+          : await query
+              .eq("clientname", topic.clientname || currentClient?.clientName || "")
+              .eq("productfocus", topic.productfocus || selectedProductFocus)
+              .eq("title", topic.title)
+
+        if (error) {
+          console.error("[AI Image Generator] Error deleting saved idea:", error)
+          alert("เกิดข้อผิดพลาดในการลบไอเดีย")
+          return
+        }
+      }
+
+      const nextTopics = savedTopics.filter((item) => (item.id || item.title) !== topicKey)
+      setSavedTopics(nextTopics)
+
+      if (selectedTopic === topic.title) {
+        setSelectedTopic(nextTopics[0]?.title || "")
+      }
+    } catch (error) {
+      console.error("[AI Image Generator] Error deleting topic:", error)
+      alert("เกิดข้อผิดพลาดในการลบไอเดีย")
+    } finally {
+      setDeletingTopicId(null)
     }
   }
 
@@ -1388,8 +1801,9 @@ export function AIImageGenerator({
                         </div>
                       ) : materialImages.length > 0 ? (
                         <>
-                          <div className="grid grid-cols-3 gap-2">
-                            {materialImages.slice(0, 6).map((image) => {
+                          <div className="max-h-[24rem] overflow-y-auto pr-2">
+                            <div className="grid grid-cols-3 gap-2">
+                              {materialImages.map((image) => {
                               const isSelected = selectedMaterials.includes(image.url)
                               return (
                                 <button
@@ -1421,10 +1835,11 @@ export function AIImageGenerator({
                                   </div>
                                 </button>
                               )
-                            })}
+                              })}
+                            </div>
                           </div>
                           <p className="text-xs text-slate-500">
-                            เลือกวัสดุแล้ว {selectedMaterials.length} ภาพ
+                            มีทั้งหมด {materialImages.length} ภาพ, เลือกแล้ว {selectedMaterials.length} ภาพ
                           </p>
                         </>
                       ) : (
@@ -1600,17 +2015,28 @@ export function AIImageGenerator({
                     ต้องเลือกไอเดียก่อน ระบบจะใช้ concept, copy direction และ context นี้ไปสร้างภาพทั้งหมด
                   </p>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium",
-                    selectedTopic
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-rose-200 bg-rose-50 text-rose-600",
-                  )}
-                >
-                  {selectedTopic ? "Idea selected" : "Required before generate"}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsCustomIdeaDialogOpen(true)}
+                    className="rounded-full border-slate-200"
+                  >
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Add idea
+                  </Button>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-medium",
+                      selectedTopic
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-rose-200 bg-rose-50 text-rose-600",
+                    )}
+                  >
+                    {selectedTopic ? "Idea selected" : "Required before generate"}
+                  </Badge>
+                </div>
               </div>
             </div>
 
@@ -1636,63 +2062,90 @@ export function AIImageGenerator({
                   </div>
                 ) : savedTopics.length > 0 ? (
                   <div className="space-y-4">
-                    <div className="grid gap-4 lg:grid-cols-2">
-                    {visibleTopics.map((topic) => {
-                      const isSelected = selectedTopic === topic.title
-                      return (
-                        <div
-                          key={topic.id || topic.title}
-                          className={cn(
-                            "rounded-3xl border p-5 transition-all",
-                            isSelected
-                              ? "border-amber-300 bg-amber-50 shadow-sm ring-1 ring-amber-200"
-                              : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
-                          )}
-                        >
-                          <div className="flex items-start gap-4">
-                            <button
-                              type="button"
-                              className="flex-1 text-left"
-                              onClick={() => setSelectedTopic(topic.title)}
-                            >
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h5 className="text-base font-semibold text-slate-950">{topic.title}</h5>
-                                <Badge variant="secondary" className="rounded-full bg-slate-100 text-slate-700">
-                                  {topic.category}
-                                </Badge>
-                              </div>
-                              <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
-                                {getTopicPreviewText(topic.description)}
-                              </p>
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                {Array.isArray(topic.tags) &&
-                                  topic.tags.slice(0, 3).map((tag) => (
-                                    <Badge key={tag} variant="outline" className="rounded-full border-slate-200 text-xs text-slate-600">
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                              </div>
-                            </button>
-                            <div className="flex flex-col items-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="rounded-full text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                                onClick={() => {
-                                  setTopicBeingEdited(topic)
-                                  setTopicEditModalOpen(true)
-                                }}
+                    <div
+                      className={cn(
+                        "grid gap-4 lg:grid-cols-2",
+                        showAllTopics && "max-h-[40rem] overflow-y-auto pr-2",
+                      )}
+                    >
+                      {visibleTopics.map((topic) => {
+                        const isSelected = selectedTopic === topic.title
+                        const topicKey = topic.id || topic.title
+                        const isDeleting = deletingTopicId === topicKey
+                        return (
+                          <div
+                            key={topicKey}
+                            className={cn(
+                              "rounded-3xl border p-5 transition-all",
+                              isSelected
+                                ? "border-amber-300 bg-amber-50 shadow-sm ring-1 ring-amber-200"
+                                : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                            )}
+                          >
+                            <div className="flex items-start gap-4">
+                              <button
+                                type="button"
+                                className="flex-1 text-left"
+                                onClick={() => setSelectedTopic(topic.title)}
                               >
-                                <Edit className="mr-1 h-3.5 w-3.5" />
-                                แก้ไข
-                              </Button>
-                              {isSelected && <CheckCircle className="h-5 w-5 text-amber-600" />}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h5 className="text-base font-semibold text-slate-950">{topic.title}</h5>
+                                  <Badge variant="secondary" className="rounded-full bg-slate-100 text-slate-700">
+                                    {topic.category}
+                                  </Badge>
+                                  {topic.id?.startsWith("custom-") && (
+                                    <Badge variant="outline" className="rounded-full border-blue-200 bg-blue-50 text-blue-700">
+                                      Custom
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
+                                  {getTopicPreviewText(topic.description)}
+                                </p>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  {Array.isArray(topic.tags) &&
+                                    topic.tags.slice(0, 3).map((tag) => (
+                                      <Badge key={tag} variant="outline" className="rounded-full border-slate-200 text-xs text-slate-600">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                </div>
+                              </button>
+                              <div className="flex flex-col items-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="rounded-full text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                  disabled={isDeleting}
+                                  onClick={() => {
+                                    setTopicBeingEdited(topic)
+                                    setTopicEditModalOpen(true)
+                                  }}
+                                >
+                                  <Edit className="mr-1 h-3.5 w-3.5" />
+                                  แก้ไข
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                                  disabled={isDeleting}
+                                  onClick={() => handleDeleteTopic(topic)}
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <X className="mr-1 h-3.5 w-3.5" />
+                                  )}
+                                  ลบ
+                                </Button>
+                                {isSelected && <CheckCircle className="h-5 w-5 text-amber-600" />}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
                     {savedTopics.length > 4 && (
                       <div className="flex justify-center">
                         <Button
@@ -1711,7 +2164,9 @@ export function AIImageGenerator({
                     <p className="text-sm font-medium text-slate-700">
                       ยังไม่มีไอเดียที่บันทึกไว้สำหรับลูกค้าและ Product Focus นี้
                     </p>
-                    <p className="mt-2 text-sm text-slate-500">ลองสร้างไอเดียใหม่ในหน้าหลักก่อน</p>
+                    <p className="mt-2 text-sm text-slate-500">
+                      สร้างไอเดียใหม่ในหน้าหลัก หรือพิมพ์ custom idea จากช่องด้านบนได้เลย
+                    </p>
                   </div>
                 )
               ) : (
@@ -1786,7 +2241,9 @@ export function AIImageGenerator({
                           {image.status === "generating" && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90">
                               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                              <p className="mt-3 text-sm font-medium text-slate-700">Generating creative...</p>
+                              <p className="mt-3 text-sm font-medium text-slate-700">
+                                {image.operation === "upscale" ? "Upscaling to 2K..." : "Generating creative..."}
+                              </p>
                             </div>
                           )}
 
@@ -1828,6 +2285,11 @@ export function AIImageGenerator({
                                 {getSourceLabel(image.source)}
                               </Badge>
                             )}
+                            {image.resolution && (
+                              <Badge className="rounded-full bg-blue-600 text-white hover:bg-blue-600">
+                                {image.resolution}
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
@@ -1843,6 +2305,22 @@ export function AIImageGenerator({
 
                           {image.status === "completed" && image.url ? (
                             <div className="flex flex-wrap gap-2">
+                              {image.resolution !== "2K" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => upscaleImageTo2K(image)}
+                                  disabled={upscalingImageIds.includes(image.id)}
+                                  className="rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
+                                >
+                                  {upscalingImageIds.includes(image.id) ? (
+                                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Wand2 className="mr-1 h-3.5 w-3.5" />
+                                  )}
+                                  Upscale 2K
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 onClick={() => saveImageToSupabase(image.url, image.id)}
@@ -1917,6 +2395,49 @@ export function AIImageGenerator({
           </Card>
         </div>
       </div>
+
+      <Dialog open={isCustomIdeaDialogOpen} onOpenChange={setIsCustomIdeaDialogOpen}>
+        <DialogContent className="max-w-2xl rounded-[28px] border-slate-200 p-0">
+          <DialogHeader className="border-b border-slate-200 px-6 py-5">
+            <DialogTitle className="flex items-center gap-2 text-lg text-slate-950">
+              <Wand2 className="h-5 w-5 text-blue-600" />
+              Add custom idea
+            </DialogTitle>
+            <p className="text-sm leading-6 text-slate-500">
+              พิมพ์แบบ freeform ได้เลย หรือใช้ label เช่น `Title:`, `Description:`, `Tags:`, `Concept Idea:`, `Headline:`, `Bullets:`, `CTA:` แล้วระบบจะช่วยแตกเป็น format idea ให้อัตโนมัติ
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 px-6 py-5">
+            <Textarea
+              value={customIdeaInput}
+              onChange={(event) => setCustomIdeaInput(event.target.value)}
+              placeholder={`Title: Hook เรื่องผลลัพธ์ที่วัดได้\nDescription: ชูเรื่องแพ็กเกจรวมทุกช่องทางแบบวัด ROI ได้\nTags: roi, social media, package\nConcept Idea: เปรียบเทียบการซื้อสื่อแบบกระจายกับการซื้อแบบรวมแพ็กเกจ`}
+              rows={8}
+              className="min-h-[220px] resize-none rounded-2xl border-slate-200 bg-white text-slate-950 focus:border-slate-950 focus:ring-0"
+            />
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs leading-5 text-slate-500">
+                ระบบจะใช้ Gemini parse ก่อน และ fallback เป็น parser ในระบบถ้า parse ไม่สำเร็จ
+              </p>
+              <Button
+                type="button"
+                onClick={handleAddCustomIdea}
+                disabled={!customIdeaInput.trim() || isParsingCustomIdea}
+                className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
+              >
+                {isParsingCustomIdea ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    กำลังแตก idea
+                  </>
+                ) : (
+                  "เพิ่มเข้า Ideas"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Image Preview Modal */}
       <Dialog open={!!selectedImageForPreview} onOpenChange={() => setSelectedImageForPreview(null)}>

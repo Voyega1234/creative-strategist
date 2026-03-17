@@ -63,7 +63,9 @@ export async function POST(request: Request) {
       
       const { data, error } = await supabase
         .from('savedideas')
-        .insert([savedIdea]);
+        .insert([savedIdea])
+        .select()
+        .single();
 
       console.log('Insert result data:', data);
       console.log('Insert result error:', error);
@@ -85,7 +87,8 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ 
         success: true, 
-        message: 'Idea saved successfully' 
+        message: 'Idea saved successfully',
+        savedIdea: data || savedIdea,
       });
 
     } else if (action === 'unsave') {
