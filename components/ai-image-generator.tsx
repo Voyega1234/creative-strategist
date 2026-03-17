@@ -6,6 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -29,6 +38,8 @@ import {
   Library,
   SlidersHorizontal,
   ChevronDown,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react"
 import Image from "next/image"
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
@@ -143,6 +154,7 @@ export function AIImageGenerator({
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [selectedProductFocus, setSelectedProductFocus] = useState<string>('')
   const [loadingClients, setLoadingClients] = useState(true)
+  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
   
   // Strategic insights and topics
   const [savedTopics, setSavedTopics] = useState<SavedTopic[]>([])
@@ -1122,18 +1134,51 @@ export function AIImageGenerator({
                     <span className="ml-2 text-sm text-slate-500">กำลังโหลด...</span>
                   </div>
                 ) : (
-                  <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                    <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white text-left focus:border-slate-950 focus:ring-0">
-                      <SelectValue placeholder="เลือกลูกค้า" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.clientName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isClientPopoverOpen}
+                        className="h-12 w-full justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
+                      >
+                        <span className="truncate">
+                          {currentClient?.clientName || "เลือกลูกค้า"}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[280px] rounded-2xl border-slate-200 p-0">
+                      <Command>
+                        <CommandInput placeholder="พิมพ์ค้นหาชื่อลูกค้า..." />
+                        <CommandList>
+                          <CommandEmpty>ไม่พบชื่อลูกค้า</CommandEmpty>
+                          <CommandGroup>
+                            {clients.map((client) => (
+                              <CommandItem
+                                key={client.id}
+                                value={client.clientName}
+                                onSelect={() => {
+                                  setSelectedClientId(client.id)
+                                  setIsClientPopoverOpen(false)
+                                }}
+                                className="flex items-center justify-between px-3 py-2"
+                              >
+                                <span>{client.clientName}</span>
+                                <Check
+                                  className={cn(
+                                    "h-4 w-4 text-slate-900",
+                                    selectedClientId === client.id ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
 
