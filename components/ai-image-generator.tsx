@@ -48,7 +48,7 @@ const ASPECT_RATIO_OPTIONS = [
   "21:9",
 ]
 
-const DEFAULT_IMAGE_COUNT = 4
+const DEFAULT_IMAGE_COUNT = 1
 const IMAGE_COUNT_OPTIONS = [1, 2, 3, 4, 5]
 
 interface ReferenceImage {
