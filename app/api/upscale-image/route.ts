@@ -6,6 +6,7 @@ export const maxDuration = 180
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview"
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const SUPPORTED_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
+const SUPPORTED_IMAGE_SIZES = ["1K", "2K", "4K"] as const
 
 function getMimeTypeFromBuffer(buffer: Uint8Array) {
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
@@ -103,9 +104,9 @@ function getClosestAspectRatio(width: number, height: number) {
   }, "1:1" as (typeof SUPPORTED_ASPECT_RATIOS)[number])
 }
 
-function getPreservePrompt(basePrompt?: string) {
+function getPreservePrompt(targetSize: (typeof SUPPORTED_IMAGE_SIZES)[number], basePrompt?: string) {
   const promptPrefix =
-    "Upscale this exact image to 2K. Preserve the same composition, layout, aspect ratio, text, colors, branding, and subject placement. Do not redesign, crop, replace, or add elements. Improve sharpness, texture, and detail only."
+    `Upscale this exact image to ${targetSize}. Preserve the same composition, layout, aspect ratio, text, colors, branding, and subject placement. Do not redesign, crop, replace, or add elements. Improve sharpness, texture, and detail only.`
 
   if (!basePrompt?.trim()) return promptPrefix
   return `${promptPrefix}\n\nOriginal creative context:\n${basePrompt.trim()}`
@@ -117,6 +118,8 @@ export async function POST(request: Request) {
     const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : ""
     const basePrompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
     const requestedAspectRatio = typeof body.aspect_ratio === "string" ? body.aspect_ratio.trim() : ""
+    const targetSize =
+      SUPPORTED_IMAGE_SIZES.find((size) => size === body.target_size) || "2K"
 
     if (!imageUrl) {
       return NextResponse.json({ success: false, error: "image_url is required" }, { status: 400 })
@@ -155,7 +158,7 @@ export async function POST(request: Request) {
             {
               parts: [
                 {
-                  text: getPreservePrompt(basePrompt),
+                  text: getPreservePrompt(targetSize, basePrompt),
                 },
                 {
                   inlineData: {
@@ -170,7 +173,7 @@ export async function POST(request: Request) {
             responseModalities: ["TEXT", "IMAGE"],
             imageConfig: {
               aspectRatio,
-              imageSize: "2K",
+              imageSize: targetSize,
             },
           },
         }),
@@ -228,6 +231,7 @@ export async function POST(request: Request) {
       image_base64: imageBase64,
       mime_type: outputMimeType,
       aspect_ratio: aspectRatio,
+      image_size: targetSize,
       model: GEMINI_MODEL,
       details: responseMessage,
     })

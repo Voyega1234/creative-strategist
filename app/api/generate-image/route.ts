@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       copywriting,
       color_palette,
       material_image_urls,
+      use_brand_identity,
       aspect_ratio,
       image_count,
     } = body;
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
         copywriting: copywriting || null,
         color_palette: color_palette || [],
         material_image_urls: material_image_urls || [],
+        use_brand_identity: Boolean(use_brand_identity),
         aspect_ratio: selectedAspectRatio,
         image_count: sanitizedImageCount,
         imageCount: sanitizedImageCount,

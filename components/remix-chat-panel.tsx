@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+import { Switch } from "@/components/ui/switch"
 import { getStorageClient } from "@/lib/supabase/client"
 import {
   Upload,
@@ -233,9 +235,11 @@ export function RemixChatPanel({
 
   // Aspect ratio
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
+  const [useBrandIdentity, setUseBrandIdentity] = useState(true)
 
   // PMAX toggle
   const [isPmaxEnabled, setIsPmaxEnabled] = useState(false)
+  const [upscalingUrls, setUpscalingUrls] = useState<string[]>([])
 
   // Reference library
   const [referenceLibrary, setReferenceLibrary] = useState<ReferenceImage[]>([])
@@ -369,6 +373,7 @@ export function RemixChatPanel({
           selectedMaterials,
           colorPalette,
           aspectRatio,
+          useBrandIdentity,
           isPmaxEnabled,
           referenceExpanded,
           materialsExpanded,
@@ -390,6 +395,7 @@ export function RemixChatPanel({
     selectedMaterials,
     colorPalette,
     aspectRatio,
+    useBrandIdentity,
     isPmaxEnabled,
     referenceExpanded,
     materialsExpanded,
@@ -444,6 +450,7 @@ export function RemixChatPanel({
           setSelectedMaterials(parsed.selectedMaterials || [])
           setColorPalette(parsed.colorPalette || [])
           setAspectRatio(parsed.aspectRatio || ASPECT_RATIO_OPTIONS[0])
+          setUseBrandIdentity(parsed.useBrandIdentity ?? true)
           setIsPmaxEnabled(parsed.isPmaxEnabled || false)
           setReferenceExpanded(parsed.referenceExpanded !== undefined ? parsed.referenceExpanded : true)
           setMaterialsExpanded(parsed.materialsExpanded !== undefined ? parsed.materialsExpanded : true)
@@ -919,6 +926,7 @@ export function RemixChatPanel({
       product_focus_name: resolvedProductFocus,
       brief_text: briefText,
       brand_profile_snapshot: brandProfile,
+      use_brand_identity: useBrandIdentity,
       aspect_ratio: (isEdit || (!isPmaxEnabled && !isPmaxFromHover)) ? aspectRatio : PMAX_ASPECT_RATIOS[0], // Primary aspect ratio
       aspectRatio: (isEdit || (!isPmaxEnabled && !isPmaxFromHover)) ? aspectRatio : PMAX_ASPECT_RATIOS[0],
       aspect_ratios: aspectRatiosToSend, // Array of all aspect ratios to generate
@@ -1177,6 +1185,76 @@ export function RemixChatPanel({
     try { await navigator.clipboard.writeText(url) } catch {}
   }
 
+  const uploadUpscaledBlobToStorage = useCallback(
+    async (blob: Blob, mimeType: string) => {
+      const storage = getStorageClient()
+      if (!storage) {
+        throw new Error("Storage client not available")
+      }
+
+      const extensionMap: Record<string, string> = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+      }
+
+      const extension = extensionMap[mimeType] || "png"
+      const path = `generated/${selectedClientId || "remix"}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}-2k.${extension}`
+      const { error } = await storage.from("ads-creative-image").upload(path, blob, {
+        contentType: mimeType,
+      })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      const { data } = storage.from("ads-creative-image").getPublicUrl(path)
+      return data.publicUrl
+    },
+    [selectedClientId],
+  )
+
+  const handleUpscaleImage = useCallback(
+    async (url: string) => {
+      try {
+        setUpscalingUrls((prev) => [...prev, url])
+
+        const response = await fetch("/api/upscale-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            image_url: url,
+            prompt: "Upscale this Compass Creator result while preserving the same image and composition.",
+          }),
+        })
+
+        const result = await response.json()
+        if (!response.ok || !result.success || !result.image_base64) {
+          throw new Error(result?.error || "ไม่สามารถ upscale ภาพได้")
+        }
+
+        const binary = atob(result.image_base64)
+        const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+        const mimeType = result.mime_type || "image/png"
+        const publicUrl = await uploadUpscaledBlobToStorage(new Blob([bytes], { type: mimeType }), mimeType)
+
+        addModelMessage([
+          { type: "image", url: publicUrl },
+          { type: "text", text: "Upscaled to 2K" },
+        ])
+        setSelectedImageForEditing(publicUrl)
+      } catch (error) {
+        console.error("Upscale failed:", error)
+        addModelMessage([{ type: "text", text: error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการ upscale ภาพ" }])
+      } finally {
+        setUpscalingUrls((prev) => prev.filter((item) => item !== url))
+      }
+    },
+    [uploadUpscaledBlobToStorage],
+  )
+
   const handlePmaxGenerate = async (imageUrl: string) => {
     // Create user message for PMAX generation
     const userMsg: ChatMessage = {
@@ -1419,6 +1497,30 @@ export function RemixChatPanel({
                     {ratio}
                   </button>
                 ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-medium text-gray-700">Use Brand Identity</p>
+                    <HoverCard openDelay={150} closeDelay={100}>
+                      <HoverCardTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-400 transition-colors hover:text-gray-700"
+                          aria-label="Brand identity details"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </button>
+                      </HoverCardTrigger>
+                      <HoverCardContent align="start" className="w-72 rounded-2xl border-gray-200 p-3 text-sm leading-6 text-gray-600">
+                        Brand identity จะอ้างอิงจากรูปภาพ ads account ที่กำลังรันอยู่ และส่งเป็น flag ไปให้ workflow ตัดสินใจใช้ต่อเอง
+                      </HoverCardContent>
+                    </HoverCard>
+                  </div>
+                </div>
+                <Switch checked={useBrandIdentity} onCheckedChange={setUseBrandIdentity} />
               </div>
             </div>
           </div>
@@ -2352,6 +2454,20 @@ export function RemixChatPanel({
                                       <Sparkles className="w-3.5 h-3.5 mr-1" />
                                       PMAX
                                     </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                      disabled={upscalingUrls.includes(part.url)}
+                                      onClick={() => handleUpscaleImage(part.url)}
+                                    >
+                                      {upscalingUrls.includes(part.url) ? (
+                                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                                      ) : (
+                                        <ArrowUp className="w-3.5 h-3.5 mr-1" />
+                                      )}
+                                      Upscale 2K
+                                    </Button>
                                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(part.url)}>
                                       <Download className="w-3.5 h-3.5 mr-1" />
                                       Download
@@ -2451,6 +2567,20 @@ export function RemixChatPanel({
                                                   <Sparkles className="w-3 h-3 mr-1" />
                                                   PMAX
                                                 </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                  disabled={upscalingUrls.includes(imageSet.Version1!)}
+                                                  onClick={() => handleUpscaleImage(imageSet.Version1!)}
+                                                >
+                                                  {upscalingUrls.includes(imageSet.Version1!) ? (
+                                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                                  ) : (
+                                                    <ArrowUp className="w-3 h-3 mr-1" />
+                                                  )}
+                                                  2K
+                                                </Button>
                                                 <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(imageSet.Version1!)}>
                                                   <Download className="w-3 h-3 mr-1" />
                                                   DL
@@ -2506,6 +2636,20 @@ export function RemixChatPanel({
                                                 >
                                                   <Sparkles className="w-3 h-3 mr-1" />
                                                   PMAX
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                  disabled={upscalingUrls.includes(imageSet.Version2!)}
+                                                  onClick={() => handleUpscaleImage(imageSet.Version2!)}
+                                                >
+                                                  {upscalingUrls.includes(imageSet.Version2!) ? (
+                                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                                  ) : (
+                                                    <ArrowUp className="w-3 h-3 mr-1" />
+                                                  )}
+                                                  2K
                                                 </Button>
                                                 <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-[#8e8e93] hover:text-black" onClick={() => handleDownload(imageSet.Version2!)}>
                                                   <Download className="w-3 h-3 mr-1" />

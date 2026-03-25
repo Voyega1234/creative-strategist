@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { 
   Sparkles, 
   Image as ImageIcon, 
@@ -40,11 +41,13 @@ import {
   ChevronDown,
   Check,
   ChevronsUpDown,
+  Info,
 } from "lucide-react"
 import Image from "next/image"
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
 import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal"
 import { cn } from "@/lib/utils"
+import { Switch } from "@/components/ui/switch"
 import {
   buildCustomIdeaFallback,
   getTopicPreviewText,
@@ -234,6 +237,7 @@ export function AIImageGenerator({
   const [colorInput, setColorInput] = useState("")
   const [isSavingPalette, setIsSavingPalette] = useState(false)
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
+  const [useBrandIdentity, setUseBrandIdentity] = useState(true)
   const [imageCount, setImageCount] = useState<number>(DEFAULT_IMAGE_COUNT)
   const [showAllTopics, setShowAllTopics] = useState(false)
   const [isPaletteOpen, setIsPaletteOpen] = useState(false)
@@ -712,6 +716,7 @@ export function AIImageGenerator({
         copywriting: selectedTopicData?.copywriting || null,
         color_palette: colorPalette,
         material_image_urls: selectedMaterials,
+        use_brand_identity: useBrandIdentity,
         aspect_ratio: aspectRatio,
         image_count: 1,
       }
@@ -774,21 +779,41 @@ export function AIImageGenerator({
         ))
       }
 
+      const concurrentGenerationLimit = 2
       let failedCount = 0
+      let nextRequestIndex = 0
 
-      for (const imageId of requestIds) {
-        try {
-          await generateSingleImage(imageId)
-        } catch (error) {
-          failedCount += 1
-          console.error('Error generating AI image:', error)
-          setGeneratedImages(prev => prev.map(img =>
-            img.id === imageId
-              ? { ...img, status: 'error' }
-              : img,
-          ))
+      const runGenerationWorker = async () => {
+        while (true) {
+          const currentIndex = nextRequestIndex
+          nextRequestIndex += 1
+
+          if (currentIndex >= requestIds.length) {
+            return
+          }
+
+          const imageId = requestIds[currentIndex]
+
+          try {
+            await generateSingleImage(imageId)
+          } catch (error) {
+            failedCount += 1
+            console.error('Error generating AI image:', error)
+            setGeneratedImages(prev => prev.map(img =>
+              img.id === imageId
+                ? { ...img, status: 'error' }
+                : img,
+            ))
+          }
         }
       }
+
+      await Promise.all(
+        Array.from(
+          { length: Math.min(concurrentGenerationLimit, requestIds.length) },
+          () => runGenerationWorker(),
+        ),
+      )
 
       if (failedCount > 0) {
         alert(`มี ${failedCount} รูปที่สร้างไม่สำเร็จ`)
@@ -1683,6 +1708,32 @@ export function AIImageGenerator({
                   <p className="mt-3 text-xs text-slate-500">
                     ค่าเริ่มต้นคือ 1:1 สำหรับโพสต์ static ads
                   </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                        <Palette className="h-4 w-4 text-slate-700" />
+                        Use Brand Identity
+                        <HoverCard openDelay={150} closeDelay={100}>
+                          <HoverCardTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-slate-700"
+                              aria-label="Brand identity details"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent align="start" className="w-72 rounded-2xl border-slate-200 p-3 text-sm leading-6 text-slate-600">
+                            Brand identity จะอ้างอิงจากรูปภาพ ads account ที่กำลังรันอยู่ และส่งเป็น flag ไปให้ workflow ตัดสินใจใช้ต่อเอง
+                          </HoverCardContent>
+                        </HoverCard>
+                      </div>
+                    </div>
+                    <Switch checked={useBrandIdentity} onCheckedChange={setUseBrandIdentity} />
+                  </div>
                 </div>
               </div>
 

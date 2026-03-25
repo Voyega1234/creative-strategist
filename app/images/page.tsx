@@ -3,12 +3,13 @@
 // Performance optimization for client-side rendering
 import { useState, useEffect, useMemo, Suspense } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Image as ImageIcon, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react"
+import { Image as ImageIcon, PanelLeftClose, PanelLeftOpen, Sparkles, Upload } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { AIImageGenerator } from "@/components/ai-image-generator"
 import { Button } from "@/components/ui/button"
 import { MainSidebar } from "@/components/main-sidebar"
 import { RemixChatPanel } from "@/components/remix-chat-panel"
+import { ImageUpscalePanel } from "@/components/image-upscale-panel"
 
 type ClientWithProductFocus = {
   id: string
@@ -108,7 +109,7 @@ function MainContent() {
                 <span className="sr-only">{isSidebarHidden ? "Show sidebar" : "Hide sidebar"}</span>
               </Button>
 
-              <TabsList className="grid h-11 flex-1 grid-cols-2 rounded-full bg-[#f2f2f7] p-1">
+              <TabsList className="grid h-11 flex-1 grid-cols-3 rounded-full bg-[#f2f2f7] p-1">
                 <TabsTrigger 
                   value="reference-remix" 
                   className="flex items-center gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200"
@@ -123,6 +124,13 @@ function MainContent() {
                   <Sparkles className="w-4 h-4" />
                   Generate / Upload (Compass Ideas)
                 </TabsTrigger>
+                <TabsTrigger 
+                  value="upscale" 
+                  className="flex items-center gap-2 rounded-full data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upscale
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -134,6 +142,12 @@ function MainContent() {
                   activeProductFocus={resolvedProductFocus}
                   activeClientName={resolvedClientName}
                 />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="upscale" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
+              <div className="mx-auto max-w-[1480px]">
+                <ImageUpscalePanel />
               </div>
             </TabsContent>
 
