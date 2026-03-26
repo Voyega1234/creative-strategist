@@ -41,13 +41,11 @@ import {
   ChevronDown,
   Check,
   ChevronsUpDown,
-  Info,
 } from "lucide-react"
 import Image from "next/image"
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
 import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal"
 import { cn } from "@/lib/utils"
-import { Switch } from "@/components/ui/switch"
 import {
   buildCustomIdeaFallback,
   getTopicPreviewText,
@@ -69,6 +67,63 @@ const ASPECT_RATIO_OPTIONS = [
 
 const DEFAULT_IMAGE_COUNT = 1
 const IMAGE_COUNT_OPTIONS = [1, 2, 3, 4, 5]
+
+const AD_STYLE_OPTIONS = [
+  {
+    value: "clean-product-focus",
+    label: "Clean Product Focus",
+    previewImage: "/style-previews/clean-product-focus.svg",
+    hoverDescription:
+      "โฟกัสที่สินค้าเป็นหลัก ภาพสะอาด ดูพรีเมียม และมีลำดับสายตาที่ชัดแบบ product-led commercial ad.",
+    userBrief:
+      "Create a clean, premium product-led ad with disciplined composition, strong hierarchy, clear product focus, minimal clutter, refined typography integration, and polished commercial lighting.",
+  },
+  {
+    value: "bold-offer-graphic",
+    label: "Bold Offer Graphic",
+    previewImage: "/style-previews/bold-offer-graphic.svg",
+    hoverDescription:
+      "เหมาะกับ ads ที่ต้องการชูโปรโมชัน ข้อเสนอ หรือ CTA ให้เด่น อ่านเร็ว และหยุดสายตาได้ทันที.",
+    userBrief:
+      "Create a bold performance ad with strong offer visibility, graphic framing, assertive typography, fast commercial readability, high contrast, and a composition built for thumb-stop conversion.",
+  },
+  {
+    value: "lifestyle-human-story",
+    label: "Lifestyle Human Story",
+    previewImage: "/style-previews/lifestyle-human-story.svg",
+    hoverDescription:
+      "ใช้คนเป็นตัวนำอารมณ์และความน่าเชื่อถือ เพื่อให้ภาพดูมีชีวิตและเชื่อมโยงกับผู้ชมมากขึ้น.",
+    userBrief:
+      "Create a premium lifestyle ad where human presence drives aspiration, trust, and emotional clarity, with believable realism, natural posing, authentic skin texture, and strong product-message integration.",
+  },
+  {
+    value: "editorial-premium",
+    label: "Editorial Premium",
+    previewImage: "/style-previews/editorial-premium.svg",
+    hoverDescription:
+      "ลุค editorial ที่มี negative space และ art direction ชัด เหมาะกับแบรนด์ที่อยากดู refined และ elevated.",
+    userBrief:
+      "Create an editorial-inspired premium ad with art-directed negative space, elegant type placement, elevated styling, restrained luxury cues, and a composition that feels authored rather than templated.",
+  },
+  {
+    value: "comparison-education",
+    label: "Comparison / Education",
+    previewImage: "/style-previews/comparison-education.svg",
+    hoverDescription:
+      "เหมาะกับงานเปรียบเทียบ before/after หรือสื่อสารความต่างของ value proposition ให้เข้าใจในครั้งเดียว.",
+    userBrief:
+      "Create a persuasive comparison-led ad using a clear visual contrast or modular system to explain the value proposition quickly, with disciplined hierarchy and immediate commercial understanding.",
+  },
+  {
+    value: "mixed-media-campaign",
+    label: "Mixed Media Campaign",
+    previewImage: "/style-previews/mixed-media-campaign.svg",
+    hoverDescription:
+      "ผสมภาพถ่ายกับกราฟิกเลเยอร์เพื่อให้ได้ความรู้สึก campaign ที่มีพลังและมีเอกลักษณ์มากกว่า static ad ปกติ.",
+    userBrief:
+      "Create a premium mixed-media campaign ad that blends photography and graphic design intentionally, with layered framing, text integrated into the composition, and a distinctive brand-ownable visual system.",
+  },
+] as const
 
 interface ReferenceImage {
   name: string
@@ -120,7 +175,7 @@ function loadGeneratedImagesFromStorage(storageKey: string): GeneratedImage[] {
 
     const parsed = JSON.parse(raw)
     const timestamp = typeof parsed?.timestamp === "number" ? parsed.timestamp : 0
-    const images = Array.isArray(parsed?.images) ? parsed.images : []
+    const images: unknown[] = Array.isArray(parsed?.images) ? parsed.images : []
 
     if (!timestamp || Date.now() - timestamp > GENERATED_IMAGES_STORAGE_TTL) {
       localStorage.removeItem(storageKey)
@@ -128,7 +183,13 @@ function loadGeneratedImagesFromStorage(storageKey: string): GeneratedImage[] {
     }
 
     return images
-      .filter((image): image is GeneratedImage => !!image && typeof image.url === "string")
+      .filter(
+        (image): image is GeneratedImage =>
+          typeof image === "object" &&
+          image !== null &&
+          "url" in image &&
+          typeof image.url === "string",
+      )
       .map((image) => ({
         ...image,
         status: "completed",
@@ -236,8 +297,8 @@ export function AIImageGenerator({
   const [colorPalette, setColorPalette] = useState<string[]>([])
   const [colorInput, setColorInput] = useState("")
   const [isSavingPalette, setIsSavingPalette] = useState(false)
+  const [selectedAdStyle, setSelectedAdStyle] = useState<string>("")
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
-  const [useBrandIdentity, setUseBrandIdentity] = useState(true)
   const [imageCount, setImageCount] = useState<number>(DEFAULT_IMAGE_COUNT)
   const [showAllTopics, setShowAllTopics] = useState(false)
   const [isPaletteOpen, setIsPaletteOpen] = useState(false)
@@ -258,6 +319,10 @@ export function AIImageGenerator({
     if (!selectedClientId) return null
     return clients.find((client) => client.id === selectedClientId) || null
   }, [clients, selectedClientId])
+  const selectedAdStyleOption = useMemo(
+    () => AD_STYLE_OPTIONS.find((style) => style.value === selectedAdStyle) || null,
+    [selectedAdStyle],
+  )
   const selectedTopicData = useMemo(
     () => savedTopics.find((topic) => topic.title === selectedTopic) || null,
     [savedTopics, selectedTopic],
@@ -716,7 +781,8 @@ export function AIImageGenerator({
         copywriting: selectedTopicData?.copywriting || null,
         color_palette: colorPalette,
         material_image_urls: selectedMaterials,
-        use_brand_identity: useBrandIdentity,
+        ad_style: selectedAdStyleOption?.label || null,
+        user_brief: selectedAdStyleOption?.userBrief || null,
         aspect_ratio: aspectRatio,
         image_count: 1,
       }
@@ -1711,30 +1777,70 @@ export function AIImageGenerator({
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                        <Palette className="h-4 w-4 text-slate-700" />
-                        Use Brand Identity
-                        <HoverCard openDelay={150} closeDelay={100}>
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-900">
+                    <Sparkles className="h-4 w-4 text-slate-700" />
+                    Ad Style
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {AD_STYLE_OPTIONS.map((style) => {
+                      const isSelected = selectedAdStyle === style.value
+
+                      return (
+                        <HoverCard key={style.value} openDelay={120} closeDelay={80}>
                           <HoverCardTrigger asChild>
                             <button
                               type="button"
-                              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:text-slate-700"
-                              aria-label="Brand identity details"
+                              onClick={() =>
+                                setSelectedAdStyle((currentValue) =>
+                                  currentValue === style.value ? "" : style.value,
+                                )
+                              }
+                              className={cn(
+                                "group overflow-hidden rounded-2xl border bg-white text-left transition-all",
+                                isSelected
+                                  ? "border-slate-950 shadow-sm ring-2 ring-slate-200"
+                                  : "border-slate-200 hover:border-slate-300 hover:shadow-sm",
+                              )}
                             >
-                              <Info className="h-3.5 w-3.5" />
+                              <div className="relative aspect-square overflow-hidden bg-slate-100">
+                                <Image
+                                  src={style.previewImage}
+                                  alt={`${style.label} preview`}
+                                  fill
+                                  className="object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                                  sizes="(max-width: 768px) 44vw, 150px"
+                                />
+                                {isSelected && (
+                                  <div className="absolute right-1.5 top-1.5 rounded-full bg-white/95 p-1 text-slate-950 shadow-sm">
+                                    <CheckCircle className="h-3 w-3" />
+                                  </div>
+                                )}
+                                <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
+                                <div className="absolute inset-x-0 bottom-0 px-2 py-1.5">
+                                  <p className="text-[10px] font-medium leading-4 text-white drop-shadow-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+                                    {style.label}
+                                  </p>
+                                </div>
+                              </div>
                             </button>
                           </HoverCardTrigger>
-                          <HoverCardContent align="start" className="w-72 rounded-2xl border-slate-200 p-3 text-sm leading-6 text-slate-600">
-                            Brand identity จะอ้างอิงจากรูปภาพ ads account ที่กำลังรันอยู่ และส่งเป็น flag ไปให้ workflow ตัดสินใจใช้ต่อเอง
+                          <HoverCardContent
+                            align="start"
+                            sideOffset={8}
+                            className="w-56 rounded-2xl border-slate-200 p-3 text-sm leading-6 text-slate-600"
+                          >
+                            <p className="text-sm font-semibold text-slate-950">{style.label}</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-600">{style.hoverDescription}</p>
                           </HoverCardContent>
                         </HoverCard>
-                      </div>
-                    </div>
-                    <Switch checked={useBrandIdentity} onCheckedChange={setUseBrandIdentity} />
+                      )
+                    })}
                   </div>
+                  <p className="mt-3 text-xs text-slate-500">
+                    เลือกแล้วระบบจะส่ง style นี้เป็น `user_brief` ให้ workflow ใช้กำหนด art direction
+                  </p>
                 </div>
+
               </div>
 
               <Collapsible open={isPaletteOpen} onOpenChange={setIsPaletteOpen} className="rounded-2xl border border-slate-200 bg-slate-50/70">

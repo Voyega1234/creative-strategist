@@ -30,7 +30,8 @@ export async function POST(request: Request) {
       copywriting,
       color_palette,
       material_image_urls,
-      use_brand_identity,
+      ad_style,
+      user_brief,
       aspect_ratio,
       image_count,
     } = body;
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
     console.log('[generate-image] Selected Topics:', selected_topics?.length || 0);
     console.log('[generate-image] Core Concept:', core_concept);
     console.log('[generate-image] Topic Title:', topic_title);
+    console.log('[generate-image] Ad Style:', ad_style);
     if (reference_image_url) {
       console.log('[generate-image] Using reference image:', reference_image_url);
     }
@@ -71,7 +73,9 @@ export async function POST(request: Request) {
         copywriting: copywriting || null,
         color_palette: color_palette || [],
         material_image_urls: material_image_urls || [],
-        use_brand_identity: Boolean(use_brand_identity),
+        ad_style: ad_style || "",
+        user_brief: user_brief || "",
+        userBrief: user_brief || "",
         aspect_ratio: selectedAspectRatio,
         image_count: sanitizedImageCount,
         imageCount: sanitizedImageCount,
