@@ -167,31 +167,6 @@ export function RemixChatPanel({
   activeClientName,
   activeProductFocus,
 }: RemixChatPanelProps) {
-  // Settings notification state
-  const [showSettingsTooltip, setShowSettingsTooltip] = useState(true)
-  const [settingsTooltipDismissed, setSettingsTooltipDismissed] = useState(false)
-
-  // Auto-hide settings tooltip after 10 seconds
-  useEffect(() => {
-    if (showSettingsTooltip && !settingsTooltipDismissed) {
-      const timer = setTimeout(() => {
-        setShowSettingsTooltip(false)
-      }, 10000)
-      return () => clearTimeout(timer)
-    }
-  }, [showSettingsTooltip, settingsTooltipDismissed])
-
-  // Get current settings summary for tooltip
-  const getCurrentSettingsSummary = () => {
-    const client = selectedClient || (activeClientId ? clients.find(c => c.id === activeClientId) : null)
-    
-    if (client) {
-      return client.clientName
-    }
-    
-    return 'No client selected'
-  }
-
   // Phase state: "generate" = initial form, "chat" = editing via chat
   const [phase, setPhase] = useState<"generate" | "chat">("chat")
 
@@ -333,11 +308,6 @@ export function RemixChatPanel({
     }
     load()
   }, [activeClientId, activeProductFocus])
-
-  // Start in chat mode by default
-  useEffect(() => {
-    setPhase("chat")
-  }, [])
 
   // ─── Session Storage: Save & Restore Chat State ────────────
 
@@ -1226,7 +1196,7 @@ export function RemixChatPanel({
           },
           body: JSON.stringify({
             image_url: url,
-            prompt: "Upscale this Compass Creator result while preserving the same image and composition.",
+            prompt: "Upscale this Reference Remix result while preserving the same image and composition.",
           }),
         })
 
@@ -1330,7 +1300,7 @@ export function RemixChatPanel({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      if (!isGenerating && phase === "chat") handleChatSend()
+      if (!isGenerating) handleChatSend()
     }
   }
 
@@ -1746,34 +1716,21 @@ export function RemixChatPanel({
         <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
           <img
             src="/SCR-20250730-myam-Photoroom.png"
-            alt="Compass Creator Logo"
+            alt="Reference Remix Logo"
             className="w-full h-full object-cover"
           />
         </div>
         <div className="flex-1">
-          <h1 className="text-sm font-medium text-[#1c1c1e]">Compass Creator</h1>
-          <p className="text-xs text-[#8e8e93]">Upload reference images and generate remixes</p>
+          <h1 className="text-sm font-medium text-[#1c1c1e]">Reference Remix</h1>
+          <p className="text-xs text-[#8e8e93]">
+            อัปโหลดรูปอ้างอิงเพื่อคุมสไตล์ องค์ประกอบ หรือทิศทางของภาพ แล้วพิมพ์สิ่งที่ต้องการสร้างหรือแก้ไขต่อได้ทันที
+          </p>
         </div>
         <Button variant="ghost" size="sm" onClick={handleNewChat} className="text-xs text-[#8e8e93] hover:text-black">
           <RotateCcw className="w-3.5 h-3.5 mr-1" />
           New Chat
         </Button>
       </div>
-
-      {/* Client Selection Info Notification */}
-      {(!selectedClientId || selectedClientId === "") && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 px-4 py-3">
-          <div className="max-w-3xl mx-auto flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-              <Info className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-blue-900">Freestyle Mode</p>
-              <p className="text-xs text-blue-700 mt-0.5">You can generate images freely with just a prompt. Select a client for brand-specific features (colors, materials, brand info).</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main area */}
       <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 relative">
@@ -1816,11 +1773,11 @@ export function RemixChatPanel({
                 <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg mb-5">
                   <img
                     src="/SCR-20250730-myam-Photoroom.png"
-                    alt="Compass Creator Logo"
+                    alt="Reference Remix Logo"
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <h2 className="text-xl font-bold text-black mb-2">Compass Creator</h2>
+                <h2 className="text-xl font-bold text-black mb-2">Reference Remix</h2>
                 <p className="text-sm text-[#8e8e93] text-center max-w-md">
                   อัปโหลดรูป Reference แล้วเขียนบรีฟเพื่อสร้างภาพ หลังจากนั้นสามารถแชทแก้ไขต่อได้
                 </p>
@@ -2372,7 +2329,7 @@ export function RemixChatPanel({
                         <div className="w-4 h-4 rounded overflow-hidden">
                           <img
                             src="/SCR-20250730-myam-Photoroom.png"
-                            alt="Compass Creator"
+                            alt="Reference Remix"
                             className="w-full h-full object-cover"
                           />
                         </div>
@@ -2382,7 +2339,7 @@ export function RemixChatPanel({
                     {/* Content */}
                     <div className={`space-y-2 ${msg.role === "user" ? "text-right" : "text-left"}`}>
                       <p className="text-[11px] text-[#8e8e93] font-medium">
-                        {msg.role === "user" ? "You" : "Compass Creator"}
+                        {msg.role === "user" ? "You" : "Reference Remix"}
                       </p>
                       <div className={`rounded-2xl ${
                         msg.role === "user"
@@ -2681,12 +2638,12 @@ export function RemixChatPanel({
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center overflow-hidden">
                     <img
                       src="/SCR-20250730-myam-Photoroom.png"
-                      alt="Compass Creator"
+                      alt="Reference Remix"
                       className="w-6 h-6 object-cover animate-pulse"
                     />
                   </div>
                   <div className="space-y-1 pt-1">
-                    <p className="text-[11px] text-[#8e8e93] font-medium">Compass Creator</p>
+                    <p className="text-[11px] text-[#8e8e93] font-medium">Reference Remix</p>
                     <div className="flex items-center gap-2 text-sm text-[#8e8e93]">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>{loadingText}</span>
@@ -2700,8 +2657,8 @@ export function RemixChatPanel({
         </div>
       </div>
 
-      {/* Settings drawer (chat phase only) */}
-      {phase === "chat" && settingsOpen && (
+      {/* Settings drawer */}
+      {settingsOpen && (
         <div className="border-t border-[#e5e7eb] bg-[#fafafa] px-4 py-4 max-h-[40vh] overflow-y-auto flex-shrink-0 animate-slide-up">
           <div className="max-w-3xl mx-auto">
             {renderSettings()}
@@ -2712,14 +2669,7 @@ export function RemixChatPanel({
       {/* Input bar */}
       <div className="border-t border-[#e5e7eb] bg-white px-4 py-3 flex-shrink-0">
         <div className="max-w-3xl mx-auto">
-          {phase === "generate" ? (
-            /* Disabled input bar */
-            <div className="flex items-center justify-center rounded-2xl border border-[#e5e7eb] bg-[#f9fafb] px-4 py-3.5">
-              <p className="text-sm text-[#c7c7cc]">สร้างภาพก่อนเพื่อเริ่มแชทแก้ไข</p>
-            </div>
-          ) : (
-            /* Active input bar */
-            <>
+          <>
               {/* Pending image previews */}
               {pendingImages.length > 0 && (
                 <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
@@ -2766,49 +2716,19 @@ export function RemixChatPanel({
                 </button>
 
                 {/* Settings toggle */}
-                <div className="relative">
-                  {showSettingsTooltip && !settingsTooltipDismissed && (
-                    <div className="absolute bottom-full right-0 mb-2 z-50 animate-bounce">
-                      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap border border-blue-500">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-yellow-300 rounded-full animate-pulse"></div>
-                            <span className="font-semibold">Check your material first!</span>
-                          </div>
-                          <div className="text-xs opacity-90">
-                            {getCurrentSettingsSummary()}
-                          </div>
-                        </div>
-                        <div className="absolute bottom-full right-3 w-0 h-0 border-l-3 border-l-transparent border-r-3 border-r-transparent border-b-3 border-b-blue-600"></div>
-                      </div>
-                      <button
-                        onClick={() => setSettingsTooltipDismissed(true)}
-                        className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full text-blue-600 text-xs hover:bg-gray-100 flex items-center justify-center shadow-md"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsOpen(!settingsOpen)
-                      // Hide tooltip when settings is clicked
-                      if (showSettingsTooltip) {
-                        setShowSettingsTooltip(false)
-                        setSettingsTooltipDismissed(true)
-                      }
-                    }}
-                    className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                      settingsOpen ? "text-[#1d4ed8] bg-blue-50" : "text-[#8e8e93] hover:text-[#1d4ed8] hover:bg-blue-50"
-                    } ${
-                      showSettingsTooltip && !settingsTooltipDismissed ? "ring-2 ring-blue-400 ring-offset-2 animate-pulse" : ""
-                    }`}
-                    title="แก้ไขภาพและวัสดุ: เลือกวัสดุอ้างอิง, ปรับสี และอัตราส่วนภาพ"
-                  >
-                    <Settings className="w-5 h-5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(!settingsOpen)}
+                  className={`flex-shrink-0 h-8 rounded-lg px-3 flex items-center gap-1.5 text-xs font-medium transition-all ${
+                    settingsOpen
+                      ? "text-[#1d4ed8] bg-blue-50 border border-blue-200"
+                      : "text-[#8e8e93] bg-white border border-[#d1d1d6] hover:text-[#1d4ed8] hover:border-blue-200 hover:bg-blue-50"
+                  }`}
+                  title="Client, aspect ratio, colors, and materials"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Advanced</span>
+                </button>
 
                 {/* PMAX Toggle */}
                 <div className="relative group">
@@ -2887,8 +2807,7 @@ export function RemixChatPanel({
                   </>
                 )}
               </div>
-            </>
-          )}
+          </>
         </div>
       </div>
 

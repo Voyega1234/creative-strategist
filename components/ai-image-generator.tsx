@@ -301,6 +301,7 @@ export function AIImageGenerator({
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
   const [imageCount, setImageCount] = useState<number>(DEFAULT_IMAGE_COUNT)
   const [showAllTopics, setShowAllTopics] = useState(false)
+  const [isIdeasOpen, setIsIdeasOpen] = useState(false)
   const [isPaletteOpen, setIsPaletteOpen] = useState(false)
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false)
   const [isReferencesOpen, setIsReferencesOpen] = useState(false)
@@ -381,6 +382,12 @@ export function AIImageGenerator({
 
     saveGeneratedImagesToStorage(generatedImagesStorageKey, generatedImages)
   }, [generatedImages, generatedImagesStorageKey])
+
+  useEffect(() => {
+    if (selectedTopicData) {
+      setIsIdeasOpen(true)
+    }
+  }, [selectedTopicData])
 
   // Update selection when props change (from URL parameters)
   useEffect(() => {
@@ -697,16 +704,16 @@ export function AIImageGenerator({
       return
     }
 
-    if (!selectedTopic) {
-      alert('กรุณาเลือกไอเดียที่บันทึกไว้')
+    if (!selectedTopic && !prompt.trim()) {
+      alert('กรุณาเลือกไอเดียที่บันทึกไว้ หรือใส่ brief ก่อน generate')
       return
     }
 
     setIsGenerating(true)
     
     const selectedClient = currentClient
-    const topicTitle = selectedTopicData?.title || selectedTopic
-    const topicSummary = selectedTopicData ? getTopicPreviewText(selectedTopicData.description) : ""
+    const topicTitle = selectedTopicData?.title || selectedTopic || 'Custom brief'
+    const topicSummary = selectedTopicData ? getTopicPreviewText(selectedTopicData.description) : prompt.trim()
     const requestIds = Array.from({ length: imageCount }, () => crypto.randomUUID())
 
     const pendingImages: GeneratedImage[] = requestIds.map((id) => ({
@@ -774,9 +781,9 @@ export function AIImageGenerator({
         client_name: selectedClient?.clientName,
         product_focus: selectedProductFocus,
         selected_topics: selectedTopicData ? [selectedTopicData] : [],
-        core_concept: selectedTopicData?.concept_idea || '',
-        topic_title: selectedTopicData?.title || '',
-        topic_description: selectedTopicData?.description || '',
+        core_concept: selectedTopicData?.concept_idea || prompt.trim(),
+        topic_title: selectedTopicData?.title || 'Custom brief',
+        topic_description: selectedTopicData?.description || prompt.trim(),
         content_pillar: selectedTopicData?.content_pillar || '',
         copywriting: selectedTopicData?.copywriting || null,
         color_palette: colorPalette,
@@ -1587,159 +1594,452 @@ export function AIImageGenerator({
     }
   }
 
+  const selectedStyleLabel = selectedAdStyleOption?.label || "No style selected"
+  const hasPrompt = prompt.trim().length > 0
+  const hasIdeaOrBrief = Boolean(selectedTopic || hasPrompt)
+  const hasOptionalDirection =
+    !!selectedAdStyleOption ||
+    selectedMaterials.length > 0 ||
+    selectedReferenceImages.length > 0 ||
+    colorPalette.length > 0 ||
+    aspectRatio !== "4:5" ||
+    imageCount > 1
+  const canChooseIdea = Boolean(selectedClientId && selectedProductFocus)
+  const canGenerate = Boolean(selectedClientId && selectedProductFocus && hasIdeaOrBrief)
+  const setupStatusItems = [
+    { label: "Client", done: Boolean(selectedClientId) },
+    { label: "Brief", done: hasIdeaOrBrief },
+    { label: "Optional", done: hasOptionalDirection },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white px-5 py-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h3 className="text-xl font-semibold text-slate-950">Compass Ideas</h3>
-          <p className="mt-1 text-sm text-slate-600">
-            Build multiple static ad variations from one saved idea.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">
-            {currentClient?.clientName || "No client"}
-          </Badge>
-          <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">
-            {selectedProductFocus || "No product focus"}
-          </Badge>
-          <Badge className="rounded-full bg-slate-900 text-white hover:bg-slate-900">
-            {imageCount} output{imageCount > 1 ? "s" : ""}
-          </Badge>
+    <div className="space-y-8">
+      <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(248,250,252,0.94)_100%)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Generate Ads</p>
+            <h3 className="mt-3 text-[32px] font-semibold tracking-[-0.03em] text-slate-950">Generate ads from a brief</h3>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+              เริ่มจาก brief ที่เขียนเองได้เลย หรือใช้ saved idea เป็น starting point จากนั้นค่อยเติม style,
+              references และ assets เพิ่มเท่าที่จำเป็น
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {setupStatusItems.map((item, index) => (
+              <div key={item.label} className="flex items-center gap-2 text-sm text-slate-500">
+                <span
+                  className={cn(
+                    "h-2.5 w-2.5 rounded-full",
+                    item.done ? "bg-slate-950" : "bg-slate-200",
+                  )}
+                />
+                <span className={cn(item.done ? "text-slate-800" : "text-slate-400")}>
+                  {index + 1}. {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[360px,minmax(0,1fr)]">
-        <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <Card className="overflow-hidden border-slate-200 shadow-sm">
-            <div className="border-b border-slate-200 bg-white px-6 py-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
-                  <SlidersHorizontal className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-slate-950">Creative Setup</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Keep all ad inputs in one place.
-                  </p>
-                </div>
+      <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
+        <div className="px-7 pt-7">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 1</p>
+              <h4 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Choose client and product focus</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                เลือก context ที่จะใช้ generate ก่อน แล้วค่อยไปเขียน brief ใน step ถัดไป
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm text-slate-500">
+              <div>
+                <span className="text-slate-400">Client</span>
+                <span className="ml-2 text-slate-700">{currentClient?.clientName || "Not selected"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400">Focus</span>
+                <span className="ml-2 text-slate-700">{selectedProductFocus || "Not selected"}</span>
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="space-y-6 p-6">
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                  <Target className="h-4 w-4 text-blue-600" />
-                  เลือกลูกค้า
-                </label>
-                {loadingClients ? (
-                  <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6">
-                    <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                    <span className="ml-2 text-sm text-slate-500">กำลังโหลด...</span>
-                  </div>
-                ) : (
-                  <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={isClientPopoverOpen}
-                        className="h-12 w-full justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
-                      >
-                        <span className="truncate">
-                          {currentClient?.clientName || "เลือกลูกค้า"}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[280px] rounded-2xl border-slate-200 p-0">
-                      <Command>
-                        <CommandInput placeholder="พิมพ์ค้นหาชื่อลูกค้า..." />
-                        <CommandList>
-                          <CommandEmpty>ไม่พบชื่อลูกค้า</CommandEmpty>
-                          <CommandGroup>
-                            {clients.map((client) => (
-                              <CommandItem
-                                key={client.id}
-                                value={client.clientName}
-                                onSelect={() => {
-                                  setSelectedClientId(client.id)
-                                  setIsClientPopoverOpen(false)
-                                }}
-                                className="flex items-center justify-between px-3 py-2"
-                              >
-                                <span>{client.clientName}</span>
-                                <Check
-                                  className={cn(
-                                    "h-4 w-4 text-slate-900",
-                                    selectedClientId === client.id ? "opacity-100" : "opacity-0",
-                                  )}
-                                />
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
+        <div className="space-y-6 p-7">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                <Target className="h-4 w-4 text-blue-600" />
+                Client
+              </label>
+              {loadingClients ? (
+                <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6">
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                  <span className="ml-2 text-sm text-slate-500">กำลังโหลด...</span>
+                </div>
+              ) : (
+                <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isClientPopoverOpen}
+                      className="h-12 w-full justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
+                    >
+                      <span className="truncate">{currentClient?.clientName || "เลือกลูกค้า"}</span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[280px] rounded-2xl border-slate-200 p-0">
+                    <Command>
+                      <CommandInput placeholder="พิมพ์ค้นหาชื่อลูกค้า..." />
+                      <CommandList>
+                        <CommandEmpty>ไม่พบชื่อลูกค้า</CommandEmpty>
+                        <CommandGroup>
+                          {clients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={client.clientName}
+                              onSelect={() => {
+                                setSelectedClientId(client.id)
+                                setIsClientPopoverOpen(false)
+                              }}
+                              className="flex items-center justify-between px-3 py-2"
+                            >
+                              <span>{client.clientName}</span>
+                              <Check
+                                className={cn(
+                                  "h-4 w-4 text-slate-900",
+                                  selectedClientId === client.id ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
 
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-900">Product Focus</label>
-                {selectedClientId ? (
-                  <Select value={selectedProductFocus} onValueChange={setSelectedProductFocus}>
-                    <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white focus:border-slate-950 focus:ring-0">
-                      <SelectValue placeholder="เลือก Product Focus" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients
-                        .find((client) => client.id === selectedClientId)
-                        ?.productFocuses.map((pf) => (
-                          <SelectItem key={pf.productFocus} value={pf.productFocus}>
-                            {pf.productFocus}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                    เลือกลูกค้าก่อน
-                  </div>
-                )}
-              </div>
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-900">Product Focus</label>
+              {selectedClientId ? (
+                <Select value={selectedProductFocus} onValueChange={setSelectedProductFocus}>
+                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white focus:border-slate-950 focus:ring-0">
+                    <SelectValue placeholder="เลือก Product Focus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients
+                      .find((client) => client.id === selectedClientId)
+                      ?.productFocuses.map((pf) => (
+                        <SelectItem key={pf.productFocus} value={pf.productFocus}>
+                          {pf.productFocus}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
+                  เลือกลูกค้าก่อน
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
 
+      <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
+        <div className="px-7 pt-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 2</p>
+          <h4 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Write your brief</h4>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            เขียน brief เองได้ทันที หรือใช้ saved idea เป็น starting point แล้วค่อยเติม optional direction เพิ่มเมื่อจำเป็น
+          </p>
+        </div>
+
+        <div className="space-y-7 p-7">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_280px]">
+            <div className="space-y-6">
               <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-900">
-                  คำอธิบายภาพที่ต้องการสร้าง
-                </label>
+                <label className="text-sm font-medium text-slate-900">Creative brief</label>
                 <Textarea
-                  placeholder="เช่น: premium skincare product ad, soft studio lighting, elegant composition, realistic texture, polished campaign look"
+                  placeholder="เช่น: โปรโมตคอร์สหน้าใสสำหรับผู้หญิงวัยทำงาน โทน premium clean มี product shot เด่น ราคาอ่านง่าย และภาพดูเป็นแอดจริง"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   rows={5}
                   className="min-h-[132px] resize-none rounded-2xl border-slate-200 bg-white text-slate-950 focus:border-slate-950 focus:ring-0"
                 />
                 <p className="text-xs leading-5 text-slate-500">
-                  Prompt ไม่บังคับ แต่ช่วยกำหนด mood, styling และรายละเอียดของ static ad ได้ชัดเจนขึ้น
+                  พิมพ์ brief เองได้เลย ถ้าอยากเริ่มเร็วขึ้นค่อยเลือก saved idea ด้านล่างเป็น starting point
                 </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-900">
-                    <Layers3 className="h-4 w-4 text-slate-700" />
-                    จำนวนภาพต่อครั้ง
+              {selectedTopicData && (
+                <div className="rounded-[24px] bg-slate-50 px-5 py-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Saved idea selected</p>
+                      <h5 className="mt-2 text-lg font-semibold text-slate-950">{selectedTopicData.title}</h5>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{selectedTopicSummary}</p>
+                    </div>
+                    <CheckCircle className="h-5 w-5 flex-shrink-0 text-slate-900" />
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
+                </div>
+              )}
+
+              <Collapsible
+                open={isIdeasOpen}
+                onOpenChange={setIsIdeasOpen}
+                className="rounded-2xl border border-slate-200 bg-slate-50/70"
+              >
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                      <Library className="h-4 w-4 text-slate-700" />
+                      Use saved idea
+                      <span className="text-xs font-normal text-slate-500">optional</span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      เลือก idea ที่มีอยู่เพื่อใช้เป็น starting point แทนการเริ่มจากศูนย์
+                    </p>
+                  </div>
+                  <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isIdeasOpen && "rotate-180")} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 px-4 pb-4">
+                  {canChooseIdea ? (
+                    loadingTopics ? (
+                      <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        <span className="ml-2 text-sm text-slate-500">กำลังโหลดไอเดีย...</span>
+                      </div>
+                    ) : savedTopics.length > 0 ? (
+                      <>
+                        <div
+                          className={cn(
+                            "grid gap-4 lg:grid-cols-2",
+                            showAllTopics && "max-h-[34rem] overflow-y-auto pr-2",
+                          )}
+                        >
+                          {visibleTopics.map((topic) => {
+                            const isSelected = selectedTopic === topic.title
+                            const topicKey = topic.id || topic.title
+                            const isDeleting = deletingTopicId === topicKey
+                            return (
+                              <div
+                                key={topicKey}
+                                className={cn(
+                                  "rounded-[24px] border p-4 transition-all",
+                                  isSelected
+                                    ? "border-slate-950 bg-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+                                    : "border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-[0_10px_24px_rgba(15,23,42,0.05)]",
+                                )}
+                              >
+                                <div className="flex items-start gap-4">
+                                  <button
+                                    type="button"
+                                    className="flex-1 text-left"
+                                    onClick={() =>
+                                      setSelectedTopic((currentTopic) =>
+                                        currentTopic === topic.title ? "" : topic.title,
+                                      )
+                                    }
+                                  >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h5 className="text-base font-semibold text-slate-950">{topic.title}</h5>
+                                      <Badge variant="secondary" className="rounded-full bg-slate-100 text-slate-600">
+                                        {topic.category}
+                                      </Badge>
+                                      {topic.id?.startsWith("custom-") && (
+                                        <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-slate-600">
+                                          Custom
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
+                                      {getTopicPreviewText(topic.description)}
+                                    </p>
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                      {Array.isArray(topic.tags) &&
+                                        topic.tags.slice(0, 3).map((tag) => (
+                                          <Badge key={tag} variant="outline" className="rounded-full border-slate-200 text-xs text-slate-600">
+                                            {tag}
+                                          </Badge>
+                                        ))}
+                                    </div>
+                                  </button>
+                                  <div className="flex flex-col items-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                                      disabled={isDeleting}
+                                      onClick={() => {
+                                        setTopicBeingEdited(topic)
+                                        setTopicEditModalOpen(true)
+                                      }}
+                                    >
+                                      <Edit className="mr-1 h-3.5 w-3.5" />
+                                      แก้ไข
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                                      disabled={isDeleting}
+                                      onClick={() => handleDeleteTopic(topic)}
+                                    >
+                                      {isDeleting ? (
+                                        <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <X className="mr-1 h-3.5 w-3.5" />
+                                      )}
+                                      ลบ
+                                    </Button>
+                                    {isSelected && <CheckCircle className="h-5 w-5 text-slate-900" />}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsCustomIdeaDialogOpen(true)}
+                            className="rounded-full border-slate-200"
+                          >
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            Add idea
+                          </Button>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedTopicData && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setSelectedTopic("")}
+                                className="rounded-full border-slate-200"
+                              >
+                                Clear selected idea
+                              </Button>
+                            )}
+                            {savedTopics.length > 4 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setShowAllTopics((value) => !value)}
+                                className="rounded-full border-slate-200"
+                              >
+                                {showAllTopics ? "Show fewer ideas" : `See more ideas (${savedTopics.length - 4})`}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+                        ยังไม่มี saved idea สำหรับลูกค้าและ Product Focus นี้
+                      </div>
+                    )
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+                      เลือกลูกค้าและ Product Focus ก่อนเพื่อดู saved ideas
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-900">Ad style</label>
+                    <p className="mt-1 text-xs text-slate-500">optional: เลือก style เดียวเพื่อคุมภาพรวมของงาน</p>
+                  </div>
+                  {selectedAdStyleOption && <span className="text-xs text-slate-500">{selectedStyleLabel}</span>}
+                </div>
+                <div className="-mx-1 overflow-x-auto pb-1">
+                  <div className="grid min-w-[760px] grid-cols-6 gap-3 px-1">
+                    {AD_STYLE_OPTIONS.map((style) => {
+                      const isSelected = selectedAdStyle === style.value
+
+                      return (
+                        <HoverCard key={style.value} openDelay={120} closeDelay={80}>
+                          <HoverCardTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedAdStyle((currentValue) =>
+                                  currentValue === style.value ? "" : style.value,
+                                )
+                              }
+                              className="text-left"
+                            >
+                              <div
+                                className={cn(
+                                  "overflow-hidden rounded-[22px] border bg-slate-50 transition-all",
+                                  isSelected
+                                    ? "border-slate-950 shadow-[0_12px_24px_rgba(15,23,42,0.08)]"
+                                    : "border-slate-200/90 hover:border-slate-300 hover:bg-white",
+                                )}
+                              >
+                                <div className="relative aspect-[4/5] overflow-hidden">
+                                  <Image
+                                    src={style.previewImage}
+                                    alt={`${style.label} preview`}
+                                    fill
+                                    className="object-cover transition-transform duration-200 hover:scale-[1.02]"
+                                    sizes="(max-width: 768px) 24vw, 110px"
+                                  />
+                                  {isSelected && (
+                                    <div className="absolute right-2 top-2 rounded-full bg-white/95 p-1.5 text-slate-950 shadow-sm">
+                                      <CheckCircle className="h-3 w-3" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="px-2.5 py-2.5">
+                                  <p className="text-[11px] font-medium leading-4 text-slate-700">{style.label}</p>
+                                </div>
+                              </div>
+                            </button>
+                          </HoverCardTrigger>
+                          <HoverCardContent
+                            align="start"
+                            sideOffset={10}
+                            className="w-56 rounded-2xl border-slate-200 p-3 text-sm leading-6 text-slate-600"
+                          >
+                            <p className="text-sm font-semibold text-slate-950">{style.label}</p>
+                            <p className="mt-1 text-xs leading-5 text-slate-600">{style.hoverDescription}</p>
+                          </HoverCardContent>
+                        </HoverCard>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-5 rounded-[28px] bg-slate-50/80 p-5">
+              <div>
+                <p className="text-sm font-medium text-slate-900">Output settings</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">ตั้งค่าพื้นฐานก่อน generate</p>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                    <Layers3 className="h-4 w-4 text-slate-700" />
+                    จำนวนภาพ
+                  </div>
+                  <div className="grid grid-cols-5 gap-2">
                     {IMAGE_COUNT_OPTIONS.map((count) => (
                       <button
                         key={count}
                         type="button"
                         onClick={() => setImageCount(count)}
                         className={cn(
-                          "rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                          "rounded-xl border px-2 py-2 text-sm font-medium transition-colors",
                           imageCount === count
                             ? "border-slate-950 bg-slate-950 text-white shadow-sm"
                             : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
@@ -1749,13 +2049,10 @@ export function AIImageGenerator({
                       </button>
                     ))}
                   </div>
-                  <p className="mt-3 text-xs text-slate-500">
-                    เหมาะสำหรับเทียบหลาย static ad concept ภายในรอบเดียว
-                  </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-900">
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
                     <ImageIcon className="h-4 w-4 text-slate-700" />
                     อัตราส่วนภาพ
                   </div>
@@ -1771,570 +2068,402 @@ export function AIImageGenerator({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="mt-3 text-xs text-slate-500">
-                    ค่าเริ่มต้นคือ 1:1 สำหรับโพสต์ static ads
-                  </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-900">
-                    <Sparkles className="h-4 w-4 text-slate-700" />
-                    Ad Style
+                <div className="rounded-[22px] bg-white px-4 py-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Current setup</p>
+                  <div className="mt-3 space-y-2 text-sm text-slate-600">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Outputs</span>
+                      <span className="font-medium text-slate-900">{imageCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Aspect ratio</span>
+                      <span className="font-medium text-slate-900">{aspectRatio}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Style</span>
+                      <span className="font-medium text-slate-900">{selectedStyleLabel}</span>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {AD_STYLE_OPTIONS.map((style) => {
-                      const isSelected = selectedAdStyle === style.value
-
-                      return (
-                        <HoverCard key={style.value} openDelay={120} closeDelay={80}>
-                          <HoverCardTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedAdStyle((currentValue) =>
-                                  currentValue === style.value ? "" : style.value,
-                                )
-                              }
-                              className={cn(
-                                "group overflow-hidden rounded-2xl border bg-white text-left transition-all",
-                                isSelected
-                                  ? "border-slate-950 shadow-sm ring-2 ring-slate-200"
-                                  : "border-slate-200 hover:border-slate-300 hover:shadow-sm",
-                              )}
-                            >
-                              <div className="relative aspect-square overflow-hidden bg-slate-100">
-                                <Image
-                                  src={style.previewImage}
-                                  alt={`${style.label} preview`}
-                                  fill
-                                  className="object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                                  sizes="(max-width: 768px) 44vw, 150px"
-                                />
-                                {isSelected && (
-                                  <div className="absolute right-1.5 top-1.5 rounded-full bg-white/95 p-1 text-slate-950 shadow-sm">
-                                    <CheckCircle className="h-3 w-3" />
-                                  </div>
-                                )}
-                                <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/55 via-black/20 to-transparent" />
-                                <div className="absolute inset-x-0 bottom-0 px-2 py-1.5">
-                                  <p className="text-[10px] font-medium leading-4 text-white drop-shadow-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
-                                    {style.label}
-                                  </p>
-                                </div>
-                              </div>
-                            </button>
-                          </HoverCardTrigger>
-                          <HoverCardContent
-                            align="start"
-                            sideOffset={8}
-                            className="w-56 rounded-2xl border-slate-200 p-3 text-sm leading-6 text-slate-600"
-                          >
-                            <p className="text-sm font-semibold text-slate-950">{style.label}</p>
-                            <p className="mt-1 text-xs leading-5 text-slate-600">{style.hoverDescription}</p>
-                          </HoverCardContent>
-                        </HoverCard>
-                      )
-                    })}
-                  </div>
-                  <p className="mt-3 text-xs text-slate-500">
-                    เลือกแล้วระบบจะส่ง style นี้เป็น `user_brief` ให้ workflow ใช้กำหนด art direction
-                  </p>
                 </div>
-
               </div>
+            </div>
+          </div>
 
-              <Collapsible open={isPaletteOpen} onOpenChange={setIsPaletteOpen} className="rounded-2xl border border-slate-200 bg-slate-50/70">
-                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
-                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                    <Palette className="h-4 w-4 text-violet-500" />
-                    Brand Palette
-                  </div>
-                  <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isPaletteOpen && "rotate-180")} />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 px-4 pb-4">
-                  {selectedClientId ? (
-                    <>
-                      {colorPalette.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {colorPalette.map((color, index) => (
-                            <div key={`${color}-${index}`} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2">
-                              <div
-                                className="h-5 w-5 rounded-full border border-slate-200"
-                                style={{ backgroundColor: `#${color}` }}
-                                title={`#${color}`}
-                              />
-                              <span className="text-xs font-medium text-slate-900">#{color}</span>
-                              <button
-                                type="button"
-                                className="text-xs text-rose-500 hover:text-rose-600"
-                                onClick={() => handleRemoveColor(index)}
-                              >
-                                ลบ
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">
-                          ยังไม่มีพาเลตสีที่บันทึกไว้
-                        </div>
-                      )}
-
-                      <div className="flex flex-col gap-2">
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <Input
-                            value={colorInput}
-                            onChange={(event) => setColorInput(event.target.value)}
-                            placeholder="ใส่โค้ดสี เช่น 265484 หรือ #265484"
-                            className="h-11 rounded-2xl border-slate-200"
+          <Collapsible open={isPaletteOpen} onOpenChange={setIsPaletteOpen} className="rounded-2xl border border-slate-200 bg-slate-50/70">
+            <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                  <Palette className="h-4 w-4 text-slate-700" />
+                  Brand palette
+                </div>
+                <p className="mt-1 text-xs text-slate-500">optional: ใช้เมื่ออยากคุมโทนสีให้ใกล้แบรนด์มากขึ้น</p>
+              </div>
+              <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isPaletteOpen && "rotate-180")} />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 px-4 pb-4">
+              {selectedClientId ? (
+                <>
+                  {colorPalette.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {colorPalette.map((color, index) => (
+                        <div key={`${color}-${index}`} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2">
+                          <div
+                            className="h-5 w-5 rounded-full border border-slate-200"
+                            style={{ backgroundColor: `#${color}` }}
+                            title={`#${color}`}
                           />
-                          <Button variant="outline" onClick={handleAddColor} className="h-11 rounded-2xl border-slate-200">
-                            เพิ่มสี
-                          </Button>
-                        </div>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <Button
-                            onClick={handleSavePalette}
-                            disabled={isSavingPalette}
-                            className="h-11 rounded-2xl bg-slate-900 text-white hover:bg-slate-800"
+                          <span className="text-xs font-medium text-slate-900">#{color}</span>
+                          <button
+                            type="button"
+                            className="text-xs text-rose-500 hover:text-rose-600"
+                            onClick={() => handleRemoveColor(index)}
                           >
-                            {isSavingPalette ? "กำลังบันทึก..." : "บันทึกพาเลตสี"}
-                          </Button>
-                          <Button variant="ghost" asChild className="justify-start rounded-2xl px-0 text-sm text-blue-700 hover:bg-transparent hover:text-blue-800">
-                            <a href="https://coolors.co/image-picker" target="_blank" rel="noopener noreferrer">
-                              เปิด Image Picker
-                            </a>
-                          </Button>
+                            ลบ
+                          </button>
                         </div>
-                      </div>
-                    </>
+                      ))}
+                    </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">
-                      เลือกลูกค้าก่อนเพื่อจัดการพาเลตสี
+                      ยังไม่มีพาเลตสีที่บันทึกไว้
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={colorInput}
+                        onChange={(event) => setColorInput(event.target.value)}
+                        placeholder="ใส่โค้ดสี เช่น 265484 หรือ #265484"
+                        className="h-11 rounded-2xl border-slate-200"
+                      />
+                      <Button variant="outline" onClick={handleAddColor} className="h-11 rounded-2xl border-slate-200">
+                        เพิ่มสี
+                      </Button>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <Button
+                        onClick={handleSavePalette}
+                        disabled={isSavingPalette}
+                        className="h-11 rounded-2xl bg-slate-900 text-white hover:bg-slate-800"
+                      >
+                        {isSavingPalette ? "กำลังบันทึก..." : "บันทึกพาเลตสี"}
+                      </Button>
+                      <Button variant="ghost" asChild className="justify-start rounded-2xl px-0 text-sm text-blue-700 hover:bg-transparent hover:text-blue-800">
+                        <a href="https://coolors.co/image-picker" target="_blank" rel="noopener noreferrer">
+                          เปิด Image Picker
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">
+                  เลือกลูกค้าก่อนเพื่อจัดการพาเลตสี
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+
+          {canChooseIdea && (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Collapsible open={isMaterialsOpen} onOpenChange={setIsMaterialsOpen} className="rounded-2xl border border-slate-200 bg-slate-50/70">
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                      <Upload className="h-4 w-4 text-slate-700" />
+                      Product assets
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">optional: ใส่รูปสินค้าจริงหรือองค์ประกอบที่อยากให้ AI ใช้</p>
+                  </div>
+                  <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isMaterialsOpen && "rotate-180")} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 px-4 pb-4">
+                  <div>
+                    <input
+                      ref={materialInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => handleMaterialUpload(event.target.files)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => materialInputRef.current?.click()}
+                      disabled={isUploadingMaterials}
+                      className="rounded-full border-slate-200"
+                    >
+                      <Upload className="mr-1 h-4 w-4" />
+                      {isUploadingMaterials ? "กำลังอัปโหลด..." : "อัปโหลด"}
+                    </Button>
+                  </div>
+
+                  {loadingMaterialImages ? (
+                    <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
+                      <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      <span className="ml-2 text-sm text-slate-500">กำลังโหลดวัสดุ...</span>
+                    </div>
+                  ) : materialImages.length > 0 ? (
+                    <>
+                      <div className="max-h-[24rem] overflow-y-auto pr-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          {materialImages.map((image) => {
+                            const isSelected = selectedMaterials.includes(image.url)
+                            return (
+                              <button
+                                key={image.url}
+                                type="button"
+                                className={cn(
+                                  "group overflow-hidden rounded-2xl border bg-white transition-all",
+                                  isSelected
+                                    ? "border-violet-400 ring-2 ring-violet-200"
+                                    : "border-slate-200 hover:border-slate-300",
+                                )}
+                                onClick={() => handleMaterialToggle(image.url)}
+                              >
+                                <div className="relative aspect-square">
+                                  <Image
+                                    src={image.url}
+                                    alt="Material image"
+                                    fill
+                                    className="object-cover"
+                                    sizes="(max-width: 768px) 33vw, 120px"
+                                  />
+                                  {isSelected && (
+                                    <div className="absolute inset-0 flex items-start justify-end p-2">
+                                      <div className="rounded-full bg-violet-500 p-1 text-white">
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        มีทั้งหมด {materialImages.length} ภาพ, เลือกแล้ว {selectedMaterials.length} ภาพ
+                      </p>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+                      ยังไม่มีวัสดุที่อัปโหลด
                     </div>
                   )}
                 </CollapsibleContent>
               </Collapsible>
 
-              {selectedClientId && selectedProductFocus && (
-                <>
-                  <Collapsible open={isMaterialsOpen} onOpenChange={setIsMaterialsOpen} className="rounded-2xl border border-slate-200 bg-slate-50/70">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
-                      <div>
-                        <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                          <Upload className="h-4 w-4 text-violet-500" />
-                          Product assets
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">เลือกภาพสินค้าหรือองค์ประกอบที่ AI ควรใช้</p>
-                      </div>
-                      <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isMaterialsOpen && "rotate-180")} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-3 px-4 pb-4">
-                      <div>
-                        <input
-                          ref={materialInputRef}
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                          onChange={(event) => handleMaterialUpload(event.target.files)}
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => materialInputRef.current?.click()}
-                          disabled={isUploadingMaterials}
-                          className="rounded-full border-slate-200"
-                        >
-                          <Upload className="mr-1 h-4 w-4" />
-                          {isUploadingMaterials ? "กำลังอัปโหลด..." : "อัปโหลด"}
-                        </Button>
-                      </div>
-
-                      {loadingMaterialImages ? (
-                        <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                          <span className="ml-2 text-sm text-slate-500">กำลังโหลดวัสดุ...</span>
-                        </div>
-                      ) : materialImages.length > 0 ? (
-                        <>
-                          <div className="max-h-[24rem] overflow-y-auto pr-2">
-                            <div className="grid grid-cols-3 gap-2">
-                              {materialImages.map((image) => {
-                              const isSelected = selectedMaterials.includes(image.url)
-                              return (
-                                <button
-                                  key={image.url}
-                                  type="button"
-                                  className={cn(
-                                    "group overflow-hidden rounded-2xl border bg-white transition-all",
-                                    isSelected
-                                      ? "border-violet-400 ring-2 ring-violet-200"
-                                      : "border-slate-200 hover:border-slate-300",
-                                  )}
-                                  onClick={() => handleMaterialToggle(image.url)}
-                                >
-                                  <div className="relative aspect-square">
-                                    <Image
-                                      src={image.url}
-                                      alt="Material image"
-                                      fill
-                                      className="object-cover"
-                                      sizes="(max-width: 768px) 33vw, 120px"
-                                    />
-                                    {isSelected && (
-                                      <div className="absolute inset-0 flex items-start justify-end p-2">
-                                        <div className="rounded-full bg-violet-500 p-1 text-white">
-                                          <CheckCircle className="h-3.5 w-3.5" />
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </button>
-                              )
-                              })}
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-500">
-                            มีทั้งหมด {materialImages.length} ภาพ, เลือกแล้ว {selectedMaterials.length} ภาพ
-                          </p>
-                        </>
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
-                          ยังไม่มีวัสดุที่อัปโหลด
-                        </div>
-                      )}
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  <Collapsible open={isReferencesOpen} onOpenChange={setIsReferencesOpen} className="rounded-2xl border border-slate-200 bg-slate-50/70">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
-                      <div>
-                        <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                          <ImageIcon className="h-4 w-4 text-blue-500" />
-                          Reference images
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          เลือก reference ได้สูงสุด {MAX_REFERENCE_SELECTION} ภาพ
-                        </p>
-                      </div>
-                      <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isReferencesOpen && "rotate-180")} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-3 px-4 pb-4">
-                      <input
-                        ref={referenceInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        className="hidden"
-                        onChange={(event) => handleReferenceUpload(event.target.files)}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => referenceInputRef.current?.click()}
-                        onDragOver={(event) => {
-                          event.preventDefault()
-                          setIsReferenceDropActive(true)
-                        }}
-                        onDragLeave={(event) => {
-                          event.preventDefault()
-                          setIsReferenceDropActive(false)
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault()
-                          setIsReferenceDropActive(false)
-                          handleReferenceUpload(event.dataTransfer.files)
-                        }}
-                        className={cn(
-                          "flex min-h-[84px] w-full items-center justify-center rounded-2xl border border-dashed px-4 text-center transition-colors",
-                          isReferenceDropActive
-                            ? "border-blue-400 bg-blue-50"
-                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-700 shadow-sm">
-                            <Upload className="h-4 w-4" />
-                          </div>
-                          <div className="text-left">
-                            <p className="text-sm font-medium text-slate-900">
-                              {isUploadingReferences ? "กำลังอัปโหลดรูป..." : "Drop reference images here"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              หรือคลิกเพื่ออัปโหลดเข้าคลัง reference
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-
-                      {loadingReferenceImages ? (
-                        <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
-                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                          <span className="ml-2 text-sm text-slate-500">กำลังโหลดรูปภาพ...</span>
-                        </div>
-                      ) : referenceImages.length > 0 ? (
-                        <>
-                          <div className="grid grid-cols-2 gap-2">
-                            {referenceImages.slice(0, 6).map((image) => {
-                              const isSelected = selectedReferenceImages.includes(image.url)
-                              const isLimitReached =
-                                !isSelected && selectedReferenceImages.length >= MAX_REFERENCE_SELECTION
-                              return (
-                                <button
-                                  key={image.url}
-                                  type="button"
-                                  className={cn(
-                                    "group overflow-hidden rounded-2xl border bg-white transition-all",
-                                    isSelected
-                                      ? "border-blue-400 ring-2 ring-blue-200"
-                                      : "border-slate-200 hover:border-slate-300",
-                                    isLimitReached && "cursor-not-allowed opacity-60",
-                                  )}
-                                  onClick={() => {
-                                    if (isSelected) {
-                                      setSelectedReferenceImages((prev) => prev.filter((url) => url !== image.url))
-                                    } else if (!isLimitReached) {
-                                      setSelectedReferenceImages((prev) =>
-                                        [...prev, image.url].slice(0, MAX_REFERENCE_SELECTION),
-                                      )
-                                    } else {
-                                      alert(`เลือกได้สูงสุด ${MAX_REFERENCE_SELECTION} รูป`)
-                                    }
-                                  }}
-                                >
-                                  <div className="relative aspect-[4/3]">
-                                    <Image
-                                      src={image.url}
-                                      alt="Reference image"
-                                      fill
-                                      className="object-cover"
-                                      sizes="(max-width: 768px) 50vw, 180px"
-                                    />
-                                    {isSelected && (
-                                      <div className="absolute inset-0 flex items-start justify-end p-2">
-                                        <div className="rounded-full bg-blue-500 p-1 text-white">
-                                          <CheckCircle className="h-3.5 w-3.5" />
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </button>
-                              )
-                            })}
-                          </div>
-                          <p className="text-xs text-slate-500">
-                            เลือกแล้ว {selectedReferenceImages.length}/{MAX_REFERENCE_SELECTION} ภาพ
-                          </p>
-                        </>
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
-                          ยังไม่มีรูปภาพในคลัง
-                        </div>
-                      )}
-                    </CollapsibleContent>
-                  </Collapsible>
-                </>
-              )}
-
-              <Button
-                onClick={generateImage}
-                disabled={isGenerating || !selectedTopic}
-                className="h-12 w-full rounded-2xl bg-slate-950 text-base font-medium text-white shadow-lg shadow-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    กำลังสร้าง {imageCount} ภาพ...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate {imageCount} Static Ad{imageCount > 1 ? "s" : ""}
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="overflow-hidden border-slate-200 shadow-sm">
-            <div className="border-b border-slate-200 bg-white px-6 py-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
-                    <Library className="h-4 w-4 text-amber-500" />
-                    Strategic Idea Selection
+              <Collapsible open={isReferencesOpen} onOpenChange={setIsReferencesOpen} className="rounded-2xl border border-slate-200 bg-slate-50/70">
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                      <ImageIcon className="h-4 w-4 text-slate-700" />
+                      Reference images
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">optional: ใช้คุม mood, composition หรือ visual direction</p>
                   </div>
-                  <h4 className="mt-2 text-xl font-semibold text-slate-950">Choose the core idea for this ad batch</h4>
-                  <p className="mt-1 text-sm text-slate-600">
-                    ต้องเลือกไอเดียก่อน ระบบจะใช้ concept, copy direction และ context นี้ไปสร้างภาพทั้งหมด
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
+                  <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isReferencesOpen && "rotate-180")} />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 px-4 pb-4">
+                  <input
+                    ref={referenceInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => handleReferenceUpload(event.target.files)}
+                  />
+
+                  <button
                     type="button"
-                    variant="outline"
-                    onClick={() => setIsCustomIdeaDialogOpen(true)}
-                    className="rounded-full border-slate-200"
-                  >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    Add idea
-                  </Button>
-                  <Badge
-                    variant="outline"
+                    onClick={() => referenceInputRef.current?.click()}
+                    onDragOver={(event) => {
+                      event.preventDefault()
+                      setIsReferenceDropActive(true)
+                    }}
+                    onDragLeave={(event) => {
+                      event.preventDefault()
+                      setIsReferenceDropActive(false)
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      setIsReferenceDropActive(false)
+                      handleReferenceUpload(event.dataTransfer.files)
+                    }}
                     className={cn(
-                      "rounded-full px-3 py-1 text-xs font-medium",
-                      selectedTopic
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        : "border-rose-200 bg-rose-50 text-rose-600",
+                      "flex min-h-[84px] w-full items-center justify-center rounded-2xl border border-dashed px-4 text-center transition-colors",
+                      isReferenceDropActive
+                        ? "border-blue-400 bg-blue-50"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
                     )}
                   >
-                    {selectedTopic ? "Idea selected" : "Required before generate"}
-                  </Badge>
-                </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-700 shadow-sm">
+                        <Upload className="h-4 w-4" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-slate-900">
+                          {isUploadingReferences ? "กำลังอัปโหลดรูป..." : "Drop reference images here"}
+                        </p>
+                        <p className="text-xs text-slate-500">หรือคลิกเพื่ออัปโหลดเข้าคลัง reference</p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {loadingReferenceImages ? (
+                    <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
+                      <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      <span className="ml-2 text-sm text-slate-500">กำลังโหลดรูปภาพ...</span>
+                    </div>
+                  ) : referenceImages.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {referenceImages.slice(0, 6).map((image) => {
+                          const isSelected = selectedReferenceImages.includes(image.url)
+                          const isLimitReached =
+                            !isSelected && selectedReferenceImages.length >= MAX_REFERENCE_SELECTION
+                          return (
+                            <button
+                              key={image.url}
+                              type="button"
+                              className={cn(
+                                "group overflow-hidden rounded-2xl border bg-white transition-all",
+                                isSelected
+                                  ? "border-blue-400 ring-2 ring-blue-200"
+                                  : "border-slate-200 hover:border-slate-300",
+                                isLimitReached && "cursor-not-allowed opacity-60",
+                              )}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedReferenceImages((prev) => prev.filter((url) => url !== image.url))
+                                } else if (!isLimitReached) {
+                                  setSelectedReferenceImages((prev) =>
+                                    [...prev, image.url].slice(0, MAX_REFERENCE_SELECTION),
+                                  )
+                                } else {
+                                  alert(`เลือกได้สูงสุด ${MAX_REFERENCE_SELECTION} รูป`)
+                                }
+                              }}
+                            >
+                              <div className="relative aspect-[4/3]">
+                                <Image
+                                  src={image.url}
+                                  alt="Reference image"
+                                  fill
+                                  className="object-cover"
+                                  sizes="(max-width: 768px) 50vw, 180px"
+                                />
+                                {isSelected && (
+                                  <div className="absolute inset-0 flex items-start justify-end p-2">
+                                    <div className="rounded-full bg-blue-500 p-1 text-white">
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        เลือกแล้ว {selectedReferenceImages.length}/{MAX_REFERENCE_SELECTION} ภาพ
+                      </p>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
+                      ยังไม่มีรูปภาพในคลัง
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
+        <div className="px-7 pt-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 3</p>
+          <h4 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Generate and review</h4>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            ตรวจสอบสรุปด้านล่างก่อนกด generate เพื่อให้รู้ว่าระบบจะใช้ context อะไรในการสร้างภาพ
+          </p>
+        </div>
+
+        <div className="grid gap-6 p-7 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
+          <div className="space-y-4">
+            <div className="grid gap-3 rounded-[28px] bg-slate-50 px-5 py-5 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Client</p>
+                <p className="mt-2 text-sm font-medium text-slate-900">{currentClient?.clientName || "Not selected"}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Brief source</p>
+                <p className="mt-2 text-sm font-medium text-slate-900">
+                  {selectedTopicData?.title || (hasPrompt ? "Custom brief" : "Write a brief or use a saved idea")}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Style</p>
+                <p className="mt-2 text-sm font-medium text-slate-900">{selectedStyleLabel}</p>
               </div>
             </div>
 
-            <div className="space-y-4 p-6">
-              {selectedTopicData && (
-                <div className="rounded-3xl border border-amber-200 bg-amber-50/80 p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-700">Selected idea</p>
-                      <h5 className="mt-2 text-lg font-semibold text-slate-950">{selectedTopicData.title}</h5>
-                      <p className="mt-2 text-sm leading-6 text-slate-700">{selectedTopicSummary}</p>
-                    </div>
-                    <CheckCircle className="h-5 w-5 flex-shrink-0 text-amber-600" />
-                  </div>
-                </div>
-              )}
-
-              {selectedClientId && selectedProductFocus ? (
-                loadingTopics ? (
-                  <div className="flex min-h-[180px] items-center justify-center rounded-3xl border border-slate-200 bg-slate-50">
-                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
-                    <span className="ml-2 text-sm text-slate-500">กำลังโหลดไอเดีย...</span>
-                  </div>
-                ) : savedTopics.length > 0 ? (
-                  <div className="space-y-4">
-                    <div
-                      className={cn(
-                        "grid gap-4 lg:grid-cols-2",
-                        showAllTopics && "max-h-[40rem] overflow-y-auto pr-2",
-                      )}
-                    >
-                      {visibleTopics.map((topic) => {
-                        const isSelected = selectedTopic === topic.title
-                        const topicKey = topic.id || topic.title
-                        const isDeleting = deletingTopicId === topicKey
-                        return (
-                          <div
-                            key={topicKey}
-                            className={cn(
-                              "rounded-3xl border p-5 transition-all",
-                              isSelected
-                                ? "border-amber-300 bg-amber-50 shadow-sm ring-1 ring-amber-200"
-                                : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
-                            )}
-                          >
-                            <div className="flex items-start gap-4">
-                              <button
-                                type="button"
-                                className="flex-1 text-left"
-                                onClick={() => setSelectedTopic(topic.title)}
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h5 className="text-base font-semibold text-slate-950">{topic.title}</h5>
-                                  <Badge variant="secondary" className="rounded-full bg-slate-100 text-slate-700">
-                                    {topic.category}
-                                  </Badge>
-                                  {topic.id?.startsWith("custom-") && (
-                                    <Badge variant="outline" className="rounded-full border-blue-200 bg-blue-50 text-blue-700">
-                                      Custom
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
-                                  {getTopicPreviewText(topic.description)}
-                                </p>
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                  {Array.isArray(topic.tags) &&
-                                    topic.tags.slice(0, 3).map((tag) => (
-                                      <Badge key={tag} variant="outline" className="rounded-full border-slate-200 text-xs text-slate-600">
-                                        {tag}
-                                      </Badge>
-                                    ))}
-                                </div>
-                              </button>
-                              <div className="flex flex-col items-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="rounded-full text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                                  disabled={isDeleting}
-                                  onClick={() => {
-                                    setTopicBeingEdited(topic)
-                                    setTopicEditModalOpen(true)
-                                  }}
-                                >
-                                  <Edit className="mr-1 h-3.5 w-3.5" />
-                                  แก้ไข
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="rounded-full text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                                  disabled={isDeleting}
-                                  onClick={() => handleDeleteTopic(topic)}
-                                >
-                                  {isDeleting ? (
-                                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <X className="mr-1 h-3.5 w-3.5" />
-                                  )}
-                                  ลบ
-                                </Button>
-                                {isSelected && <CheckCircle className="h-5 w-5 text-amber-600" />}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {savedTopics.length > 4 && (
-                      <div className="flex justify-center">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowAllTopics((value) => !value)}
-                          className="rounded-full border-slate-200"
-                        >
-                          {showAllTopics ? "Show fewer ideas" : `See more ideas (${savedTopics.length - 4})`}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
-                    <p className="text-sm font-medium text-slate-700">
-                      ยังไม่มีไอเดียที่บันทึกไว้สำหรับลูกค้าและ Product Focus นี้
-                    </p>
-                    <p className="mt-2 text-sm text-slate-500">
-                      สร้างไอเดียใหม่ในหน้าหลัก หรือพิมพ์ custom idea จากช่องด้านบนได้เลย
-                    </p>
-                  </div>
-                )
-              ) : (
-                <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
-                  <p className="text-sm font-medium text-slate-700">เลือกลูกค้าและ Product Focus ก่อนเพื่อโหลดไอเดีย</p>
-                </div>
-              )}
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
+              <span>
+                <span className="text-slate-400">Aspect ratio</span>
+                <span className="ml-2 text-slate-800">{aspectRatio}</span>
+              </span>
+              <span>
+                <span className="text-slate-400">Outputs</span>
+                <span className="ml-2 text-slate-800">{imageCount}</span>
+              </span>
+              <span>
+                <span className="text-slate-400">Materials</span>
+                <span className="ml-2 text-slate-800">{selectedMaterials.length}</span>
+              </span>
+              <span>
+                <span className="text-slate-400">References</span>
+                <span className="ml-2 text-slate-800">{selectedReferenceImages.length}</span>
+              </span>
+              {hasOptionalDirection && <span className="text-slate-800">Optional direction added</span>}
             </div>
-          </Card>
+          </div>
 
-          <Card className="overflow-hidden border-slate-200 shadow-sm">
+          <div className="rounded-[28px] bg-slate-50 p-4">
+            <Button
+              onClick={generateImage}
+              disabled={isGenerating || !canGenerate}
+              className="h-12 w-full rounded-2xl bg-slate-950 text-base font-medium text-white shadow-lg shadow-slate-200 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังสร้าง {imageCount} ภาพ...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate {imageCount} Static Ad{imageCount > 1 ? "s" : ""}
+                </>
+              )}
+            </Button>
+            <p className="mt-3 text-xs leading-5 text-slate-500">
+              {!canGenerate
+                ? "ต้องเลือกลูกค้า Product Focus และใส่ brief หรือเลือก saved idea ก่อนจึงจะ generate ได้"
+                : "พร้อมสร้างแล้ว ระบบจะใช้ brief หรือ saved idea ร่วมกับ direction ที่คุณเลือกไว้"}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="space-y-6">
+        <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
             <div className="border-b border-slate-200 bg-white px-6 py-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -2367,7 +2496,7 @@ export function AIImageGenerator({
                   </div>
                   <h5 className="mt-5 text-lg font-semibold text-slate-950">Your gallery is empty</h5>
                   <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                    เลือกไอเดียหลัก ใส่ reference หรือ material ที่ต้องการ แล้วกด Generate เพื่อเริ่มสร้าง static ad gallery
+                    เขียน brief หรือเลือก saved idea จากนั้นค่อยเติม references หรือ assets เพิ่ม แล้วกด Generate เพื่อเริ่มสร้าง static ad gallery
                   </p>
                 </div>
               ) : (
@@ -2532,25 +2661,15 @@ export function AIImageGenerator({
             </div>
           </Card>
 
-          <Card className="overflow-hidden border border-blue-100 bg-[linear-gradient(135deg,_#eff6ff_0%,_#ffffff_100%)] shadow-sm">
-            <div className="p-6">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-slate-950">Tips for better static ads</h4>
-                  <div className="mt-3 grid gap-3 text-sm leading-6 text-slate-600 lg:grid-cols-2">
-                    <p>เลือกไอเดียที่มี message ชัดเจนก่อน เพื่อให้แต่ละภาพใน gallery มี direction เดียวกัน</p>
-                    <p>ใช้ reference เพื่อควบคุม composition และ mood ส่วน material ช่วยให้สินค้าในภาพตรงของจริงมากขึ้น</p>
-                    <p>สร้าง 3-4 ภาพต่อรอบจะเหมาะกับการเทียบหลาย creative angle โดยไม่ทำให้ผลลัพธ์กระจายเกินไป</p>
-                    <p>ถ้าต้องการภาพแนว campaign มากขึ้น ให้ใส่ prompt ภาษาอังกฤษสั้น กระชับ และมี visual cues ที่ชัดเจน</p>
-                  </div>
-                </div>
-              </div>
+        <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
+          <div className="p-7">
+            <div className="grid gap-4 lg:grid-cols-3">
+              <p className="text-sm leading-6 text-slate-600">เริ่มจาก idea ให้ชัดก่อน แล้วค่อยเติม direction เพิ่มเท่าที่จำเป็น</p>
+              <p className="text-sm leading-6 text-slate-600">ใช้ product assets เมื่ออยากให้สินค้าในภาพใกล้ของจริงมากขึ้น ส่วน reference ใช้เพื่อคุม mood และ composition</p>
+              <p className="text-sm leading-6 text-slate-600">สร้าง 2-3 ภาพต่อรอบมักเปรียบเทียบได้ง่ายกว่า และไม่ทำให้ผลลัพธ์กระจายเกินไป</p>
             </div>
-          </Card>
-        </div>
+          </div>
+        </Card>
       </div>
 
       <Dialog open={isCustomIdeaDialogOpen} onOpenChange={setIsCustomIdeaDialogOpen}>
