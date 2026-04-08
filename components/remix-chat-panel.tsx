@@ -252,6 +252,9 @@ export function RemixChatPanel({
   const resolvedProductFocus =
     selectedProductFocus || activeProductFocus || selectedClient?.productFocuses[0]?.productFocus || ""
   const availableProductFocuses = selectedClient?.productFocuses || []
+  const isFreestyleMode = !selectedClientId || selectedClientId === "" || selectedClientId === "general"
+  const headerModeLabel = isFreestyleMode ? "โหมดอิสระ" : selectedClient?.clientName || resolvedClientName
+  const headerModeDetail = !isFreestyleMode && resolvedProductFocus ? resolvedProductFocus : null
 
   const brandHighlights = useMemo(() => {
     if (!brandProfile) return []
@@ -637,6 +640,13 @@ export function RemixChatPanel({
     }
     setClientDropdownOpen(false)
   }, [clients])
+
+  const switchToFreestyleMode = useCallback(() => {
+    setSelectedClientId("general")
+    setSelectedProductFocus("")
+    setClientSearchTerm("")
+    setClientDropdownOpen(false)
+  }, [])
 
   const handleProductFocusSelection = useCallback((value: string) => {
     setSelectedProductFocus(value)
@@ -1448,27 +1458,10 @@ export function RemixChatPanel({
             </div>
             <div>
               <h3 className="text-sm font-semibold text-[#1c1c1e]">การตั้งค่าภาพ</h3>
-              <p className="text-xs text-[#6b7280]">อัตราส่วนและขนาด</p>
+              <p className="text-xs text-[#6b7280]">ตัวเลือกภาพเพิ่มเติม</p>
             </div>
           </div>
           <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700 mb-2 block">อัตราส่วนภาพ</label>
-              <div className="grid grid-cols-3 gap-2">
-                {ASPECT_RATIO_OPTIONS.map((ratio) => (
-                  <button
-                    key={ratio}
-                    type="button"
-                    onClick={() => setAspectRatio(ratio)}
-                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all ${aspectRatio === ratio
-                        ? "bg-green-500 text-white border-green-500 shadow-sm"
-                        : "bg-white text-gray-700 border-gray-200 hover:border-green-300 hover:bg-green-50"}`}
-                  >
-                    {ratio}
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1726,10 +1719,26 @@ export function RemixChatPanel({
             อัปโหลดรูปอ้างอิงเพื่อคุมสไตล์ องค์ประกอบ หรือทิศทางของภาพ แล้วพิมพ์สิ่งที่ต้องการสร้างหรือแก้ไขต่อได้ทันที
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleNewChat} className="text-xs text-[#8e8e93] hover:text-black">
-          <RotateCcw className="w-3.5 h-3.5 mr-1" />
-          New Chat
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-[#fafafa] px-3 py-1.5">
+            <span className="text-[11px] font-medium text-[#6e6e73]">{headerModeLabel}</span>
+            {headerModeDetail ? <span className="text-[11px] text-[#a1a1aa]">• {headerModeDetail}</span> : null}
+          </div>
+          {!isFreestyleMode && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={switchToFreestyleMode}
+              className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              ใช้แบบไม่ผูกลูกค้า
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={handleNewChat} className="text-xs text-[#8e8e93] hover:text-black">
+            <RotateCcw className="w-3.5 h-3.5 mr-1" />
+            New Chat
+          </Button>
+        </div>
       </div>
 
       {/* Main area */}
@@ -2729,6 +2738,22 @@ export function RemixChatPanel({
                   <Settings className="w-4 h-4" />
                   <span>Advanced</span>
                 </button>
+
+                <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                  <SelectTrigger
+                    className="h-8 w-[90px] flex-shrink-0 rounded-lg border border-[#d1d1d6] bg-white px-3 text-xs font-medium text-[#6e6e73] focus:ring-0"
+                    aria-label="Aspect ratio"
+                  >
+                    <SelectValue placeholder="Ratio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ASPECT_RATIO_OPTIONS.map((ratio) => (
+                      <SelectItem key={ratio} value={ratio}>
+                        {ratio}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
                 {/* PMAX Toggle */}
                 <div className="relative group">

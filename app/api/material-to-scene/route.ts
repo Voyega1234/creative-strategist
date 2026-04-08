@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
-const ANALYSIS_MODEL = "gemini-2.5-flash"
+const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
 const IMAGE_MODEL = "gemini-3.1-flash-image-preview"
 
 const PRESET_STYLES: Record<string, string> = {
@@ -162,7 +162,33 @@ function buildGenerationPrompt(materialDescription: string, preset: string, prom
 Create an ultra-realistic, photographic, production-ready scene image.
 The image must look indistinguishable from a real photograph, shot with a high-end DSLR camera, perfect studio lighting, physically accurate shadows, and flawless texture rendering.
 
-ABSOLUTE CRITICAL REQUIREMENT: The provided reference image is the HERO MATERIAL. You MUST preserve 100% of its exact details, texture, color, pattern, and surface properties. DO NOT alter, modify, or hallucinate any aspect of the material itself. You are ONLY allowed to change the lighting, shadows, background, and camera angle around the material. The material's physical appearance must remain exactly identical to the reference.
+ABSOLUTE CRITICAL REQUIREMENT: The provided reference image is the HERO MATERIAL OR HERO PRODUCT. You MUST preserve 100% of its identity exactly as shown in the input. Do not redesign it, clean it up, simplify it, stylize it, improve it, or reinterpret it.
+
+You MUST preserve exactly:
+- texture, color, pattern, grain, finish, gloss, roughness, and surface response
+- shape, silhouette, proportions, edges, corners, seams, folds, stitching, joints, and construction logic
+- placement of all visible details, markings, labels, logos, prints, buttons, handles, hardware, cut lines, decorative elements, and product-specific features
+- spatial relationship between all visible details on the object
+
+If the camera angle changes, the object must still remain the exact same object. All details must transform consistently with real-world perspective. Details may appear foreshortened, partially hidden, or seen from a different angle, but they must never move, swap position, disappear without physical reason, duplicate, or be newly invented.
+
+You are ONLY allowed to change:
+- lighting
+- shadows
+- reflections caused by the environment
+- camera framing and camera angle
+- background and surrounding scene
+
+You are NOT allowed to change:
+- the object's identity
+- structural design
+- detail placement
+- product construction
+- material pattern layout
+- branding or label placement
+- any distinctive visual feature from the input
+
+The material or product must remain unmistakably the exact same source item from the input image, only re-shot inside a new scene.
 
 Material/Product Characteristics to feature:
 ${materialDescription}
@@ -174,7 +200,7 @@ Creative Prompt (camera angle, mood, lighting, color tone):
 ${prompt}
 
 NEGATIVE CONSTRAINTS:
-No AI artifacts, no plastic or over-smoothed textures, no distorted geometry, no unrealistic lighting, no cartoonish or painterly elements, no watermarks, no floating objects, no unnatural shadows, no chromatic aberration. Do not change the material texture, color, or pattern.
+No AI artifacts, no plastic or over-smoothed textures, no distorted geometry, no unrealistic lighting, no cartoonish or painterly elements, no watermarks, no floating objects, no unnatural shadows, no chromatic aberration. Do not change the material texture, color, pattern, structure, detail placement, branding, or product-specific features.
 
 The output should be clean, composition-ready, relit, reframed, and mood-matched to the prompt with absolute photorealism.
   `.trim()
