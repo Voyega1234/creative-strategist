@@ -30,6 +30,22 @@ type GeminiInlineImage = {
   mimeType?: string
 }
 
+async function fetchImageAsBase64(url: string, fallbackMimeType = "image/png") {
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    throw new Error(`Unable to fetch image from URL (${response.status})`)
+  }
+
+  const arrayBuffer = await response.arrayBuffer()
+  const contentType = response.headers.get("content-type") || fallbackMimeType
+
+  return {
+    base64: Buffer.from(arrayBuffer).toString("base64"),
+    mimeType: contentType,
+  }
+}
+
 function getGeminiText(payload: any) {
   const parts = payload?.candidates?.flatMap((candidate: any) => candidate?.content?.parts || []) || []
   return parts
@@ -171,11 +187,16 @@ export async function POST(request: Request) {
 
     if (action === "remove_background") {
       const imageBase64 = typeof body.image_base64 === "string" ? body.image_base64.trim() : ""
-      const mimeType = typeof body.mime_type === "string" ? body.mime_type.trim() : "image/png"
+      const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : ""
+      const requestedMimeType = typeof body.mime_type === "string" ? body.mime_type.trim() : "image/png"
 
-      if (!imageBase64) {
-        return NextResponse.json({ success: false, error: "image_base64 is required" }, { status: 400 })
+      if (!imageBase64 && !imageUrl) {
+        return NextResponse.json({ success: false, error: "image_url or image_base64 is required" }, { status: 400 })
       }
+
+      const { base64, mimeType } = imageUrl
+        ? await fetchImageAsBase64(imageUrl, requestedMimeType)
+        : { base64: imageBase64, mimeType: requestedMimeType }
 
       const payload = await callGemini({
         contents: [
@@ -187,7 +208,7 @@ export async function POST(request: Request) {
               },
               {
                 inlineData: {
-                  data: imageBase64,
+                  data: base64,
                   mimeType,
                 },
               },
@@ -213,23 +234,30 @@ export async function POST(request: Request) {
       })
     }
 
-    const referenceImageBase64 =
-      typeof body.reference_image_base64 === "string" ? body.reference_image_base64.trim() : ""
-    const mimeType = typeof body.mime_type === "string" ? body.mime_type.trim() : "image/png"
+    const referenceImageBase64 = typeof body.reference_image_base64 === "string" ? body.reference_image_base64.trim() : ""
+    const referenceImageUrl = typeof body.reference_image_url === "string" ? body.reference_image_url.trim() : ""
+    const requestedMimeType = typeof body.mime_type === "string" ? body.mime_type.trim() : "image/png"
     const preset = typeof body.preset === "string" ? body.preset : "Ad Creative"
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
     const aspectRatioInput = typeof body.aspect_ratio === "string" ? body.aspect_ratio.trim() : "1:1"
     const imageSize = typeof body.image_size === "string" ? body.image_size.trim() : "1K"
 
-    if (!referenceImageBase64) {
-      return NextResponse.json({ success: false, error: "reference_image_base64 is required" }, { status: 400 })
+    if (!referenceImageBase64 && !referenceImageUrl) {
+      return NextResponse.json(
+        { success: false, error: "reference_image_url or reference_image_base64 is required" },
+        { status: 400 },
+      )
     }
 
     if (!prompt) {
       return NextResponse.json({ success: false, error: "prompt is required" }, { status: 400 })
     }
 
-    const materialDescription = await analyzeMaterial(referenceImageBase64, mimeType)
+    const { base64: referenceBase64, mimeType } = referenceImageUrl
+      ? await fetchImageAsBase64(referenceImageUrl, requestedMimeType)
+      : { base64: referenceImageBase64, mimeType: requestedMimeType }
+
+    const materialDescription = await analyzeMaterial(referenceBase64, mimeType)
     const aspectRatio = ASPECT_RATIO_MAP[aspectRatioInput] || aspectRatioInput
     const generationPrompt = buildGenerationPrompt(materialDescription, preset, prompt)
 
@@ -244,7 +272,7 @@ export async function POST(request: Request) {
                 },
                 {
                   inlineData: {
-                    data: referenceImageBase64,
+                    data: referenceBase64,
                     mimeType,
                   },
                 },

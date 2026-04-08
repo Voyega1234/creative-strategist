@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import { getStorageClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
 type Preset = "Ad Creative" | "E-commerce Product Shot" | "Interior & Material" | "Social Media Content"
@@ -45,22 +46,52 @@ function downloadAllImages(urls: string[], baseFilename: string) {
   })
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = () => {
-      const result = reader.result as string
-      resolve(result.split(",")[1] || "")
-    }
-    reader.onerror = (error) => reject(error)
+async function uploadFileToStorage(file: File) {
+  const storage = getStorageClient()
+  if (!storage) {
+    throw new Error("Storage client not available")
+  }
+
+  const extension = file.name.split(".").pop() || "png"
+  const path = `generated/material-to-scene-inputs/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`
+  const { error } = await storage.from("ads-creative-image").upload(path, file, {
+    contentType: file.type,
   })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const { data } = storage.from("ads-creative-image").getPublicUrl(path)
+  return data.publicUrl
 }
 
-function splitDataUrl(dataUrl: string) {
-  const [header, base64] = dataUrl.split(",")
-  const mimeType = header?.split(":")[1]?.split(";")[0] || "image/png"
-  return { base64, mimeType }
+async function uploadDataUrlToStorage(dataUrl: string) {
+  const storage = getStorageClient()
+  if (!storage) {
+    throw new Error("Storage client not available")
+  }
+
+  const response = await fetch(dataUrl)
+  const blob = await response.blob()
+  const mimeType = blob.type || "image/png"
+  const extensionMap: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+  }
+  const extension = extensionMap[mimeType] || "png"
+  const path = `generated/material-to-scene-temp/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`
+  const { error } = await storage.from("ads-creative-image").upload(path, blob, {
+    contentType: mimeType,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const { data } = storage.from("ads-creative-image").getPublicUrl(path)
+  return { publicUrl: data.publicUrl, mimeType }
 }
 
 export function MaterialToScenePanel() {
@@ -122,7 +153,7 @@ export function MaterialToScenePanel() {
     setError(null)
 
     try {
-      const referenceImageBase64 = await fileToBase64(file)
+      const referenceImageUrl = await uploadFileToStorage(file)
       const response = await fetch("/api/material-to-scene", {
         method: "POST",
         headers: {
@@ -130,7 +161,7 @@ export function MaterialToScenePanel() {
         },
         body: JSON.stringify({
           action: "generate",
-          reference_image_base64: referenceImageBase64,
+          reference_image_url: referenceImageUrl,
           mime_type: file.type,
           preset: DEFAULT_PRESET,
           prompt: prompt.trim(),
@@ -173,7 +204,7 @@ export function MaterialToScenePanel() {
     setError(null)
 
     try {
-      const { base64, mimeType } = splitDataUrl(currentImageUrl)
+      const { publicUrl, mimeType } = await uploadDataUrlToStorage(currentImageUrl)
       const response = await fetch("/api/material-to-scene", {
         method: "POST",
         headers: {
@@ -181,7 +212,7 @@ export function MaterialToScenePanel() {
         },
         body: JSON.stringify({
           action: "remove_background",
-          image_base64: base64,
+          image_url: publicUrl,
           mime_type: mimeType,
         }),
       })
