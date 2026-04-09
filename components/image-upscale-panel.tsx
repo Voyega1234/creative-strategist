@@ -17,6 +17,9 @@ type UploadedImage = {
   id: string
   file: File
   previewUrl: string
+  width: number
+  height: number
+  detectedRatio: string
 }
 
 type UpscaleResult = {
@@ -25,6 +28,39 @@ type UpscaleResult = {
   size: UpscaleSize
   fileName: string
   createdAt: string
+}
+
+const SUPPORTED_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
+
+function getClosestAspectRatio(width: number, height: number) {
+  const rawRatio = width / height
+
+  return SUPPORTED_ASPECT_RATIOS.reduce((closest, current) => {
+    const [currentWidth, currentHeight] = current.split(":").map(Number)
+    const [closestWidth, closestHeight] = closest.split(":").map(Number)
+    const currentDistance = Math.abs(rawRatio - currentWidth / currentHeight)
+    const closestDistance = Math.abs(rawRatio - closestWidth / closestHeight)
+    return currentDistance < closestDistance ? current : closest
+  }, "1:1" as (typeof SUPPORTED_ASPECT_RATIOS)[number])
+}
+
+function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const image = new window.Image()
+
+    image.onload = () => {
+      resolve({ width: image.naturalWidth, height: image.naturalHeight })
+      URL.revokeObjectURL(objectUrl)
+    }
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error(`ไม่สามารถอ่านขนาดภาพ ${file.name} ได้`))
+    }
+
+    image.src = objectUrl
+  })
 }
 
 export function ImageUpscalePanel() {
@@ -41,16 +77,23 @@ export function ImageUpscalePanel() {
     }
   }, [uploadedImages])
 
-  const appendFiles = (files: FileList | null) => {
+  const appendFiles = async (files: FileList | null) => {
     if (!files?.length) return
 
-    const nextImages = Array.from(files)
-      .filter((file) => file.type.startsWith("image/"))
-      .map((file) => ({
-        id: crypto.randomUUID(),
-        file,
-        previewUrl: URL.createObjectURL(file),
-      }))
+    const acceptedFiles = Array.from(files).filter((file) => file.type.startsWith("image/"))
+    const nextImages = await Promise.all(
+      acceptedFiles.map(async (file) => {
+        const { width, height } = await readImageDimensions(file)
+        return {
+          id: crypto.randomUUID(),
+          file,
+          previewUrl: URL.createObjectURL(file),
+          width,
+          height,
+          detectedRatio: getClosestAspectRatio(width, height),
+        }
+      }),
+    )
 
     setUploadedImages((prev) => [...prev, ...nextImages])
   }
@@ -158,6 +201,9 @@ export function ImageUpscalePanel() {
           },
           body: JSON.stringify({
             image_url: sourceUrl,
+            source_width: image.width,
+            source_height: image.height,
+            detected_aspect_ratio: image.detectedRatio,
             target_size: targetSize,
           }),
         })
@@ -278,6 +324,19 @@ export function ImageUpscalePanel() {
                           </button>
                         </div>
                         <p className="mt-2 truncate text-xs font-medium text-slate-700">{image.file.name}</p>
+                        <div className="mt-2 space-y-1">
+                          <p className="text-[11px] text-slate-500">
+                            {image.width} × {image.height}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">
+                              Auto ratio
+                            </Badge>
+                            <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">
+                              {image.detectedRatio}
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>

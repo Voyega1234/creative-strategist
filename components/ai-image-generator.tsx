@@ -1047,8 +1047,6 @@ export function AIImageGenerator({
         },
         body: JSON.stringify({
           image_url: image.url,
-          prompt: image.prompt || image.topicSummary || "",
-          aspect_ratio: targetAspectRatio,
         }),
       })
 

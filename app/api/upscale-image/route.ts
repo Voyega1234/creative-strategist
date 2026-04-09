@@ -92,6 +92,15 @@ function inferDimensions(buffer: Uint8Array, mimeType: string) {
   return null
 }
 
+function isSaneDimensions(dimensions: { width: number; height: number } | null) {
+  if (!dimensions) return false
+  const { width, height } = dimensions
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return false
+  if (width <= 0 || height <= 0) return false
+  if (width > 20000 || height > 20000) return false
+  return true
+}
+
 function getClosestAspectRatio(width: number, height: number) {
   const rawRatio = width / height
 
@@ -104,20 +113,20 @@ function getClosestAspectRatio(width: number, height: number) {
   }, "1:1" as (typeof SUPPORTED_ASPECT_RATIOS)[number])
 }
 
-function getPreservePrompt(targetSize: (typeof SUPPORTED_IMAGE_SIZES)[number], basePrompt?: string) {
-  const promptPrefix =
-    `Upscale this exact image to ${targetSize}. Preserve the same composition, layout, aspect ratio, text, colors, branding, and subject placement. Do not redesign, crop, replace, or add elements. Improve sharpness, texture, and detail only.`
-
-  if (!basePrompt?.trim()) return promptPrefix
-  return `${promptPrefix}\n\nOriginal creative context:\n${basePrompt.trim()}`
+function getPreservePrompt() {
+  return "Upscale this exact image only. Do not change anything except resolution."
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() : ""
-    const basePrompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
-    const requestedAspectRatio = typeof body.aspect_ratio === "string" ? body.aspect_ratio.trim() : ""
+    const clientWidth = typeof body.source_width === "number" ? body.source_width : null
+    const clientHeight = typeof body.source_height === "number" ? body.source_height : null
+    const clientDetectedRatio =
+      typeof body.detected_aspect_ratio === "string" && SUPPORTED_ASPECT_RATIOS.includes(body.detected_aspect_ratio as any)
+        ? body.detected_aspect_ratio
+        : null
     const targetSize =
       SUPPORTED_IMAGE_SIZES.find((size) => size === body.target_size) || "2K"
 
@@ -138,12 +147,34 @@ export async function POST(request: Request) {
     }
 
     const imageBuffer = new Uint8Array(await sourceResponse.arrayBuffer())
-    const mimeType =
-      sourceResponse.headers.get("content-type")?.split(";")[0].trim() || getMimeTypeFromBuffer(imageBuffer)
-    const dimensions = inferDimensions(imageBuffer, mimeType)
-    const aspectRatio =
-      SUPPORTED_ASPECT_RATIOS.find((ratio) => ratio === requestedAspectRatio) ||
-      (dimensions ? getClosestAspectRatio(dimensions.width, dimensions.height) : "1:1")
+    const sniffedMimeType = getMimeTypeFromBuffer(imageBuffer)
+    const mimeType = sniffedMimeType || sourceResponse.headers.get("content-type")?.split(";")[0].trim() || "image/png"
+    const parsedDimensions = inferDimensions(imageBuffer, mimeType)
+    const fallbackDimensions =
+      clientWidth && clientHeight && clientWidth > 0 && clientHeight > 0
+        ? { width: clientWidth, height: clientHeight }
+        : null
+    const dimensions = isSaneDimensions(parsedDimensions) ? parsedDimensions : fallbackDimensions
+    const aspectRatio = dimensions
+      ? getClosestAspectRatio(dimensions.width, dimensions.height)
+      : clientDetectedRatio || "1:1"
+    const prompt = getPreservePrompt()
+
+    console.log("[upscale-image] request summary", {
+      imageUrl,
+      mimeType,
+      parsedDimensions,
+      fallbackDimensions,
+      sourceDimensions: dimensions,
+      inferredAspectRatio: aspectRatio,
+      clientDetectedRatio,
+      targetSize,
+      imageConfig: {
+        aspectRatio,
+        imageSize: targetSize,
+      },
+      prompt,
+    })
 
     const geminiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
@@ -158,7 +189,7 @@ export async function POST(request: Request) {
             {
               parts: [
                 {
-                  text: getPreservePrompt(targetSize, basePrompt),
+                  text: prompt,
                 },
                 {
                   inlineData: {
@@ -226,11 +257,46 @@ export async function POST(request: Request) {
       )
     }
 
+    const outputBuffer = Uint8Array.from(Buffer.from(imageBase64, "base64"))
+    const actualDimensions = inferDimensions(outputBuffer, outputMimeType)
+    const actualAspectRatio = actualDimensions
+      ? getClosestAspectRatio(actualDimensions.width, actualDimensions.height)
+      : null
+
+    console.log("[upscale-image] response summary", {
+      outputMimeType,
+      outputDimensions: actualDimensions,
+      outputAspectRatio: actualAspectRatio,
+      requestedAspectRatio: aspectRatio,
+      targetSize,
+    })
+
+    if (actualAspectRatio && actualAspectRatio !== aspectRatio) {
+      console.error("[upscale-image] Output aspect ratio mismatch:", {
+        requestedAspectRatio: aspectRatio,
+        actualAspectRatio,
+        actualDimensions,
+      })
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Upscale output ratio changed from ${aspectRatio} to ${actualAspectRatio}`,
+          requested_aspect_ratio: aspectRatio,
+          actual_aspect_ratio: actualAspectRatio,
+          actual_dimensions: actualDimensions,
+          details: responseMessage,
+        },
+        { status: 422 },
+      )
+    }
+
     return NextResponse.json({
       success: true,
       image_base64: imageBase64,
       mime_type: outputMimeType,
-      aspect_ratio: aspectRatio,
+      aspect_ratio: actualAspectRatio || aspectRatio,
+      output_dimensions: actualDimensions,
       image_size: targetSize,
       model: GEMINI_MODEL,
       details: responseMessage,

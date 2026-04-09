@@ -1206,7 +1206,6 @@ export function RemixChatPanel({
           },
           body: JSON.stringify({
             image_url: url,
-            prompt: "Upscale this Reference Remix result while preserving the same image and composition.",
           }),
         })
 
