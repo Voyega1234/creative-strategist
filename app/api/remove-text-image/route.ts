@@ -106,10 +106,13 @@ function getClosestAspectRatio(width: number, height: number) {
 
 function getRemoveTextPrompt() {
   return [
-    "Remove all text, typography, numbers, badges, CTA labels, price tags, banners, and graphic copy from this image.",
-    "Preserve the exact main visual, subject, product, composition, framing, crop, lighting, colors, materials, and background.",
-    "Fill all removed-text areas naturally so the result looks like the original image without any text overlays.",
-    "Do not redesign or restyle the image.",
+    "Remove all advertising overlays and graphic messaging from this image.",
+    "Remove all text, typography, numbers, prices, discount labels, CTA labels, badges, banners, logos, product name tags, stickers, and promotional callouts.",
+    "Keep only the natural background, scene, and the main product or main object subjects from the original image.",
+    "Preserve the main object, product, subject placement, lighting, materials, colors, reflections, shadows, and background structure.",
+    "Completely erase the removed areas and reconstruct them naturally so no text panel, label, sticker, or graphic overlay remains visible.",
+    "The final result should look like the original ad before any text or promotional graphics were added, with only the main objects and clean background remaining.",
+    "Do not add new design elements, new text, new logos, or new decorative graphics.",
   ].join(" ")
 }
 
