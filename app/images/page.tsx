@@ -3,7 +3,7 @@
 // Performance optimization for client-side rendering
 import { useState, useEffect, useMemo, Suspense } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Image as ImageIcon, Layers3, PanelLeftClose, PanelLeftOpen, Sparkles, Upload } from "lucide-react"
+import { Image as ImageIcon, Layers3, PanelLeftClose, PanelLeftOpen, Sparkles, Upload, Wand2 } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { AIImageGenerator } from "@/components/ai-image-generator"
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,9 @@ import { MainSidebar } from "@/components/main-sidebar"
 import { RemixChatPanel } from "@/components/remix-chat-panel"
 import { ImageUpscalePanel } from "@/components/image-upscale-panel"
 import { MaterialToScenePanel } from "@/components/material-to-scene-panel"
+import { ImageEnhancePanel } from "@/components/image-enhance-panel"
 
-type ImageTabValue = "reference-remix" | "generate" | "upscale" | "material-to-scene"
+type ImageTabValue = "reference-remix" | "generate" | "upscale" | "material-to-scene" | "enhance"
 
 const TAB_META: Record<
   ImageTabValue,
@@ -41,6 +42,11 @@ const TAB_META: Record<
     title: "Material to Scene",
     description: "อัปโหลด material หรือ product photo แล้วสร้างภาพใหม่ในฉากหรือบริบทที่ต้องการ โดยพยายามรักษา texture เดิมไว้",
     bestFor: "เหมาะกับงาน product, material, interior และ scene mockup",
+  },
+  enhance: {
+    title: "Enhance",
+    description: "อัปโหลดภาพเดิมเพื่อให้ AI วิจารณ์ก่อนว่าอะไรดี อะไรควรแก้ และควรไปทาง Preserve หรือ Reimagine",
+    bestFor: "เหมาะกับการตัดสินใจว่าจะซ่อมภาพเดิมหรือคิด direction ใหม่",
   },
 }
 
@@ -146,7 +152,7 @@ function MainContent() {
                 <span className="sr-only">{isSidebarHidden ? "Show sidebar" : "Hide sidebar"}</span>
               </Button>
 
-              <TabsList className="grid h-11 flex-1 grid-cols-4 rounded-full bg-[#f2f2f7] p-1">
+              <TabsList className="grid h-11 flex-1 grid-cols-5 rounded-full bg-[#f2f2f7] p-1">
                 <TabsTrigger 
                   value="reference-remix" 
                   className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
@@ -174,6 +180,13 @@ function MainContent() {
                 >
                   <Layers3 className="w-4 h-4" />
                   Material to Scene
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="enhance" 
+                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  Enhance
                 </TabsTrigger>
               </TabsList>
               </div>
@@ -211,6 +224,12 @@ function MainContent() {
             <TabsContent value="material-to-scene" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
               <div className="mx-auto max-w-[1480px]">
                 <MaterialToScenePanel />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="enhance" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
+              <div className="mx-auto max-w-[1480px]">
+                <ImageEnhancePanel />
               </div>
             </TabsContent>
 

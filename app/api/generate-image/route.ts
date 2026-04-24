@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 180; // Allow up to 60 seconds for image generation
+export const maxDuration = 300; // Allow up to 5 minutes for each image generation request
 
 // Types for the n8n image generation response
 interface N8NImageResponse {
@@ -13,7 +13,7 @@ interface N8NImageResponse {
 export async function POST(request: Request) {
   try {
     // N8N webhook URL for AI image generation
-    const N8N_AI_IMAGE_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/b8d3f40f-a718-4260-a773-662e898c7d7f';
+    const N8N_AI_IMAGE_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/07ee5ce9-09ee-43c3-b06a-456ba66e1193';
 
     // Parse request body
     const body = await request.json();

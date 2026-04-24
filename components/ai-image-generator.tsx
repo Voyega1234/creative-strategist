@@ -144,7 +144,7 @@ interface GeneratedImage {
   source?: string
   aspectRatio?: string
   resolution?: string
-  operation?: 'generate' | 'upscale'
+  operation?: 'generate' | 'upscale' | 'remove_text'
   sourceImageUrl?: string
   sourceImageId?: string
 }
@@ -310,6 +310,7 @@ export function AIImageGenerator({
   const [showAllResults, setShowAllResults] = useState(false)
   const [savingImageId, setSavingImageId] = useState<string | null>(null)
   const [upscalingImageIds, setUpscalingImageIds] = useState<string[]>([])
+  const [removingTextImageIds, setRemovingTextImageIds] = useState<string[]>([])
   
   // Image preview modal
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
@@ -328,6 +329,10 @@ export function AIImageGenerator({
     () => savedTopics.find((topic) => topic.title === selectedTopic) || null,
     [savedTopics, selectedTopic],
   )
+  const selectedPreviewImageData = useMemo(
+    () => generatedImages.find((image) => image.url === selectedImageForPreview) || null,
+    [generatedImages, selectedImageForPreview],
+  )
   const selectedTopicSummary = selectedTopicData ? getTopicPreviewText(selectedTopicData.description) : ""
   const completedImages = generatedImages.filter((image) => image.status === "completed")
   const generatingImages = generatedImages.filter((image) => image.status === "generating")
@@ -345,6 +350,7 @@ export function AIImageGenerator({
     const map: Record<string, string> = {
       gemini: "Gemini",
       gemini_2k: "Gemini 2K",
+      gemini_text_removed: "Text Removed",
       ideogram: "Ideogram",
       dalle: "DALL·E",
       stable_diffusion: "Stable Diffusion",
@@ -1092,6 +1098,89 @@ export function AIImageGenerator({
       alert(error instanceof Error ? error.message : "ไม่สามารถ upscale ภาพได้")
     } finally {
       setUpscalingImageIds((prev) => prev.filter((id) => id !== image.id))
+    }
+  }
+
+  const removeTextFromImage = async (image: GeneratedImage) => {
+    if (image.status !== "completed" || !image.url) {
+      return
+    }
+
+    const removeTextJobId = crypto.randomUUID()
+    const sourceAspectRatio = image.aspectRatio || aspectRatio
+
+    const pendingRemoveText: GeneratedImage = {
+      id: removeTextJobId,
+      url: "",
+      prompt: image.prompt,
+      topicTitle: image.topicTitle,
+      topicSummary: image.topicSummary,
+      reference_image: image.reference_image,
+      status: "generating",
+      created_at: new Date().toISOString(),
+      source: "gemini_text_removed",
+      aspectRatio: sourceAspectRatio,
+      resolution: image.resolution,
+      operation: "remove_text",
+      sourceImageUrl: image.url,
+      sourceImageId: image.id,
+    }
+
+    setRemovingTextImageIds((prev) => [...prev, image.id])
+    setGeneratedImages((prev) => [pendingRemoveText, ...prev])
+
+    try {
+      const response = await fetch("/api/remove-text-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          image_url: image.url,
+          source_aspect_ratio: sourceAspectRatio,
+          target_size: image.resolution || "1K",
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result.success || !result.image_base64) {
+        throw new Error(result?.error || "ไม่สามารถลบข้อความออกจากภาพได้")
+      }
+
+      const byteCharacters = atob(result.image_base64)
+      const byteArray = Uint8Array.from(byteCharacters, (char) => char.charCodeAt(0))
+      const mimeType = result.mime_type || "image/png"
+      const publicUrl = await uploadGeneratedBlobToStorage(new Blob([byteArray], { type: mimeType }), mimeType)
+
+      setGeneratedImages((prev) =>
+        prev.map((item) =>
+          item.id === removeTextJobId
+            ? {
+                ...item,
+                url: publicUrl,
+                status: "completed",
+                source: "gemini_text_removed",
+                aspectRatio: result.aspect_ratio || sourceAspectRatio,
+                resolution: image.resolution,
+              }
+            : item,
+        ),
+      )
+    } catch (error) {
+      console.error("Error removing text from image:", error)
+      setGeneratedImages((prev) =>
+        prev.map((item) =>
+          item.id === removeTextJobId
+            ? {
+                ...item,
+                status: "error",
+              }
+            : item,
+        ),
+      )
+      alert(error instanceof Error ? error.message : "ไม่สามารถลบข้อความออกจากภาพได้")
+    } finally {
+      setRemovingTextImageIds((prev) => prev.filter((id) => id !== image.id))
     }
   }
 
@@ -2526,7 +2615,11 @@ export function AIImageGenerator({
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90">
                               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                               <p className="mt-3 text-sm font-medium text-slate-700">
-                                {image.operation === "upscale" ? "Upscaling to 2K..." : "Generating creative..."}
+                                {image.operation === "upscale"
+                                  ? "Upscaling to 2K..."
+                                  : image.operation === "remove_text"
+                                    ? "Removing text..."
+                                    : "Generating creative..."}
                               </p>
                             </div>
                           )}
@@ -2603,6 +2696,22 @@ export function AIImageGenerator({
                                     <Wand2 className="mr-1 h-3.5 w-3.5" />
                                   )}
                                   Upscale 2K
+                                </Button>
+                              )}
+                              {image.operation !== "remove_text" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => removeTextFromImage(image)}
+                                  disabled={removingTextImageIds.includes(image.id)}
+                                  className="rounded-full border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                                >
+                                  {removingTextImageIds.includes(image.id) ? (
+                                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Edit className="mr-1 h-3.5 w-3.5" />
+                                  )}
+                                  Remove Text
                                 </Button>
                               )}
                               <Button
@@ -2737,6 +2846,20 @@ export function AIImageGenerator({
               
               {/* Action buttons */}
               <div className="p-6 pt-4 flex items-center justify-center gap-2">
+                {selectedPreviewImageData && selectedPreviewImageData.operation !== "remove_text" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => removeTextFromImage(selectedPreviewImageData)}
+                    disabled={removingTextImageIds.includes(selectedPreviewImageData.id)}
+                  >
+                    {removingTextImageIds.includes(selectedPreviewImageData.id) ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Edit className="w-4 h-4 mr-2" />
+                    )}
+                    Remove Text
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => {
