@@ -33,6 +33,12 @@ type GeneratedEnhanceResult = {
   model: string
 }
 
+type SourceImageMeta = {
+  width: number
+  height: number
+  aspectRatioLabel: string
+}
+
 function formatScore(score: number) {
   return Number.isInteger(score) ? String(score) : score.toFixed(1)
 }
@@ -42,6 +48,39 @@ function linesToArray(value: string) {
     .split("\n")
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function getClosestAspectRatioLabel(width: number, height: number) {
+  const supportedRatios = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]
+  const rawRatio = width / height
+
+  return supportedRatios.reduce((closest, current) => {
+    const [currentWidth, currentHeight] = current.split(":").map(Number)
+    const [closestWidth, closestHeight] = closest.split(":").map(Number)
+    const currentDistance = Math.abs(rawRatio - currentWidth / currentHeight)
+    const closestDistance = Math.abs(rawRatio - closestWidth / closestHeight)
+    return currentDistance < closestDistance ? current : closest
+  }, "1:1")
+}
+
+async function readImageMeta(file: File): Promise<SourceImageMeta> {
+  const objectUrl = URL.createObjectURL(file)
+
+  try {
+    const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+      const image = new window.Image()
+      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
+      image.onerror = () => reject(new Error("ไม่สามารถอ่านขนาดรูปได้"))
+      image.src = objectUrl
+    })
+
+    return {
+      ...dimensions,
+      aspectRatioLabel: getClosestAspectRatioLabel(dimensions.width, dimensions.height),
+    }
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
 }
 
 async function uploadFileToStorage(file: File) {
@@ -69,6 +108,7 @@ export function ImageEnhancePanel() {
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
+  const [sourceImageMeta, setSourceImageMeta] = useState<SourceImageMeta | null>(null)
   const [critique, setCritique] = useState<CritiquePayload | null>(null)
   const [selectedMode, setSelectedMode] = useState<EnhanceMode | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -92,19 +132,26 @@ export function ImageEnhancePanel() {
     return `${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`
   }, [file])
 
-  const handleFileSelect = (selectedFile: File) => {
+  const handleFileSelect = async (selectedFile: File) => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl)
     }
 
-    setFile(selectedFile)
-    setPreviewUrl(URL.createObjectURL(selectedFile))
-    setUploadedImageUrl(null)
-    setCritique(null)
-    setSelectedMode(null)
-    setGeneratedResult(null)
-    setUserNotes("")
-    setError(null)
+    try {
+      const meta = await readImageMeta(selectedFile)
+      setFile(selectedFile)
+      setPreviewUrl(URL.createObjectURL(selectedFile))
+      setSourceImageMeta(meta)
+      setUploadedImageUrl(null)
+      setCritique(null)
+      setSelectedMode(null)
+      setGeneratedResult(null)
+      setUserNotes("")
+      setError(null)
+    } catch (err) {
+      console.error("Failed to read enhance image metadata:", err)
+      alert(err instanceof Error ? err.message : "ไม่สามารถอ่านขนาดรูปได้")
+    }
   }
 
   const updateCritiqueField = <K extends keyof CritiquePayload>(field: K, value: CritiquePayload[K]) => {
@@ -192,6 +239,9 @@ export function ImageEnhancePanel() {
           mode,
           critique,
           user_notes: userNotes,
+          source_width: sourceImageMeta?.width || null,
+          source_height: sourceImageMeta?.height || null,
+          detected_aspect_ratio: sourceImageMeta?.aspectRatioLabel || null,
         }),
       })
 
@@ -337,6 +387,11 @@ export function ImageEnhancePanel() {
                       {file?.name}
                     </p>
                     <p className="text-sm text-slate-500">{uploadHint}</p>
+                    {sourceImageMeta && (
+                      <p className="text-sm text-slate-500">
+                        {sourceImageMeta.width} × {sourceImageMeta.height} • {sourceImageMeta.aspectRatioLabel}
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (

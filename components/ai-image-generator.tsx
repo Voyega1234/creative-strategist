@@ -395,6 +395,12 @@ export function AIImageGenerator({
     }
   }, [selectedTopicData])
 
+  useEffect(() => {
+    if (!selectedClientId || !selectedProductFocus) {
+      setSelectedTopic("")
+    }
+  }, [selectedClientId, selectedProductFocus])
+
   // Update selection when props change (from URL parameters)
   useEffect(() => {
     if (activeClientId && activeProductFocus && clients.length > 0) {
@@ -1693,6 +1699,14 @@ export function AIImageGenerator({
     imageCount > 1
   const canChooseIdea = Boolean(selectedClientId && selectedProductFocus)
   const canGenerate = Boolean(selectedClientId && selectedProductFocus && hasIdeaOrBrief)
+  const clearClientSelection = () => {
+    setSelectedClientId("")
+    setSelectedProductFocus("")
+    setIsClientPopoverOpen(false)
+  }
+  const clearProductFocusSelection = () => {
+    setSelectedProductFocus("")
+  }
   const setupStatusItems = [
     { label: "Client", done: Boolean(selectedClientId) },
     { label: "Brief", done: hasIdeaOrBrief },
@@ -1765,19 +1779,20 @@ export function AIImageGenerator({
                   <span className="ml-2 text-sm text-slate-500">กำลังโหลด...</span>
                 </div>
               ) : (
-                <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={isClientPopoverOpen}
-                      className="h-12 w-full justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
-                    >
-                      <span className="truncate">{currentClient?.clientName || "เลือกลูกค้า"}</span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
-                    </Button>
-                  </PopoverTrigger>
+                <div className="flex gap-2">
+                  <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isClientPopoverOpen}
+                        className="h-12 flex-1 justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
+                      >
+                        <span className="truncate">{currentClient?.clientName || "เลือกลูกค้า"}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+                      </Button>
+                    </PopoverTrigger>
                   <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] min-w-[280px] rounded-2xl border-slate-200 p-0">
                     <Command>
                       <CommandInput placeholder="พิมพ์ค้นหาชื่อลูกค้า..." />
@@ -1789,7 +1804,13 @@ export function AIImageGenerator({
                               key={client.id}
                               value={client.clientName}
                               onSelect={() => {
-                                setSelectedClientId(client.id)
+                                setSelectedClientId((currentId) => {
+                                  const nextId = currentId === client.id ? "" : client.id
+                                  if (!nextId) {
+                                    setSelectedProductFocus("")
+                                  }
+                                  return nextId
+                                })
                                 setIsClientPopoverOpen(false)
                               }}
                               className="flex items-center justify-between px-3 py-2"
@@ -1807,27 +1828,50 @@ export function AIImageGenerator({
                       </CommandList>
                     </Command>
                   </PopoverContent>
-                </Popover>
+                  </Popover>
+                  {selectedClientId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={clearClientSelection}
+                      className="h-12 rounded-2xl border-slate-200 px-4 text-slate-700"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
 
             <div className="space-y-3">
               <label className="text-sm font-medium text-slate-900">Product Focus</label>
               {selectedClientId ? (
-                <Select value={selectedProductFocus} onValueChange={setSelectedProductFocus}>
-                  <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white focus:border-slate-950 focus:ring-0">
-                    <SelectValue placeholder="เลือก Product Focus" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients
-                      .find((client) => client.id === selectedClientId)
-                      ?.productFocuses.map((pf) => (
-                        <SelectItem key={pf.productFocus} value={pf.productFocus}>
-                          {pf.productFocus}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={selectedProductFocus} onValueChange={setSelectedProductFocus}>
+                    <SelectTrigger className="h-12 flex-1 rounded-2xl border-slate-200 bg-white focus:border-slate-950 focus:ring-0">
+                      <SelectValue placeholder="เลือก Product Focus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients
+                        .find((client) => client.id === selectedClientId)
+                        ?.productFocuses.map((pf) => (
+                          <SelectItem key={pf.productFocus} value={pf.productFocus}>
+                            {pf.productFocus}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedProductFocus && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={clearProductFocusSelection}
+                      className="h-12 rounded-2xl border-slate-200 px-4 text-slate-700"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
                   เลือกลูกค้าก่อน

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // Allow up to 5 minutes for each image generation request
+export const maxDuration = 480; // Allow up to 8 minutes for each image generation request
 
 // Types for the n8n image generation response
 interface N8NImageResponse {
