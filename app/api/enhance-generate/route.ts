@@ -5,11 +5,19 @@ export const maxDuration = 180
 
 const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
 const OPENAI_IMAGE_MODEL = "gpt-image-2"
-const OPENAI_EXACT_SIZE_BY_RATIO: Record<string, "1024x1024" | "1536x1024" | "1024x1536"> = {
+type OpenAiImageSize = "1024x1024" | "1536x1024" | "1024x1536"
+
+const OPENAI_EXACT_SIZE_BY_RATIO: Record<string, OpenAiImageSize> = {
   "1:1": "1024x1024",
   "3:2": "1536x1024",
   "2:3": "1024x1536",
 }
+
+const OPENAI_SUPPORTED_SIZES: Array<{ ratio: string; size: OpenAiImageSize }> = [
+  { ratio: "1:1", size: "1024x1024" },
+  { ratio: "3:2", size: "1536x1024" },
+  { ratio: "2:3", size: "1024x1536" },
+]
 
 type EnhanceMode = "preserve" | "reimagine"
 
@@ -21,6 +29,51 @@ type CritiquePayload = {
   priority_fixes: string[]
   preserve_focus: string[]
   reimagine_brief: string
+  spell_check?: {
+    detected_text?: string[]
+    issues?: Array<{
+      original_text?: string
+      suggested_text?: string
+      language?: string
+      issue?: string
+      rationale?: string
+    }>
+    corrected_text_recommendation?: string
+    confidence_note?: string
+  }
+}
+
+function buildSpellCheckGuidance(critique: CritiquePayload) {
+  const spellCheck = critique.spell_check
+  if (!spellCheck) return ""
+
+  const detectedText = Array.isArray(spellCheck.detected_text) ? spellCheck.detected_text.filter(Boolean) : []
+  const issues = Array.isArray(spellCheck.issues)
+    ? spellCheck.issues
+        .map((issue) => {
+          const originalText = issue.original_text || ""
+          const suggestedText = issue.suggested_text || ""
+          const note = [issue.language, issue.issue, issue.rationale].filter(Boolean).join(" - ")
+          return `${originalText} => ${suggestedText}${note ? ` (${note})` : ""}`
+        })
+        .filter(Boolean)
+    : []
+  const recommendation = spellCheck.corrected_text_recommendation || ""
+  const confidenceNote = spellCheck.confidence_note || ""
+
+  if (!detectedText.length && !issues.length && !recommendation && !confidenceNote) {
+    return ""
+  }
+
+  return [
+    "Use this spell-check and copy QA from the source image.",
+    detectedText.length ? `Visible text detected in the image: ${detectedText.join(" | ")}` : "",
+    issues.length ? `Spelling or copy issues to fix: ${issues.join(" | ")}` : "",
+    recommendation ? `Corrected text recommendation to preserve or typeset: ${recommendation}` : "",
+    confidenceNote ? `Spell-check confidence note: ${confidenceNote}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
 }
 
 function getClosestAspectRatioLabel(width: number, height: number) {
@@ -34,6 +87,25 @@ function getClosestAspectRatioLabel(width: number, height: number) {
     const closestDistance = Math.abs(rawRatio - closestWidth / closestHeight)
     return currentDistance < closestDistance ? current : closest
   }, "1:1" as (typeof supportedRatios)[number])
+}
+
+function ratioLabelToNumber(ratio: string) {
+  const [width, height] = ratio.split(":").map(Number)
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return null
+  }
+  return width / height
+}
+
+function getClosestOpenAiSizeForRatio(ratio: string): OpenAiImageSize {
+  const targetRatio = ratioLabelToNumber(ratio)
+  if (!targetRatio) return "1024x1024"
+
+  return OPENAI_SUPPORTED_SIZES.reduce((closest, current) => {
+    const currentRatio = ratioLabelToNumber(current.ratio) || 1
+    const closestRatio = ratioLabelToNumber(closest.ratio) || 1
+    return Math.abs(currentRatio - targetRatio) < Math.abs(closestRatio - targetRatio) ? current : closest
+  }).size
 }
 
 function isSaneDimensions(width: number, height: number) {
@@ -104,6 +176,8 @@ function inferDimensions(buffer: Uint8Array, mimeType: string) {
 }
 
 function buildPreservePrompt(critique: CritiquePayload) {
+  const spellCheckGuidance = buildSpellCheckGuidance(critique)
+
   return [
     "Edit the provided image and keep it very close to the original creative direction.",
     "This is a light-improvement pass, not a full redesign or a new composition.",
@@ -116,12 +190,15 @@ function buildPreservePrompt(critique: CritiquePayload) {
     "Make the result cleaner, more polished, more realistic, and more ad-ready.",
     "Preserve all existing text, typography, pricing, product names, badges, promotional labels, logo placement, and graphic overlays from the source image.",
     "If text styling needs cleanup, re-typeset it cleanly while keeping the same meaning, offer, and hierarchy.",
+    spellCheckGuidance,
     "Do not make it look like a new campaign route.",
     "The result should feel like the same image, only improved slightly.",
-  ].join(" ")
+  ].filter(Boolean).join(" ")
 }
 
 function buildReimaginePrompt(critique: CritiquePayload) {
+  const spellCheckGuidance = buildSpellCheckGuidance(critique)
+
   return [
     "Edit the provided image into a stronger new design direction while keeping it clearly based on the original source image.",
     "This is a reimagined route, not a completely unrelated new image.",
@@ -136,8 +213,9 @@ function buildReimaginePrompt(critique: CritiquePayload) {
     "Make the image commercially clear, visually stronger, and more campaign-worthy.",
     "Typography is important. Rebuild the ad layout so the text feels intentionally designed, readable, persuasive, and integrated with the image.",
     "Do not remove or forget the source image's key product details, prices, or promotional information.",
+    spellCheckGuidance,
     "The result should feel like a better advertising idea built from the same original asset, not a random style experiment.",
-  ].join(" ")
+  ].filter(Boolean).join(" ")
 }
 
 export async function POST(request: Request) {
@@ -171,25 +249,16 @@ export async function POST(request: Request) {
       : basePrompt
     const expectedAspectRatio =
       isSaneDimensions(sourceWidth, sourceHeight) ? getClosestAspectRatioLabel(sourceWidth, sourceHeight) : detectedAspectRatio || null
-    const exactOpenAiSize = expectedAspectRatio ? OPENAI_EXACT_SIZE_BY_RATIO[expectedAspectRatio] : null
-
-    if (expectedAspectRatio && !exactOpenAiSize) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `OpenAI image edits cannot preserve exact ${expectedAspectRatio} ratio. Exact support is limited to 1:1, 3:2, and 2:3.`,
-          expected_aspect_ratio: expectedAspectRatio,
-        },
-        { status: 400 },
-      )
-    }
+    const requestedOpenAiSize = expectedAspectRatio
+      ? OPENAI_EXACT_SIZE_BY_RATIO[expectedAspectRatio] || getClosestOpenAiSizeForRatio(expectedAspectRatio)
+      : "auto"
 
     const endpoint = OPENAI_EDITS_ENDPOINT
     const bodyPayload = {
       model: OPENAI_IMAGE_MODEL,
       images: [{ image_url: imageUrl }],
       prompt,
-      size: exactOpenAiSize || "auto",
+      size: requestedOpenAiSize,
     }
 
     const response = await fetch(endpoint, {
@@ -237,19 +306,6 @@ export async function POST(request: Request) {
         ? getClosestAspectRatioLabel(outputDimensions.width, outputDimensions.height)
         : null
 
-    if (expectedAspectRatio && outputAspectRatio && expectedAspectRatio !== outputAspectRatio) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Enhance output ratio changed from ${expectedAspectRatio} to ${outputAspectRatio}`,
-          expected_aspect_ratio: expectedAspectRatio,
-          actual_aspect_ratio: outputAspectRatio,
-          output_dimensions: outputDimensions,
-        },
-        { status: 422 },
-      )
-    }
-
     return NextResponse.json({
       success: true,
       mode,
@@ -259,7 +315,9 @@ export async function POST(request: Request) {
       image_data_url: `data:${outputMimeType};base64,${imageBase64}`,
       model: OPENAI_IMAGE_MODEL,
       output_dimensions: outputDimensions,
+      requested_source_aspect_ratio: expectedAspectRatio,
       output_aspect_ratio: outputAspectRatio || expectedAspectRatio,
+      requested_openai_size: requestedOpenAiSize,
     })
   } catch (error) {
     console.error("[enhance-generate] Unexpected error:", error)

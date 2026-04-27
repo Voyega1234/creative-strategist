@@ -13,6 +13,14 @@ import { CheckCircle2, Loader2, Sparkles, Upload, Wand2 } from "lucide-react"
 
 type EnhanceMode = "preserve" | "reimagine"
 
+type SpellCheckIssue = {
+  original_text: string
+  suggested_text: string
+  language: string
+  issue: string
+  rationale: string
+}
+
 type CritiquePayload = {
   overall_score: number
   top_strength: string
@@ -24,11 +32,18 @@ type CritiquePayload = {
   rationale: string
   preserve_focus: string[]
   reimagine_brief: string
+  spell_check: {
+    detected_text: string[]
+    issues: SpellCheckIssue[]
+    corrected_text_recommendation: string
+    confidence_note: string
+  }
 }
 
 type GeneratedEnhanceResult = {
   mode: EnhanceMode
   imageUrl: string
+  mimeType: string
   prompt: string
   model: string
 }
@@ -43,11 +58,41 @@ function formatScore(score: number) {
   return Number.isInteger(score) ? String(score) : score.toFixed(1)
 }
 
-function linesToArray(value: string) {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean)
+function textareaValueToLines(value: string) {
+  return value.replace(/\r\n/g, "\n").split("\n")
+}
+
+function cleanLinesForRequest(value: string[]) {
+  return value.map((item) => item.trim()).filter(Boolean)
+}
+
+function cleanCritiqueForRequest(critique: CritiquePayload): CritiquePayload {
+  return {
+    ...critique,
+    what_works: cleanLinesForRequest(critique.what_works),
+    what_hurts_performance: cleanLinesForRequest(critique.what_hurts_performance),
+    priority_fixes: cleanLinesForRequest(critique.priority_fixes),
+    preserve_focus: cleanLinesForRequest(critique.preserve_focus),
+  }
+}
+
+function dataUrlToBlob(dataUrl: string) {
+  const [metadata, base64Data] = dataUrl.split(",")
+  const mimeType = metadata.match(/^data:(.*?);base64$/)?.[1] || "image/png"
+  const binary = window.atob(base64Data || "")
+  const bytes = new Uint8Array(binary.length)
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+
+  return new Blob([bytes], { type: mimeType })
+}
+
+function getImageExtension(mimeType: string) {
+  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg"
+  if (mimeType === "image/webp") return "webp"
+  return "png"
 }
 
 function getClosestAspectRatioLabel(width: number, height: number) {
@@ -116,6 +161,7 @@ export function ImageEnhancePanel() {
   const [isRemovingText, setIsRemovingText] = useState(false)
   const [generatedResult, setGeneratedResult] = useState<GeneratedEnhanceResult | null>(null)
   const [isGeneratedPreviewOpen, setIsGeneratedPreviewOpen] = useState(false)
+  const [showAllSpellCorrections, setShowAllSpellCorrections] = useState(false)
   const [userNotes, setUserNotes] = useState("")
   const [error, setError] = useState<string | null>(null)
 
@@ -146,6 +192,7 @@ export function ImageEnhancePanel() {
       setCritique(null)
       setSelectedMode(null)
       setGeneratedResult(null)
+      setShowAllSpellCorrections(false)
       setUserNotes("")
       setError(null)
     } catch (err) {
@@ -162,7 +209,7 @@ export function ImageEnhancePanel() {
     field: "what_works" | "what_hurts_performance" | "priority_fixes" | "preserve_focus",
     value: string,
   ) => {
-    setCritique((prev) => (prev ? { ...prev, [field]: linesToArray(value) } : prev))
+    setCritique((prev) => (prev ? { ...prev, [field]: textareaValueToLines(value) } : prev))
   }
 
   const handleAnalyze = async () => {
@@ -193,6 +240,7 @@ export function ImageEnhancePanel() {
       }
 
       setCritique(result.critique)
+      setShowAllSpellCorrections(false)
       setSelectedMode(result.critique.recommended_mode)
     } catch (err) {
       console.error("Enhance critique failed:", err)
@@ -237,7 +285,7 @@ export function ImageEnhancePanel() {
         body: JSON.stringify({
           image_url: sourceImageUrl,
           mode,
-          critique,
+          critique: cleanCritiqueForRequest(critique),
           user_notes: userNotes,
           source_width: sourceImageMeta?.width || null,
           source_height: sourceImageMeta?.height || null,
@@ -253,6 +301,7 @@ export function ImageEnhancePanel() {
       setGeneratedResult({
         mode,
         imageUrl: result.image_data_url,
+        mimeType: result.mime_type || "image/png",
         prompt: result.prompt || "",
         model: result.model || "gpt-image-2",
       })
@@ -269,10 +318,14 @@ export function ImageEnhancePanel() {
   const handleDownloadGenerated = () => {
     if (!generatedResult) return
 
+    const blob = dataUrlToBlob(generatedResult.imageUrl)
+    const objectUrl = URL.createObjectURL(blob)
+    const extension = getImageExtension(generatedResult.mimeType || blob.type)
     const link = document.createElement("a")
-    link.href = generatedResult.imageUrl
-    link.download = `enhance-${generatedResult.mode}-${Date.now()}.png`
+    link.href = objectUrl
+    link.download = `enhance-${generatedResult.mode}-${Date.now()}.${extension}`
     link.click()
+    URL.revokeObjectURL(objectUrl)
   }
 
   const handleRemoveText = async () => {
@@ -304,6 +357,7 @@ export function ImageEnhancePanel() {
           ? {
               ...prev,
               imageUrl: `data:${mimeType};base64,${result.image_base64}`,
+              mimeType,
               model: `${prev.model} • Text Removed`,
             }
           : prev,
@@ -318,24 +372,24 @@ export function ImageEnhancePanel() {
     }
   }
 
+  const spellCorrections = critique?.spell_check?.issues || []
+  const visibleSpellCorrections = showAllSpellCorrections ? spellCorrections : spellCorrections.slice(0, 4)
+
   return (
-    <div className="space-y-6">
-      <Card className="rounded-[32px] border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(248,250,252,0.94)_100%)] p-7 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
+    <div className="space-y-5">
+      <Card className="rounded-[28px] border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Enhance</p>
-            <h2 className="mt-3 text-[32px] font-semibold tracking-[-0.03em] text-slate-950">
-              Critique first, then choose the right direction
-            </h2>
-            <p className="mt-3 text-base leading-7 text-slate-600">
-              อัปโหลดภาพเดิมให้ AI ช่วยวิจารณ์ก่อนว่าอะไรดี อะไรยังฉุด performance และควรไปทาง
-              <span className="font-medium text-slate-900"> Preserve</span> หรือ
-              <span className="font-medium text-slate-900"> Reimagine</span>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">ปรับคุณภาพภาพด้วย AI Critique ก่อนเจน</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              อัปโหลดภาพ ให้ AI แยกตรวจงานครีเอทีฟและตรวจคำผิดจากรูป แล้วเลือกว่าจะปรับภาพเดิมหรือคิดภาพใหม่
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">AI Critique</Badge>
-            <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">Preserve / Reimagine</Badge>
+          <div className="grid grid-cols-3 overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-center text-xs font-medium text-slate-500">
+            <span className="px-3 py-2 text-slate-900">1 Upload</span>
+            <span className="border-x border-slate-200 px-3 py-2">2 Check</span>
+            <span className="px-3 py-2">3 Generate</span>
           </div>
         </div>
       </Card>
@@ -346,14 +400,14 @@ export function ImageEnhancePanel() {
         </Card>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card className="overflow-hidden border-slate-200 shadow-sm">
-          <div className="border-b border-slate-200 bg-white px-6 py-5">
-            <h4 className="text-lg font-semibold text-slate-950">Upload & Analyze</h4>
-            <p className="mt-1 text-sm text-slate-600">เริ่มจากอัปโหลดภาพ แล้วให้ AI วิจารณ์ก่อนว่าควรซ่อมหรือควรทำใหม่</p>
+      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)_360px]">
+        <Card className="h-fit overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm xl:sticky xl:top-4">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h4 className="text-base font-semibold text-slate-950">1. Upload</h4>
+            <p className="mt-1 text-sm text-slate-500">เลือกรูปที่ต้องการตรวจและปรับคุณภาพ</p>
           </div>
 
-          <div className="space-y-5 p-6">
+          <div className="space-y-4 p-5">
             <input
               ref={fileInputRef}
               type="file"
@@ -371,24 +425,24 @@ export function ImageEnhancePanel() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className={cn(
-                "flex min-h-[220px] w-full items-center justify-center rounded-[24px] border border-dashed px-6 text-center transition-colors",
+                "flex min-h-[260px] w-full items-center justify-center rounded-[24px] border border-dashed px-5 text-center transition-colors",
                 previewUrl
                   ? "border-slate-200 bg-white hover:border-slate-300"
                   : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100",
               )}
             >
               {previewUrl ? (
-                <div className="w-full space-y-4">
-                  <div className="relative mx-auto aspect-[4/5] w-full max-w-[220px] overflow-hidden rounded-[24px] bg-slate-50 shadow-sm">
-                    <Image src={previewUrl} alt={file?.name || "Preview"} fill className="object-contain" sizes="220px" />
+                <div className="w-full space-y-3">
+                  <div className="relative mx-auto aspect-square w-full max-w-[230px] overflow-hidden rounded-[22px] bg-slate-50">
+                    <Image src={previewUrl} alt={file?.name || "Preview"} fill className="object-contain" sizes="230px" />
                   </div>
                   <div className="space-y-1">
-                    <p className="truncate text-sm font-medium text-slate-900" title={file?.name || undefined}>
+                    <p className="max-w-full truncate text-sm font-medium text-slate-900" title={file?.name || undefined}>
                       {file?.name}
                     </p>
-                    <p className="text-sm text-slate-500">{uploadHint}</p>
+                    <p className="truncate text-xs text-slate-500" title={uploadHint}>{uploadHint}</p>
                     {sourceImageMeta && (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-xs text-slate-500">
                         {sourceImageMeta.width} × {sourceImageMeta.height} • {sourceImageMeta.aspectRatioLabel}
                       </p>
                     )}
@@ -400,305 +454,355 @@ export function ImageEnhancePanel() {
                     <Upload className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">Upload image for critique</p>
+                    <p className="text-sm font-medium text-slate-900">อัปโหลดรูปภาพ</p>
                     <p className="mt-1 text-xs text-slate-500">PNG, JPG, WEBP</p>
                   </div>
                 </div>
               )}
             </button>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-              <p className="text-sm font-medium text-slate-900">What this step does</p>
-              <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-                <p>AI จะชมจุดที่ดีจริงของภาพ บอกจุดที่ฉุด performance และแนะนำว่าควรไปทางไหนต่อ</p>
-                <p>ถ้าภาพแข็งแรงอยู่แล้ว จะถูกแนะนำไปทาง Preserve ถ้าโครงภาพยังอ่อน จะถูกแนะนำไปทาง Reimagine</p>
-              </div>
-            </div>
-
             <Button
               onClick={handleAnalyze}
               disabled={!file || isAnalyzing}
-              className="h-11 w-full rounded-full bg-slate-900 text-white hover:bg-slate-800"
+              className="h-12 w-full rounded-full bg-slate-950 text-white hover:bg-slate-800"
             >
               {isAnalyzing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing image...
+                  กำลังตรวจภาพ...
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Run AI Critique
+                  Run AI Check
                 </>
               )}
             </Button>
           </div>
         </Card>
 
-        <Card className="overflow-hidden border-slate-200 shadow-sm">
-          <div className="border-b border-slate-200 bg-white px-6 py-5">
-            <h4 className="text-lg font-semibold text-slate-950">AI Critique</h4>
-            <p className="mt-1 text-sm text-slate-600">สรุปให้เห็นทั้งจุดแข็ง จุดอ่อน และ next step ที่ควรทำต่อ</p>
+        <Card className="overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h4 className="text-base font-semibold text-slate-950">2. AI Check</h4>
+            <p className="mt-1 text-sm text-slate-500">Creative critique และ spell check แยกกันชัดเจน</p>
           </div>
 
-          <div className="p-6">
+          <div className="p-5">
             {!critique ? (
-              <div className="rounded-[28px] border border-dashed border-slate-200 bg-[linear-gradient(135deg,_#f8fafc_0%,_#ffffff_100%)] px-6 py-16 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
-                  <Wand2 className="h-6 w-6" />
+              <div className="flex min-h-[520px] items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-6 text-center">
+                <div>
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-sm">
+                    <Wand2 className="h-6 w-6" />
+                  </div>
+                  <h5 className="mt-5 text-lg font-semibold text-slate-950">ยังไม่มีผลวิเคราะห์</h5>
+                  <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                    อัปโหลดภาพแล้วกด Run AI Check ระบบจะสรุปจุดแข็ง จุดอ่อน ตรวจคำผิด และแนะนำ next move
+                  </p>
                 </div>
-                <h5 className="mt-5 text-lg font-semibold text-slate-950">No critique yet</h5>
-                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                  อัปโหลดภาพก่อน แล้วกด Run AI Critique เพื่อให้ระบบช่วยบอกว่าควร Preserve หรือ Reimagine
-                </p>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="rounded-full bg-slate-900 text-white hover:bg-slate-900">
-                    Score {formatScore(critique.overall_score)}/10
-                  </Badge>
-                  <Badge
-                    className={cn(
-                      "rounded-full hover:bg-transparent",
-                      critique.recommended_mode === "preserve"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-amber-50 text-amber-700",
-                    )}
-                  >
-                    Recommended: {critique.recommended_mode === "preserve" ? "Preserve" : "Reimagine"}
-                  </Badge>
+              <div className="space-y-5">
+                <div className="grid items-start gap-3 md:grid-cols-[108px_minmax(0,1fr)]">
+                  <div className="flex aspect-square w-[108px] flex-col justify-center rounded-[22px] border border-slate-200 bg-slate-950 px-4 text-white">
+                    <p className="text-[11px] font-medium text-slate-300">Score</p>
+                    <p className="mt-1 text-[36px] font-semibold leading-none tracking-[-0.06em]">{formatScore(critique.overall_score)}</p>
+                    <p className="mt-2 text-[11px] text-slate-400">out of 10</p>
+                  </div>
+                  <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-5 py-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        className={cn(
+                          "rounded-full",
+                          critique.recommended_mode === "preserve"
+                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                            : "bg-amber-100 text-amber-700 hover:bg-amber-100",
+                        )}
+                      >
+                        Recommended: {critique.recommended_mode === "preserve" ? "ปรับภาพเดิม" : "คิดภาพใหม่"}
+                      </Badge>
+                    </div>
+                    <Textarea
+                      value={critique.rationale}
+                      onChange={(event) => updateCritiqueField("rationale", event.target.value)}
+                      className="mt-3 min-h-[88px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
+                    />
+                  </div>
                 </div>
 
-                <div className="grid gap-4 xl:grid-cols-2">
-                  <div className="rounded-[24px] border border-emerald-100 bg-emerald-50 px-5 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">Top Strength</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Top Strength</p>
                     <Textarea
                       value={critique.top_strength}
                       onChange={(event) => updateCritiqueField("top_strength", event.target.value)}
-                      className="mt-2 min-h-[92px] border-emerald-200 bg-white text-sm leading-6 text-emerald-900"
+                      className="mt-2 min-h-[96px] border-emerald-200 bg-white text-sm leading-6 text-emerald-950"
                     />
                   </div>
-                  <div className="rounded-[24px] border border-rose-100 bg-rose-50 px-5 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-rose-600">Main Issue</p>
+                  <div className="rounded-[22px] border border-rose-100 bg-rose-50 px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">Main Issue</p>
                     <Textarea
                       value={critique.main_issue}
                       onChange={(event) => updateCritiqueField("main_issue", event.target.value)}
-                      className="mt-2 min-h-[92px] border-rose-200 bg-white text-sm leading-6 text-rose-900"
+                      className="mt-2 min-h-[96px] border-rose-200 bg-white text-sm leading-6 text-rose-950"
                     />
                   </div>
                 </div>
 
-                <div className="grid gap-4 xl:grid-cols-3">
-                  <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">What Works</p>
-                    <Textarea
-                      value={critique.what_works.join("\n")}
-                      onChange={(event) => updateCritiqueList("what_works", event.target.value)}
-                      className="mt-3 min-h-[160px] border-slate-200 text-sm leading-6 text-slate-700"
-                    />
+                <div className="rounded-[22px] border border-slate-200 bg-white p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Spell Check From Image</p>
+                      <p className="mt-1 text-sm text-slate-600">ตรวจคำผิดจากข้อความที่เห็นในรูปเท่านั้น</p>
+                    </div>
+                    <Badge className="w-fit rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">
+                      {critique.spell_check?.issues?.length || 0} issue{(critique.spell_check?.issues?.length || 0) === 1 ? "" : "s"}
+                    </Badge>
                   </div>
 
-                  <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">What Hurts Performance</p>
-                    <Textarea
-                      value={critique.what_hurts_performance.join("\n")}
-                      onChange={(event) => updateCritiqueList("what_hurts_performance", event.target.value)}
-                      className="mt-3 min-h-[160px] border-slate-200 text-sm leading-6 text-slate-700"
-                    />
+                  <div className="mt-4 grid items-stretch gap-3 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+                    <div className="flex min-h-0 flex-col">
+                      <p className="text-xs font-medium text-slate-500">Detected text</p>
+                      <div className="mt-2 flex flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800">
+                        {(critique.spell_check?.detected_text || []).length > 0 ? (
+                          <div className="space-y-1">
+                            {(critique.spell_check?.detected_text || []).map((item, index) => (
+                              <p key={`${item}-${index}`}>{item}</p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-slate-400">ไม่พบข้อความที่อ่านได้ชัดเจนในภาพ</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex min-h-0 flex-col">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-medium text-slate-500">Corrections</p>
+                        {spellCorrections.length > 4 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllSpellCorrections((current) => !current)}
+                            className="text-xs font-semibold text-slate-700 underline-offset-4 hover:underline"
+                          >
+                            {showAllSpellCorrections ? "ย่อรายการ" : `ดูทั้งหมด ${spellCorrections.length} รายการ`}
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-1 flex-col rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800">
+                        {spellCorrections.length > 0 ? (
+                          <div className="grid gap-2 xl:grid-cols-2">
+                            {visibleSpellCorrections.map((issue, index) => (
+                              <div
+                                key={`${issue.original_text}-${index}`}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm"
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                                    {issue.original_text || "-"}
+                                  </span>
+                                  <span className="text-xs font-semibold text-slate-400">→</span>
+                                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                    {issue.suggested_text || "-"}
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-xs text-slate-500">
+                                  {[issue.language, issue.issue].filter(Boolean).join(" • ")}
+                                </p>
+                                {issue.rationale && <p className="mt-1 text-xs leading-5 text-slate-600">{issue.rationale}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-slate-400">ยังไม่พบปัญหาการสะกดที่ชัดเจน</p>
+                        )}
+                        {!showAllSpellCorrections && spellCorrections.length > 4 && (
+                          <p className="mt-3 text-center text-xs text-slate-500">
+                            แสดง 4 รายการแรกจากทั้งหมด {spellCorrections.length} รายการ
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="rounded-[24px] border border-slate-200 bg-white px-5 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Priority Fixes</p>
-                    <Textarea
-                      value={critique.priority_fixes.join("\n")}
-                      onChange={(event) => updateCritiqueList("priority_fixes", event.target.value)}
-                      className="mt-3 min-h-[160px] border-slate-200 text-sm leading-6 text-slate-700"
-                    />
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">Recommendation</p>
+                      <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800">
+                        {critique.spell_check?.corrected_text_recommendation || (
+                          <span className="text-slate-400">ไม่มีคำแนะนำเพิ่มเติม</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">Confidence</p>
+                      <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-800">
+                        {critique.spell_check?.confidence_note || (
+                          <span className="text-slate-400">ไม่มีหมายเหตุเพิ่มเติม</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Recommended Next Move</p>
+                <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Fix First</p>
+                  <p className="mt-1 text-sm text-slate-500">โชว์เฉพาะสิ่งที่ควรแก้ก่อนจริง ๆ จากมุม art direction</p>
+                  <Textarea
+                    value={critique.priority_fixes.join("\n")}
+                    onChange={(event) => updateCritiqueList("priority_fixes", event.target.value)}
+                    className="mt-3 min-h-[132px] border-slate-200 text-sm leading-6 text-slate-700"
+                  />
+                </div>
+
+                <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Generation Direction</p>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">ปรับภาพเดิม</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">คงโครงเดิม แก้คุณภาพ ความคม แสง และ artifact</p>
                       <Textarea
-                        value={critique.rationale}
-                        onChange={(event) => updateCritiqueField("rationale", event.target.value)}
-                        className="mt-2 min-h-[92px] w-full border-slate-200 bg-white text-sm leading-6 text-slate-700"
+                        value={critique.preserve_focus.join("\n")}
+                        onChange={(event) => updateCritiqueList("preserve_focus", event.target.value)}
+                        className="mt-3 min-h-[120px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
                       />
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant={selectedMode === "preserve" ? "default" : "outline"}
-                        onClick={() => void handleGenerate("preserve")}
-                        disabled={isGenerating}
-                        className={cn(
-                          "rounded-full",
-                          selectedMode === "preserve"
-                            ? "bg-slate-900 text-white hover:bg-slate-800"
-                            : "border-slate-200 text-slate-700",
-                        )}
-                      >
-                        {isGenerating && selectedMode === "preserve" ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                        )}
-                        ปรับภาพเดิม
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={selectedMode === "reimagine" ? "default" : "outline"}
-                        onClick={() => void handleGenerate("reimagine")}
-                        disabled={isGenerating}
-                        className={cn(
-                          "rounded-full",
-                          selectedMode === "reimagine"
-                            ? "bg-slate-900 text-white hover:bg-slate-800"
-                            : "border-slate-200 text-slate-700",
-                        )}
-                      >
-                        {isGenerating && selectedMode === "reimagine" ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="mr-2 h-4 w-4" />
-                        )}
-                        คิดภาพใหม่
-                      </Button>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">คิดภาพใหม่</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">ยังยึดข้อมูลเดิม แต่เสนอ layout และ idea ใหม่</p>
+                      <Textarea
+                        value={critique.reimagine_brief}
+                        onChange={(event) => updateCritiqueField("reimagine_brief", event.target.value)}
+                        className="mt-3 min-h-[120px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
+                      />
                     </div>
                   </div>
                 </div>
 
-                {selectedMode === "preserve" && (
-                  <div className="rounded-[28px] border border-emerald-100 bg-emerald-50 px-5 py-5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">Preserve Plan</p>
-                    <p className="mt-2 text-sm leading-6 text-emerald-900">
-                      โหมดนี้เหมาะกับภาพที่โครงหลักดีอยู่แล้ว และควรแก้แค่ artifact, ความคม, lighting หรือความเนียนของงาน
-                    </p>
-                    <Textarea
-                      value={critique.preserve_focus.join("\n")}
-                      onChange={(event) => updateCritiqueList("preserve_focus", event.target.value)}
-                      className="mt-4 min-h-[140px] border-emerald-200 bg-white text-sm leading-6 text-emerald-900"
-                    />
-                  </div>
-                )}
-
-                {selectedMode === "reimagine" && (
-                  <div className="rounded-[28px] border border-amber-100 bg-amber-50 px-5 py-5">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-600">Reimagine Direction</p>
-                    <p className="mt-2 text-sm leading-6 text-amber-900">
-                      โหมดนี้เหมาะกับภาพที่ควรคิดใหม่ทั้ง framing, hierarchy หรือ selling idea มากกว่าซ่อมของเดิม
-                    </p>
-                    <Textarea
-                      value={critique.reimagine_brief}
-                      onChange={(event) => updateCritiqueField("reimagine_brief", event.target.value)}
-                      className="mt-4 min-h-[140px] border-amber-200 bg-white text-sm leading-6 text-amber-950"
-                    />
-                  </div>
-                )}
-
-                <div className="rounded-[28px] border border-slate-200 bg-slate-50/70 px-5 py-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Team Notes</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    เพิ่มคอมเมนต์จากทีมได้ตรงนี้ เช่น อยากคงข้อความบางส่วน อยากดัน mood ให้ luxury ขึ้น หรืออยากลดความรกของ layout
-                  </p>
+                <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Team Notes</p>
                   <Textarea
                     value={userNotes}
                     onChange={(event) => setUserNotes(event.target.value)}
                     placeholder="เช่น คงชื่อสินค้าและราคาไว้ทั้งหมด แต่จัด typography ใหม่ให้อ่านง่ายขึ้น"
-                    className="mt-4 min-h-[120px] border-slate-200 bg-white text-sm leading-6 text-slate-800"
+                    className="mt-3 min-h-[92px] border-slate-200 bg-white text-sm leading-6 text-slate-800"
                   />
-                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
 
-                <div className="rounded-[28px] border border-slate-200 bg-white px-5 py-5">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="h-fit overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm xl:sticky xl:top-4">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h4 className="text-base font-semibold text-slate-950">3. Generate</h4>
+            <p className="mt-1 text-sm text-slate-500">เลือก output ที่ต้องการหลังตรวจเสร็จ</p>
+          </div>
+
+          <div className="space-y-4 p-5">
+            <div className="grid gap-2">
+              <Button
+                type="button"
+                onClick={() => void handleGenerate("preserve")}
+                disabled={!critique || isGenerating}
+                className={cn(
+                  "h-12 rounded-full",
+                  selectedMode === "preserve"
+                    ? "bg-slate-950 text-white hover:bg-slate-800"
+                    : "bg-slate-100 text-slate-900 hover:bg-slate-200",
+                )}
+              >
+                {isGenerating && selectedMode === "preserve" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                )}
+                ปรับภาพเดิม
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleGenerate("reimagine")}
+                disabled={!critique || isGenerating}
+                className={cn(
+                  "h-12 rounded-full",
+                  selectedMode === "reimagine"
+                    ? "bg-slate-950 text-white hover:bg-slate-800"
+                    : "bg-slate-100 text-slate-900 hover:bg-slate-200",
+                )}
+              >
+                {isGenerating && selectedMode === "reimagine" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                คิดภาพใหม่
+              </Button>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-3">
+              {isGenerating ? (
+                <div className="flex min-h-[300px] items-center justify-center text-center">
+                  <div className="space-y-3">
+                    <Loader2 className="mx-auto h-7 w-7 animate-spin text-slate-500" />
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Generated Result</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-700">
-                        กด <span className="font-medium text-slate-900">ปรับภาพเดิม</span> เพื่อทำเวอร์ชันที่ใกล้เคียงเดิม
-                        หรือกด <span className="font-medium text-slate-900">คิดภาพใหม่</span> เพื่อให้ระบบเสนอ route ใหม่
+                      <p className="text-sm font-medium text-slate-900">กำลังสร้างภาพ...</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {selectedMode === "preserve" ? "ปรับภาพเดิมให้ดีขึ้น" : "คิดภาพใหม่จากข้อมูลเดิม"}
                       </p>
                     </div>
-                    {generatedResult && (
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleRemoveText}
-                          disabled={isRemovingText}
-                          className="rounded-full border-slate-200 text-slate-700"
-                        >
-                          {isRemovingText ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Removing text...
-                            </>
-                          ) : (
-                            "ลบข้อความ"
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleDownloadGenerated}
-                          className="rounded-full border-slate-200 text-slate-700"
-                        >
-                          ดาวน์โหลดภาพ
-                        </Button>
-                      </div>
-                    )}
                   </div>
+                </div>
+              ) : generatedResult ? (
+                <button
+                  type="button"
+                  onClick={() => setIsGeneratedPreviewOpen(true)}
+                  className="group block w-full text-left"
+                >
+                  <div className="overflow-hidden rounded-[20px] bg-white">
+                    <img
+                      src={generatedResult.imageUrl}
+                      alt={generatedResult.mode === "preserve" ? "Preserve result" : "Reimagine result"}
+                      className="h-auto max-h-[420px] w-full object-contain transition-transform group-hover:scale-[1.01]"
+                    />
+                  </div>
+                  <p className="mt-3 text-center text-xs text-slate-500">คลิกเพื่อดูภาพเต็ม</p>
+                </button>
+              ) : (
+                <div className="flex min-h-[300px] items-center justify-center text-center">
+                  <div className="space-y-2">
+                    <Wand2 className="mx-auto h-6 w-6 text-slate-400" />
+                    <p className="text-sm font-medium text-slate-900">ยังไม่มีผลลัพธ์</p>
+                    <p className="max-w-[240px] text-xs leading-5 text-slate-500">หลังจาก Run AI Check แล้ว เลือกปรับภาพเดิมหรือคิดภาพใหม่</p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-                  <div className="mt-5">
-                    {isGenerating ? (
-                      <div className="flex min-h-[360px] items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 text-center">
-                        <div className="space-y-3">
-                          <Loader2 className="mx-auto h-7 w-7 animate-spin text-slate-500" />
-                          <div>
-                            <p className="text-sm font-medium text-slate-900">Generating new image...</p>
-                            <p className="mt-1 text-sm text-slate-500">
-                              {selectedMode === "preserve" ? "กำลังปรับภาพเดิม" : "กำลังคิดภาพใหม่"}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : generatedResult ? (
-                      <div className="space-y-4">
-                        <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
-                          <button
-                            type="button"
-                            onClick={() => setIsGeneratedPreviewOpen(true)}
-                            className="group mx-auto block w-full max-w-[340px] p-4 text-left"
-                          >
-                            <div className="overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-sm transition-transform group-hover:scale-[1.01]">
-                              <img
-                                src={generatedResult.imageUrl}
-                                alt={generatedResult.mode === "preserve" ? "Preserve result" : "Reimagine result"}
-                                className="h-auto w-full object-contain"
-                              />
-                            </div>
-                            <p className="mt-3 text-center text-sm text-slate-500">คลิกเพื่อดูภาพเต็ม</p>
-                          </button>
-                        </div>
-                        <div className="rounded-[20px] border border-slate-200 bg-slate-50/70 px-4 py-4">
-                          <p className="text-sm font-medium text-slate-900">
-                            {generatedResult.mode === "preserve" ? "โหมด: ปรับภาพเดิม" : "โหมด: คิดภาพใหม่"}
-                          </p>
-                          <p className="mt-1 text-sm text-slate-500">Generated with {generatedResult.model}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex min-h-[280px] items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 text-center">
-                        <div className="space-y-2">
-                          <Wand2 className="mx-auto h-6 w-6 text-slate-400" />
-                          <p className="text-sm font-medium text-slate-900">ยังไม่มีภาพที่สร้างใหม่</p>
-                          <p className="text-sm text-slate-500">หลังจากได้ critique แล้ว กดหนึ่งในสองปุ่มด้านบนเพื่อเริ่มสร้างภาพ</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            {generatedResult && (
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                  <p className="text-sm font-medium text-slate-900">
+                    {generatedResult.mode === "preserve" ? "โหมด: ปรับภาพเดิม" : "โหมด: คิดภาพใหม่"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Generated with {generatedResult.model}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRemoveText}
+                    disabled={isRemovingText}
+                    className="rounded-full border-slate-200 text-slate-700"
+                  >
+                    {isRemovingText ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    ลบข้อความ
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleDownloadGenerated}
+                    className="rounded-full border-slate-200 text-slate-700"
+                  >
+                    ดาวน์โหลด
+                  </Button>
                 </div>
               </div>
             )}
