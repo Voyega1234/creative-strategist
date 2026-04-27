@@ -47,6 +47,12 @@ type GeneratedImage = {
   source?: string
 }
 
+function getImageExtensionFromMimeType(mimeType: string) {
+  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg"
+  if (mimeType === "image/webp") return "webp"
+  return "png"
+}
+
 type ClientProfileSummary = {
   clientName?: string | null
   productFocus?: string | null
@@ -193,7 +199,7 @@ export function ReferenceRemixPanel({
 
             const preferredProductFocus =
               targetClient.productFocuses.find(
-                (pf) => pf.productFocus === activeProductFocus,
+                (pf: ClientOption["productFocuses"][number]) => pf.productFocus === activeProductFocus,
               )?.productFocus || targetClient.productFocuses[0]?.productFocus || ""
             setSelectedProductFocus(preferredProductFocus)
           }
@@ -582,8 +588,8 @@ export function ReferenceRemixPanel({
           : null
 
       const directImages =
-        directEntriesCandidate && directEntriesCandidate.every((entry) => isPlainObject(entry))
-          ? directEntriesCandidate.flatMap((entry, index) => {
+        directEntriesCandidate && directEntriesCandidate.every((entry: unknown) => isPlainObject(entry))
+          ? directEntriesCandidate.flatMap((entry: unknown, index: number) => {
               const pairs = extractDirectPairs(entry)
               if (pairs.length) return pairs
               const fallback = typeof entry === "string" ? entry : null
@@ -598,7 +604,7 @@ export function ReferenceRemixPanel({
         throw new Error("ไม่พบรูปภาพที่สร้างกลับมา")
       }
 
-      const stamped = images.map((img, index) => ({
+      const stamped = images.map((img: { url: string; source?: string }, index: number) => ({
         id: `${Date.now()}-${index}`,
         url: img.url,
         source: img.source,
@@ -617,10 +623,11 @@ export function ReferenceRemixPanel({
     try {
       const response = await fetch(url)
       const blob = await response.blob()
+      const extension = getImageExtensionFromMimeType(blob.type)
       const downloadUrl = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = downloadUrl
-      link.download = `remix-${Date.now()}.png`
+      link.download = `remix-${Date.now()}.${extension}`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
