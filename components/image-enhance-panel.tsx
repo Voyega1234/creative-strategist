@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import type { ComponentProps } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,16 @@ type SpellCheckIssue = {
 
 type CritiquePayload = {
   overall_score: number
+  score_breakdown?: {
+    overall_beauty?: number
+    art_direction?: number
+    composition?: number
+    color_lighting?: number
+    typography?: number
+    polish_realism?: number
+    originality?: number
+    ad_readiness?: number
+  }
   top_strength: string
   main_issue: string
   what_works: string[]
@@ -52,6 +63,37 @@ type SourceImageMeta = {
   width: number
   height: number
   aspectRatioLabel: string
+}
+
+type AutoResizeTextareaProps = ComponentProps<typeof Textarea>
+
+function AutoResizeTextarea({ className, value, onInput, ...props }: AutoResizeTextareaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const resizeTextarea = () => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    textarea.style.height = "auto"
+    textarea.style.height = `${textarea.scrollHeight}px`
+  }
+
+  useEffect(() => {
+    resizeTextarea()
+  }, [value])
+
+  return (
+    <Textarea
+      {...props}
+      ref={textareaRef}
+      value={value}
+      onInput={(event) => {
+        resizeTextarea()
+        onInput?.(event)
+      }}
+      className={cn("resize-none overflow-hidden", className)}
+    />
+  )
 }
 
 function formatScore(score: number) {
@@ -93,6 +135,22 @@ function getImageExtension(mimeType: string) {
   if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg"
   if (mimeType === "image/webp") return "webp"
   return "png"
+}
+
+function getScoreBreakdownItems(critique: CritiquePayload) {
+  const scoreBreakdown = critique.score_breakdown
+  if (!scoreBreakdown) return []
+
+  return [
+    { label: "Beauty", value: scoreBreakdown.overall_beauty },
+    { label: "Art Direction", value: scoreBreakdown.art_direction },
+    { label: "Composition", value: scoreBreakdown.composition },
+    { label: "Color/Light", value: scoreBreakdown.color_lighting },
+    { label: "Typography", value: scoreBreakdown.typography },
+    { label: "Polish", value: scoreBreakdown.polish_realism },
+    { label: "Originality", value: scoreBreakdown.originality },
+    { label: "Ad Ready", value: scoreBreakdown.ad_readiness },
+  ].filter((item): item is { label: string; value: number } => typeof item.value === "number" && item.value > 0)
 }
 
 function getClosestAspectRatioLabel(width: number, height: number) {
@@ -374,6 +432,7 @@ export function ImageEnhancePanel() {
 
   const spellCorrections = critique?.spell_check?.issues || []
   const visibleSpellCorrections = showAllSpellCorrections ? spellCorrections : spellCorrections.slice(0, 4)
+  const scoreBreakdownItems = critique ? getScoreBreakdownItems(critique) : []
 
   return (
     <div className="space-y-5">
@@ -521,7 +580,7 @@ export function ImageEnhancePanel() {
                         Recommended: {critique.recommended_mode === "preserve" ? "ปรับภาพเดิม" : "คิดภาพใหม่"}
                       </Badge>
                     </div>
-                    <Textarea
+                    <AutoResizeTextarea
                       value={critique.rationale}
                       onChange={(event) => updateCritiqueField("rationale", event.target.value)}
                       className="mt-3 min-h-[88px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
@@ -529,10 +588,27 @@ export function ImageEnhancePanel() {
                   </div>
                 </div>
 
+                {scoreBreakdownItems.length > 0 && (
+                  <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Score Breakdown</p>
+                      <p className="text-xs text-slate-500">คะแนนรวมคำนวณจากค่าเฉลี่ยของหมวดเหล่านี้</p>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {scoreBreakdownItems.map((item) => (
+                        <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                          <p className="truncate text-xs text-slate-500">{item.label}</p>
+                          <p className="mt-1 text-lg font-semibold leading-none text-slate-950">{formatScore(item.value)}/10</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-[22px] border border-emerald-100 bg-emerald-50 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Top Strength</p>
-                    <Textarea
+                    <AutoResizeTextarea
                       value={critique.top_strength}
                       onChange={(event) => updateCritiqueField("top_strength", event.target.value)}
                       className="mt-2 min-h-[96px] border-emerald-200 bg-white text-sm leading-6 text-emerald-950"
@@ -540,7 +616,7 @@ export function ImageEnhancePanel() {
                   </div>
                   <div className="rounded-[22px] border border-rose-100 bg-rose-50 px-4 py-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">Main Issue</p>
-                    <Textarea
+                    <AutoResizeTextarea
                       value={critique.main_issue}
                       onChange={(event) => updateCritiqueField("main_issue", event.target.value)}
                       className="mt-2 min-h-[96px] border-rose-200 bg-white text-sm leading-6 text-rose-950"
@@ -646,7 +722,7 @@ export function ImageEnhancePanel() {
                 <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Fix First</p>
                   <p className="mt-1 text-sm text-slate-500">โชว์เฉพาะสิ่งที่ควรแก้ก่อนจริง ๆ จากมุม art direction</p>
-                  <Textarea
+                  <AutoResizeTextarea
                     value={critique.priority_fixes.join("\n")}
                     onChange={(event) => updateCritiqueList("priority_fixes", event.target.value)}
                     className="mt-3 min-h-[132px] border-slate-200 text-sm leading-6 text-slate-700"
@@ -659,7 +735,7 @@ export function ImageEnhancePanel() {
                     <div>
                       <p className="text-sm font-medium text-slate-900">ปรับภาพเดิม</p>
                       <p className="mt-1 text-xs leading-5 text-slate-500">คงโครงเดิม แก้คุณภาพ ความคม แสง และ artifact</p>
-                      <Textarea
+                      <AutoResizeTextarea
                         value={critique.preserve_focus.join("\n")}
                         onChange={(event) => updateCritiqueList("preserve_focus", event.target.value)}
                         className="mt-3 min-h-[120px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
@@ -668,7 +744,7 @@ export function ImageEnhancePanel() {
                     <div>
                       <p className="text-sm font-medium text-slate-900">คิดภาพใหม่</p>
                       <p className="mt-1 text-xs leading-5 text-slate-500">ยังยึดข้อมูลเดิม แต่เสนอ layout และ idea ใหม่</p>
-                      <Textarea
+                      <AutoResizeTextarea
                         value={critique.reimagine_brief}
                         onChange={(event) => updateCritiqueField("reimagine_brief", event.target.value)}
                         className="mt-3 min-h-[120px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
@@ -679,7 +755,7 @@ export function ImageEnhancePanel() {
 
                 <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Team Notes</p>
-                  <Textarea
+                  <AutoResizeTextarea
                     value={userNotes}
                     onChange={(event) => setUserNotes(event.target.value)}
                     placeholder="เช่น คงชื่อสินค้าและราคาไว้ทั้งหมด แต่จัด typography ใหม่ให้อ่านง่ายขึ้น"

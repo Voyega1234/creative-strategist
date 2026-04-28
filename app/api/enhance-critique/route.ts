@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server"
+import { createHash } from "node:crypto"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
-const ANALYSIS_MODEL = "gemini-3-flash-preview"
+const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
+const ANALYSIS_PROMPT_VERSION = "2026-04-28-art-direction-prescription-v1"
+const ANALYSIS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const analysisCache = new Map<string, { expiresAt: number; critique: any; model: string }>()
+const SCORE_BREAKDOWN_FIELDS = [
+  "overall_beauty",
+  "art_direction",
+  "composition",
+  "color_lighting",
+  "typography",
+  "polish_realism",
+  "originality",
+  "ad_readiness",
+] as const
 
 function normalizeScore(rawScore: unknown) {
   const numeric =
@@ -22,6 +36,24 @@ function normalizeScore(rawScore: unknown) {
   const clamped = Math.min(10, Math.max(0, normalized))
 
   return Math.round(clamped * 10) / 10
+}
+
+function normalizeScoreBreakdown(value: any) {
+  const normalized: Record<string, number> = {}
+
+  for (const field of SCORE_BREAKDOWN_FIELDS) {
+    normalized[field] = normalizeScore(value?.[field])
+  }
+
+  return normalized
+}
+
+function averageScoreBreakdown(scoreBreakdown: Record<string, number>) {
+  const scores = SCORE_BREAKDOWN_FIELDS.map((field) => scoreBreakdown[field]).filter((score) => score > 0)
+  if (!scores.length) return 0
+
+  const average = scores.reduce((sum, score) => sum + score, 0) / scores.length
+  return Math.round(average * 10) / 10
 }
 
 function normalizeStringArray(value: unknown) {
@@ -82,12 +114,38 @@ async function fetchImageAsBase64(url: string) {
   }
 
   const arrayBuffer = await response.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
   const mimeType = response.headers.get("content-type")?.split(";")[0].trim() || "image/png"
+  const imageHash = createHash("sha256").update(buffer).digest("hex")
 
   return {
-    base64: Buffer.from(arrayBuffer).toString("base64"),
+    base64: buffer.toString("base64"),
+    imageHash,
     mimeType,
   }
+}
+
+function getCachedAnalysis(cacheKey: string) {
+  const cached = analysisCache.get(cacheKey)
+  if (!cached) return null
+
+  if (cached.expiresAt <= Date.now()) {
+    analysisCache.delete(cacheKey)
+    return null
+  }
+
+  return {
+    critique: JSON.parse(JSON.stringify(cached.critique)),
+    model: cached.model,
+  }
+}
+
+function setCachedAnalysis(cacheKey: string, critique: any, model: string) {
+  analysisCache.set(cacheKey, {
+    expiresAt: Date.now() + ANALYSIS_CACHE_TTL_MS,
+    critique: JSON.parse(JSON.stringify(critique)),
+    model,
+  })
 }
 
 function buildSpellCheckPrompt() {
@@ -185,6 +243,25 @@ Be specific, practical, and honest.
 Praise what works. Criticize what hurts performance.
 This creative critique task is separate from spell check. Do not spend creative critique fields on spelling corrections unless spelling directly harms conversion clarity.
 
+Start by looking at the image like a professional visual craft reviewer, not like a generic marketing checklist.
+Before choosing main_issue, inspect the whole image and identify the single weakness that most damages professional quality, believability, and first impression.
+
+Priority diagnosis order:
+1. First check visual plausibility and craft:
+- Do the main products/objects feel physically grounded in the scene?
+- Are contact shadows, object placement, depth, perspective, scale, lighting direction, and reflections believable?
+- Does anything look pasted in, floating, cut out badly, over-smoothed, distorted, or obviously AI-generated?
+- Do people, products, hands, faces, objects, materials, and scene details feel natural and professionally finished?
+
+2. Then check composition and visual hierarchy:
+- Does the viewer understand what to look at first, second, and third?
+- Are the main product and selling message supported by the layout?
+- Is the image balanced, too crowded, too empty, or visually awkward?
+
+3. Then check typography, price tags, callouts, and graphic design:
+- Only treat text boxes, price tags, typography, or graphic overlays as the main issue if they are truly the highest-impact weakness.
+- Do not criticize bold promo labels, red price tags, or large offer text just because they are visually loud if they are intentional and useful for the ad.
+
 Evaluate these dimensions:
 - clarity
 - visual hierarchy
@@ -193,6 +270,24 @@ Evaluate these dimensions:
 - realism / polish
 - originality
 
+Main issue rule:
+- main_issue must be the highest-impact visual or advertising weakness in the whole image.
+- Do not choose a minor taste preference, secondary spacing issue, or easy-to-describe graphic detail if a larger realism, object placement, composition, or craft problem is present.
+- If the image has a major plausibility problem, mention that before smaller typography or layout concerns.
+
+Art direction prescription:
+- Do not stop at criticism. Every weakness you mention must lead to a concrete visual fix.
+- priority_fixes must be written as actionable art direction, not generic advice.
+- Each priority_fixes item should say what to change visually and how to change it.
+- preserve_focus must describe what is already working and must not be damaged during improvement.
+- reimagine_brief must propose a stronger visual route, including composition, product placement, lighting, typography, and scene direction.
+- what_hurts_performance should explain why the issue makes the image less attractive, less believable, less premium, or less useful as an ad.
+
+Output quality bar:
+- Avoid vague advice such as "make it more engaging", "improve layout", "make it premium", or "make it cleaner" unless you specify exactly what should visually change.
+- Prefer concrete directions such as: adjust object placement, add believable contact shadows, reduce competing focal points, create one hero product, improve type scale, align price cards to a grid, unify lighting direction, add depth separation, simplify background, or preserve readable offer hierarchy.
+- If the current image is already good, still recommend the smallest specific refinements that would make it better without damaging what works.
+
 Decide the recommended next move:
 - "preserve" if the image is fundamentally strong and only needs cleanup, polish, or light quality improvement
 - "reimagine" if the image needs a stronger concept, framing, layout, hierarchy, or new direction
@@ -200,95 +295,7 @@ Decide the recommended next move:
 }
 
 function buildCreativeCritiquePrompt() {
-  return `
-You are a senior advertising art director and visual craft reviewer.
-
-Analyze the uploaded image mainly from an aesthetic, art direction, and visual quality perspective.
-The goal is to judge whether the image looks beautiful, polished, premium, intentional, and suitable for advertising.
-
-Be specific, practical, and honest.
-Praise what visually works.
-Criticize what makes the image look cheap, generic, messy, AI-generated, awkward, or less attractive.
-
-This is not a spell check task.
-Do not focus on spelling unless text mistakes directly damage the visual impression or ad clarity.
-
-Evaluate these dimensions:
-
-1. Overall visual appeal
-- Is the image immediately attractive?
-- Does it feel polished, premium, and worth looking at?
-- Does it look like a finished ad or still like a draft?
-
-2. Art direction quality
-- Does the image have a clear visual style?
-- Is the mood, lighting, color, texture, and composition intentional?
-- Does it feel art-directed or randomly generated?
-
-3. Composition and balance
-- Are the main elements placed beautifully?
-- Is the layout balanced or awkward?
-- Is there enough breathing room?
-- Does the image feel too empty, too crowded, too flat, or too chaotic?
-
-4. Color and lighting
-- Do the colors work well together?
-- Is the contrast attractive?
-- Does the lighting make the subject look better?
-- Are there color clashes, muddy tones, over-saturation, or dull areas?
-
-5. Typography and text treatment
-- Does the text look well-designed?
-- Are font size, weight, spacing, alignment, and placement visually strong?
-- Does the typography feel premium, modern, playful, bold, or cheap?
-- Does the text support the image or ruin the design?
-
-6. Visual hierarchy
-- What does the eye see first, second, and third?
-- Is the most beautiful or important element getting enough focus?
-- Are there elements stealing attention for the wrong reason?
-
-7. Brand fit and design taste
-- Does the image feel suitable for the type of brand?
-- Does it match the expected level of taste for this category?
-- Does it look too generic, too template-like, too stock-like, or too AI-like?
-
-8. Realism and polish
-- Are there unnatural shadows, strange lighting, bad cutouts, distorted objects, weird hands/faces/products, fake reflections, or over-smoothed AI details?
-- Does the image feel believable and professionally finished?
-
-9. Originality and stopping power
-- Does it look visually memorable?
-- Would it stand out in a feed?
-- Is there any fresh visual idea, or is it just a normal-looking design?
-
-10. Advertising readiness
-- Even if the image is beautiful, is it strong enough to be used as an ad?
-- Does it have enough clarity, focus, and visual impact?
-- Would small refinements make it usable, or does it need a new visual direction?
-
-Map your critique into the JSON fields like this:
-- overall_score: final holistic score from 1-10 based on beauty, art direction, composition, color/lighting, typography, polish/realism, originality, and ad readiness
-- rationale: one-line visual verdict in Thai
-- top_strength: strongest visual quality in one direct Thai sentence
-- main_issue: art director diagnosis in one direct Thai sentence
-- what_works: only the most important visual qualities that are worth preserving
-- what_hurts_performance: only the most important visual problems that reduce beauty, polish, or ad quality
-- priority_fixes: must-fix practical edits only
-- preserve_focus: cleanup/refinement items if preserving the current direction
-- reimagine_brief: if reimagining is needed, suggest 2-3 better visual directions with mood, composition, color/lighting, typography style, and why it would look better
-
-Choose exactly one recommended_mode:
-- "preserve" if the image already looks visually strong and only needs cleanup, refinement, better typography, color grading, spacing, or polish
-- "reimagine" if the image looks too generic, awkward, unattractive, messy, flat, cheap, or lacks a strong visual direction
-
-Decision rule:
-Choose "preserve" when the image has good taste, strong composition, clear style, and fixable craft issues.
-Choose "reimagine" when the image has weak visual appeal, unclear art direction, awkward layout, poor style, or looks like a generic AI-generated image.
-
-Be direct and visual-focused.
-Avoid generic comments like "make it more engaging" unless you explain exactly what should change visually.
-  `.trim()
+  return buildLegacyCreativeCritiquePrompt()
 }
 
 function buildCritiquePrompt() {
@@ -334,6 +341,9 @@ Rules:
 - Do not duplicate spell-check issues inside what_hurts_performance or priority_fixes unless the typo is a major ad-performance issue
 - Keep each item concise but specific
 - Give 2 to 4 bullets for each array
+- priority_fixes must be practical visual edit instructions, not just observations
+- preserve_focus must specify what to keep intact during improvement
+- reimagine_brief must be a usable art direction brief, not a generic summary
 - Do not use generic praise
 - Do not mention JSON or formatting
   `.trim()
@@ -352,7 +362,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
     }
 
-    const { base64, mimeType } = await fetchImageAsBase64(imageUrl)
+    const { base64, imageHash, mimeType } = await fetchImageAsBase64(imageUrl)
+    const cacheKey = `${ANALYSIS_MODEL}:${ANALYSIS_PROMPT_VERSION}:${imageHash}`
+    const cachedAnalysis = getCachedAnalysis(cacheKey)
+
+    if (cachedAnalysis) {
+      return NextResponse.json({
+        success: true,
+        critique: cachedAnalysis.critique,
+        model: cachedAnalysis.model,
+        cached: true,
+      })
+    }
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent`,
@@ -406,11 +427,13 @@ export async function POST(request: Request) {
     const critique = extractJsonObject(modelText)
     critique.overall_score = normalizeScore(critique?.overall_score)
     critique.spell_check = normalizeSpellCheck(critique?.spell_check)
+    setCachedAnalysis(cacheKey, critique, ANALYSIS_MODEL)
 
     return NextResponse.json({
       success: true,
       critique,
       model: ANALYSIS_MODEL,
+      cached: false,
     })
   } catch (error) {
     console.error("[enhance-critique] Unexpected error:", error)

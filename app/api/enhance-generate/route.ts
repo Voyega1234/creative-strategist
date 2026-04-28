@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 180
+export const maxDuration = 480
 
 const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
 const OPENAI_IMAGE_MODEL = "gpt-image-2"
+const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
+const DEFAULT_FINAL_IMAGE_SIZE = "4K"
 type OpenAiImageSize = "1024x1024" | "1536x1024" | "1024x1536"
 
 const OPENAI_EXACT_SIZE_BY_RATIO: Record<string, OpenAiImageSize> = {
@@ -175,6 +178,98 @@ function inferDimensions(buffer: Uint8Array, mimeType: string) {
   return null
 }
 
+function extractGeminiImagePart(payload: any) {
+  const parts = payload?.candidates?.flatMap((candidate: any) => candidate?.content?.parts || []) || []
+  const imagePart = parts.find(
+    (part: any) =>
+      (part.inlineData?.data && part.inlineData?.mimeType) ||
+      (part.inline_data?.data && part.inline_data?.mime_type),
+  )
+
+  return {
+    imageBase64: imagePart?.inlineData?.data || imagePart?.inline_data?.data || "",
+    mimeType: imagePart?.inlineData?.mimeType || imagePart?.inline_data?.mime_type || "image/png",
+    details:
+      parts
+        .filter((part: any) => typeof part.text === "string")
+        .map((part: any) => part.text)
+        .join("\n")
+        .trim() || null,
+  }
+}
+
+async function resizeWithGemini({
+  imageBase64,
+  mimeType,
+  aspectRatio,
+}: {
+  imageBase64: string
+  mimeType: string
+  aspectRatio: string
+}) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Gemini API key not configured")
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": GEMINI_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: "Resize/upscale this exact image only. Preserve the image content, composition, layout, typography, products, colors, mood, tone, and visual design. Do not redesign, crop, add, remove, or change anything except final resolution and canvas aspect ratio.",
+              },
+              {
+                inlineData: {
+                  mimeType,
+                  data: imageBase64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+          imageConfig: {
+            aspectRatio,
+            imageSize: DEFAULT_FINAL_IMAGE_SIZE,
+          },
+        },
+      }),
+    },
+  )
+
+  const rawText = await response.text()
+  let payload: any = null
+
+  try {
+    payload = rawText ? JSON.parse(rawText) : null
+  } catch (error) {
+    console.error("[enhance-generate] Failed to parse Gemini resize response:", error, rawText)
+    throw new Error("Invalid Gemini resize response")
+  }
+
+  if (!response.ok) {
+    console.error("[enhance-generate] Gemini resize failed:", payload)
+    throw new Error(payload?.error?.message || `Gemini resize failed (${response.status})`)
+  }
+
+  const geminiImage = extractGeminiImagePart(payload)
+  if (!geminiImage.imageBase64) {
+    console.error("[enhance-generate] Gemini resize returned no image:", payload)
+    throw new Error("Gemini did not return resized image")
+  }
+
+  return geminiImage
+}
+
 function buildPreservePrompt(critique: CritiquePayload) {
   const spellCheckGuidance = buildSpellCheckGuidance(critique)
 
@@ -182,6 +277,8 @@ function buildPreservePrompt(critique: CritiquePayload) {
     "Edit the provided image and keep it very close to the original creative direction.",
     "This is a light-improvement pass, not a full redesign or a new composition.",
     "Preserve the same core subject, product, composition logic, framing, visual intent, and advertising message.",
+    "Preserve the original mood, tone, color family, lighting style, category taste, and overall visual world.",
+    "Do not change the creative genre. Do not turn a minimal, soft, premium, lifestyle, beauty, clinical, natural, or retail image into sci-fi, cyberpunk, fantasy, game-like 3D, futuristic, neon, cinematic action, or any opposite visual style unless the source image already has that style.",
     `Top strength to preserve: ${critique.top_strength}`,
     `Main issue to fix lightly: ${critique.main_issue}`,
     `What already works: ${critique.what_works.join(" | ")}`,
@@ -203,6 +300,9 @@ function buildReimaginePrompt(critique: CritiquePayload) {
     "Edit the provided image into a stronger new design direction while keeping it clearly based on the original source image.",
     "This is a reimagined route, not a completely unrelated new image.",
     "Keep the same core subject, product identity, category cues, essential visual information, and advertising message from the source image.",
+    "Keep the same mood, tone, color family, lighting atmosphere, category taste, and brand world from the source image.",
+    "Reimagine within the same visual universe. The result may improve composition, hierarchy, styling, lighting quality, and typography, but it must not jump to an unrelated genre or extreme style.",
+    "Do not convert the image into sci-fi, cyberpunk, fantasy, game-like 3D, futuristic neon, dark cinematic action, surreal CGI, or any opposite mood/tone unless the source image clearly belongs to that world.",
     "Keep all important text content from the source image, including product names, prices, promotional labels, percentages, CTA-style callouts, and brand marks.",
     "You may redesign the composition, framing, lighting, scene styling, hierarchy, typography layout, and overall art direction, but it must still feel derived from the original image.",
     `Keep the strongest existing quality: ${critique.top_strength}`,
@@ -249,9 +349,14 @@ export async function POST(request: Request) {
       : basePrompt
     const expectedAspectRatio =
       isSaneDimensions(sourceWidth, sourceHeight) ? getClosestAspectRatioLabel(sourceWidth, sourceHeight) : detectedAspectRatio || null
+    const needsFinalGeminiResize = !!expectedAspectRatio && !OPENAI_EXACT_SIZE_BY_RATIO[expectedAspectRatio]
     const requestedOpenAiSize = expectedAspectRatio
       ? OPENAI_EXACT_SIZE_BY_RATIO[expectedAspectRatio] || getClosestOpenAiSizeForRatio(expectedAspectRatio)
       : "auto"
+
+    if (needsFinalGeminiResize && !GEMINI_API_KEY) {
+      return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
+    }
 
     const endpoint = OPENAI_EDITS_ENDPOINT
     const bodyPayload = {
@@ -299,25 +404,52 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "OpenAI did not return an image" }, { status: 500 })
     }
 
-    const outputBuffer = Uint8Array.from(Buffer.from(imageBase64, "base64"))
-    const outputDimensions = inferDimensions(outputBuffer, outputMimeType)
-    const outputAspectRatio =
-      outputDimensions && isSaneDimensions(outputDimensions.width, outputDimensions.height)
-        ? getClosestAspectRatioLabel(outputDimensions.width, outputDimensions.height)
+    const resizedImage = needsFinalGeminiResize
+      ? await resizeWithGemini({
+          imageBase64,
+          mimeType: outputMimeType,
+          aspectRatio: expectedAspectRatio!,
+        })
+      : {
+          imageBase64,
+          mimeType: outputMimeType,
+          details: null,
+        }
+
+    const finalBuffer = Uint8Array.from(Buffer.from(resizedImage.imageBase64, "base64"))
+    const finalDimensions = inferDimensions(finalBuffer, resizedImage.mimeType)
+    const finalAspectRatio =
+      finalDimensions && isSaneDimensions(finalDimensions.width, finalDimensions.height)
+        ? getClosestAspectRatioLabel(finalDimensions.width, finalDimensions.height)
         : null
+
+    if (expectedAspectRatio && finalAspectRatio && finalAspectRatio !== expectedAspectRatio) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Enhance final resize ratio changed from ${expectedAspectRatio} to ${finalAspectRatio}`,
+          requested_aspect_ratio: expectedAspectRatio,
+          actual_aspect_ratio: finalAspectRatio,
+          output_dimensions: finalDimensions,
+          details: resizedImage.details,
+        },
+        { status: 422 },
+      )
+    }
 
     return NextResponse.json({
       success: true,
       mode,
       prompt,
-      mime_type: outputMimeType,
-      image_base64: imageBase64,
-      image_data_url: `data:${outputMimeType};base64,${imageBase64}`,
-      model: OPENAI_IMAGE_MODEL,
-      output_dimensions: outputDimensions,
+      mime_type: resizedImage.mimeType,
+      image_base64: resizedImage.imageBase64,
+      image_data_url: `data:${resizedImage.mimeType};base64,${resizedImage.imageBase64}`,
+      model: needsFinalGeminiResize ? `${OPENAI_IMAGE_MODEL} -> ${GEMINI_IMAGE_MODEL}` : OPENAI_IMAGE_MODEL,
+      output_dimensions: finalDimensions,
       requested_source_aspect_ratio: expectedAspectRatio,
-      output_aspect_ratio: outputAspectRatio || expectedAspectRatio,
+      output_aspect_ratio: finalAspectRatio || expectedAspectRatio,
       requested_openai_size: requestedOpenAiSize,
+      final_image_size: needsFinalGeminiResize ? DEFAULT_FINAL_IMAGE_SIZE : null,
     })
   } catch (error) {
     console.error("[enhance-generate] Unexpected error:", error)
