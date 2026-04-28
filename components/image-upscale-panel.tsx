@@ -31,6 +31,20 @@ type UpscaleResult = {
 }
 
 const SUPPORTED_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
+const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+}
+
+function getImageExtension(mimeType: string) {
+  return IMAGE_EXTENSION_BY_MIME_TYPE[mimeType.toLowerCase()] || "png"
+}
+
+function withImageExtension(filename: string, extension: string) {
+  return filename.replace(/\.(png|jpe?g|webp)$/i, "") + `.${extension}`
+}
 
 function getClosestAspectRatio(width: number, height: number) {
   const rawRatio = width / height
@@ -134,13 +148,7 @@ export function ImageUpscalePanel() {
       throw new Error("Storage client not available")
     }
 
-    const extensionMap: Record<string, string> = {
-      "image/png": "png",
-      "image/jpeg": "jpg",
-      "image/webp": "webp",
-    }
-
-    const extension = extensionMap[mimeType] || "png"
+    const extension = getImageExtension(mimeType)
     const path = `generated/upscaled/${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${size.toLowerCase()}.${extension}`
     const { error } = await storage.from("ads-creative-image").upload(path, blob, {
       contentType: mimeType,
@@ -154,18 +162,19 @@ export function ImageUpscalePanel() {
     return data.publicUrl
   }
 
-  const handleDownload = async (url: string) => {
+  const handleDownload = async (url: string, sourceFileName = "upscaled-image", size: UpscaleSize = targetSize) => {
     try {
       const response = await fetch(url)
       const blob = await response.blob()
+      const extension = getImageExtension(blob.type || "image/png")
       const objectUrl = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = objectUrl
-      link.download = `upscaled-${Date.now()}.png`
+      link.download = withImageExtension(`upscaled-${size.toLowerCase()}-${sourceFileName}`, extension)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      window.URL.revokeObjectURL(objectUrl)
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000)
     } catch (error) {
       console.error("Download failed:", error)
     }
@@ -422,7 +431,12 @@ export function ImageUpscalePanel() {
                         <p className="mt-1 truncate text-xs text-slate-500">{result.fileName}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" className="rounded-full border-slate-200" onClick={() => handleDownload(result.url)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full border-slate-200"
+                          onClick={() => handleDownload(result.url, result.fileName, result.size)}
+                        >
                           <Download className="mr-1 h-3.5 w-3.5" />
                           Download
                         </Button>

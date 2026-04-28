@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Sparkles,
   UploadCloud,
+  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -28,20 +29,46 @@ const DEFAULT_PRESET: Preset = "Ad Creative"
 
 const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "9:16", "16:9", "21:9"]
 const IMAGE_SIZES: ImageSize[] = ["1K", "2K", "4K"]
+const MAX_SCENE_REFERENCES = 3
 
-function downloadImage(url: string, filename: string) {
+type SceneReference = {
+  file: File
+  previewUrl: string
+}
+
+const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+}
+
+function getImageExtension(mimeType: string) {
+  return IMAGE_EXTENSION_BY_MIME_TYPE[mimeType.toLowerCase()] || "png"
+}
+
+function withImageExtension(filename: string, extension: string) {
+  return filename.replace(/\.(png|jpe?g|webp)$/i, "") + `.${extension}`
+}
+
+async function downloadImage(url: string, filename: string) {
+  const response = await fetch(url)
+  const blob = await response.blob()
+  const extension = getImageExtension(blob.type || "image/png")
+  const objectUrl = window.URL.createObjectURL(blob)
   const link = document.createElement("a")
-  link.href = url
-  link.download = filename
+  link.href = objectUrl
+  link.download = withImageExtension(filename, extension)
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000)
 }
 
 function downloadAllImages(urls: string[], baseFilename: string) {
   urls.forEach((url, index) => {
     window.setTimeout(() => {
-      downloadImage(url, `${baseFilename}-${index + 1}.png`)
+      void downloadImage(url, `${baseFilename}-${index + 1}.png`)
     }, index * 180)
   })
 }
@@ -97,6 +124,7 @@ async function uploadDataUrlToStorage(dataUrl: string) {
 export function MaterialToScenePanel() {
   const [file, setFile] = useState<File | null>(null)
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
+  const [sceneReferences, setSceneReferences] = useState<SceneReference[]>([])
   const [prompt, setPrompt] = useState("")
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1")
   const [imageSize, setImageSize] = useState<ImageSize>("1K")
@@ -108,6 +136,8 @@ export function MaterialToScenePanel() {
   const [error, setError] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const sceneInputRef = useRef<HTMLInputElement | null>(null)
+  const sceneReferencesRef = useRef<SceneReference[]>([])
 
   useEffect(() => {
     return () => {
@@ -116,6 +146,16 @@ export function MaterialToScenePanel() {
       }
     }
   }, [originalImageUrl])
+
+  useEffect(() => {
+    sceneReferencesRef.current = sceneReferences
+  }, [sceneReferences])
+
+  useEffect(() => {
+    return () => {
+      sceneReferencesRef.current.forEach((reference) => URL.revokeObjectURL(reference.previewUrl))
+    }
+  }, [])
 
   const currentImageUrl = generatedImageUrls[selectedImageIndex] || ""
   const hasOutput = generatedImageUrls.length > 0
@@ -138,6 +178,36 @@ export function MaterialToScenePanel() {
     setError(null)
   }
 
+  const handleSceneReferencesSelect = (selectedFiles: FileList | null) => {
+    if (!selectedFiles?.length) return
+
+    const nextReferences = Array.from(selectedFiles)
+      .slice(0, Math.max(MAX_SCENE_REFERENCES - sceneReferences.length, 0))
+      .map((selectedFile) => ({
+        file: selectedFile,
+        previewUrl: URL.createObjectURL(selectedFile),
+      }))
+
+    if (nextReferences.length === 0) return
+
+    setSceneReferences((prev) => [...prev, ...nextReferences].slice(0, MAX_SCENE_REFERENCES))
+    setGeneratedImageUrls([])
+    setSelectedImageIndex(0)
+    setError(null)
+  }
+
+  const handleRemoveSceneReference = (indexToRemove: number) => {
+    setSceneReferences((prev) => {
+      const removed = prev[indexToRemove]
+      if (removed) {
+        URL.revokeObjectURL(removed.previewUrl)
+      }
+      return prev.filter((_, index) => index !== indexToRemove)
+    })
+    setGeneratedImageUrls([])
+    setSelectedImageIndex(0)
+  }
+
   const handleGenerate = async () => {
     if (!file) {
       alert("กรุณาอัปโหลด material photo ก่อน")
@@ -154,6 +224,10 @@ export function MaterialToScenePanel() {
 
     try {
       const referenceImageUrl = await uploadFileToStorage(file)
+      const sceneReferenceImageUrls =
+        sceneReferences.length > 0
+          ? await Promise.all(sceneReferences.map((reference) => uploadFileToStorage(reference.file)))
+          : []
       const response = await fetch("/api/material-to-scene", {
         method: "POST",
         headers: {
@@ -162,6 +236,7 @@ export function MaterialToScenePanel() {
         body: JSON.stringify({
           action: "generate",
           reference_image_url: referenceImageUrl,
+          scene_reference_image_urls: sceneReferenceImageUrls,
           mime_type: file.type,
           preset: DEFAULT_PRESET,
           prompt: prompt.trim(),
@@ -308,6 +383,17 @@ export function MaterialToScenePanel() {
                   }
                 }}
               />
+              <input
+                ref={sceneInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  handleSceneReferencesSelect(event.target.files)
+                  event.target.value = ""
+                }}
+              />
 
               <button
                 type="button"
@@ -349,6 +435,65 @@ export function MaterialToScenePanel() {
                 )}
               </button>
 
+              <div className="rounded-[30px] border border-slate-200 bg-slate-50/70 p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                      Optional Scene Reference
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">
+                      Upload scene or background guide
+                    </h3>
+                    <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-600">
+                      ใช้เป็น background/source scene ได้ด้วย เช่น คงฉากเดิม เปลี่ยนเฉพาะ object ตาม material แล้วปรับมุมกล้อง แสง
+                      และเงาให้เนียนเหมือนภาพถ่ายจริง
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => sceneInputRef.current?.click()}
+                    disabled={sceneReferences.length >= MAX_SCENE_REFERENCES}
+                    className="h-11 shrink-0 rounded-2xl border-slate-200 bg-white"
+                  >
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    {sceneReferences.length ? "Add scene" : "Upload scene"}
+                  </Button>
+                </div>
+
+                {sceneReferences.length > 0 ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {sceneReferences.map((reference, index) => (
+                      <div key={reference.previewUrl} className="relative overflow-hidden rounded-[20px] border border-slate-200 bg-white">
+                        <div className="aspect-[4/3] bg-slate-100">
+                          <img
+                            src={reference.previewUrl}
+                            alt={`Scene reference ${index + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSceneReference(index)}
+                          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/75 text-white shadow-sm backdrop-blur transition-colors hover:bg-black"
+                          aria-label={`Remove scene reference ${index + 1}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                        <div className="px-3 py-2">
+                          <p className="truncate text-sm font-medium text-slate-900">{reference.file.name}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{(reference.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-[22px] border border-dashed border-slate-200 bg-white px-4 py-5 text-sm leading-6 text-slate-500">
+                    ถ้าไม่อัปโหลด scene reference ระบบจะสร้างฉากจาก scene brief อย่างเดียว
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -368,7 +513,7 @@ export function MaterialToScenePanel() {
                   className="min-h-[180px] resize-none rounded-[24px] border-slate-200 bg-white px-5 py-4 text-slate-950 focus:border-slate-950 focus:ring-0"
                 />
                 <p className="text-sm leading-6 text-slate-500">
-                  เขียนเหมือน briefing art direction: บอก space, camera angle, lighting, mood, color tone และ use case ที่ต้องการ
+                  เขียนให้ตรงงาน เช่น “เปลี่ยนเสื้อบนเก้าอี้ให้เป็น material นี้ ใช้พื้นหลังเดิม และเปลี่ยนแค่มุมกล้อง”
                 </p>
               </div>
             </div>
@@ -518,7 +663,7 @@ export function MaterialToScenePanel() {
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => currentImageUrl && downloadImage(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.png`)}
+                  onClick={() => currentImageUrl && void downloadImage(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.png`)}
                   disabled={!currentImageUrl || isGenerating}
                   className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
                 >
@@ -599,7 +744,7 @@ export function MaterialToScenePanel() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => downloadImage(url, `material-to-scene-${index + 1}.png`)}
+                            onClick={() => void downloadImage(url, `material-to-scene-${index + 1}.png`)}
                             className="pointer-events-auto inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-slate-950"
                             aria-label={`Download image ${index + 1}`}
                           >
@@ -629,6 +774,35 @@ export function MaterialToScenePanel() {
                   </div>
                 </div>
               </Card>
+
+              {sceneReferences.length > 0 ? (
+                <Card className="rounded-[28px] border-slate-200/80 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Scene Reference</p>
+                      <h3 className="mt-1.5 text-lg font-semibold tracking-[-0.02em] text-slate-950">
+                        Background guide
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {sceneReferences.map((reference, index) => (
+                        <div key={reference.previewUrl} className="overflow-hidden rounded-[14px] bg-slate-50">
+                          <div className="aspect-square">
+                            <img
+                              src={reference.previewUrl}
+                              alt={`Scene reference ${index + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm leading-6 text-slate-500">
+                      Scene reference ใช้เป็นฉากตั้งต้นได้ ถ้า prompt ระบุให้คงพื้นหลังเดิม ระบบจะพยายามเปลี่ยนเฉพาะ object/material ที่สั่ง
+                    </p>
+                  </div>
+                </Card>
+              ) : null}
 
               <Card className="rounded-[28px] border-slate-200/80 bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
                 <div className="space-y-4">

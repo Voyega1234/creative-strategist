@@ -30,7 +30,12 @@ type GeminiInlineImage = {
   mimeType?: string
 }
 
-async function fetchImageAsBase64(url: string, fallbackMimeType = "image/png") {
+type FetchedImage = {
+  base64: string
+  mimeType: string
+}
+
+async function fetchImageAsBase64(url: string, fallbackMimeType = "image/png"): Promise<FetchedImage> {
   const response = await fetch(url)
 
   if (!response.ok) {
@@ -157,10 +162,17 @@ async function analyzeMaterial(referenceImageBase64: string, mimeType: string) {
   return materialDescription
 }
 
-function buildGenerationPrompt(materialDescription: string, preset: string, prompt: string) {
+function buildGenerationPrompt(materialDescription: string, preset: string, prompt: string, hasSceneReferences: boolean) {
   return `
 Create an ultra-realistic, photographic, production-ready scene image.
 The image must look indistinguishable from a real photograph, shot with a high-end DSLR camera, perfect studio lighting, physically accurate shadows, and flawless texture rendering.
+
+USER INSTRUCTION PRIORITY:
+The user's creative prompt is the task brief and must be followed precisely. Do not ignore concrete edit instructions.
+If the user asks to replace a specific object, surface, fabric, material, product, clothing item, furniture part, wall, floor, packaging, or prop with the provided hero material/product, do exactly that replacement.
+If the user asks to keep the original background, original room, original set, original environment, or original scene, preserve that scene identity and only change the requested object/material plus any camera angle/framing requested.
+If the user asks to change only camera angle, then keep the same world, same background design, same lighting mood, same styling direction, and same visual identity while adjusting perspective naturally.
+If the user gives lighting, shadow, mood, color, lens, angle, scale, placement, or integration instructions, treat them as mandatory production requirements.
 
 ABSOLUTE CRITICAL REQUIREMENT: The provided reference image is the HERO MATERIAL OR HERO PRODUCT. You MUST preserve 100% of its identity exactly as shown in the input. Do not redesign it, clean it up, simplify it, stylize it, improve it, or reinterpret it.
 
@@ -190,6 +202,23 @@ You are NOT allowed to change:
 
 The material or product must remain unmistakably the exact same source item from the input image, only re-shot inside a new scene.
 
+${
+  hasSceneReferences
+    ? `SCENE / BACKGROUND REFERENCE RULES:
+The additional scene reference image(s) are the scene/background/source environment reference.
+Use them according to the user's prompt:
+- If the user says to use the original/same background, preserve the background identity, room architecture, surface layout, props, lighting mood, and styling as much as possible.
+- If the user says to change only the camera angle, keep the same scene world and redesign nothing unnecessary; only reinterpret perspective/framing like a real reshoot.
+- If the user asks to replace a specific object in the scene with the hero material/product, composite the hero material/product into that exact role while preserving realistic scale, perspective, occlusion, contact shadows, reflections, and light direction.
+- If the user does not request preserving the exact scene, use the scene reference as guidance for environment type, architecture, surface, props density, lighting direction, camera height, lens feel, mood, color atmosphere, composition rhythm, and styling level.
+
+Do not copy unrelated products, logos, people, text, or objects from the scene reference unless the user's prompt explicitly asks for them or they are part of a background the user asked to preserve.
+Do not let the scene reference alter the hero material/product identity.
+If there is any conflict between the hero material/product image and the scene reference, the hero material/product image wins.
+Integrate the hero material/product naturally into the referenced scene style with believable perspective, scale, contact shadows, reflections, and lighting match.`
+    : `No separate scene reference was provided. Build the environment from the user's creative prompt while keeping the hero material/product exact.`
+}
+
 Material/Product Characteristics to feature:
 ${materialDescription}
 
@@ -198,6 +227,14 @@ ${PRESET_STYLES[preset] || PRESET_STYLES["Ad Creative"]}
 
 Creative Prompt (camera angle, mood, lighting, color tone):
 ${prompt}
+
+PHOTOREAL COMPOSITING REQUIREMENTS:
+- The final image must never look edited, pasted, masked, collaged, or AI-generated.
+- Match light direction, light softness, color temperature, exposure, contrast, grain/noise, depth of field, and lens perspective across the entire image.
+- Create physically plausible contact shadows, cast shadows, ambient occlusion, reflections, and edge blending where the hero material/product touches or interacts with the scene.
+- Match scale and perspective so the replacement object/material sits naturally in the scene.
+- Preserve realistic texture detail; no over-smoothing, plastic sheen, fake CGI finish, or floating edges.
+- If the prompt asks to use the same background, preserve background continuity and only alter what the user requested.
 
 NEGATIVE CONSTRAINTS:
 No AI artifacts, no plastic or over-smoothed textures, no distorted geometry, no unrealistic lighting, no cartoonish or painterly elements, no watermarks, no floating objects, no unnatural shadows, no chromatic aberration. Do not change the material texture, color, pattern, structure, detail placement, branding, or product-specific features.
@@ -262,6 +299,9 @@ export async function POST(request: Request) {
 
     const referenceImageBase64 = typeof body.reference_image_base64 === "string" ? body.reference_image_base64.trim() : ""
     const referenceImageUrl = typeof body.reference_image_url === "string" ? body.reference_image_url.trim() : ""
+    const sceneReferenceImageUrls: string[] = Array.isArray(body.scene_reference_image_urls)
+      ? body.scene_reference_image_urls.filter((url: unknown): url is string => typeof url === "string" && Boolean(url.trim()))
+      : []
     const requestedMimeType = typeof body.mime_type === "string" ? body.mime_type.trim() : "image/png"
     const preset = typeof body.preset === "string" ? body.preset : "Ad Creative"
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
@@ -282,10 +322,13 @@ export async function POST(request: Request) {
     const { base64: referenceBase64, mimeType } = referenceImageUrl
       ? await fetchImageAsBase64(referenceImageUrl, requestedMimeType)
       : { base64: referenceImageBase64, mimeType: requestedMimeType }
+    const sceneReferences = await Promise.all(
+      sceneReferenceImageUrls.slice(0, 3).map((imageUrl) => fetchImageAsBase64(imageUrl.trim())),
+    )
 
     const materialDescription = await analyzeMaterial(referenceBase64, mimeType)
     const aspectRatio = ASPECT_RATIO_MAP[aspectRatioInput] || aspectRatioInput
-    const generationPrompt = buildGenerationPrompt(materialDescription, preset, prompt)
+    const generationPrompt = buildGenerationPrompt(materialDescription, preset, prompt, sceneReferences.length > 0)
 
     const payloads = await Promise.all(
       Array.from({ length: 4 }).map(() =>
@@ -297,11 +340,26 @@ export async function POST(request: Request) {
                   text: generationPrompt,
                 },
                 {
+                  text:
+                    "HERO MATERIAL / HERO PRODUCT IMAGE. Preserve this exact object/material identity, texture, color, construction, logo/detail placement, and all distinctive product features.",
+                },
+                {
                   inlineData: {
                     data: referenceBase64,
                     mimeType,
                   },
                 },
+                ...sceneReferences.flatMap((sceneReference, index) => [
+                  {
+                    text: `SCENE / BACKGROUND REFERENCE ${index + 1}. Use only for environment, lighting, perspective, mood, and background styling. Do not copy unrelated objects or alter the hero material/product.`,
+                  },
+                  {
+                    inlineData: {
+                      data: sceneReference.base64,
+                      mimeType: sceneReference.mimeType,
+                    },
+                  },
+                ]),
               ],
             },
           ],
@@ -333,6 +391,7 @@ export async function POST(request: Request) {
       success: true,
       images,
       material_description: materialDescription,
+      scene_reference_count: sceneReferences.length,
       aspect_ratio: aspectRatio,
       image_size: imageSize,
       preset,
