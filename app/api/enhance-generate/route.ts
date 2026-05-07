@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 480
+export const maxDuration = 600
 
 const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
 const OPENAI_IMAGE_MODEL = "gpt-image-2"
