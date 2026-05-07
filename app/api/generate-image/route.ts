@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       topic_description,
       content_pillar,
       copywriting,
+      selected_visual_route,
       color_palette,
       material_image_urls,
       ad_style,
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     console.log('[generate-image] Core Concept:', core_concept);
     console.log('[generate-image] Topic Title:', topic_title);
     console.log('[generate-image] Ad Style:', ad_style);
+    console.log('[generate-image] Selected Visual Route:', selected_visual_route?.route_name || 'none');
     if (reference_image_url) {
       console.log('[generate-image] Using reference image:', reference_image_url);
     }
@@ -71,6 +73,8 @@ export async function POST(request: Request) {
         topic_description: topic_description || "",
         content_pillar: content_pillar || "",
         copywriting: copywriting || null,
+        selected_visual_route: selected_visual_route || null,
+        selectedVisualRoute: selected_visual_route || null,
         color_palette: color_palette || [],
         material_image_urls: material_image_urls || [],
         ad_style: ad_style || "",

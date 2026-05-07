@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useState, useEffect, Suspense, memo, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect, Suspense, memo, useCallback, useMemo, useRef, type MouseEvent } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,8 @@ import {
 // Optimize imports - only import what we need
 import {
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Plus,
   User,
   Bookmark,
@@ -55,10 +57,18 @@ import { SessionHistory } from "@/components/session-history"
 import { SavedIdeas } from "@/components/saved-ideas"
 import { AITypingAnimation } from "@/components/ai-typing-animation"
 import { LoadingPopup } from "@/components/loading-popup"
+import { cn } from "@/lib/utils"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { sessionManager } from "@/lib/session-manager"
 
 // Types for ideas
+export type VisualRoute = {
+  route_name: string;
+  route_type: string;
+  visual_idea: string;
+  why_it_fits: string;
+}
+
 export interface IdeaRecommendation {
   title: string;
   description: {
@@ -79,6 +89,7 @@ export interface IdeaRecommendation {
   content_pillar: string;
   product_focus: string;
   concept_idea: string;
+  visual_routes?: VisualRoute[];
   copywriting: {
     headline: string;
     sub_headline_1: string;
@@ -90,12 +101,30 @@ export interface IdeaRecommendation {
 
 const normalizeIdea = (idea: any): IdeaRecommendation => {
   const conceptType = idea?.concept_type || idea?.impact || 'Proven Concept';
+  const visualRoutes = Array.isArray(idea?.visual_routes)
+    ? idea.visual_routes
+        .filter((route: any) => route && typeof route === 'object')
+        .map((route: any) => ({
+          route_name: String(route.route_name || '').trim(),
+          route_type: String(route.route_type || '').trim(),
+          visual_idea: String(route.visual_idea || '').trim(),
+          why_it_fits: String(route.why_it_fits || '').trim(),
+        }))
+        .filter((route: any) => route.route_name || route.visual_idea)
+    : [];
+
   return {
     ...idea,
     concept_type: conceptType,
     impact: conceptType,
+    visual_routes: visualRoutes,
   } as IdeaRecommendation;
 };
+
+const VISUAL_ROUTES_BY_IDEA_STORAGE_KEY = "cvc_visual_routes_by_idea"
+
+const getIdeaSelectionKey = (idea: Pick<IdeaRecommendation, "title" | "concept_idea">) =>
+  (idea.title || idea.concept_idea || "").trim()
 
 type ClientWithProductFocus = {
   id: string
@@ -107,7 +136,15 @@ type ClientWithProductFocus = {
 }
 
 // Memoized IdeaCard component for better performance
-const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFeedback, onShare }: {
+const IdeaCard = memo(({
+  topic,
+  index,
+  isSaved,
+  onDetailClick,
+  onSaveClick,
+  onFeedback,
+  onShare,
+}: {
   topic: IdeaRecommendation;
   index: number;
   isSaved: boolean;
@@ -116,6 +153,16 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
   onFeedback: (topic: IdeaRecommendation, type: 'good' | 'bad') => void;
   onShare: (topic: IdeaRecommendation, index: number) => void;
 }) => {
+  const visualRoutes = topic.visual_routes || []
+  const [activeRouteIndex, setActiveRouteIndex] = useState(0)
+  const activeRoute = visualRoutes[activeRouteIndex]
+
+  const goToRoute = (event: MouseEvent, direction: -1 | 1) => {
+    event.stopPropagation()
+    if (visualRoutes.length <= 1) return
+    setActiveRouteIndex((prev) => (prev + direction + visualRoutes.length) % visualRoutes.length)
+  }
+
   return (
     <Card className="bg-white border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
         {/* Concept Type Badge */}
@@ -208,6 +255,84 @@ const IdeaCard = memo(({ topic, index, isSaved, onDetailClick, onSaveClick, onFe
               </span>
               {topic.concept_idea}
             </p>
+          )}
+          {activeRoute && (
+            <div className="mt-4 rounded-xl border border-[#e4e7ec] bg-[#fbfcfe] p-3 transition-all">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#667085]">
+                    Visual route preview
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 rounded-full p-0 text-[#667085] hover:bg-white hover:text-[#0f172a]"
+                    onClick={(event) => goToRoute(event, -1)}
+                    disabled={visualRoutes.length <= 1}
+                    aria-label="Previous visual route"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <Badge variant="outline" className="border-[#e4e7ec] bg-white text-[10px] text-[#667085]">
+                    {activeRouteIndex + 1} / {visualRoutes.length}
+                  </Badge>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 w-7 rounded-full p-0 text-[#667085] hover:bg-white hover:text-[#0f172a]"
+                    onClick={(event) => goToRoute(event, 1)}
+                    disabled={visualRoutes.length <= 1}
+                    aria-label="Next visual route"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="min-h-[142px] rounded-lg bg-white px-3 py-3 shadow-[inset_0_0_0_1px_rgba(228,231,236,0.85)]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-[#0f172a]">{activeRoute.route_name}</p>
+                  {activeRoute.route_type && (
+                    <span className="rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[10px] font-medium text-[#475467]">
+                      {activeRoute.route_type}
+                    </span>
+                  )}
+                </div>
+                {activeRoute.visual_idea && (
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#475569]">{activeRoute.visual_idea}</p>
+                )}
+                {activeRoute.why_it_fits && (
+                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#64748b]">
+                    <span className="font-semibold text-[#1d4ed8]">Why:</span> {activeRoute.why_it_fits}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="flex gap-1">
+                    {visualRoutes.map((_, dotIndex) => (
+                      <button
+                        key={dotIndex}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setActiveRouteIndex(dotIndex)
+                        }}
+                        className={cn(
+                          "h-1.5 rounded-full transition-all",
+                          activeRouteIndex === dotIndex ? "w-5 bg-[#0f172a]" : "w-1.5 bg-[#d0d5dd]",
+                        )}
+                        aria-label={`Show visual route ${dotIndex + 1}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#98a2b3]">
+                    เลือกตอนเจนรูป
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -448,6 +573,22 @@ function MainContent() {
     { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
     { id: "gpt-4o", name: "GPT-4o" }
   ]
+
+  useEffect(() => {
+    const routeMap = topics.reduce<Record<string, VisualRoute[]>>((acc, topic) => {
+      const key = getIdeaSelectionKey(topic)
+      if (key && topic.visual_routes?.length) {
+        acc[key] = topic.visual_routes
+      }
+      return acc
+    }, {})
+
+    try {
+      window.sessionStorage.setItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY, JSON.stringify(routeMap))
+    } catch (error) {
+      console.error("[visual-routes] Failed to persist visual routes:", error)
+    }
+  }, [topics])
   
   const briefTemplates = [
     {
@@ -2283,7 +2424,6 @@ function MainContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 will-change-transform">
                   {topics.map((topic, index) => {
                     const isSaved = savedTitles.includes(topic.title)
-                    
                     return (
                       <div
                         key={`${topic.title}-${index}`}

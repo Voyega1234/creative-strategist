@@ -51,6 +51,7 @@ import {
   getTopicPreviewText,
   type ParsedCustomIdea,
 } from "@/lib/custom-idea-parser"
+import type { VisualRoute } from "@/app/page"
 
 const ASPECT_RATIO_OPTIONS = [
   "1:1",
@@ -152,6 +153,7 @@ interface GeneratedImage {
 const GENERATED_IMAGES_STORAGE_PREFIX = "cvc_generated_images"
 const GENERATED_IMAGES_STORAGE_TTL = 30 * 24 * 60 * 60 * 1000
 const MAX_STORED_GENERATED_IMAGES = 60
+const VISUAL_ROUTES_BY_IDEA_STORAGE_KEY = "cvc_visual_routes_by_idea"
 
 interface ClientOption {
   id: string
@@ -236,6 +238,7 @@ interface SavedTopic {
   content_pillar: string
   product_focus: string
   concept_idea: string
+  visual_routes?: VisualRoute[]
   copywriting: {
     headline: string
     sub_headline_1: string
@@ -246,6 +249,10 @@ interface SavedTopic {
   id?: string
   clientname?: string
   productfocus?: string
+}
+
+function getTopicSelectionKey(topic: Pick<SavedTopic, "title" | "concept_idea">) {
+  return (topic.title || topic.concept_idea || "").trim()
 }
 
 interface AIImageGeneratorProps {
@@ -275,6 +282,8 @@ export function AIImageGenerator({
   // Strategic insights and topics
   const [savedTopics, setSavedTopics] = useState<SavedTopic[]>([])
   const [selectedTopic, setSelectedTopic] = useState<string>('')
+  const [visualRoutesByIdea, setVisualRoutesByIdea] = useState<Record<string, VisualRoute[]>>({})
+  const [selectedVisualRouteIndex, setSelectedVisualRouteIndex] = useState<number | null>(null)
   const [customIdeaInput, setCustomIdeaInput] = useState("")
   const [isCustomIdeaDialogOpen, setIsCustomIdeaDialogOpen] = useState(false)
   const [isParsingCustomIdea, setIsParsingCustomIdea] = useState(false)
@@ -329,6 +338,16 @@ export function AIImageGenerator({
     () => savedTopics.find((topic) => topic.title === selectedTopic) || null,
     [savedTopics, selectedTopic],
   )
+  const availableVisualRoutes = useMemo(() => {
+    if (!selectedTopicData) return null
+    const key = getTopicSelectionKey(selectedTopicData)
+    const routes = selectedTopicData.visual_routes?.length ? selectedTopicData.visual_routes : visualRoutesByIdea[key] || []
+    return routes.length ? routes : null
+  }, [selectedTopicData, visualRoutesByIdea])
+  const selectedVisualRoute = useMemo(() => {
+    if (!availableVisualRoutes || selectedVisualRouteIndex === null) return null
+    return availableVisualRoutes[selectedVisualRouteIndex] || null
+  }, [availableVisualRoutes, selectedVisualRouteIndex])
   const selectedPreviewImageData = useMemo(
     () => generatedImages.find((image) => image.url === selectedImageForPreview) || null,
     [generatedImages, selectedImageForPreview],
@@ -360,6 +379,21 @@ export function AIImageGenerator({
       .replace(/[_-]+/g, " ")
       .replace(/\b\w/g, (char) => char.toUpperCase())
   }
+
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY)
+      if (stored) {
+        setVisualRoutesByIdea(JSON.parse(stored))
+      }
+    } catch (error) {
+      console.error("[AI Image Generator] Failed to load visual routes:", error)
+    }
+  }, [])
+
+  useEffect(() => {
+    setSelectedVisualRouteIndex(null)
+  }, [selectedTopic])
 
   useEffect(() => {
     loadClients()
@@ -798,6 +832,7 @@ export function AIImageGenerator({
         topic_description: selectedTopicData?.description || prompt.trim(),
         content_pillar: selectedTopicData?.content_pillar || '',
         copywriting: selectedTopicData?.copywriting || null,
+        selected_visual_route: selectedVisualRoute,
         color_palette: colorPalette,
         material_image_urls: selectedMaterials,
         ad_style: selectedAdStyleOption?.label || null,
@@ -1918,6 +1953,75 @@ export function AIImageGenerator({
                     </div>
                     <CheckCircle className="h-5 w-5 flex-shrink-0 text-slate-900" />
                   </div>
+                  {availableVisualRoutes && availableVisualRoutes.length > 0 && (
+                    <div className="mt-5 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)]">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Visual direction
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            เลือกภาพทางหลักที่จะให้ AI ใช้ตอนเจนรูป หรือปล่อยว่างไว้ถ้าต้องการ freestyle
+                          </p>
+                        </div>
+                        {selectedVisualRoute !== null && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 rounded-full px-3 text-xs text-slate-500 hover:bg-slate-100"
+                            onClick={() => setSelectedVisualRouteIndex(null)}
+                          >
+                            Clear route
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                        {availableVisualRoutes.map((route, routeIndex) => {
+                          const isSelected = selectedVisualRouteIndex === routeIndex
+                          return (
+                            <button
+                              key={`${route.route_name}-${routeIndex}`}
+                              type="button"
+                              onClick={() => setSelectedVisualRouteIndex(routeIndex)}
+                              className={cn(
+                                "min-h-[172px] rounded-[20px] border p-4 text-left transition-all",
+                                isSelected
+                                  ? "border-slate-950 bg-slate-950 text-white shadow-[0_16px_30px_rgba(15,23,42,0.16)]"
+                                  : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_14px_28px_rgba(15,23,42,0.06)]",
+                              )}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                {route.route_type && (
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-2 py-0.5 text-[10px] font-medium",
+                                      isSelected ? "bg-white/15 text-white" : "bg-slate-100 text-slate-600",
+                                    )}
+                                  >
+                                    {route.route_type}
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-slate-950">
+                                    Selected
+                                  </span>
+                                )}
+                              </div>
+                              <h6 className={cn("mt-3 text-base font-semibold", isSelected ? "text-white" : "text-slate-950")}>
+                                {route.route_name}
+                              </h6>
+                              {route.visual_idea && (
+                                <p className={cn("mt-2 line-clamp-3 text-sm leading-6", isSelected ? "text-slate-200" : "text-slate-600")}>
+                                  {route.visual_idea}
+                                </p>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

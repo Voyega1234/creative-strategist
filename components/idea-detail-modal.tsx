@@ -97,6 +97,7 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
         content_pillar: idea.content_pillar,
         product_focus: idea.product_focus,
         concept_idea: idea.concept_idea,
+        visual_routes: idea.visual_routes,
         copywriting: idea.copywriting
       }
 
@@ -214,6 +215,36 @@ export function IdeaDetailModal({ isOpen, onClose, idea, clientName, productFocu
                   <div className="text-sm">
                     <h5 className="inline-block font-medium text-sm mr-2 text-muted-foreground">Concept Idea:</h5>
                     <span>{idea.concept_idea}</span>
+                  </div>
+                )}
+
+                {idea.visual_routes && idea.visual_routes.length > 0 && (
+                  <div className="mt-3 space-y-3 rounded-md border border-blue-100 bg-blue-50/40 p-3">
+                    <h5 className="font-medium text-sm text-[#1d4ed8]">Visual Routes</h5>
+                    <div className="space-y-2">
+                      {idea.visual_routes.map((route, routeIndex) => (
+                        <div key={`${route.route_name}-${routeIndex}`} className="rounded-md border border-blue-100 bg-white p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-[#0f172a]">{route.route_name}</p>
+                            {route.route_type && (
+                              <Badge variant="outline" className="border-blue-200 bg-blue-50 text-xs text-[#1d4ed8]">
+                                {route.route_type}
+                              </Badge>
+                            )}
+                          </div>
+                          {route.visual_idea && (
+                            <p className="mt-2 text-sm text-gray-700 leading-relaxed">
+                              <strong className="text-muted-foreground">Visual Idea:</strong> {route.visual_idea}
+                            </p>
+                          )}
+                          {route.why_it_fits && (
+                            <p className="mt-1 text-sm text-gray-700 leading-relaxed">
+                              <strong className="text-muted-foreground">Why it fits:</strong> {route.why_it_fits}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
