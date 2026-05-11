@@ -30,6 +30,7 @@ const DEFAULT_PRESET: Preset = "Ad Creative"
 const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "9:16", "16:9", "21:9"]
 const IMAGE_SIZES: ImageSize[] = ["1K", "2K", "4K"]
 const MAX_SCENE_REFERENCES = 3
+const DEFAULT_GENERATED_SCENE_COUNT = 2
 
 type SceneReference = {
   file: File
@@ -138,6 +139,8 @@ export function MaterialToScenePanel() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const sceneInputRef = useRef<HTMLInputElement | null>(null)
   const sceneReferencesRef = useRef<SceneReference[]>([])
+  const generationInFlightRef = useRef(false)
+  const removeBackgroundInFlightRef = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -209,6 +212,8 @@ export function MaterialToScenePanel() {
   }
 
   const handleGenerate = async () => {
+    if (generationInFlightRef.current) return
+
     if (!file) {
       alert("กรุณาอัปโหลด material photo ก่อน")
       return
@@ -219,6 +224,7 @@ export function MaterialToScenePanel() {
       return
     }
 
+    generationInFlightRef.current = true
     setIsGenerating(true)
     setError(null)
 
@@ -252,7 +258,7 @@ export function MaterialToScenePanel() {
 
       const urls = Array.isArray(result.images)
         ? result.images
-            .map((image: { data_url?: string }) => image.data_url)
+            .map((image: { data_url?: string; url?: string }) => image.url || image.data_url)
             .filter((value: string | undefined): value is string => Boolean(value))
         : []
 
@@ -268,13 +274,16 @@ export function MaterialToScenePanel() {
       setError(message)
       alert(message)
     } finally {
+      generationInFlightRef.current = false
       setIsGenerating(false)
     }
   }
 
   const handleRemoveBackground = async () => {
+    if (removeBackgroundInFlightRef.current) return
     if (!currentImageUrl) return
 
+    removeBackgroundInFlightRef.current = true
     setIsRemovingBg(true)
     setError(null)
 
@@ -308,6 +317,7 @@ export function MaterialToScenePanel() {
       setError(message)
       alert(message)
     } finally {
+      removeBackgroundInFlightRef.current = false
       setIsRemovingBg(false)
     }
   }
@@ -366,7 +376,7 @@ export function MaterialToScenePanel() {
                 </div>
                 <div className="rounded-[24px] bg-slate-50 px-4 py-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 3</p>
-                  <p className="mt-2 text-base font-medium text-slate-900">Generate 4 scenes</p>
+                  <p className="mt-2 text-base font-medium text-slate-900">Generate 2 scenes</p>
                   <p className="mt-1 text-sm leading-6 text-slate-500">เลือกภาพที่ดีที่สุดแล้วค่อย download</p>
                 </div>
               </div>
@@ -598,19 +608,19 @@ export function MaterialToScenePanel() {
                   {isGenerating ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating 4 scenes...
+                      Generating {DEFAULT_GENERATED_SCENE_COUNT} scenes...
                     </>
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Generate 4 scenes
+                      Generate {DEFAULT_GENERATED_SCENE_COUNT} scenes
                     </>
                   )}
                 </Button>
                 <p className="text-xs leading-5 text-slate-500">
                   {!canGenerate
                     ? "ต้องมี material photo และ scene brief ก่อนจึงจะ generate ได้"
-                    : "พร้อมสร้างแล้ว ระบบจะ generate scene ใหม่ 4 ภาพ"}
+                    : `พร้อมสร้างแล้ว ระบบจะ generate scene ใหม่ ${DEFAULT_GENERATED_SCENE_COUNT} ภาพ`}
                 </p>
               </div>
             </Card>
@@ -699,7 +709,7 @@ export function MaterialToScenePanel() {
                         <div className="flex h-full items-center justify-center">
                           <div className="flex flex-col items-center text-slate-500">
                             <Loader2 className="h-8 w-8 animate-spin" />
-                            <p className="mt-3 text-sm">Generating 4 new scenes...</p>
+                            <p className="mt-3 text-sm">Generating {DEFAULT_GENERATED_SCENE_COUNT} new scenes...</p>
                           </div>
                         </div>
                       ) : isRemovingBg ? (
@@ -722,7 +732,7 @@ export function MaterialToScenePanel() {
                     ) : null}
                   </button>
 
-                  <div className="grid grid-cols-2 gap-2 lg:h-full lg:grid-cols-1 lg:grid-rows-4">
+                  <div className="grid grid-cols-2 gap-2 lg:h-full lg:grid-cols-1 lg:grid-rows-2">
                     {generatedImageUrls.map((url, index) => (
                       <div
                         key={`${url}-${index}`}

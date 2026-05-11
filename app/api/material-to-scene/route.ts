@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { createHash } from "node:crypto"
+import { getSupabase } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
@@ -6,6 +8,13 @@ export const maxDuration = 180
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
 const IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+const STORAGE_BUCKET = "ads-creative-image"
+const GENERATED_IMAGE_COUNT = 2
+const ANALYSIS_CACHE_PREFIX = "generated/material-to-scene-analysis-cache"
+const OUTPUT_PREFIX = "generated/material-to-scene-outputs"
+const ANALYSIS_CACHE_VERSION = "v1"
+const ANALYSIS_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30
+const analysisMemoryCache = new Map<string, { description: string; createdAt: number }>()
 
 const PRESET_STYLES: Record<string, string> = {
   "Ad Creative":
@@ -33,6 +42,120 @@ type GeminiInlineImage = {
 type FetchedImage = {
   base64: string
   mimeType: string
+}
+
+type StoredGeneratedImage = {
+  data_url: string
+  url?: string
+  storage_path?: string
+}
+
+function getImageExtension(mimeType: string) {
+  if (mimeType.includes("jpeg") || mimeType.includes("jpg")) return "jpg"
+  if (mimeType.includes("webp")) return "webp"
+  return "png"
+}
+
+function getMaterialCacheKey(base64: string, mimeType: string) {
+  return createHash("sha256").update(`${ANALYSIS_CACHE_VERSION}:${mimeType}:${base64}`).digest("hex")
+}
+
+async function getStoredMaterialAnalysis(cacheKey: string) {
+  const memoryEntry = analysisMemoryCache.get(cacheKey)
+  if (memoryEntry && Date.now() - memoryEntry.createdAt < ANALYSIS_CACHE_TTL_MS) {
+    return memoryEntry.description
+  }
+
+  try {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .download(`${ANALYSIS_CACHE_PREFIX}/${cacheKey}.json`)
+
+    if (error || !data) return null
+
+    const payload = JSON.parse(await data.text()) as { description?: string; createdAt?: number; version?: string }
+    if (
+      payload.version !== ANALYSIS_CACHE_VERSION ||
+      !payload.description ||
+      !payload.createdAt ||
+      Date.now() - payload.createdAt > ANALYSIS_CACHE_TTL_MS
+    ) {
+      return null
+    }
+
+    analysisMemoryCache.set(cacheKey, { description: payload.description, createdAt: payload.createdAt })
+    return payload.description
+  } catch (error) {
+    console.warn("[material-to-scene] Failed to read material analysis cache:", error)
+    return null
+  }
+}
+
+async function saveStoredMaterialAnalysis(cacheKey: string, description: string) {
+  const createdAt = Date.now()
+  analysisMemoryCache.set(cacheKey, { description, createdAt })
+
+  try {
+    const supabase = getSupabase()
+    const payload = JSON.stringify({
+      version: ANALYSIS_CACHE_VERSION,
+      createdAt,
+      description,
+    })
+    const { error } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(`${ANALYSIS_CACHE_PREFIX}/${cacheKey}.json`, payload, {
+        contentType: "application/json",
+        upsert: true,
+      })
+
+    if (error) {
+      console.warn("[material-to-scene] Failed to persist material analysis cache:", error.message)
+    }
+  } catch (error) {
+    console.warn("[material-to-scene] Failed to persist material analysis cache:", error)
+  }
+}
+
+async function getOrAnalyzeMaterial(referenceImageBase64: string, mimeType: string) {
+  const cacheKey = getMaterialCacheKey(referenceImageBase64, mimeType)
+  const cachedDescription = await getStoredMaterialAnalysis(cacheKey)
+
+  if (cachedDescription) {
+    return { description: cachedDescription, cacheHit: true }
+  }
+
+  const description = await analyzeMaterial(referenceImageBase64, mimeType)
+  await saveStoredMaterialAnalysis(cacheKey, description)
+  return { description, cacheHit: false }
+}
+
+async function saveGeneratedImageToStorage(image: GeminiInlineImage, metadata: Record<string, unknown>) {
+  const mimeType = image.mimeType || "image/png"
+  const extension = getImageExtension(mimeType)
+  const path = `${OUTPUT_PREFIX}/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 9)}.${extension}`
+
+  try {
+    const supabase = getSupabase()
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, Buffer.from(image.data, "base64"), {
+      contentType: mimeType,
+      metadata: Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)])),
+    })
+
+    if (error) {
+      console.warn("[material-to-scene] Failed to save generated image:", error.message)
+      return null
+    }
+
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
+    return { url: data.publicUrl, storage_path: path }
+  } catch (error) {
+    console.warn("[material-to-scene] Failed to save generated image:", error)
+    return null
+  }
 }
 
 async function fetchImageAsBase64(url: string, fallbackMimeType = "image/png"): Promise<FetchedImage> {
@@ -326,12 +449,15 @@ export async function POST(request: Request) {
       sceneReferenceImageUrls.slice(0, 3).map((imageUrl) => fetchImageAsBase64(imageUrl.trim())),
     )
 
-    const materialDescription = await analyzeMaterial(referenceBase64, mimeType)
+    const { description: materialDescription, cacheHit: materialAnalysisCacheHit } = await getOrAnalyzeMaterial(
+      referenceBase64,
+      mimeType,
+    )
     const aspectRatio = ASPECT_RATIO_MAP[aspectRatioInput] || aspectRatioInput
     const generationPrompt = buildGenerationPrompt(materialDescription, preset, prompt, sceneReferences.length > 0)
 
     const payloads = await Promise.all(
-      Array.from({ length: 4 }).map(() =>
+      Array.from({ length: GENERATED_IMAGE_COUNT }).map(() =>
         callGemini({
           contents: [
             {
@@ -374,10 +500,24 @@ export async function POST(request: Request) {
       ),
     )
 
-    const images = payloads.flatMap((payload) =>
-      getGeminiImages(payload).map((image) => ({
-        data_url: `data:${image.mimeType || "image/png"};base64,${image.data}`,
-      })),
+    const generatedImages = payloads.flatMap((payload) => getGeminiImages(payload))
+    const images = await Promise.all(
+      generatedImages.map(async (image, index): Promise<StoredGeneratedImage> => {
+        const dataUrl = `data:${image.mimeType || "image/png"};base64,${image.data}`
+        const storedImage = await saveGeneratedImageToStorage(image, {
+          source: "material-to-scene",
+          model: IMAGE_MODEL,
+          index: index + 1,
+          aspect_ratio: aspectRatio,
+          image_size: imageSize,
+          preset,
+        })
+
+        return {
+          data_url: dataUrl,
+          ...(storedImage || {}),
+        }
+      }),
     )
 
     if (images.length === 0) {
@@ -391,10 +531,12 @@ export async function POST(request: Request) {
       success: true,
       images,
       material_description: materialDescription,
+      material_analysis_cache_hit: materialAnalysisCacheHit,
       scene_reference_count: sceneReferences.length,
       aspect_ratio: aspectRatio,
       image_size: imageSize,
       preset,
+      saved_output_count: images.filter((image) => Boolean(image.url)).length,
     })
   } catch (error) {
     console.error("[material-to-scene] Unexpected error:", error)

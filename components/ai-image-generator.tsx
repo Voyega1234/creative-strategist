@@ -326,6 +326,7 @@ export function AIImageGenerator({
   const materialInputRef = useRef<HTMLInputElement | null>(null)
   const referenceInputRef = useRef<HTMLInputElement | null>(null)
   const hydratedGalleryKeyRef = useRef<string | null>(null)
+  const generationInFlightRef = useRef(false)
   const currentClient = useMemo(() => {
     if (!selectedClientId) return null
     return clients.find((client) => client.id === selectedClientId) || null
@@ -745,6 +746,8 @@ export function AIImageGenerator({
   }, [selectedClientId, selectedProductFocus])
 
   const generateImage = async () => {
+    if (generationInFlightRef.current) return
+
     if (!selectedClientId || !selectedProductFocus) {
       alert('กรุณาเลือกลูกค้าและ Product Focus')
       return
@@ -755,6 +758,7 @@ export function AIImageGenerator({
       return
     }
 
+    generationInFlightRef.current = true
     setIsGenerating(true)
     
     const selectedClient = currentClient
@@ -942,6 +946,7 @@ export function AIImageGenerator({
       console.error('Error generating AI images:', error)
       alert('เกิดข้อผิดพลาดในการสร้างภาพด้วย AI')
     } finally {
+      generationInFlightRef.current = false
       setIsGenerating(false)
     }
   }

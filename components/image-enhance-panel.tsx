@@ -208,6 +208,9 @@ async function uploadFileToStorage(file: File) {
 
 export function ImageEnhancePanel() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const analyzeInFlightRef = useRef(false)
+  const generateInFlightRef = useRef(false)
+  const removeTextInFlightRef = useRef(false)
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
@@ -271,12 +274,15 @@ export function ImageEnhancePanel() {
   }
 
   const handleAnalyze = async () => {
+    if (analyzeInFlightRef.current) return
+
     if (!file) {
       alert("กรุณาอัปโหลดรูปก่อน")
       return
     }
 
     try {
+      analyzeInFlightRef.current = true
       setIsAnalyzing(true)
       setError(null)
 
@@ -306,11 +312,14 @@ export function ImageEnhancePanel() {
       setError(message)
       alert(message)
     } finally {
+      analyzeInFlightRef.current = false
       setIsAnalyzing(false)
     }
   }
 
   const handleGenerate = async (mode: EnhanceMode) => {
+    if (generateInFlightRef.current) return
+
     if (!critique) {
       alert("กรุณา Run AI Critique ก่อน")
       return
@@ -322,6 +331,7 @@ export function ImageEnhancePanel() {
     }
 
     try {
+      generateInFlightRef.current = true
       setIsGenerating(true)
       setSelectedMode(mode)
       setError(null)
@@ -369,6 +379,7 @@ export function ImageEnhancePanel() {
       setError(message)
       alert(message)
     } finally {
+      generateInFlightRef.current = false
       setIsGenerating(false)
     }
   }
@@ -387,9 +398,11 @@ export function ImageEnhancePanel() {
   }
 
   const handleRemoveText = async () => {
+    if (removeTextInFlightRef.current) return
     if (!generatedResult) return
 
     try {
+      removeTextInFlightRef.current = true
       setIsRemovingText(true)
       setError(null)
 
@@ -426,6 +439,7 @@ export function ImageEnhancePanel() {
       setError(message)
       alert(message)
     } finally {
+      removeTextInFlightRef.current = false
       setIsRemovingText(false)
     }
   }

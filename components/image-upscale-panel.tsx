@@ -79,6 +79,7 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
 
 export function ImageUpscalePanel() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const upscaleInFlightRef = useRef(false)
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
   const [targetSize, setTargetSize] = useState<UpscaleSize>("2K")
   const [isUpscaling, setIsUpscaling] = useState(false)
@@ -189,12 +190,15 @@ export function ImageUpscalePanel() {
   }
 
   const handleUpscale = async () => {
+    if (upscaleInFlightRef.current) return
+
     if (uploadedImages.length === 0) {
       alert("กรุณาอัปโหลดรูปก่อน")
       return
     }
 
     try {
+      upscaleInFlightRef.current = true
       setIsUpscaling(true)
 
       for (let index = 0; index < uploadedImages.length; index += 1) {
@@ -246,6 +250,7 @@ export function ImageUpscalePanel() {
       console.error("Upscale failed:", error)
       alert(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการ upscale ภาพ")
     } finally {
+      upscaleInFlightRef.current = false
       setIsUpscaling(false)
       setActiveBatchIndex(0)
     }
