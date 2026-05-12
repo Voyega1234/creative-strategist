@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ThumbsUp, ThumbsDown, MessageSquare, Send } from "lucide-react"
-import { IdeaRecommendation } from "@/app/page"
+import type { IdeaRecommendation } from "@/lib/ideas/types"
 
 interface FeedbackFormProps {
   isOpen: boolean

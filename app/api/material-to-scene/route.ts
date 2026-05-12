@@ -9,7 +9,7 @@ const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
 const IMAGE_MODEL = "gemini-3.1-flash-image-preview"
 const STORAGE_BUCKET = "ads-creative-image"
-const GENERATED_IMAGE_COUNT = 2
+const GENERATED_IMAGE_COUNT = 4
 const ANALYSIS_CACHE_PREFIX = "generated/material-to-scene-analysis-cache"
 const OUTPUT_PREFIX = "generated/material-to-scene-outputs"
 const ANALYSIS_CACHE_VERSION = "v1"
@@ -348,8 +348,25 @@ ${materialDescription}
 Use Case Style:
 ${PRESET_STYLES[preset] || PRESET_STYLES["Ad Creative"]}
 
-Creative Prompt (camera angle, mood, lighting, color tone):
-${prompt}
+BRIEF INTERPRETATION RULES:
+The user's brief below may be short, vague, or written casually. Your job is to interpret it like an experienced art director — understand creative intent, not just literal words.
+
+Interpretation scope:
+- Anything the user explicitly stated → follow it exactly, do not reinterpret or upgrade it.
+- Anything the user did NOT mention → fill those gaps with the most contextually appropriate and commercially compelling choices, guided by the material characteristics and use case style above.
+
+How to interpret vague language:
+- Mood or feeling words (e.g. "cozy", "luxury", "fresh", "editorial") → translate into concrete visual decisions: lighting quality, color temperature, props, depth of field, composition style.
+- Context or setting words (e.g. "coffee shop", "outdoor", "minimal studio") → build a believable environment that fits naturally; do not invent unrelated props or elements the user didn't imply.
+- Short or one-line briefs → stay close to the literal meaning, enrich only what is visually necessary to make the scene complete.
+
+Hard limits on interpretation:
+- Do not add objects, colors, or styling that conflict with or contradict the user's brief.
+- Do not "improve" the user's stated direction — if they said dark, keep it dark; if they said simple, keep it simple.
+- Interpretation fills empty space, it does not override stated intent.
+
+Creative Brief from user:
+${prompt}`
 
 PHOTOREAL COMPOSITING REQUIREMENTS:
 - The final image must never look edited, pasted, masked, collaged, or AI-generated.

@@ -8,7 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { getTopicPreviewText } from "@/lib/custom-idea-parser"
 import type { SavedTopic } from "@/lib/images/generated-ads"
 import { cn } from "@/lib/utils"
-import type { VisualRoute } from "@/app/page"
+import type { VisualRoute } from "@/lib/ideas/types"
 
 interface SavedIdeaPanelProps {
   selectedTopicData: SavedTopic | null

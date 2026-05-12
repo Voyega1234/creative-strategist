@@ -19,6 +19,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import { downloadImageFromUrl, downloadImagesFromUrls, uploadDataUrlToImageStorage, uploadFileToImageStorage } from "@/lib/images/client"
 import { cn } from "@/lib/utils"
+import { MaterialToSceneError } from "@/components/material-to-scene/material-to-scene-error"
+import { MaterialToSceneHeader } from "@/components/material-to-scene/material-to-scene-header"
+import { MaterialToSceneSteps } from "@/components/material-to-scene/material-to-scene-steps"
 
 type Preset = "Ad Creative" | "E-commerce Product Shot" | "Interior & Material" | "Social Media Content"
 type AspectRatio = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "9:16" | "16:9" | "21:9"
@@ -29,7 +32,7 @@ const DEFAULT_IMAGE_SIZE: ImageSize = "1K"
 
 const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "9:16", "16:9", "21:9"]
 const MAX_SCENE_REFERENCES = 3
-const DEFAULT_GENERATED_SCENE_COUNT = 2
+const DEFAULT_GENERATED_SCENE_COUNT = 4
 
 type SceneReference = {
   file: File
@@ -251,52 +254,15 @@ export function MaterialToScenePanel() {
 
   return (
     <div className="space-y-8">
-      <Card className="rounded-[32px] border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(248,250,252,0.94)_100%)] p-7 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Material To Scene</p>
-            <h2 className="mt-3 text-[32px] font-semibold tracking-[-0.03em] text-slate-950">Turn material photos into full scenes</h2>
-            <p className="mt-3 text-base leading-7 text-slate-600">
-              อัปโหลด material หรือ product photo, เขียนบรีฟ scene ที่ต้องการ แล้วระบบจะสร้างภาพใหม่โดยพยายามรักษา texture,
-              color และ surface ของ material เดิมให้มากที่สุด
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-            <div>
-              <span className="text-slate-400">Aspect</span>
-              <span className="ml-2 text-slate-700">{aspectRatio}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
+      <MaterialToSceneHeader aspectRatio={aspectRatio} />
 
-      {error && (
-        <Card className="rounded-[24px] border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
-          {error}
-        </Card>
-      )}
+      <MaterialToSceneError message={error} />
 
       {!hasOutput ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
           <Card className="rounded-[32px] border-slate-200/80 bg-white p-7 shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
             <div className="space-y-8">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-[24px] bg-slate-50 px-4 py-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 1</p>
-                  <p className="mt-2 text-base font-medium text-slate-900">Upload material</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">ใช้รูปที่ texture หรือผิววัสดุชัดเจน</p>
-                </div>
-                <div className="rounded-[24px] bg-slate-50 px-4 py-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 2</p>
-                  <p className="mt-2 text-base font-medium text-slate-900">Write scene brief</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">บอก mood, angle, space และ use case</p>
-                </div>
-                <div className="rounded-[24px] bg-slate-50 px-4 py-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 3</p>
-                  <p className="mt-2 text-base font-medium text-slate-900">Generate 2 scenes</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">เลือกภาพที่ดีที่สุดแล้วค่อย download</p>
-                </div>
-              </div>
+              <MaterialToSceneSteps />
 
               <input
                 ref={fileInputRef}

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import { IdeaRecommendation } from "@/app/page"
+import type { IdeaRecommendation } from "@/lib/ideas/types"
 
 // Utility function to normalize description to consistent format
 const normalizeDescription = (description: any): {summary: string; sections: Array<{group: string; bullets: string[]}>} => {

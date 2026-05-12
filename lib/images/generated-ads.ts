@@ -1,4 +1,4 @@
-import type { VisualRoute } from "@/app/page"
+import type { VisualRoute } from "@/lib/ideas/types"
 
 export interface ReferenceImage {
   name: string

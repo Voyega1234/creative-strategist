@@ -10,9 +10,8 @@ import {
   type ParsedCustomIdea,
 } from "@/lib/custom-idea-parser"
 import { getTopicSelectionKey, type SavedTopic } from "@/lib/images/generated-ads"
-import type { VisualRoute } from "@/app/page"
-
-const VISUAL_ROUTES_BY_IDEA_STORAGE_KEY = "cvc_visual_routes_by_idea"
+import { VISUAL_ROUTES_BY_IDEA_STORAGE_KEY } from "@/lib/ideas/idea-storage"
+import type { VisualRoute } from "@/lib/ideas/types"
 
 type EditableIdeaType = NonNullable<ComponentProps<typeof EditableSavedIdeaModal>["idea"]>
 

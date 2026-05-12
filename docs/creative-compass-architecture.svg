@@ -1,0 +1,114 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2 L12 7 L2 12 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2 L12 7 L2 12 Z" fill="#059669"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2 L12 7 L2 12 Z" fill="#d97706"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 44px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 20px Arial, sans-serif; fill: #475569; }
+      .card { fill: #ffffff; stroke: #dbe3ef; stroke-width: 1.5; filter: url(#shadow); }
+      .blue { fill: #eff6ff; stroke: #bfdbfe; stroke-width: 1.5; }
+      .amber { fill: #fffbeb; stroke: #fde68a; stroke-width: 1.5; }
+      .green { fill: #ecfdf5; stroke: #a7f3d0; stroke-width: 1.5; }
+      .rose { fill: #fff1f2; stroke: #fecdd3; stroke-width: 1.5; }
+      .slate { fill: #f1f5f9; stroke: #cbd5e1; stroke-width: 1.5; }
+      .orange { fill: #fff7ed; stroke: #fed7aa; stroke-width: 1.5; }
+      .phase { font: 700 14px Arial, sans-serif; fill: #2563eb; letter-spacing: 0.08em; }
+      .label { font: 700 23px Arial, sans-serif; fill: #0f172a; }
+      .small { font: 400 16px Arial, sans-serif; fill: #475569; }
+      .tiny { font: 400 14px Arial, sans-serif; fill: #64748b; }
+      .pill { font: 700 14px Arial, sans-serif; fill: #334155; }
+      .arrow { stroke: #2563eb; stroke-width: 4; marker-end: url(#arrowBlue); }
+      .arrowGreen { stroke: #059669; stroke-width: 4; marker-end: url(#arrowGreen); }
+      .arrowOrange { stroke: #d97706; stroke-width: 3.5; stroke-dasharray: 8 7; marker-end: url(#arrowOrange); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="900"/>
+
+  <text x="80" y="78" class="title">Creative Compass Workflow</text>
+  <text x="80" y="116" class="subtitle">Generate creative options, filter with AI senior judgment, produce assets, test, then learn what works.</text>
+
+  <rect x="70" y="165" width="1460" height="565" rx="30" class="card"/>
+
+  <rect x="110" y="260" width="190" height="170" rx="18" class="blue"/>
+  <text x="140" y="300" class="phase">STEP 1</text>
+  <text x="140" y="338" class="label">Brief</text>
+  <text x="140" y="376" class="small">Client context</text>
+  <text x="140" y="404" class="small">Goal / offer</text>
+  <text x="140" y="432" class="small">Do / don't</text>
+
+  <rect x="360" y="260" width="210" height="170" rx="18" class="amber"/>
+  <text x="390" y="300" class="phase">STEP 2</text>
+  <text x="390" y="338" class="label">Generate</text>
+  <text x="390" y="376" class="small">Ideas</text>
+  <text x="390" y="404" class="small">Hooks / copy</text>
+  <text x="390" y="432" class="small">Visual routes</text>
+
+  <rect x="630" y="260" width="230" height="170" rx="18" class="green"/>
+  <text x="660" y="300" class="phase">STEP 3</text>
+  <text x="660" y="338" class="label">Quality Engine</text>
+  <text x="660" y="376" class="small">AI + senior rubric</text>
+  <text x="660" y="404" class="small">Score &amp; rank</text>
+  <text x="660" y="432" class="small">Approve / revise / reject</text>
+
+  <rect x="920" y="260" width="220" height="170" rx="18" class="amber"/>
+  <text x="950" y="300" class="phase">STEP 4</text>
+  <text x="950" y="338" class="label">Create Assets</text>
+  <text x="950" y="376" class="small">Image generation</text>
+  <text x="950" y="404" class="small">Remix</text>
+  <text x="950" y="432" class="small">Variations</text>
+
+  <rect x="1200" y="260" width="230" height="170" rx="18" class="green"/>
+  <text x="1230" y="300" class="phase">STEP 5</text>
+  <text x="1230" y="338" class="label">Quality Engine</text>
+  <text x="1230" y="376" class="small">Check asset quality</text>
+  <text x="1230" y="404" class="small">Brand fit</text>
+  <text x="1230" y="432" class="small">Test readiness</text>
+
+  <path d="M300 345 H350" class="arrow"/>
+  <path d="M570 345 H620" class="arrow"/>
+  <path d="M860 345 H910" class="arrow"/>
+  <path d="M1140 345 H1190" class="arrow"/>
+
+  <rect x="630" y="500" width="230" height="86" rx="18" class="orange"/>
+  <text x="665" y="535" class="label">Revise</text>
+  <text x="665" y="565" class="small">Fix weak concepts</text>
+  <path d="M745 430 V492" class="arrowOrange"/>
+  <path d="M630 543 C515 543 465 480 465 440" class="arrowOrange"/>
+
+  <rect x="1200" y="500" width="230" height="86" rx="18" class="orange"/>
+  <text x="1235" y="535" class="label">Fix / Remix</text>
+  <text x="1235" y="565" class="small">Improve weak assets</text>
+  <path d="M1315 430 V492" class="arrowOrange"/>
+  <path d="M1200 543 C1085 543 1030 480 1030 440" class="arrowOrange"/>
+
+  <rect x="360" y="640" width="280" height="56" rx="18" class="slate"/>
+  <text x="390" y="675" class="pill">Quality filters work before testing</text>
+
+  <rect x="700" y="640" width="280" height="56" rx="18" class="rose"/>
+  <text x="730" y="675" class="pill">Export / Test final creatives</text>
+
+  <rect x="1040" y="640" width="300" height="56" rx="18" class="blue"/>
+  <text x="1070" y="675" class="pill">Learn winning patterns</text>
+
+  <path d="M1430 345 C1490 345 1490 668 1350 668" class="arrow"/>
+  <path d="M700 668 H650" class="arrow"/>
+  <path d="M980 668 H1030" class="arrow"/>
+  <path d="M1040 668 C760 800 205 735 205 440" class="arrowGreen"/>
+  <path d="M1190 640 C1125 565 1320 575 1315 430" class="arrowGreen"/>
+
+  <text x="80" y="790" class="label">What the Quality Engine does</text>
+  <text x="80" y="830" class="small">It is not a human approval step and not a prediction model. It is an AI evaluator using senior creative criteria.</text>
+  <text x="80" y="858" class="small">It checks strategic clarity, audience fit, creative freshness, brand fit, execution quality, and test worthiness.</text>
+</svg>

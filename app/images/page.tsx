@@ -24,12 +24,12 @@ const TAB_META: Record<
   }
 > = {
   "reference-remix": {
-    title: "Reference Remix",
+    title: "Edit Image",
     description: "ใช้อ้างอิงจากรูปเดิม แล้วพิมพ์สิ่งที่อยากสร้างหรืออยากแก้ต่อ เหมาะกับงานที่มี visual direction อยู่แล้ว",
     bestFor: "เหมาะกับการ remix, iterate, และแก้งานจาก reference image",
   },
   generate: {
-    title: "Generate Ads",
+    title: "Text to Image",
     description: "เริ่มจาก brief หรือ saved idea แล้วสร้างภาพโฆษณาใหม่จากศูนย์ เหมาะกับงาน static ad ที่ต้องการ concept ชัด",
     bestFor: "เหมาะกับการสร้างภาพแอดใหม่จาก brief",
   },
@@ -64,7 +64,7 @@ function MainContent() {
   const searchParams = useSearchParams()
   const [clients, setClients] = useState<ClientWithProductFocus[]>([])
   const [isSidebarHidden, setIsSidebarHidden] = useState(false)
-  const [activeTab, setActiveTab] = useState<ImageTabValue>("reference-remix")
+  const [activeTab, setActiveTab] = useState<ImageTabValue>("generate")
   
   // Get URL parameters
   const activeProductFocusParam = searchParams.get('productFocus') || null
@@ -153,19 +153,19 @@ function MainContent() {
               </Button>
 
               <TabsList className="grid h-11 flex-1 grid-cols-5 rounded-full bg-[#f2f2f7] p-1">
-                <TabsTrigger 
-                  value="reference-remix" 
-                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                  Reference Remix
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="generate" 
+                <TabsTrigger
+                  value="generate"
                   className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Generate Ads
+                  Text to Image
+                </TabsTrigger>
+                <TabsTrigger
+                  value="reference-remix"
+                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Edit Image
                 </TabsTrigger>
                 <TabsTrigger 
                   value="upscale" 
