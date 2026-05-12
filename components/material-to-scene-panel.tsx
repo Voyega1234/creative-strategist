@@ -6,7 +6,6 @@ import {
   Download,
   Eraser,
   Image as ImageIcon,
-  Layers3,
   Loader2,
   RefreshCw,
   Sparkles,
@@ -18,7 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { getStorageClient } from "@/lib/supabase/client"
+import { downloadImageFromUrl, downloadImagesFromUrls, uploadDataUrlToImageStorage, uploadFileToImageStorage } from "@/lib/images/client"
 import { cn } from "@/lib/utils"
 
 type Preset = "Ad Creative" | "E-commerce Product Shot" | "Interior & Material" | "Social Media Content"
@@ -26,9 +25,9 @@ type AspectRatio = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "9:16" | "16:
 type ImageSize = "1K" | "2K" | "4K"
 
 const DEFAULT_PRESET: Preset = "Ad Creative"
+const DEFAULT_IMAGE_SIZE: ImageSize = "1K"
 
 const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "9:16", "16:9", "21:9"]
-const IMAGE_SIZES: ImageSize[] = ["1K", "2K", "4K"]
 const MAX_SCENE_REFERENCES = 3
 const DEFAULT_GENERATED_SCENE_COUNT = 2
 
@@ -37,89 +36,12 @@ type SceneReference = {
   previewUrl: string
 }
 
-const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/webp": "webp",
-}
-
-function getImageExtension(mimeType: string) {
-  return IMAGE_EXTENSION_BY_MIME_TYPE[mimeType.toLowerCase()] || "png"
-}
-
-function withImageExtension(filename: string, extension: string) {
-  return filename.replace(/\.(png|jpe?g|webp)$/i, "") + `.${extension}`
-}
-
-async function downloadImage(url: string, filename: string) {
-  const response = await fetch(url)
-  const blob = await response.blob()
-  const extension = getImageExtension(blob.type || "image/png")
-  const objectUrl = window.URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = objectUrl
-  link.download = withImageExtension(filename, extension)
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000)
-}
-
-function downloadAllImages(urls: string[], baseFilename: string) {
-  urls.forEach((url, index) => {
-    window.setTimeout(() => {
-      void downloadImage(url, `${baseFilename}-${index + 1}.png`)
-    }, index * 180)
-  })
-}
-
 async function uploadFileToStorage(file: File) {
-  const storage = getStorageClient()
-  if (!storage) {
-    throw new Error("Storage client not available")
-  }
-
-  const extension = file.name.split(".").pop() || "png"
-  const path = `generated/material-to-scene-inputs/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`
-  const { error } = await storage.from("ads-creative-image").upload(path, file, {
-    contentType: file.type,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const { data } = storage.from("ads-creative-image").getPublicUrl(path)
-  return data.publicUrl
+  return uploadFileToImageStorage(file, "generated/material-to-scene-inputs")
 }
 
 async function uploadDataUrlToStorage(dataUrl: string) {
-  const storage = getStorageClient()
-  if (!storage) {
-    throw new Error("Storage client not available")
-  }
-
-  const response = await fetch(dataUrl)
-  const blob = await response.blob()
-  const mimeType = blob.type || "image/png"
-  const extensionMap: Record<string, string> = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/webp": "webp",
-  }
-  const extension = extensionMap[mimeType] || "png"
-  const path = `generated/material-to-scene-temp/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`
-  const { error } = await storage.from("ads-creative-image").upload(path, blob, {
-    contentType: mimeType,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const { data } = storage.from("ads-creative-image").getPublicUrl(path)
-  return { publicUrl: data.publicUrl, mimeType }
+  return uploadDataUrlToImageStorage(dataUrl, "generated/material-to-scene-temp")
 }
 
 export function MaterialToScenePanel() {
@@ -128,7 +50,6 @@ export function MaterialToScenePanel() {
   const [sceneReferences, setSceneReferences] = useState<SceneReference[]>([])
   const [prompt, setPrompt] = useState("")
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1")
-  const [imageSize, setImageSize] = useState<ImageSize>("1K")
   const [generatedImageUrls, setGeneratedImageUrls] = useState<string[]>([])
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -247,7 +168,7 @@ export function MaterialToScenePanel() {
           preset: DEFAULT_PRESET,
           prompt: prompt.trim(),
           aspect_ratio: aspectRatio,
-          image_size: imageSize,
+          image_size: DEFAULT_IMAGE_SIZE,
         }),
       })
 
@@ -344,10 +265,6 @@ export function MaterialToScenePanel() {
             <div>
               <span className="text-slate-400">Aspect</span>
               <span className="ml-2 text-slate-700">{aspectRatio}</span>
-            </div>
-            <div>
-              <span className="text-slate-400">Size</span>
-              <span className="ml-2 text-slate-700">{imageSize}</span>
             </div>
           </div>
         </div>
@@ -561,40 +478,12 @@ export function MaterialToScenePanel() {
                   </div>
                 </div>
 
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                    <Layers3 className="h-3.5 w-3.5 text-slate-700" />
-                    Image size
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {IMAGE_SIZES.map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => setImageSize(size)}
-                        className={cn(
-                          "rounded-2xl border px-3 py-2.5 text-sm font-medium transition-all",
-                          imageSize === size
-                            ? "border-slate-950 bg-slate-950 text-white"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
-                        )}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="rounded-[20px] bg-slate-50 px-3.5 py-3.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Current setup</p>
                   <div className="mt-2.5 space-y-1.5 text-sm text-slate-600">
                     <div className="flex items-center justify-between gap-3">
                       <span>Aspect ratio</span>
                       <span className="font-medium text-slate-900">{aspectRatio}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Image size</span>
-                      <span className="font-medium text-slate-900">{imageSize}</span>
                     </div>
                   </div>
                 </div>
@@ -664,7 +553,7 @@ export function MaterialToScenePanel() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => generatedImageUrls.length && downloadAllImages(generatedImageUrls, "material-to-scene")}
+                  onClick={() => generatedImageUrls.length && downloadImagesFromUrls(generatedImageUrls, "material-to-scene")}
                   disabled={!generatedImageUrls.length || isGenerating}
                   className="rounded-full border-slate-200"
                 >
@@ -673,7 +562,7 @@ export function MaterialToScenePanel() {
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => currentImageUrl && void downloadImage(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.png`)}
+                  onClick={() => currentImageUrl && void downloadImageFromUrl(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.png`)}
                   disabled={!currentImageUrl || isGenerating}
                   className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
                 >
@@ -754,7 +643,7 @@ export function MaterialToScenePanel() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => void downloadImage(url, `material-to-scene-${index + 1}.png`)}
+                            onClick={() => void downloadImageFromUrl(url, `material-to-scene-${index + 1}.png`)}
                             className="pointer-events-auto inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-slate-950"
                             aria-label={`Download image ${index + 1}`}
                           >
@@ -821,10 +710,6 @@ export function MaterialToScenePanel() {
                     <div className="flex items-center justify-between gap-3">
                       <span>Aspect ratio</span>
                       <span className="font-medium text-slate-900">{aspectRatio}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span>Image size</span>
-                      <span className="font-medium text-slate-900">{imageSize}</span>
                     </div>
                   </div>
                   <div className="rounded-[20px] bg-slate-50 px-3.5 py-3.5">

@@ -5,7 +5,14 @@ import Image from "next/image"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { getStorageClient } from "@/lib/supabase/client"
+import {
+  base64ToBlob,
+  downloadImageFromUrl,
+  getClosestAspectRatioLabel,
+  readImageDimensions,
+  uploadFileToImageStorage,
+  uploadGeneratedImageBlob,
+} from "@/lib/images/client"
 import { cn } from "@/lib/utils"
 import { Copy, Download, Loader2, Sparkles, Upload, X } from "lucide-react"
 
@@ -28,53 +35,6 @@ type UpscaleResult = {
   size: UpscaleSize
   fileName: string
   createdAt: string
-}
-
-const SUPPORTED_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
-const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "image/webp": "webp",
-}
-
-function getImageExtension(mimeType: string) {
-  return IMAGE_EXTENSION_BY_MIME_TYPE[mimeType.toLowerCase()] || "png"
-}
-
-function withImageExtension(filename: string, extension: string) {
-  return filename.replace(/\.(png|jpe?g|webp)$/i, "") + `.${extension}`
-}
-
-function getClosestAspectRatio(width: number, height: number) {
-  const rawRatio = width / height
-
-  return SUPPORTED_ASPECT_RATIOS.reduce((closest, current) => {
-    const [currentWidth, currentHeight] = current.split(":").map(Number)
-    const [closestWidth, closestHeight] = closest.split(":").map(Number)
-    const currentDistance = Math.abs(rawRatio - currentWidth / currentHeight)
-    const closestDistance = Math.abs(rawRatio - closestWidth / closestHeight)
-    return currentDistance < closestDistance ? current : closest
-  }, "1:1" as (typeof SUPPORTED_ASPECT_RATIOS)[number])
-}
-
-function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file)
-    const image = new window.Image()
-
-    image.onload = () => {
-      resolve({ width: image.naturalWidth, height: image.naturalHeight })
-      URL.revokeObjectURL(objectUrl)
-    }
-
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error(`ไม่สามารถอ่านขนาดภาพ ${file.name} ได้`))
-    }
-
-    image.src = objectUrl
-  })
 }
 
 export function ImageUpscalePanel() {
@@ -105,7 +65,7 @@ export function ImageUpscalePanel() {
           previewUrl: URL.createObjectURL(file),
           width,
           height,
-          detectedRatio: getClosestAspectRatio(width, height),
+          detectedRatio: getClosestAspectRatioLabel(width, height),
         }
       }),
     )
@@ -124,58 +84,16 @@ export function ImageUpscalePanel() {
   }
 
   const uploadFileToStorage = async (file: File) => {
-    const storage = getStorageClient()
-    if (!storage) {
-      throw new Error("Storage client not available")
-    }
-
-    const extension = file.name.split(".").pop() || "png"
-    const path = `generated/upscale-inputs/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`
-    const { error } = await storage.from("ads-creative-image").upload(path, file, {
-      contentType: file.type,
-    })
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    const { data } = storage.from("ads-creative-image").getPublicUrl(path)
-    return data.publicUrl
+    return uploadFileToImageStorage(file, "generated/upscale-inputs")
   }
 
   const uploadUpscaledBlobToStorage = async (blob: Blob, mimeType: string, size: UpscaleSize) => {
-    const storage = getStorageClient()
-    if (!storage) {
-      throw new Error("Storage client not available")
-    }
-
-    const extension = getImageExtension(mimeType)
-    const path = `generated/upscaled/${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${size.toLowerCase()}.${extension}`
-    const { error } = await storage.from("ads-creative-image").upload(path, blob, {
-      contentType: mimeType,
-    })
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    const { data } = storage.from("ads-creative-image").getPublicUrl(path)
-    return data.publicUrl
+    return uploadGeneratedImageBlob(new Blob([blob], { type: mimeType }), "generated/upscaled", size.toLowerCase())
   }
 
   const handleDownload = async (url: string, sourceFileName = "upscaled-image", size: UpscaleSize = targetSize) => {
     try {
-      const response = await fetch(url)
-      const blob = await response.blob()
-      const extension = getImageExtension(blob.type || "image/png")
-      const objectUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = objectUrl
-      link.download = withImageExtension(`upscaled-${size.toLowerCase()}-${sourceFileName}`, extension)
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000)
+      await downloadImageFromUrl(url, `upscaled-${size.toLowerCase()}-${sourceFileName}`)
     } catch (error) {
       console.error("Download failed:", error)
     }
@@ -226,11 +144,9 @@ export function ImageUpscalePanel() {
           throw new Error(result?.error || `ไม่สามารถ upscale ภาพ ${image.file.name} ได้`)
         }
 
-        const binary = atob(result.image_base64)
-        const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
         const mimeType = result.mime_type || "image/png"
         const publicUrl = await uploadUpscaledBlobToStorage(
-          new Blob([bytes], { type: mimeType }),
+          base64ToBlob(result.image_base64, mimeType),
           mimeType,
           targetSize,
         )

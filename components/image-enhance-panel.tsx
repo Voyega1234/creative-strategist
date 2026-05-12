@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { getStorageClient } from "@/lib/supabase/client"
+import { dataUrlToBlob, downloadBlob, getClosestAspectRatioLabel, readImageDimensions, uploadFileToImageStorage } from "@/lib/images/client"
 import { cn } from "@/lib/utils"
 import { CheckCircle2, Loader2, Sparkles, Upload, Wand2 } from "lucide-react"
 
@@ -118,25 +118,6 @@ function cleanCritiqueForRequest(critique: CritiquePayload): CritiquePayload {
   }
 }
 
-function dataUrlToBlob(dataUrl: string) {
-  const [metadata, base64Data] = dataUrl.split(",")
-  const mimeType = metadata.match(/^data:(.*?);base64$/)?.[1] || "image/png"
-  const binary = window.atob(base64Data || "")
-  const bytes = new Uint8Array(binary.length)
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-
-  return new Blob([bytes], { type: mimeType })
-}
-
-function getImageExtension(mimeType: string) {
-  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg"
-  if (mimeType === "image/webp") return "webp"
-  return "png"
-}
-
 function getScoreBreakdownItems(critique: CritiquePayload) {
   const scoreBreakdown = critique.score_breakdown
   if (!scoreBreakdown) return []
@@ -153,57 +134,16 @@ function getScoreBreakdownItems(critique: CritiquePayload) {
   ].filter((item): item is { label: string; value: number } => typeof item.value === "number" && item.value > 0)
 }
 
-function getClosestAspectRatioLabel(width: number, height: number) {
-  const supportedRatios = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"]
-  const rawRatio = width / height
-
-  return supportedRatios.reduce((closest, current) => {
-    const [currentWidth, currentHeight] = current.split(":").map(Number)
-    const [closestWidth, closestHeight] = closest.split(":").map(Number)
-    const currentDistance = Math.abs(rawRatio - currentWidth / currentHeight)
-    const closestDistance = Math.abs(rawRatio - closestWidth / closestHeight)
-    return currentDistance < closestDistance ? current : closest
-  }, "1:1")
-}
-
 async function readImageMeta(file: File): Promise<SourceImageMeta> {
-  const objectUrl = URL.createObjectURL(file)
-
-  try {
-    const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-      const image = new window.Image()
-      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
-      image.onerror = () => reject(new Error("ไม่สามารถอ่านขนาดรูปได้"))
-      image.src = objectUrl
-    })
-
-    return {
-      ...dimensions,
-      aspectRatioLabel: getClosestAspectRatioLabel(dimensions.width, dimensions.height),
-    }
-  } finally {
-    URL.revokeObjectURL(objectUrl)
+  const dimensions = await readImageDimensions(file)
+  return {
+    ...dimensions,
+    aspectRatioLabel: getClosestAspectRatioLabel(dimensions.width, dimensions.height),
   }
 }
 
 async function uploadFileToStorage(file: File) {
-  const storage = getStorageClient()
-  if (!storage) {
-    throw new Error("Storage client not available")
-  }
-
-  const extension = file.name.split(".").pop() || "png"
-  const path = `generated/enhance-inputs/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`
-  const { error } = await storage.from("ads-creative-image").upload(path, file, {
-    contentType: file.type,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  const { data } = storage.from("ads-creative-image").getPublicUrl(path)
-  return data.publicUrl
+  return uploadFileToImageStorage(file, "generated/enhance-inputs")
 }
 
 export function ImageEnhancePanel() {
@@ -388,13 +328,7 @@ export function ImageEnhancePanel() {
     if (!generatedResult) return
 
     const blob = dataUrlToBlob(generatedResult.imageUrl)
-    const objectUrl = URL.createObjectURL(blob)
-    const extension = getImageExtension(generatedResult.mimeType || blob.type)
-    const link = document.createElement("a")
-    link.href = objectUrl
-    link.download = `enhance-${generatedResult.mode}-${Date.now()}.${extension}`
-    link.click()
-    URL.revokeObjectURL(objectUrl)
+    downloadBlob(blob, `enhance-${generatedResult.mode}-${Date.now()}.png`)
   }
 
   const handleRemoveText = async () => {
