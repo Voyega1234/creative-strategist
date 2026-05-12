@@ -366,7 +366,7 @@ Hard limits on interpretation:
 - Interpretation fills empty space, it does not override stated intent.
 
 Creative Brief from user:
-${prompt}`
+${prompt}
 
 PHOTOREAL COMPOSITING REQUIREMENTS:
 - The final image must never look edited, pasted, masked, collaged, or AI-generated.
