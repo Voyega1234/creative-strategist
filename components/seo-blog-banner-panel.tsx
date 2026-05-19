@@ -61,9 +61,20 @@ type AdditionalOutput = {
   model: string
 }
 
+type CachedBrandAssets = {
+  website: string
+  brandName: string
+  brandColorValues: string[]
+  brandContext: string
+  openBrandLogoUrl: string
+  updatedAt: number
+}
+
 const MASTER_WIDTH = 1600
 const MASTER_HEIGHT = 900
 const MAX_INSERT_IMAGES = 4
+const BRAND_ASSET_CACHE_KEY = "creative-compass:seo-blog-banner:brand-assets:v1"
+const BRAND_ASSET_LAST_WEBSITE_KEY = "creative-compass:seo-blog-banner:last-website:v1"
 const ADDITIONAL_SIZES: Array<{
   key: AdditionalSizeKey
   label: string
@@ -122,6 +133,34 @@ function normalizeHexColor(value: string) {
       .join("")}`.toUpperCase()
   }
   return "#111827"
+}
+
+function normalizeWebsiteCacheKey(value: string) {
+  return value.trim().replace(/^https?:\/\//i, "").replace(/\/+$/g, "").toLowerCase()
+}
+
+function readBrandAssetCache() {
+  if (typeof window === "undefined") return {}
+
+  try {
+    const raw = window.localStorage.getItem(BRAND_ASSET_CACHE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, CachedBrandAssets>) : {}
+  } catch (error) {
+    console.warn("Cannot read SEO banner brand asset cache:", error)
+    return {}
+  }
+}
+
+function writeBrandAssetCache(cache: Record<string, CachedBrandAssets>) {
+  if (typeof window === "undefined") return
+
+  try {
+    window.localStorage.setItem(BRAND_ASSET_CACHE_KEY, JSON.stringify(cache))
+  } catch (error) {
+    console.warn("Cannot write SEO banner brand asset cache:", error)
+  }
 }
 
 async function normalizeToExactCanvas(dataUrl: string, targetWidth: number, targetHeight: number) {
@@ -280,6 +319,7 @@ export function SeoBlogBannerPanel() {
   const logoAssetRef = useRef<UploadedAsset | null>(null)
   const referenceAssetRef = useRef<UploadedAsset | null>(null)
   const insertAssetsRef = useRef<UploadedAsset[]>([])
+  const restoringBrandCacheRef = useRef(false)
 
   useEffect(() => {
     logoAssetRef.current = logoAsset
@@ -300,6 +340,62 @@ export function SeoBlogBannerPanel() {
       insertAssetsRef.current.forEach((asset) => revokeAsset(asset))
     }
   }, [])
+
+  useEffect(() => {
+    const lastWebsite = window.localStorage.getItem(BRAND_ASSET_LAST_WEBSITE_KEY) || ""
+    if (!lastWebsite) return
+
+    const cache = readBrandAssetCache()
+    const cached = cache[normalizeWebsiteCacheKey(lastWebsite)]
+    if (!cached) return
+
+    restoringBrandCacheRef.current = true
+    setWebsite(cached.website)
+    setBrandName(cached.brandName)
+    setBrandColorValues(cached.brandColorValues)
+    setBrandContext(cached.brandContext)
+    setOpenBrandLogoUrl(cached.openBrandLogoUrl)
+    window.setTimeout(() => {
+      restoringBrandCacheRef.current = false
+    }, 0)
+  }, [])
+
+  useEffect(() => {
+    const cacheKey = normalizeWebsiteCacheKey(website)
+    if (!cacheKey || restoringBrandCacheRef.current) return
+
+    const cached = readBrandAssetCache()[cacheKey]
+    if (!cached) return
+
+    restoringBrandCacheRef.current = true
+    setBrandName(cached.brandName)
+    setBrandColorValues(cached.brandColorValues)
+    setBrandContext(cached.brandContext)
+    setOpenBrandLogoUrl(cached.openBrandLogoUrl)
+    setResult(null)
+    setAdditionalOutputs([])
+    window.setTimeout(() => {
+      restoringBrandCacheRef.current = false
+    }, 0)
+  }, [website])
+
+  useEffect(() => {
+    const cacheKey = normalizeWebsiteCacheKey(website)
+    if (!cacheKey || restoringBrandCacheRef.current) return
+    if (!brandName && brandColorValues.length === 0 && !brandContext && !openBrandLogoUrl) return
+
+    const nextCache = readBrandAssetCache()
+    nextCache[cacheKey] = {
+      website: website.trim(),
+      brandName,
+      brandColorValues,
+      brandContext,
+      openBrandLogoUrl,
+      updatedAt: Date.now(),
+    }
+    writeBrandAssetCache(nextCache)
+    window.localStorage.setItem(BRAND_ASSET_LAST_WEBSITE_KEY, website.trim())
+  }, [brandColorValues, brandContext, brandName, openBrandLogoUrl, website])
 
   const canGenerate = website.trim().length > 0 && headline.trim().length > 0
   const selectedAdditionalSizeConfig = ADDITIONAL_SIZES.find((size) => size.key === selectedAdditionalSize) || ADDITIONAL_SIZES[0]
