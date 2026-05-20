@@ -314,6 +314,8 @@ export function SeoBlogBannerPanel() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [brandHexInput, setBrandHexInput] = useState("")
+  const [brandHexError, setBrandHexError] = useState("")
   const generationInFlightRef = useRef(false)
   const resizeInFlightRef = useRef(false)
   const logoAssetRef = useRef<UploadedAsset | null>(null)
@@ -407,6 +409,23 @@ export function SeoBlogBannerPanel() {
 
   const addBrandColor = () => {
     setBrandColorValues((prev) => [...prev, "#111827"])
+    setResult(null)
+    setAdditionalOutputs([])
+  }
+
+  const addBrandHexColor = () => {
+    const value = brandHexInput.trim()
+    const normalized = normalizeHexColor(value.startsWith("#") ? value : `#${value}`)
+    const isValidHex = /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i.test(value.startsWith("#") ? value : `#${value}`)
+
+    if (!isValidHex) {
+      setBrandHexError("Enter a valid HEX color, e.g. #0F172A")
+      return
+    }
+
+    setBrandColorValues((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
+    setBrandHexInput("")
+    setBrandHexError("")
     setResult(null)
     setAdditionalOutputs([])
   }
@@ -771,8 +790,29 @@ export function SeoBlogBannerPanel() {
                   >
                     Add color
                   </Button>
+                  <div className="mt-3 flex gap-2">
+                    <Input
+                      value={brandHexInput}
+                      onChange={(event) => {
+                        setBrandHexInput(event.target.value)
+                        setBrandHexError("")
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault()
+                          addBrandHexColor()
+                        }
+                      }}
+                      placeholder="#0F172A"
+                      className="h-10 rounded-full bg-white font-mono text-sm"
+                    />
+                    <Button type="button" onClick={addBrandHexColor} className="h-10 rounded-full bg-slate-950 px-4 text-white hover:bg-slate-800">
+                      Add HEX
+                    </Button>
+                  </div>
+                  {brandHexError ? <p className="mt-2 text-xs text-red-600">{brandHexError}</p> : null}
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Click any color to edit it. These colors guide the banner palette.
+                    Click any color to edit it, or paste a HEX code manually.
                   </p>
                 </div>
               </div>
