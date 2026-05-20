@@ -122,20 +122,52 @@ function isRasterImageUrl(url: string) {
   return /\.(png|jpe?g|webp)(?:\?|#|$)/i.test(url)
 }
 
+function isLikelyFaviconLogo(logo: OpenBrandLogo) {
+  const url = logo.url || ""
+  const width = logo.resolution?.width || 0
+  const height = logo.resolution?.height || 0
+  return /favicon|apple-touch-icon|cropped-favicon/i.test(`${logo.type || ""} ${url}`) || (width > 0 && height > 0 && width <= 180 && height <= 180)
+}
+
+function isLikelyFaviconUrl(url: string) {
+  return /favicon|apple-touch-icon|cropped-favicon/i.test(url)
+}
+
 async function fetchImageAsBase64(url: string, fallbackMimeType = "image/png"): Promise<FetchedImage> {
-  const response = await fetch(url)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000)
 
-  if (!response.ok) {
-    throw new Error(`Unable to fetch image from URL (${response.status})`)
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+
+    if (!response.ok) {
+      throw new Error(`Unable to fetch image from URL (${response.status})`)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const contentType = response.headers.get("content-type")?.split(";")[0].trim() || fallbackMimeType
+
+    return {
+      base64: Buffer.from(arrayBuffer).toString("base64"),
+      mimeType: contentType,
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Timeout while downloading ${url}`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
   }
+}
 
-  const arrayBuffer = await response.arrayBuffer()
-  const contentType = response.headers.get("content-type")?.split(";")[0].trim() || fallbackMimeType
-
-  return {
-    base64: Buffer.from(arrayBuffer).toString("base64"),
-    mimeType: contentType,
-  }
+async function fetchInputImagesAsBase64(urls: string[]) {
+  const results = await Promise.allSettled(urls.map((imageUrl) => fetchImageAsBase64(imageUrl)))
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") return [result.value]
+    console.warn("[seo-blog-banner] Skipping unavailable input image:", urls[index], result.reason)
+    return []
+  })
 }
 
 function getGeminiImages(payload: any): GeminiInlineImage[] {
@@ -302,8 +334,8 @@ async function resizeOpenAiMasterWithGemini({
 function selectOpenBrandLogo(logos: OpenBrandLogo[]) {
   const withUrl = logos.filter((logo) => typeof logo.url === "string" && logo.url.trim().length > 0)
   const raster = withUrl.filter((logo) => isRasterImageUrl(logo.url || ""))
-  const nonFaviconRaster = raster.find((logo) => logo.type && !/favicon/i.test(logo.type))
-  return nonFaviconRaster?.url || raster[0]?.url || withUrl[0]?.url || ""
+  const nonFaviconRaster = raster.find((logo) => !isLikelyFaviconLogo(logo))
+  return nonFaviconRaster?.url || ""
 }
 
 async function fetchOpenBrandAssets(website: string): Promise<OpenBrandAssets | null> {
@@ -523,7 +555,9 @@ export async function POST(request: Request) {
         ? openBrandAssets.selectedLogoUrl
         : ""
     const effectiveBrandLogoUrl = brandLogoUrl || openBrandLogoAsInput
-    const inputImages = [effectiveBrandLogoUrl, referenceImageUrl, ...insertImageUrls].filter(Boolean)
+    const inputImages = [effectiveBrandLogoUrl, referenceImageUrl, ...insertImageUrls]
+      .filter(Boolean)
+      .filter((imageUrl) => imageUrl === brandLogoUrl || !isLikelyFaviconUrl(imageUrl))
     const prompt = buildPrompt({
       website,
       facebookPage,
@@ -569,7 +603,7 @@ export async function POST(request: Request) {
       imageBase64 = resizedMaster.imageBase64
       mimeType = resizedMaster.mimeType
     } else {
-      const fetchedInputImages = await Promise.all(inputImages.map((imageUrl) => fetchImageAsBase64(imageUrl)))
+      const fetchedInputImages = await fetchInputImagesAsBase64(inputImages)
       const parts: Array<Record<string, unknown>> = [
         {
           text: prompt,

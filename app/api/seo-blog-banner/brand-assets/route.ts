@@ -74,11 +74,18 @@ function isRasterImageUrl(url: string) {
   return /\.(png|jpe?g|webp)(?:\?|#|$)/i.test(url)
 }
 
+function isLikelyFaviconLogo(logo: OpenBrandLogo) {
+  const url = logo.url || ""
+  const width = logo.resolution?.width || 0
+  const height = logo.resolution?.height || 0
+  return /favicon|apple-touch-icon|cropped-favicon/i.test(`${logo.type || ""} ${url}`) || (width > 0 && height > 0 && width <= 180 && height <= 180)
+}
+
 function selectOpenBrandLogo(logos: OpenBrandLogo[]) {
   const withUrl = logos.filter((logo) => typeof logo.url === "string" && logo.url.trim().length > 0)
   const raster = withUrl.filter((logo) => isRasterImageUrl(logo.url || ""))
-  const nonFaviconRaster = raster.find((logo) => logo.type && !/favicon/i.test(logo.type))
-  return nonFaviconRaster?.url || raster[0]?.url || withUrl[0]?.url || ""
+  const nonFaviconRaster = raster.find((logo) => !isLikelyFaviconLogo(logo))
+  return nonFaviconRaster?.url || ""
 }
 
 async function fetchOpenBrandAssets(website: string) {
