@@ -974,7 +974,7 @@ export function SeoBlogBannerPanel({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(360px,520px)_1fr]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(400px,580px)_1fr]">
       <section className="space-y-4">
         <Card className="overflow-hidden rounded-[32px] border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 p-6">
