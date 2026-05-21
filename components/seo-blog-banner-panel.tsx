@@ -1,13 +1,17 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import {
   ArrowDownToLine,
+  Check,
+  ChevronsUpDown,
   FileImage,
   Globe2,
   ImagePlus,
   Loader2,
   Maximize2,
+  Plus,
   Sparkles,
   UploadCloud,
   X,
@@ -15,21 +19,50 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import {
   downloadBlob,
   uploadFileToImageStorage,
   uploadGeneratedImageBlob,
 } from "@/lib/images/client"
+import { getStorageClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
 type UploadedAsset = {
-  file: File
+  file?: File
+  url?: string
+  name: string
   previewUrl: string
 }
+
+type ClientOption = {
+  id: string
+  clientName: string
+  productFocuses: Array<{
+    id: string
+    productFocus: string
+  }>
+}
+
+type StoredAsset = {
+  name: string
+  url: string
+  createdAt: string
+}
+
+type BrandColorRole = "Primary" | "Secondary" | "Accent" | "Background" | "Text"
 
 type SeoBlogBannerResult = {
   imageUrl: string
@@ -62,9 +95,11 @@ type AdditionalOutput = {
 }
 
 type CachedBrandAssets = {
+  clientId?: string
   website: string
   brandName: string
   brandColorValues: string[]
+  brandColorRoles?: BrandColorRole[]
   brandContext: string
   openBrandLogoUrl: string
   updatedAt: number
@@ -74,7 +109,9 @@ const MASTER_WIDTH = 1600
 const MASTER_HEIGHT = 900
 const MAX_INSERT_IMAGES = 4
 const BRAND_ASSET_CACHE_KEY = "creative-compass:seo-blog-banner:brand-assets:v1"
+const CLIENT_BRAND_ASSET_CACHE_KEY = "creative-compass:seo-blog-banner:client-brand-assets:v1"
 const BRAND_ASSET_LAST_WEBSITE_KEY = "creative-compass:seo-blog-banner:last-website:v1"
+const COLOR_ROLE_OPTIONS: BrandColorRole[] = ["Primary", "Secondary", "Accent", "Background", "Text"]
 const ADDITIONAL_SIZES: Array<{
   key: AdditionalSizeKey
   label: string
@@ -106,7 +143,7 @@ const ADDITIONAL_SIZES: Array<{
 ]
 
 function revokeAsset(asset: UploadedAsset | null) {
-  if (asset?.previewUrl) {
+  if (asset?.file && asset.previewUrl) {
     URL.revokeObjectURL(asset.previewUrl)
   }
 }
@@ -114,7 +151,16 @@ function revokeAsset(asset: UploadedAsset | null) {
 function createAsset(file: File): UploadedAsset {
   return {
     file,
+    name: file.name,
     previewUrl: URL.createObjectURL(file),
+  }
+}
+
+function createStoredAsset(asset: StoredAsset): UploadedAsset {
+  return {
+    name: asset.name,
+    url: asset.url,
+    previewUrl: asset.url,
   }
 }
 
@@ -139,6 +185,44 @@ function normalizeWebsiteCacheKey(value: string) {
   return value.trim().replace(/^https?:\/\//i, "").replace(/\/+$/g, "").toLowerCase()
 }
 
+function parseBrandContext(value: string) {
+  const lines = value.split(/\n+/).map((line) => line.trim()).filter(Boolean)
+  const getValue = (label: string) => {
+    const line = lines.find((item) => item.toLowerCase().startsWith(`${label.toLowerCase()}:`))
+    return line ? line.slice(label.length + 1).trim() : ""
+  }
+  const knownLabels = ["Site name", "Page title", "Meta description", "Visible website text sample"]
+  const notes = lines.filter((line) => !knownLabels.some((label) => line.toLowerCase().startsWith(`${label.toLowerCase()}:`)))
+
+  return {
+    siteName: getValue("Site name"),
+    pageTitle: getValue("Page title"),
+    metaDescription: getValue("Meta description"),
+    notes: [getValue("Visible website text sample"), ...notes].filter(Boolean).join("\n"),
+  }
+}
+
+function composeBrandContext({
+  siteName,
+  pageTitle,
+  metaDescription,
+  notes,
+}: {
+  siteName: string
+  pageTitle: string
+  metaDescription: string
+  notes: string
+}) {
+  return [
+    siteName.trim() ? `Site name: ${siteName.trim()}` : "",
+    pageTitle.trim() ? `Page title: ${pageTitle.trim()}` : "",
+    metaDescription.trim() ? `Meta description: ${metaDescription.trim()}` : "",
+    notes.trim() ? `Visible website text sample: ${notes.trim()}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
 function readBrandAssetCache() {
   if (typeof window === "undefined") return {}
 
@@ -160,6 +244,30 @@ function writeBrandAssetCache(cache: Record<string, CachedBrandAssets>) {
     window.localStorage.setItem(BRAND_ASSET_CACHE_KEY, JSON.stringify(cache))
   } catch (error) {
     console.warn("Cannot write SEO banner brand asset cache:", error)
+  }
+}
+
+function readClientBrandAssetCache() {
+  if (typeof window === "undefined") return {}
+
+  try {
+    const raw = window.localStorage.getItem(CLIENT_BRAND_ASSET_CACHE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, CachedBrandAssets>) : {}
+  } catch (error) {
+    console.warn("Cannot read SEO banner client brand cache:", error)
+    return {}
+  }
+}
+
+function writeClientBrandAssetCache(cache: Record<string, CachedBrandAssets>) {
+  if (typeof window === "undefined") return
+
+  try {
+    window.localStorage.setItem(CLIENT_BRAND_ASSET_CACHE_KEY, JSON.stringify(cache))
+  } catch (error) {
+    console.warn("Cannot write SEO banner client brand cache:", error)
   }
 }
 
@@ -228,6 +336,8 @@ function AssetUpload({
   onSelect,
   onRemove,
   multiple = false,
+  compact = false,
+  className,
 }: {
   label: string
   description: string
@@ -236,18 +346,20 @@ function AssetUpload({
   onSelect: (files: FileList | null) => void
   onRemove?: () => void
   multiple?: boolean
+  compact?: boolean
+  className?: string
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const previewUrl = asset?.previewUrl || remotePreviewUrl || ""
 
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+    <div className={cn("flex flex-col rounded-[24px] border border-slate-200 bg-white p-4", compact && "border-0 bg-transparent p-0", className)}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-950">{label}</p>
           <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
         </div>
-        {previewUrl && onRemove ? (
+        {previewUrl && onRemove && !compact ? (
           <button
             type="button"
             onClick={onRemove}
@@ -262,20 +374,50 @@ function AssetUpload({
         type="button"
         onClick={() => inputRef.current?.click()}
         className={cn(
-          "mt-4 flex min-h-[132px] w-full items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-left transition hover:border-slate-400 hover:bg-white",
+          "mt-4 flex w-full items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-left transition hover:border-slate-400 hover:bg-white",
+          compact ? "min-h-[128px]" : "min-h-[132px] flex-1",
           previewUrl && "border-solid bg-white",
         )}
       >
         {previewUrl ? (
-          <img src={previewUrl} alt={label} className="h-full max-h-[180px] w-full object-contain" />
+          <img
+            src={previewUrl}
+            alt={label}
+            className={cn("h-full w-full object-contain", compact ? "max-h-[120px] p-3" : "max-h-[180px]")}
+          />
         ) : (
-          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+          <div className={cn("flex flex-col items-center gap-2 px-4 text-center", compact ? "py-5" : "py-8")}>
             <UploadCloud className="h-6 w-6 text-slate-400" />
             <span className="text-sm font-medium text-slate-700">Upload image</span>
             <span className="text-xs text-slate-500">PNG, JPG, WEBP</span>
           </div>
         )}
       </button>
+
+      {previewUrl ? (
+        <div className="mt-3 flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+            className="h-9 flex-1 rounded-full"
+          >
+            Upload logo
+          </Button>
+          {onRemove ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onRemove}
+              className="h-9 rounded-full border-red-100 px-3 text-red-600 hover:bg-red-50 hover:text-red-700"
+            >
+              Remove
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <input
         ref={inputRef}
@@ -292,11 +434,22 @@ function AssetUpload({
   )
 }
 
-export function SeoBlogBannerPanel() {
+type SeoBlogBannerPanelProps = {
+  clients?: ClientOption[]
+  activeClientId?: string | null
+}
+
+export function SeoBlogBannerPanel({
+  clients = [],
+  activeClientId = null,
+}: SeoBlogBannerPanelProps) {
   const [website, setWebsite] = useState("")
-  const [facebookPage, setFacebookPage] = useState("")
   const [brandName, setBrandName] = useState("")
   const [brandColorValues, setBrandColorValues] = useState<string[]>([])
+  const [brandColorRoles, setBrandColorRoles] = useState<BrandColorRole[]>([])
+  const [brandSiteName, setBrandSiteName] = useState("")
+  const [brandPageTitle, setBrandPageTitle] = useState("")
+  const [brandMetaDescription, setBrandMetaDescription] = useState("")
   const [brandContext, setBrandContext] = useState("")
   const [openBrandLogoUrl, setOpenBrandLogoUrl] = useState("")
   const [headline, setHeadline] = useState("")
@@ -316,12 +469,40 @@ export function SeoBlogBannerPanel() {
   const [error, setError] = useState<string | null>(null)
   const [brandHexInput, setBrandHexInput] = useState("")
   const [brandHexError, setBrandHexError] = useState("")
+  const [selectedClientId, setSelectedClientId] = useState(activeClientId || "")
+  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
+  const [savedLogos, setSavedLogos] = useState<StoredAsset[]>([])
+  const [savedMaterials, setSavedMaterials] = useState<StoredAsset[]>([])
+  const [isLoadingClientAssets, setIsLoadingClientAssets] = useState(false)
   const generationInFlightRef = useRef(false)
   const resizeInFlightRef = useRef(false)
   const logoAssetRef = useRef<UploadedAsset | null>(null)
   const referenceAssetRef = useRef<UploadedAsset | null>(null)
   const insertAssetsRef = useRef<UploadedAsset[]>([])
   const restoringBrandCacheRef = useRef(false)
+  const selectedClient = clients.find((client) => client.id === selectedClientId)
+  const composedBrandContext = useMemo(
+    () =>
+      composeBrandContext({
+        siteName: brandSiteName,
+        pageTitle: brandPageTitle,
+        metaDescription: brandMetaDescription,
+        notes: brandContext,
+      }),
+    [brandContext, brandMetaDescription, brandPageTitle, brandSiteName],
+  )
+
+  const applyBrandContext = (value: string) => {
+    const parsed = parseBrandContext(value)
+    setBrandSiteName(parsed.siteName)
+    setBrandPageTitle(parsed.pageTitle)
+    setBrandMetaDescription(parsed.metaDescription)
+    setBrandContext(parsed.notes)
+  }
+
+  useEffect(() => {
+    setSelectedClientId(activeClientId || "")
+  }, [activeClientId])
 
   useEffect(() => {
     logoAssetRef.current = logoAsset
@@ -355,7 +536,8 @@ export function SeoBlogBannerPanel() {
     setWebsite(cached.website)
     setBrandName(cached.brandName)
     setBrandColorValues(cached.brandColorValues)
-    setBrandContext(cached.brandContext)
+    setBrandColorRoles(cached.brandColorRoles || cached.brandColorValues.map((_, index) => COLOR_ROLE_OPTIONS[index] || "Accent"))
+    applyBrandContext(cached.brandContext)
     setOpenBrandLogoUrl(cached.openBrandLogoUrl)
     window.setTimeout(() => {
       restoringBrandCacheRef.current = false
@@ -372,7 +554,8 @@ export function SeoBlogBannerPanel() {
     restoringBrandCacheRef.current = true
     setBrandName(cached.brandName)
     setBrandColorValues(cached.brandColorValues)
-    setBrandContext(cached.brandContext)
+    setBrandColorRoles(cached.brandColorRoles || cached.brandColorValues.map((_, index) => COLOR_ROLE_OPTIONS[index] || "Accent"))
+    applyBrandContext(cached.brandContext)
     setOpenBrandLogoUrl(cached.openBrandLogoUrl)
     setResult(null)
     setAdditionalOutputs([])
@@ -384,20 +567,59 @@ export function SeoBlogBannerPanel() {
   useEffect(() => {
     const cacheKey = normalizeWebsiteCacheKey(website)
     if (!cacheKey || restoringBrandCacheRef.current) return
-    if (!brandName && brandColorValues.length === 0 && !brandContext && !openBrandLogoUrl) return
+    if (!brandName && brandColorValues.length === 0 && !composedBrandContext && !openBrandLogoUrl) return
 
     const nextCache = readBrandAssetCache()
     nextCache[cacheKey] = {
       website: website.trim(),
       brandName,
       brandColorValues,
-      brandContext,
+      brandColorRoles,
+      brandContext: composedBrandContext,
       openBrandLogoUrl,
       updatedAt: Date.now(),
     }
     writeBrandAssetCache(nextCache)
     window.localStorage.setItem(BRAND_ASSET_LAST_WEBSITE_KEY, website.trim())
-  }, [brandColorValues, brandContext, brandName, openBrandLogoUrl, website])
+  }, [brandColorRoles, brandColorValues, brandName, composedBrandContext, openBrandLogoUrl, website])
+
+  useEffect(() => {
+    if (!selectedClientId || restoringBrandCacheRef.current) return
+
+    const cached = readClientBrandAssetCache()[selectedClientId]
+    if (!cached) return
+
+    restoringBrandCacheRef.current = true
+    setWebsite(cached.website)
+    setBrandName(cached.brandName)
+    setBrandColorValues(cached.brandColorValues)
+    setBrandColorRoles(cached.brandColorRoles || cached.brandColorValues.map((_, index) => COLOR_ROLE_OPTIONS[index] || "Accent"))
+    applyBrandContext(cached.brandContext)
+    setOpenBrandLogoUrl(cached.openBrandLogoUrl)
+    setResult(null)
+    setAdditionalOutputs([])
+    window.setTimeout(() => {
+      restoringBrandCacheRef.current = false
+    }, 0)
+  }, [selectedClientId])
+
+  useEffect(() => {
+    if (!selectedClientId || restoringBrandCacheRef.current) return
+    if (!website && !brandName && brandColorValues.length === 0 && !composedBrandContext && !openBrandLogoUrl) return
+
+    const nextCache = readClientBrandAssetCache()
+    nextCache[selectedClientId] = {
+      clientId: selectedClientId,
+      website: website.trim(),
+      brandName,
+      brandColorValues,
+      brandColorRoles,
+      brandContext: composedBrandContext,
+      openBrandLogoUrl,
+      updatedAt: Date.now(),
+    }
+    writeClientBrandAssetCache(nextCache)
+  }, [brandColorRoles, brandColorValues, brandName, composedBrandContext, openBrandLogoUrl, selectedClientId, website])
 
   const canGenerate = website.trim().length > 0 && headline.trim().length > 0
   const selectedAdditionalSizeConfig = ADDITIONAL_SIZES.find((size) => size.key === selectedAdditionalSize) || ADDITIONAL_SIZES[0]
@@ -407,11 +629,66 @@ export function SeoBlogBannerPanel() {
     return `${insertAssets.length}/${MAX_INSERT_IMAGES} image${insertAssets.length > 1 ? "s" : ""} selected`
   }, [insertAssets.length])
 
-  const addBrandColor = () => {
-    setBrandColorValues((prev) => [...prev, "#111827"])
-    setResult(null)
-    setAdditionalOutputs([])
+  const loadClientAssets = async (clientId: string) => {
+    if (!clientId) {
+      setSavedLogos([])
+      setSavedMaterials([])
+      return
+    }
+
+    setIsLoadingClientAssets(true)
+    try {
+      const storage = getStorageClient()
+      if (!storage) {
+        setSavedLogos([])
+        setSavedMaterials([])
+        return
+      }
+
+      const loadFolder = async (folderPath: string) => {
+        const { data: files, error } = await storage.from("ads-creative-image").list(folderPath, {
+          limit: 60,
+          offset: 0,
+          sortBy: { column: "name", order: "desc" },
+        })
+
+        if (error || !files?.length) return []
+
+        return files.map((file) => {
+          const { data } = storage.from("ads-creative-image").getPublicUrl(`${folderPath}/${file.name}`)
+          return {
+            name: file.name,
+            url: data.publicUrl,
+            createdAt: file.created_at || new Date().toISOString(),
+          }
+        })
+      }
+
+      const [logos, sharedMaterials, seoMaterials] = await Promise.all([
+        loadFolder(`seo-blog-banner/${clientId}/logos`),
+        loadFolder(`materials/${clientId}`),
+        loadFolder(`seo-blog-banner/${clientId}/materials`),
+      ])
+
+      const sortAssets = (assets: StoredAsset[]) =>
+        assets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      const uniqueAssets = (assets: StoredAsset[]) =>
+        Array.from(new Map(assets.map((asset) => [asset.url, asset])).values())
+
+      setSavedLogos(sortAssets(logos))
+      setSavedMaterials(sortAssets(uniqueAssets([...sharedMaterials, ...seoMaterials])))
+    } catch (error) {
+      console.error("Failed to load SEO banner client assets:", error)
+      setSavedLogos([])
+      setSavedMaterials([])
+    } finally {
+      setIsLoadingClientAssets(false)
+    }
   }
+
+  useEffect(() => {
+    void loadClientAssets(selectedClientId)
+  }, [selectedClientId])
 
   const addBrandHexColor = () => {
     const value = brandHexInput.trim()
@@ -423,7 +700,11 @@ export function SeoBlogBannerPanel() {
       return
     }
 
-    setBrandColorValues((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]))
+    if (!brandColorValues.includes(normalized)) {
+      const nextRole = COLOR_ROLE_OPTIONS[brandColorValues.length] || "Accent"
+      setBrandColorValues((prev) => [...prev, normalized])
+      setBrandColorRoles((prev) => [...prev, nextRole])
+    }
     setBrandHexInput("")
     setBrandHexError("")
     setResult(null)
@@ -436,8 +717,19 @@ export function SeoBlogBannerPanel() {
     setAdditionalOutputs([])
   }
 
+  const updateBrandColorRole = (indexToUpdate: number, role: BrandColorRole) => {
+    setBrandColorRoles((prev) => {
+      const next = [...prev]
+      next[indexToUpdate] = role
+      return next
+    })
+    setResult(null)
+    setAdditionalOutputs([])
+  }
+
   const removeBrandColor = (indexToRemove: number) => {
     setBrandColorValues((prev) => prev.filter((_, index) => index !== indexToRemove))
+    setBrandColorRoles((prev) => prev.filter((_, index) => index !== indexToRemove))
     setResult(null)
     setAdditionalOutputs([])
   }
@@ -449,6 +741,19 @@ export function SeoBlogBannerPanel() {
     setLogoAsset(createAsset(file))
     setResult(null)
     setAdditionalOutputs([])
+  }
+
+  const uploadAssetForGeneration = async (asset: UploadedAsset | null, fallbackFolder: string, clientFolder?: string) => {
+    if (!asset) return ""
+    if (asset.url) return asset.url
+    if (!asset.file) return ""
+    const folder =
+      selectedClientId && clientFolder === "materials"
+        ? `materials/${selectedClientId}`
+        : selectedClientId && clientFolder
+          ? `seo-blog-banner/${selectedClientId}/${clientFolder}`
+          : fallbackFolder
+    return uploadFileToImageStorage(asset.file, folder)
   }
 
   const handleReferenceSelect = (files: FileList | null) => {
@@ -505,8 +810,10 @@ export function SeoBlogBannerPanel() {
       }
 
       setBrandName(payload.brand_name || "")
-      setBrandColorValues(extractHexColors(payload.brand_colors || "").map(normalizeHexColor))
-      setBrandContext(payload.brand_context || "")
+      const extractedColors = extractHexColors(payload.brand_colors || "").map(normalizeHexColor)
+      setBrandColorValues(extractedColors)
+      setBrandColorRoles(extractedColors.map((_, index) => COLOR_ROLE_OPTIONS[index] || "Accent"))
+      applyBrandContext(payload.brand_context || "")
       setOpenBrandLogoUrl(payload.selected_logo_url || "")
       setResult(null)
       setAdditionalOutputs([])
@@ -531,13 +838,11 @@ export function SeoBlogBannerPanel() {
 
     try {
       const [brandLogoUrl, referenceImageUrl, insertImageUrls] = await Promise.all([
-        logoAsset ? uploadFileToImageStorage(logoAsset.file, "generated/seo-blog-banner-inputs/logo") : Promise.resolve(""),
-        referenceAsset
-          ? uploadFileToImageStorage(referenceAsset.file, "generated/seo-blog-banner-inputs/reference")
-          : Promise.resolve(""),
+        uploadAssetForGeneration(logoAsset, "generated/seo-blog-banner-inputs/logo", "logos"),
+        uploadAssetForGeneration(referenceAsset, "generated/seo-blog-banner-inputs/reference", "references"),
         insertAssets.length > 0
           ? Promise.all(
-              insertAssets.map((asset) => uploadFileToImageStorage(asset.file, "generated/seo-blog-banner-inputs/materials")),
+              insertAssets.map((asset) => uploadAssetForGeneration(asset, "generated/seo-blog-banner-inputs/materials", "materials")),
             )
           : Promise.resolve([]),
       ])
@@ -550,10 +855,11 @@ export function SeoBlogBannerPanel() {
         body: JSON.stringify({
           model_provider: "openai",
           website: website.trim(),
-          facebook_page: facebookPage.trim(),
           brand_name: brandName.trim(),
-          brand_colors: brandColorValues.join(", "),
-          brand_context: brandContext.trim(),
+          brand_colors: brandColorValues
+            .map((color, index) => `${brandColorRoles[index] || "Accent"}: ${color}`)
+            .join(", "),
+          brand_context: composedBrandContext,
           brand_logo_url: brandLogoUrl,
           openbrand_logo_url: openBrandLogoUrl,
           reference_image_url: referenceImageUrl,
@@ -584,6 +890,10 @@ export function SeoBlogBannerPanel() {
         targetMasterSize: payload.target_master_size || "1600x900",
         brandAssets: payload.brand_assets || null,
       })
+
+      if (selectedClientId) {
+        void loadClientAssets(selectedClientId)
+      }
     } catch (err) {
       console.error("SEO blog banner generation failed:", err)
       setError(err instanceof Error ? err.message : "Cannot generate SEO blog banner")
@@ -684,6 +994,89 @@ export function SeoBlogBannerPanel() {
           <div className="space-y-5 p-6">
             <div className="grid gap-4">
               <div className="space-y-2">
+                <Label>Client connection</Label>
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isClientPopoverOpen}
+                        className="h-12 w-full justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
+                      >
+                        <span className="truncate">{selectedClient?.clientName || "Default mode / no client"}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="w-[var(--radix-popover-trigger-width)] min-w-[280px] rounded-2xl border-slate-200 p-0"
+                    >
+                      <Command>
+                        <CommandInput placeholder="Type to search client..." />
+                        <CommandList>
+                          <CommandEmpty>No client found</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="Default mode / no client"
+                              onSelect={() => {
+                                setSelectedClientId("")
+                                setIsClientPopoverOpen(false)
+                              }}
+                              className="flex items-center justify-between px-3 py-2"
+                            >
+                              <span>Default mode / no client</span>
+                              <Check
+                                className={cn(
+                                  "h-4 w-4 text-slate-900",
+                                  selectedClientId ? "opacity-0" : "opacity-100",
+                                )}
+                              />
+                            </CommandItem>
+                            {clients.map((client) => (
+                              <CommandItem
+                                key={client.id}
+                                value={client.clientName}
+                                onSelect={() => {
+                                  setSelectedClientId(client.id)
+                                  setIsClientPopoverOpen(false)
+                                }}
+                                className="flex items-center justify-between px-3 py-2"
+                              >
+                                <span>{client.clientName}</span>
+                                <Check
+                                  className={cn(
+                                    "h-4 w-4 text-slate-900",
+                                    selectedClientId === client.id ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                      <div className="border-t border-slate-100 p-2">
+                        <Link
+                          href="/new-client"
+                          onClick={() => setIsClientPopoverOpen(false)}
+                          className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add new client
+                        </Link>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    {selectedClient
+                      ? `Connected to ${selectedClient.clientName}. Uploaded logo/materials will be saved for reuse.`
+                      : "Choose a client if you want to reuse saved SEO banner assets later."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="seo-website">Website *</Label>
                 <div className="flex gap-2">
                   <Input
@@ -709,143 +1102,199 @@ export function SeoBlogBannerPanel() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="seo-facebook">Facebook page</Label>
-                <Input
-                  id="seo-facebook"
-                  value={facebookPage}
-                  onChange={(event) => setFacebookPage(event.target.value)}
-                  placeholder="https://facebook.com/brand"
-                  className="h-12 rounded-2xl"
-                />
-              </div>
             </div>
 
-            <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-950">Brand Details</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Extract from OpenBrand first, then edit before generating.
-                  </p>
-                </div>
-                {openBrandLogoUrl ? (
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Logo detected
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo-brand-name">Brand name</Label>
-                <Input
-                  id="seo-brand-name"
-                  value={brandName}
-                  onChange={(event) => {
-                    setBrandName(event.target.value)
+            <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)] lg:items-stretch">
+              <div className="flex h-full flex-col space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                <AssetUpload
+                  label="Brand Logo"
+                  description={openBrandLogoUrl ? "Detected from OpenBrand. Upload another logo to override." : "Upload a logo, or click Extract to detect one from the website."}
+                  asset={logoAsset}
+                  remotePreviewUrl={openBrandLogoUrl}
+                  onSelect={handleLogoSelect}
+                  onRemove={() => {
+                    revokeAsset(logoAsset)
+                    setLogoAsset(null)
+                    setOpenBrandLogoUrl("")
                     setResult(null)
                   }}
-                  placeholder="Auto-filled from OpenBrand"
-                  className="h-11 rounded-2xl bg-white"
+                  compact
                 />
-              </div>
 
-              <div className="space-y-2">
-                <Label>Brand colors</Label>
-                <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                  {brandColorValues.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-3">
-                      {brandColorValues.map((color, index) => (
-                        <div key={`brand-color-${index}`} className="group relative">
-                          <input
-                            type="color"
-                            value={color}
-                            onChange={(event) => updateBrandColor(index, event.target.value)}
-                            className="h-14 w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-transparent p-0 shadow-sm ring-offset-2 transition group-hover:ring-2 group-hover:ring-slate-300 [&::-moz-color-swatch]:rounded-2xl [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-2xl [&::-webkit-color-swatch]:border-0"
-                            aria-label={`Brand color ${index + 1}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeBrandColor(index)}
-                            className="absolute -right-1 -top-1 rounded-full bg-slate-950 p-1 text-white opacity-0 transition group-hover:opacity-100"
-                            aria-label="Remove brand color"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[64px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center text-xs text-slate-500">
-                      No colors extracted yet
-                    </div>
-                  )}
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addBrandColor}
-                    className="mt-3 w-full rounded-full"
-                  >
-                    Add color
-                  </Button>
-                  <div className="mt-3 flex gap-2">
-                    <Input
-                      value={brandHexInput}
-                      onChange={(event) => {
-                        setBrandHexInput(event.target.value)
-                        setBrandHexError("")
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault()
-                          addBrandHexColor()
-                        }
-                      }}
-                      placeholder="#0F172A"
-                      className="h-10 rounded-full bg-white font-mono text-sm"
-                    />
-                    <Button type="button" onClick={addBrandHexColor} className="h-10 rounded-full bg-slate-950 px-4 text-white hover:bg-slate-800">
-                      Add HEX
-                    </Button>
+                <div className="flex flex-1 flex-col space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">Brand context</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Website context used by AI. Edit only if extraction is wrong.
+                    </p>
                   </div>
-                  {brandHexError ? <p className="mt-2 text-xs text-red-600">{brandHexError}</p> : null}
-                  <p className="mt-2 text-xs leading-5 text-slate-500">
-                    Click any color to edit it, or paste a HEX code manually.
-                  </p>
+                  <Textarea
+                    value={composedBrandContext}
+                    onChange={(event) => {
+                      applyBrandContext(event.target.value)
+                      setResult(null)
+                    }}
+                    placeholder="Site name, page title, meta description, and useful website context"
+                    className="min-h-[178px] flex-1 resize-y rounded-2xl bg-white"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="seo-brand-context">Brand context</Label>
-                <Textarea
-                  id="seo-brand-context"
-                  value={brandContext}
-                  onChange={(event) => {
-                    setBrandContext(event.target.value)
-                    setResult(null)
-                  }}
-                  placeholder="Website description and brand cues extracted from the site"
-                  className="min-h-[120px] resize-y rounded-2xl bg-white"
-                />
+              <div className="h-full space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                <div className="space-y-2">
+                  <Label htmlFor="seo-brand-name">Brand name</Label>
+                  <Input
+                    id="seo-brand-name"
+                    value={brandName}
+                    onChange={(event) => {
+                      setBrandName(event.target.value)
+                      setResult(null)
+                    }}
+                    placeholder="Auto-filled from OpenBrand"
+                    className="h-11 rounded-2xl bg-white"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Brand colors</Label>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    {brandColorValues.length > 0 ? (
+                      <div className="grid gap-3">
+                        {brandColorValues.map((color, index) => (
+                          <div key={`brand-color-${index}`} className="group relative grid grid-cols-[72px_1fr] gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+                            <input
+                              type="color"
+                              value={color}
+                              onChange={(event) => updateBrandColor(index, event.target.value)}
+                              className="h-14 w-full cursor-pointer appearance-none rounded-2xl border border-slate-200 bg-transparent p-0 shadow-sm ring-offset-2 transition group-hover:ring-2 group-hover:ring-slate-300 [&::-moz-color-swatch]:rounded-2xl [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-2xl [&::-webkit-color-swatch]:border-0"
+                              aria-label={`Brand color ${index + 1}`}
+                            />
+                            <div className="space-y-1">
+                              <select
+                                value={brandColorRoles[index] || "Accent"}
+                                onChange={(event) => updateBrandColorRole(index, event.target.value as BrandColorRole)}
+                                className="h-8 w-full rounded-xl border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:border-slate-400"
+                              >
+                                {COLOR_ROLE_OPTIONS.map((role) => (
+                                  <option key={role} value={role}>
+                                    {role}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="px-1 font-mono text-xs text-slate-500">{color}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeBrandColor(index)}
+                              className="absolute -right-1 -top-1 rounded-full bg-slate-950 p-1 text-white opacity-0 transition group-hover:opacity-100"
+                              aria-label="Remove brand color"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex min-h-[64px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-center text-xs text-slate-500">
+                        No colors extracted yet
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex gap-2">
+                      <Input
+                        value={brandHexInput}
+                        onChange={(event) => {
+                          setBrandHexInput(event.target.value)
+                          setBrandHexError("")
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault()
+                            addBrandHexColor()
+                          }
+                        }}
+                        placeholder="#0F172A"
+                        className="h-10 rounded-full bg-white font-mono text-xs placeholder:text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addBrandHexColor}
+                        className="h-10 shrink-0 rounded-full px-4"
+                      >
+                        Add color
+                      </Button>
+                    </div>
+                    {brandHexError ? <p className="mt-2 text-xs text-red-600">{brandHexError}</p> : null}
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      Click any color to edit it, or paste a HEX code manually.
+                    </p>
+                  </div>
+                </div>
+
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <AssetUpload
-                label="Brand Logo"
-                description={openBrandLogoUrl ? "Detected from OpenBrand. Upload to override." : "Used as brand identity if provided."}
-                asset={logoAsset}
-                remotePreviewUrl={openBrandLogoUrl}
-                onSelect={handleLogoSelect}
-                onRemove={() => {
-                  revokeAsset(logoAsset)
-                  setLogoAsset(null)
-                  setOpenBrandLogoUrl("")
-                  setResult(null)
-                }}
-              />
+            <div className="space-y-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <div className="space-y-2">
+                <Label htmlFor="seo-headline">Headline *</Label>
+                <Textarea
+                  id="seo-headline"
+                  value={headline}
+                  onChange={(event) => setHeadline(event.target.value)}
+                  placeholder="เช่น 5 วิธีเพิ่มยอดขายจาก SEO Content"
+                  className="min-h-[74px] resize-none rounded-2xl bg-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seo-subheadline">Sub-headline</Label>
+                <Textarea
+                  id="seo-subheadline"
+                  value={subHeadline}
+                  onChange={(event) => setSubHeadline(event.target.value)}
+                  placeholder="ข้อความรองที่อยากให้ปรากฏบน banner"
+                  className="min-h-[68px] resize-none rounded-2xl bg-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seo-user-brief">Optional brief</Label>
+                <Textarea
+                  id="seo-user-brief"
+                  value={userBrief}
+                  onChange={(event) => {
+                    setUserBrief(event.target.value)
+                    setResult(null)
+                  }}
+                  placeholder="เช่น อยากได้ mood ที่ดู editorial, ใช้ reference เป็น layout หลัก, มีคนได้แต่ต้องเหมือนภาพถ่ายจริง"
+                  className="min-h-[92px] resize-y rounded-2xl bg-white"
+                />
+                <p className="text-xs leading-5 text-slate-500">
+                  This brief is sent as a must-follow instruction for image generation.
+                </p>
+              </div>
+            </div>
+
+            <details className="rounded-[24px] border border-slate-200 bg-white p-4">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-950">Reference and materials</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {[
+                      referenceAsset ? "reference selected" : "",
+                      insertAssets.length ? `${insertAssets.length} material${insertAssets.length > 1 ? "s" : ""}` : "",
+                      savedMaterials.length ? `${savedMaterials.length} saved` : "",
+                    ].filter(Boolean).join(" • ") || "Optional. Open only when you need to upload or reuse assets."}
+                  </p>
+                </div>
+                <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                  Manage
+                </span>
+              </summary>
+
+              <div className="mt-4 space-y-4">
+            <div className="grid gap-4">
               <AssetUpload
                 label="Reference Image"
                 description="Optional visual direction."
@@ -862,42 +1311,114 @@ export function SeoBlogBannerPanel() {
             <div className="rounded-[24px] border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-950">Insert Images</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{insertHint}</p>
+                  <p className="text-sm font-semibold text-slate-950">Saved client assets</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {selectedClientId
+                      ? "Choose saved materials or upload new insert images here. New uploads are saved to this client when generating."
+                      : "Choose a client to see saved materials, or upload insert images for this generation only."}
+                  </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  onClick={() => document.getElementById("seo-insert-assets")?.click()}
-                  disabled={insertAssets.length >= MAX_INSERT_IMAGES}
-                >
-                  <ImagePlus className="mr-2 h-4 w-4" />
-                  Add
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {isLoadingClientAssets ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={() => document.getElementById("seo-insert-assets")?.click()}
+                    disabled={insertAssets.length >= MAX_INSERT_IMAGES}
+                  >
+                    <ImagePlus className="mr-2 h-4 w-4" />
+                    Upload
+                  </Button>
+                </div>
               </div>
 
-              {insertAssets.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {insertAssets.map((asset, index) => (
-                    <div key={asset.previewUrl} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                      <img src={asset.previewUrl} alt={`Insert image ${index + 1}`} className="h-28 w-full object-cover" />
+              {selectedClientId && savedLogos.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Saved logos</p>
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                    {savedLogos.slice(0, 8).map((asset) => (
                       <button
+                        key={asset.url}
                         type="button"
-                        onClick={() => removeInsertAsset(index)}
-                        className="absolute right-2 top-2 rounded-full bg-slate-950 p-1 text-white opacity-90 transition hover:bg-slate-700"
+                        onClick={() => {
+                          revokeAsset(logoAsset)
+                          setLogoAsset(createStoredAsset(asset))
+                          setOpenBrandLogoUrl("")
+                          setResult(null)
+                        }}
+                        className="h-16 w-16 flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition hover:border-slate-500"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <img src={asset.url} alt={asset.name} className="h-full w-full object-contain p-1" />
                       </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {selectedClientId && savedMaterials.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Saved materials</p>
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {savedMaterials.slice(0, 8).map((asset) => {
+                      const selected = insertAssets.some((item) => item.url === asset.url)
+                      return (
+                        <button
+                          key={asset.url}
+                          type="button"
+                          disabled={selected || insertAssets.length >= MAX_INSERT_IMAGES}
+                          onClick={() => {
+                            setInsertAssets((prev) => [...prev, createStoredAsset(asset)].slice(0, MAX_INSERT_IMAGES))
+                            setResult(null)
+                          }}
+                          className={cn(
+                            "relative aspect-square overflow-hidden rounded-2xl border bg-slate-50 transition",
+                            selected ? "border-slate-950 opacity-80" : "border-slate-200 hover:border-slate-500",
+                          )}
+                        >
+                          <img src={asset.url} alt={asset.name} className="h-full w-full object-cover" />
+                          {selected ? (
+                            <span className="absolute inset-x-1 bottom-1 rounded-full bg-slate-950 px-2 py-1 text-[10px] font-semibold text-white">
+                              Selected
+                            </span>
+                          ) : null}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {!isLoadingClientAssets && selectedClientId && savedLogos.length === 0 && savedMaterials.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  No saved assets for this client yet. Upload insert images here and generate once to save them.
+                </div>
+              ) : null}
+
+              {insertAssets.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Selected insert images</p>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    {insertAssets.map((asset, index) => (
+                      <div key={asset.previewUrl} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                        <img src={asset.previewUrl} alt={`Insert image ${index + 1}`} className="h-28 w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeInsertAsset(index)}
+                          className="absolute right-2 top-2 rounded-full bg-slate-950 p-1 text-white opacity-90 transition hover:bg-slate-700"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <div className="mt-4 flex min-h-[112px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-center">
+                <div className="mt-4 flex min-h-[96px] items-center justify-center rounded-[20px] border border-dashed border-slate-300 bg-slate-50 text-center">
                   <div>
                     <FileImage className="mx-auto h-6 w-6 text-slate-400" />
-                    <p className="mt-2 text-sm font-medium text-slate-700">No insert images</p>
+                    <p className="mt-2 text-sm font-medium text-slate-700">No insert images selected</p>
                     <p className="text-xs text-slate-500">Product, model, or material images are optional.</p>
                   </div>
                 </div>
@@ -915,47 +1436,8 @@ export function SeoBlogBannerPanel() {
                 }}
               />
             </div>
-
-            <div className="space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-              <div className="space-y-2">
-                <Label htmlFor="seo-headline">Headline *</Label>
-                <Textarea
-                  id="seo-headline"
-                  value={headline}
-                  onChange={(event) => setHeadline(event.target.value)}
-                  placeholder="เช่น 5 วิธีเพิ่มยอดขายจาก SEO Content"
-                  className="min-h-[84px] resize-none rounded-2xl bg-white"
-                />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo-subheadline">Sub-headline</Label>
-                <Textarea
-                  id="seo-subheadline"
-                  value={subHeadline}
-                  onChange={(event) => setSubHeadline(event.target.value)}
-                  placeholder="ข้อความรองที่อยากให้ปรากฏบน banner"
-                  className="min-h-[84px] resize-none rounded-2xl bg-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="seo-user-brief">Optional brief</Label>
-                <Textarea
-                  id="seo-user-brief"
-                  value={userBrief}
-                  onChange={(event) => {
-                    setUserBrief(event.target.value)
-                    setResult(null)
-                  }}
-                  placeholder="เช่น อยากได้ mood ที่ดู editorial, ใช้ reference เป็น layout หลัก, มีคนได้แต่ต้องเหมือนภาพถ่ายจริง"
-                  className="min-h-[112px] resize-y rounded-2xl bg-white"
-                />
-                <p className="text-xs leading-5 text-slate-500">
-                  This brief is sent as a must-follow instruction for image generation.
-                </p>
-              </div>
-            </div>
+            </details>
 
             {error ? (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>

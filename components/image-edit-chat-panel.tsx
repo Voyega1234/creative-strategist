@@ -1,13 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import {
   ArrowDownToLine,
   Brush,
+  Check,
+  ChevronsUpDown,
   FileImage,
   ImagePlus,
   Loader2,
   Maximize2,
+  Plus,
   RotateCcw,
   Sparkles,
   Trash2,
@@ -16,8 +20,16 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { PromptBox } from "@/components/ui/chatgpt-prompt-input"
 import {
   dataUrlToBlob,
@@ -108,15 +120,12 @@ export function ImageEditChatPanel({
   const [materialLibrary, setMaterialLibrary] = useState<StoredImageAsset[]>([])
   const [isLoadingReferences, setIsLoadingReferences] = useState(false)
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false)
-  const [clientSearchTerm, setClientSearchTerm] = useState("")
+  const [isMaterialClientPopoverOpen, setIsMaterialClientPopoverOpen] = useState(false)
   const [referenceVisibleCount, setReferenceVisibleCount] = useState(10)
 
   const hasImage = Boolean(currentImageUrl)
   const isProcessing = isEditing
   const selectedMaterialClient = clients.find((client) => client.id === selectedMaterialClientId)
-  const filteredMaterialClients = clients.filter((client) =>
-    client.clientName.toLowerCase().includes(clientSearchTerm.trim().toLowerCase()),
-  )
   const visibleReferenceLibrary = referenceLibrary.slice(0, referenceVisibleCount)
 
   useEffect(() => {
@@ -866,28 +875,78 @@ export function ImageEditChatPanel({
 
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Material client</p>
-                <input
-                  type="search"
-                  value={clientSearchTerm}
-                  onChange={(event) => setClientSearchTerm(event.target.value)}
-                  placeholder="Search client"
-                  className="mt-2 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-400"
-                />
-                <div className="mt-2">
-                  <Select value={selectedMaterialClientId} onValueChange={setSelectedMaterialClientId}>
-                    <SelectTrigger className="h-10 rounded-xl border-slate-200 text-sm">
-                      <SelectValue placeholder="Default mode" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      <SelectItem value="general">Default mode</SelectItem>
-                      {filteredMaterialClients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.clientName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Popover open={isMaterialClientPopoverOpen} onOpenChange={setIsMaterialClientPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isMaterialClientPopoverOpen}
+                      className="mt-2 h-10 w-full justify-between rounded-xl border-slate-200 bg-white px-3 font-normal text-slate-900 hover:bg-white"
+                    >
+                      <span className="truncate">{selectedMaterialClient?.clientName || "Default mode"}</span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-[var(--radix-popover-trigger-width)] min-w-[240px] rounded-2xl border-slate-200 p-0"
+                  >
+                    <Command>
+                      <CommandInput placeholder="Type to search client..." />
+                      <CommandList>
+                        <CommandEmpty>No client found</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="Default mode"
+                            onSelect={() => {
+                              setSelectedMaterialClientId("general")
+                              setIsMaterialClientPopoverOpen(false)
+                            }}
+                            className="flex items-center justify-between px-3 py-2"
+                          >
+                            <span>Default mode</span>
+                            <Check
+                              className={cn(
+                                "h-4 w-4 text-slate-900",
+                                selectedMaterialClientId === "general" ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                          </CommandItem>
+                          {clients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={client.clientName}
+                              onSelect={() => {
+                                setSelectedMaterialClientId(client.id)
+                                setIsMaterialClientPopoverOpen(false)
+                              }}
+                              className="flex items-center justify-between px-3 py-2"
+                            >
+                              <span>{client.clientName}</span>
+                              <Check
+                                className={cn(
+                                  "h-4 w-4 text-slate-900",
+                                  selectedMaterialClientId === client.id ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                    <div className="border-t border-slate-100 p-2">
+                      <Link
+                        href="/new-client"
+                        onClick={() => setIsMaterialClientPopoverOpen(false)}
+                        className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add new client
+                      </Link>
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <p className="mt-2 text-xs leading-5 text-slate-500">
                   {selectedMaterialClient
                     ? `Showing saved materials for ${selectedMaterialClient.clientName}.`

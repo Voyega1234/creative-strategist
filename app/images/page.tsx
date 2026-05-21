@@ -238,7 +238,10 @@ function MainContent() {
 
             <TabsContent value="seo-blog-banner" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
               <div className="mx-auto max-w-[1480px]">
-                <SeoBlogBannerPanel />
+                <SeoBlogBannerPanel
+                  clients={clients}
+                  activeClientId={resolvedClientId}
+                />
               </div>
             </TabsContent>
 

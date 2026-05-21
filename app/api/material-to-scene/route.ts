@@ -325,6 +325,13 @@ You are NOT allowed to change:
 
 The material or product must remain unmistakably the exact same source item from the input image, only re-shot inside a new scene.
 
+TEXT / AD COPY RULES:
+- Do not create any advertising headline, sub-headline, CTA, offer text, price text, badge text, floating typography, captions, posters, banners, stickers, UI labels, or decorative text in the output.
+- The output must be a clean photographic scene, not an ad layout with copy.
+- The only text allowed is text that already exists physically on the hero material/product itself, such as product labels, logos, packaging text, SKU, model number, ingredient text, or real markings.
+- Preserve existing text/logos/labels on the hero material/product exactly as part of its identity.
+- Do not invent new brand names, slogans, product claims, certification marks, labels, or signage.
+
 ${
   hasSceneReferences
     ? `SCENE / BACKGROUND REFERENCE RULES:

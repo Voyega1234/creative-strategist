@@ -17,7 +17,6 @@ type ImageModelProvider = "gemini" | "openai"
 type SeoBlogBannerRequest = {
   model_provider?: ImageModelProvider
   website?: string
-  facebook_page?: string
   brand_name?: string
   brand_colors?: string
   brand_context?: string
@@ -332,10 +331,17 @@ async function resizeOpenAiMasterWithGemini({
 }
 
 function selectOpenBrandLogo(logos: OpenBrandLogo[]) {
-  const withUrl = logos.filter((logo) => typeof logo.url === "string" && logo.url.trim().length > 0)
-  const raster = withUrl.filter((logo) => isRasterImageUrl(logo.url || ""))
-  const nonFaviconRaster = raster.find((logo) => !isLikelyFaviconLogo(logo))
-  return nonFaviconRaster?.url || ""
+  const withUrl = logos.filter((logo) => {
+    if (typeof logo.url !== "string" || logo.url.trim().length === 0) return false
+    return !/^data:image\/svg\+xml,[^#?]*%3Csvg[^#?]*%3E%3C\/svg%3E$/i.test(logo.url)
+  })
+  const nonFavicon = withUrl.filter((logo) => !isLikelyFaviconLogo(logo))
+  const raster = withUrl
+    .filter((logo) => isRasterImageUrl(logo.url || ""))
+    .sort((a, b) => ((b.resolution?.width || 0) * (b.resolution?.height || 0)) - ((a.resolution?.width || 0) * (a.resolution?.height || 0)))
+  const nonFaviconRaster = nonFavicon.find((logo) => isRasterImageUrl(logo.url || ""))
+  const likelyLogo = nonFavicon.find((logo) => /logo|brandmark|wordmark/i.test(`${logo.type || ""} ${logo.url || ""}`))
+  return nonFaviconRaster?.url || likelyLogo?.url || raster[0]?.url || nonFavicon[0]?.url || withUrl[0]?.url || ""
 }
 
 async function fetchOpenBrandAssets(website: string): Promise<OpenBrandAssets | null> {
@@ -384,7 +390,6 @@ async function fetchOpenBrandAssets(website: string): Promise<OpenBrandAssets | 
 
 function buildPrompt({
   website,
-  facebookPage,
   brandNameOverride,
   brandColorsOverride,
   brandContextOverride,
@@ -398,7 +403,6 @@ function buildPrompt({
   insertImageCount,
 }: {
   website: string
-  facebookPage: string
   brandNameOverride: string
   brandColorsOverride: string
   brandContextOverride: string
@@ -419,9 +423,7 @@ function buildPrompt({
       .join(", ") ||
     ""
   const brandName = brandNameOverride || openBrandAssets?.brandName || ""
-  const brandDescription = [brandContextOverride || websiteContext, facebookPage ? `Facebook page: ${facebookPage}` : ""]
-    .filter(Boolean)
-    .join("\n")
+  const brandDescription = brandContextOverride || websiteContext
   const topic = [headline, subHeadline, brandDescription].filter(Boolean).join(" / ")
 
   return [
@@ -499,7 +501,6 @@ export async function POST(request: Request) {
     const body = (await request.json()) as SeoBlogBannerRequest
     const modelProvider: ImageModelProvider = body.model_provider === "gemini" ? "gemini" : "openai"
     const website = normalizeUrl(body.website)
-    const facebookPage = normalizeUrl(body.facebook_page)
     const brandName = typeof body.brand_name === "string" ? body.brand_name.trim() : ""
     const brandColors = typeof body.brand_colors === "string" ? body.brand_colors.trim() : ""
     const brandContext = typeof body.brand_context === "string" ? body.brand_context.trim() : ""
@@ -560,7 +561,6 @@ export async function POST(request: Request) {
       .filter((imageUrl) => imageUrl === brandLogoUrl || !isLikelyFaviconUrl(imageUrl))
     const prompt = buildPrompt({
       website,
-      facebookPage,
       brandNameOverride: brandName,
       brandColorsOverride: brandColors,
       brandContextOverride: brandContext,

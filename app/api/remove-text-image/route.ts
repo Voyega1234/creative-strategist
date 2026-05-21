@@ -106,12 +106,14 @@ function getClosestAspectRatio(width: number, height: number) {
 
 function getRemoveTextPrompt() {
   return [
-    "Remove all advertising overlays and graphic messaging from this image.",
-    "Remove all text, typography, numbers, prices, discount labels, CTA labels, badges, banners, logos, product name tags, stickers, and promotional callouts.",
-    "Keep only the natural background, scene, and the main product or main object subjects from the original image.",
-    "Preserve the main object, product, subject placement, lighting, materials, colors, reflections, shadows, and background structure.",
-    "Completely erase the removed areas and reconstruct them naturally so no text panel, label, sticker, or graphic overlay remains visible.",
-    "The final result should look like the original ad before any text or promotional graphics were added, with only the main objects and clean background remaining.",
+    "Remove only advertising overlay copy and graphic messaging from this image.",
+    "Target for removal: headline text, sub-headline text, CTA text/buttons, price callouts, discount labels, promo badges, floating typography, banners, stickers, graphic captions, and text boxes that are part of the ad layout.",
+    "Do NOT remove, redraw, blur, simplify, or alter any text, logo, label, SKU, model number, ingredient text, packaging text, product name, or brand mark that is physically printed on the product, packaging, clothing, device, signage, or main object.",
+    "Product labels and product logos are part of the main object identity and must be preserved exactly.",
+    "Keep the natural background, scene, main products, packaging, people, and main object subjects from the original image.",
+    "Preserve product placement, lighting, materials, colors, reflections, shadows, labels, logos, packaging structure, and background structure.",
+    "Completely erase the removed overlay areas and reconstruct the underlying background naturally so no text panel, ad label, sticker, or graphic overlay remains visible.",
+    "The final result should look like the original image before ad copy overlays were added, while retaining all product/packaging identity.",
     "Do not add new design elements, new text, new logos, or new decorative graphics.",
   ].join(" ")
 }

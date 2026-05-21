@@ -82,10 +82,17 @@ function isLikelyFaviconLogo(logo: OpenBrandLogo) {
 }
 
 function selectOpenBrandLogo(logos: OpenBrandLogo[]) {
-  const withUrl = logos.filter((logo) => typeof logo.url === "string" && logo.url.trim().length > 0)
-  const raster = withUrl.filter((logo) => isRasterImageUrl(logo.url || ""))
-  const nonFaviconRaster = raster.find((logo) => !isLikelyFaviconLogo(logo))
-  return nonFaviconRaster?.url || ""
+  const withUrl = logos.filter((logo) => {
+    if (typeof logo.url !== "string" || logo.url.trim().length === 0) return false
+    return !/^data:image\/svg\+xml,[^#?]*%3Csvg[^#?]*%3E%3C\/svg%3E$/i.test(logo.url)
+  })
+  const nonFavicon = withUrl.filter((logo) => !isLikelyFaviconLogo(logo))
+  const raster = withUrl
+    .filter((logo) => isRasterImageUrl(logo.url || ""))
+    .sort((a, b) => ((b.resolution?.width || 0) * (b.resolution?.height || 0)) - ((a.resolution?.width || 0) * (a.resolution?.height || 0)))
+  const nonFaviconRaster = nonFavicon.find((logo) => isRasterImageUrl(logo.url || ""))
+  const likelyLogo = nonFavicon.find((logo) => /logo|brandmark|wordmark/i.test(`${logo.type || ""} ${logo.url || ""}`))
+  return nonFaviconRaster?.url || likelyLogo?.url || raster[0]?.url || nonFavicon[0]?.url || withUrl[0]?.url || ""
 }
 
 async function fetchOpenBrandAssets(website: string) {

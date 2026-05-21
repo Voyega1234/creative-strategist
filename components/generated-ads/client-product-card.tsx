@@ -1,6 +1,7 @@
 "use client"
 
-import { Check, ChevronsUpDown, Loader2, Target } from "lucide-react"
+import Link from "next/link"
+import { Check, ChevronsUpDown, Loader2, Plus, Target } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -135,6 +136,16 @@ export function ClientProductCard({
                         </CommandGroup>
                       </CommandList>
                     </Command>
+                    <div className="border-t border-slate-100 p-2">
+                      <Link
+                        href="/new-client"
+                        onClick={() => onClientPopoverOpenChange(false)}
+                        className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add new client
+                      </Link>
+                    </div>
                   </PopoverContent>
                 </Popover>
                 {selectedClientId && (
