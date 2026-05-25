@@ -600,13 +600,13 @@ export function AIImageGenerator({
   ]
 
   return (
-    <div className="space-y-8">
-      <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(248,250,252,0.94)_100%)] px-7 py-7 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Generate Ads</p>
-            <h3 className="mt-3 text-[32px] font-semibold tracking-[-0.03em] text-slate-950">Generate ads from a brief</h3>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
+    <div className="min-w-0 space-y-6 lg:space-y-8">
+      <div className="rounded-[20px] border border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(248,250,252,0.94)_100%)] px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)] sm:rounded-[24px] sm:px-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 max-w-2xl">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Generate Ads</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-950 sm:text-xl">Generate ads from a brief</h3>
+            <p className="mt-2 max-w-xl text-xs leading-5 text-slate-600">
               เริ่มจาก brief ที่เขียนเองได้เลย หรือใช้ saved idea เป็น starting point จากนั้นค่อยเติม style,
               references และ assets เพิ่มเท่าที่จำเป็น
             </p>
@@ -652,8 +652,8 @@ export function AIImageGenerator({
         onClearProductFocus={clearProductFocusSelection}
       />
 
-      <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
-        <div className="px-7 pt-7">
+      <Card className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)] sm:rounded-[32px]">
+        <div className="px-4 pt-5 sm:px-7 sm:pt-7">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 2</p>
           <h4 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Write your brief</h4>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -661,7 +661,7 @@ export function AIImageGenerator({
           </p>
         </div>
 
-        <div className="space-y-7 p-7">
+        <div className="space-y-6 p-4 sm:space-y-7 sm:p-7">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_280px]">
             <div className="space-y-6">
               <div className="space-y-3">
@@ -798,8 +798,8 @@ export function AIImageGenerator({
           onRetry={retryGeneration}
         />
 
-        <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
-          <div className="p-7">
+        <Card className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)] sm:rounded-[32px]">
+          <div className="p-4 sm:p-7">
             <div className="grid gap-4 lg:grid-cols-3">
               <p className="text-sm leading-6 text-slate-600">เริ่มจาก idea ให้ชัดก่อน แล้วค่อยเติม direction เพิ่มเท่าที่จำเป็น</p>
               <p className="text-sm leading-6 text-slate-600">ใช้ product assets เมื่ออยากให้สินค้าในภาพใกล้ของจริงมากขึ้น ส่วน reference ใช้เพื่อคุม mood และ composition</p>

@@ -19,23 +19,23 @@ export function AdStyleSelector({
   onToggleStyle,
 }: AdStyleSelectorProps) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+    <div className="min-w-0 space-y-3">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="min-w-0">
           <label className="text-sm font-medium text-slate-900">Ad style</label>
           <p className="mt-1 text-xs text-slate-500">optional: เลือก style เดียวเพื่อคุมภาพรวมของงาน</p>
         </div>
-        {selectedAdStyle && <span className="text-xs text-slate-500">{selectedStyleLabel}</span>}
+        {selectedAdStyle && <span className="shrink-0 text-xs text-slate-500">{selectedStyleLabel}</span>}
       </div>
       <div className="-mx-1 overflow-x-auto pb-1">
-        <div className="grid min-w-[760px] grid-cols-6 gap-3 px-1">
+        <div className="grid min-w-0 grid-cols-2 gap-3 px-1 sm:grid-cols-3 xl:grid-cols-6">
           {AD_STYLE_OPTIONS.map((style) => {
             const isSelected = selectedAdStyle === style.value
 
             return (
               <HoverCard key={style.value} openDelay={120} closeDelay={80}>
                 <HoverCardTrigger asChild>
-                  <button type="button" onClick={() => onToggleStyle(style.value)} className="text-left">
+                  <button type="button" onClick={() => onToggleStyle(style.value)} className="min-w-0 text-left">
                     <div
                       className={cn(
                         "overflow-hidden rounded-[22px] border bg-slate-50 transition-all",

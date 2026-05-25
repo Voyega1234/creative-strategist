@@ -60,9 +60,9 @@ export function SavedIdeaPanel({
   return (
     <>
       {selectedTopicData && (
-        <div className="rounded-[24px] bg-slate-50 px-5 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
+        <div className="min-w-0 rounded-[24px] bg-slate-50 px-4 py-5 sm:px-5">
+          <div className="flex min-w-0 items-start justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                 Saved idea selected
               </p>
@@ -146,10 +146,10 @@ export function SavedIdeaPanel({
       <Collapsible
         open={isIdeasOpen}
         onOpenChange={onIdeasOpenChange}
-        className="rounded-2xl border border-slate-200 bg-slate-50/70"
+        className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/70"
       >
-        <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left">
-          <div>
+        <CollapsibleTrigger className="flex w-full min-w-0 items-center justify-between gap-3 px-4 py-3 text-left">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
               <Library className="h-4 w-4 text-slate-700" />
               Use saved idea
@@ -159,7 +159,7 @@ export function SavedIdeaPanel({
               เลือก idea ที่มีอยู่เพื่อใช้เป็น starting point แทนการเริ่มจากศูนย์
             </p>
           </div>
-          <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", isIdeasOpen && "rotate-180")} />
+          <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-500 transition-transform", isIdeasOpen && "rotate-180")} />
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-4 px-4 pb-4">
           {canChooseIdea ? (
@@ -184,16 +184,16 @@ export function SavedIdeaPanel({
                       <div
                         key={topicKey}
                         className={cn(
-                          "rounded-[24px] border p-4 transition-all",
+                          "min-w-0 rounded-[24px] border p-4 transition-all",
                           isSelected
                             ? "border-slate-950 bg-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
                             : "border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-[0_10px_24px_rgba(15,23,42,0.05)]",
                         )}
                       >
-                        <div className="flex items-start gap-4">
-                          <button type="button" className="flex-1 text-left" onClick={() => onTopicSelect(topic.title)}>
+                        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+                          <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onTopicSelect(topic.title)}>
                             <div className="flex flex-wrap items-center gap-2">
-                              <h5 className="text-base font-semibold text-slate-950">{topic.title}</h5>
+                              <h5 className="break-words text-base font-semibold text-slate-950">{topic.title}</h5>
                               <Badge variant="secondary" className="rounded-full bg-slate-100 text-slate-600">
                                 {topic.category}
                               </Badge>
@@ -215,7 +215,7 @@ export function SavedIdeaPanel({
                                 ))}
                             </div>
                           </button>
-                          <div className="flex flex-col items-end gap-2">
+                          <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 sm:flex-col sm:items-end">
                             <Button
                               size="sm"
                               variant="ghost"

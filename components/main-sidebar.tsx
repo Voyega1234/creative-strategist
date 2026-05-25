@@ -152,7 +152,7 @@ export function MainSidebar({
   }
 
   return (
-    <aside className="w-64 h-screen bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden">
+    <aside className="h-dvh w-[clamp(13.5rem,18vw,16rem)] shrink-0 bg-white/90 backdrop-blur-sm px-4 py-5 sm:p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden">
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-y-auto pr-2">
           <div className="flex items-center gap-2 mb-8">

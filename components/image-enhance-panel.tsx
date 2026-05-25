@@ -384,13 +384,13 @@ export function ImageEnhancePanel() {
 
   return (
     <div className="space-y-5">
-      <Card className="rounded-[28px] border-slate-200 bg-white px-6 py-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Enhance</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">ปรับคุณภาพภาพด้วย AI Critique ก่อนเจน</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              อัปโหลดภาพ ให้ AI แยกตรวจงานครีเอทีฟและตรวจคำผิดจากรูป แล้วเลือกว่าจะปรับภาพเดิมหรือคิดภาพใหม่
+      <Card className="rounded-[20px] border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)] sm:rounded-[24px] sm:px-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 max-w-2xl">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Enhance</p>
+            <h2 className="mt-2 text-lg font-semibold text-slate-950 sm:text-xl">Improve images with AI critique first</h2>
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              Upload an image, let AI review creative quality and spelling, then choose whether to preserve the original or reimagine a new direction.
             </p>
           </div>
           <div className="grid grid-cols-3 overflow-hidden rounded-full border border-slate-200 bg-slate-50 text-center text-xs font-medium text-slate-500">

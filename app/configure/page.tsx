@@ -134,8 +134,8 @@ async function ConfigurePageContent({
 
   if (!initialClientProfileData) {
     return (
-      <div className="flex min-h-screen bg-white relative">
-        <div className="flex w-full relative z-10">
+      <div className="relative flex min-h-dvh bg-white">
+        <div className="relative z-10 flex min-w-0 w-full">
           <MainSidebar 
             clients={clientsWithProductFocus} 
             activeClientName={activeClientName} 
@@ -146,7 +146,7 @@ async function ConfigurePageContent({
             showSecondaryNav={false}
             showHistory={false}
           />
-          <main className="flex-1 p-8 flex items-center justify-center min-h-screen bg-transparent">
+          <main className="flex min-h-dvh min-w-0 flex-1 items-center justify-center bg-transparent p-4 lg:p-8">
             <div className="text-center text-[#535862]">
               Client profile not found for the selected client. Please ensure data is seeded or create a new client.
             </div>
@@ -159,8 +159,8 @@ async function ConfigurePageContent({
   const totalPages = Math.ceil(totalCompetitorsCount / ITEMS_PER_PAGE)
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
   return (
-    <div className="flex h-screen bg-white relative animate-in fade-in-0 duration-500 overflow-hidden">
-      <div className="flex w-full relative z-10">
+    <div className="relative flex h-dvh overflow-hidden bg-white animate-in fade-in-0 duration-500">
+      <div className="relative z-10 flex min-w-0 w-full">
         <MainSidebar 
           clients={clientsWithProductFocus} 
           activeClientName={activeClientName} 
@@ -171,7 +171,7 @@ async function ConfigurePageContent({
           showSecondaryNav={false}
           showHistory={false}
         />
-        <main className="flex-1 p-8 bg-transparent flex flex-col h-full overflow-hidden">
+        <main className="flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-transparent p-4 lg:p-8">
           <ConfigureHeaderActions
             activeClientName={activeClientName}
             activeProductFocus={activeProductFocus}

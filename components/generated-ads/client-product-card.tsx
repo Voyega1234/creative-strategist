@@ -56,10 +56,10 @@ export function ClientProductCard({
     clients.find((client) => client.id === selectedClientId)?.productFocuses || []
 
   return (
-    <Card className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
-      <div className="px-7 pt-7">
+    <Card className="min-w-0 overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.04)] sm:rounded-[32px]">
+      <div className="px-4 pt-5 sm:px-7 sm:pt-7">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Step 1</p>
             <h4 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">
               Choose client and product focus
@@ -68,22 +68,22 @@ export function ClientProductCard({
               เลือก context ที่จะใช้ generate ก่อน แล้วค่อยไปเขียน brief ใน step ถัดไป
             </p>
           </div>
-          <div className="flex flex-wrap gap-4 text-sm text-slate-500">
-            <div>
+          <div className="flex min-w-0 flex-wrap gap-4 text-sm text-slate-500">
+            <div className="min-w-0">
               <span className="text-slate-400">Client</span>
-              <span className="ml-2 text-slate-700">{currentClient?.clientName || "Not selected"}</span>
+              <span className="ml-2 break-words text-slate-700">{currentClient?.clientName || "Not selected"}</span>
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="text-slate-400">Focus</span>
-              <span className="ml-2 text-slate-700">{selectedProductFocus || "Not selected"}</span>
+              <span className="ml-2 break-words text-slate-700">{selectedProductFocus || "Not selected"}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="space-y-6 p-7">
+      <div className="space-y-6 p-4 sm:p-7">
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium text-slate-900">
               <Target className="h-4 w-4 text-blue-600" />
               Client
@@ -94,7 +94,7 @@ export function ClientProductCard({
                 <span className="ml-2 text-sm text-slate-500">กำลังโหลด...</span>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
                 <Popover open={isClientPopoverOpen} onOpenChange={onClientPopoverOpenChange}>
                   <PopoverTrigger asChild>
                     <Button
@@ -102,16 +102,13 @@ export function ClientProductCard({
                       variant="outline"
                       role="combobox"
                       aria-expanded={isClientPopoverOpen}
-                      className="h-12 flex-1 justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
+                      className="h-12 min-w-0 flex-1 justify-between rounded-2xl border-slate-200 bg-white px-4 font-normal text-slate-900 hover:bg-white"
                     >
                       <span className="truncate">{currentClient?.clientName || "เลือกลูกค้า"}</span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent
-                    align="start"
-                    className="w-[var(--radix-popover-trigger-width)] min-w-[280px] rounded-2xl border-slate-200 p-0"
-                  >
+                  <PopoverContent align="start" className="w-[min(var(--radix-popover-trigger-width),calc(100vw-2rem))] min-w-0 rounded-2xl border-slate-200 p-0 sm:min-w-[280px]">
                     <Command>
                       <CommandInput placeholder="พิมพ์ค้นหาชื่อลูกค้า..." />
                       <CommandList>
@@ -153,7 +150,7 @@ export function ClientProductCard({
                     type="button"
                     variant="outline"
                     onClick={onClearClient}
-                    className="h-12 rounded-2xl border-slate-200 px-4 text-slate-700"
+                    className="h-12 shrink-0 rounded-2xl border-slate-200 px-4 text-slate-700"
                   >
                     Clear
                   </Button>
@@ -162,12 +159,12 @@ export function ClientProductCard({
             )}
           </div>
 
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <label className="text-sm font-medium text-slate-900">Product Focus</label>
             {selectedClientId ? (
-              <div className="flex gap-2">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
                 <Select value={selectedProductFocus} onValueChange={onProductFocusChange}>
-                  <SelectTrigger className="h-12 flex-1 rounded-2xl border-slate-200 bg-white focus:border-slate-950 focus:ring-0">
+                  <SelectTrigger className="h-12 min-w-0 flex-1 rounded-2xl border-slate-200 bg-white focus:border-slate-950 focus:ring-0">
                     <SelectValue placeholder="เลือก Product Focus" />
                   </SelectTrigger>
                   <SelectContent>
@@ -183,7 +180,7 @@ export function ClientProductCard({
                     type="button"
                     variant="outline"
                     onClick={onClearProductFocus}
-                    className="h-12 rounded-2xl border-slate-200 px-4 text-slate-700"
+                    className="h-12 shrink-0 rounded-2xl border-slate-200 px-4 text-slate-700"
                   >
                     Clear
                   </Button>

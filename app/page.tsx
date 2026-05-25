@@ -1741,7 +1741,7 @@ function MainContent() {
 
   // Show main dashboard if authenticated
   return (
-    <div className="flex h-screen bg-white relative overflow-hidden">
+    <div className="relative flex h-dvh overflow-hidden bg-white">
       <div 
         className="fixed inset-0 z-0 opacity-70"
         style={{
@@ -1751,9 +1751,9 @@ function MainContent() {
           backgroundRepeat: 'no-repeat'
         }}
       />
-      <div className="flex w-full relative z-10">
+      <div className="relative z-10 flex min-w-0 w-full">
         {/* Sidebar */}
-        <aside className={`w-64 h-screen bg-white/90 backdrop-blur-sm p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
+        <aside className={`h-dvh w-[clamp(13.5rem,18vw,16rem)] shrink-0 bg-white/90 backdrop-blur-sm px-4 py-5 sm:p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
           <div className="flex h-full flex-col">
             <div className="flex-1 overflow-y-auto pr-2">
               <div className="flex items-center gap-2 mb-8">
@@ -2034,7 +2034,7 @@ function MainContent() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 flex flex-col h-full bg-transparent overflow-y-auto">
+        <main className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-transparent p-4 lg:p-8">
           <div className="w-full flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end mb-6">
             <Button
               onClick={() => !isGenerating && !isLoadingMore && setSavedIdeasModalOpen(true)}

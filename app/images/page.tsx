@@ -126,8 +126,8 @@ function MainContent() {
   const activeTabMeta = TAB_META[activeTab]
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+    <div className="flex h-dvh min-w-0 flex-col bg-white">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         {!isSidebarHidden && (
           <MainSidebar
             clients={clients}
@@ -141,67 +141,67 @@ function MainContent() {
         )}
 
         {/* Main Content */}
-        <main className="flex min-h-0 flex-1 flex-col bg-white overflow-hidden">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white">
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as ImageTabValue)}
-            className="flex min-h-0 flex-1 flex-col"
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
           >
-            <div className="flex flex-none flex-col gap-3 border-b border-[#d1d1d6] bg-white px-4 py-3 lg:px-6">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-none flex-col gap-3 border-b border-[#d1d1d6] bg-white px-3 py-3 sm:px-4 lg:px-6">
+              <div className="flex min-w-0 items-start gap-3">
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
                 onClick={() => setIsSidebarHidden((value) => !value)}
-                className="h-10 w-10 rounded-full border-slate-200"
+                className="h-10 w-10 shrink-0 rounded-full border-slate-200"
               >
                 {isSidebarHidden ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
                 <span className="sr-only">{isSidebarHidden ? "Show sidebar" : "Hide sidebar"}</span>
               </Button>
 
-              <TabsList className="grid h-11 flex-1 grid-cols-6 rounded-full bg-[#f2f2f7] p-1">
+              <TabsList className="flex h-auto min-w-0 flex-1 flex-wrap gap-1 rounded-2xl bg-[#f2f2f7] p-1 sm:rounded-full">
                 <TabsTrigger
                   value="generate"
-                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                  className="min-h-9 flex-1 basis-[132px] justify-center gap-2 rounded-full px-3 text-xs text-[#8e8e93] transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm lg:text-sm"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Text to Image
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Text to Image</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="reference-remix"
-                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                  className="min-h-9 flex-1 basis-[132px] justify-center gap-2 rounded-full px-3 text-xs text-[#8e8e93] transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm lg:text-sm"
                 >
-                  <ImageIcon className="w-4 h-4" />
-                  Edit Image
+                  <ImageIcon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Edit Image</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="seo-blog-banner"
-                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                  className="min-h-9 flex-1 basis-[132px] justify-center gap-2 rounded-full px-3 text-xs text-[#8e8e93] transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm lg:text-sm"
                 >
-                  <BookOpenText className="w-4 h-4" />
-                  SEO Banner
+                  <BookOpenText className="h-4 w-4 shrink-0" />
+                  <span className="truncate">SEO Banner</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="upscale" 
-                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                  className="min-h-9 flex-1 basis-[112px] justify-center gap-2 rounded-full px-3 text-xs text-[#8e8e93] transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm lg:text-sm"
                 >
-                  <Upload className="w-4 h-4" />
-                  Upscale
+                  <Upload className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Upscale</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="material-to-scene" 
-                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                  className="min-h-9 flex-1 basis-[150px] justify-center gap-2 rounded-full px-3 text-xs text-[#8e8e93] transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm lg:text-sm"
                 >
-                  <Layers3 className="w-4 h-4" />
-                  Material to Scene
+                  <Layers3 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Material to Scene</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="enhance" 
-                  className="flex items-center gap-2 rounded-full text-xs data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm text-[#8e8e93] transition-all duration-200 lg:text-sm"
+                  className="min-h-9 flex-1 basis-[112px] justify-center gap-2 rounded-full px-3 text-xs text-[#8e8e93] transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-sm lg:text-sm"
                 >
-                  <Wand2 className="w-4 h-4" />
-                  Enhance
+                  <Wand2 className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Enhance</span>
                 </TabsTrigger>
               </TabsList>
               </div>
@@ -220,8 +220,8 @@ function MainContent() {
             </div>
 
             {/* Generate and Upload Images Tab */}
-            <TabsContent value="generate" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
-              <div className="mx-auto max-w-[1480px]">
+            <TabsContent value="generate" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+              <div className="mx-auto w-full max-w-[1480px]">
                 <AIImageGenerator
                   activeClientId={resolvedClientId}
                   activeProductFocus={resolvedProductFocus}
@@ -230,14 +230,14 @@ function MainContent() {
               </div>
             </TabsContent>
 
-            <TabsContent value="upscale" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
-              <div className="mx-auto max-w-[1480px]">
+            <TabsContent value="upscale" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+              <div className="mx-auto w-full max-w-[1480px]">
                 <ImageUpscalePanel />
               </div>
             </TabsContent>
 
-            <TabsContent value="seo-blog-banner" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
-              <div className="mx-auto max-w-[1480px]">
+            <TabsContent value="seo-blog-banner" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+              <div className="mx-auto w-full max-w-[1480px]">
                 <SeoBlogBannerPanel
                   clients={clients}
                   activeClientId={resolvedClientId}
@@ -245,30 +245,31 @@ function MainContent() {
               </div>
             </TabsContent>
 
-            <TabsContent value="material-to-scene" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
-              <div className="mx-auto max-w-[1480px]">
+            <TabsContent value="material-to-scene" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+              <div className="mx-auto w-full max-w-[1480px]">
                 <MaterialToScenePanel />
               </div>
             </TabsContent>
 
-            <TabsContent value="enhance" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
-              <div className="mx-auto max-w-[1480px]">
+            <TabsContent value="enhance" className="mt-0 min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+              <div className="mx-auto w-full max-w-[1480px]">
                 <ImageEnhancePanel />
               </div>
             </TabsContent>
 
               {/* Reference Remix Tab */}
               <TabsContent value="reference-remix" className="m-0 min-h-0 flex-1 overflow-hidden p-0">
-                <div className="h-full min-h-0 overflow-y-auto bg-slate-50/60 px-4 py-6 lg:px-6">
-                  <div className="mx-auto h-full max-w-[1480px]">
-                    <div className="mb-4 flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-950">Edit Image mode</p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          เลือก workflow ที่เหมาะกับงาน: ตัวใหม่สำหรับแก้ภาพตรงๆ หรือ Classic สำหรับ Reference Remix เดิม
+                <div className="h-full min-h-0 overflow-y-auto bg-slate-50/60 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+                  <div className="mx-auto h-full w-full max-w-[1480px]">
+                    <div className="mb-4 flex flex-col gap-4 rounded-[20px] border border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(248,250,252,0.94)_100%)] px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)] sm:flex-row sm:items-end sm:justify-between sm:rounded-[24px] sm:px-5">
+                      <div className="min-w-0 max-w-2xl">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Edit Image</p>
+                        <h3 className="mt-2 text-lg font-semibold text-slate-950 sm:text-xl">Edit Image mode</h3>
+                        <p className="mt-2 max-w-xl text-xs leading-5 text-slate-600">
+                          Choose the workflow that fits the task: direct image editing for focused changes, or Classic Remix for reference-led exploration.
                         </p>
                       </div>
-                      <div className="grid grid-cols-2 rounded-full bg-slate-100 p-1 text-sm font-medium">
+                      <div className="grid shrink-0 grid-cols-2 rounded-full bg-slate-100 p-1 text-xs font-medium">
                         <button
                           type="button"
                           onClick={() => setEditImageMode("new")}
