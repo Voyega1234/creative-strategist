@@ -143,8 +143,8 @@ export const IdeaCard = memo(function IdeaCard({
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </Button>
-                  <Badge variant="outline" className="border-[#e4e7ec] bg-white text-[10px] text-[#667085]">
-                    {activeRouteIndex + 1} / {visualRoutes.length}
+                  <Badge variant="outline" className="min-w-[2.5rem] justify-center whitespace-nowrap border-[#e4e7ec] bg-white text-[10px] text-[#667085]">
+                    {activeRouteIndex + 1}/{visualRoutes.length}
                   </Badge>
                   <Button
                     type="button"
