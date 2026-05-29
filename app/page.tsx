@@ -1,47 +1,25 @@
 "use client"
 
 import Image from "next/image"
-import Link from "next/link"
 import { useState, useEffect, Suspense, useCallback, useMemo, useRef } from "react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 // Optimize imports - only import what we need
 import {
-  ChevronUp,
-  Plus,
-  User,
   Bookmark,
-  Settings,
-  History,
   Sparkles,
   RefreshCcw,
   Images,
-  Lock,
-  Eye,
-  EyeOff,
   ArrowLeft,
   Link2,
   Copy,
   Check,
-  X,
-  Home,
 } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
@@ -50,20 +28,38 @@ import { SavedIdeas } from "@/components/saved-ideas"
 import { AITypingAnimation } from "@/components/ai-typing-animation"
 import { LoadingPopup } from "@/components/loading-popup"
 import { IdeaCard } from "@/components/ideas/idea-card"
+import { LoginGate } from "@/components/auth/login-gate"
+import { MainDashboardSidebar } from "@/components/layout/main-dashboard-sidebar"
+import { PendingIdeaNotification } from "@/components/notifications/pending-idea-notification"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { sessionManager } from "@/lib/session-manager"
-import type { IdeaRecommendation, VisualRoute } from "@/lib/ideas/types"
-import { normalizeIdea } from "@/lib/ideas/idea-normalization"
-import { getIdeaSelectionKey, VISUAL_ROUTES_BY_IDEA_STORAGE_KEY } from "@/lib/ideas/idea-storage"
-
-type ClientWithProductFocus = {
-  id: string
-  clientName: string
-  productFocuses: Array<{
-    id: string
-    productFocus: string
-  }>
-}
+import type { IdeaRecommendation } from "@/lib/ideas/types"
+import { loadIdeasFromStorage, saveIdeasToStorage } from "@/lib/ideas/client-storage"
+import { BRIEF_TEMPLATES } from "@/lib/ideas/generation-options"
+import {
+  enqueueIdeaGenerationTask,
+  getIdeasFromTaskResult,
+  mergeUniqueIdeas,
+  resolveIdeaGenerationModelId,
+  type IdeaGenerationTaskContext,
+} from "@/lib/ideas/generation-task"
+import { createShareLink } from "@/lib/ideas/share"
+import { buildClientScopedRoute } from "@/lib/navigation/client-routes"
+import { clearAuthSession, hasValidAuthSession, saveAuthSession } from "@/lib/auth/client-auth"
+import { fetchLatestSession, fetchSessionHistory, getLoadedSessionIdeas } from "@/lib/sessions/history"
+import {
+  EMPTY_CLIENT_INFO,
+  filterClientsBySearch,
+  findActiveClientRecord,
+  findActiveProductFocusEntry,
+  orderClientsByActiveName,
+  resolveClientInfoFromParams,
+  type ResolvedClientInfo,
+} from "@/lib/clients/client-selection"
+import { useIdeaNotifications } from "@/hooks/use-idea-notifications"
+import { useClientServices } from "@/hooks/use-client-services"
+import { useClientsWithProductFocus } from "@/hooks/use-clients-with-product-focus"
+import { usePersistVisualRoutes } from "@/hooks/use-persist-visual-routes"
 
 // Client component that uses useSearchParams
 function MainContent() {
@@ -72,8 +68,7 @@ function MainContent() {
   const [topics, setTopics] = useState<IdeaRecommendation[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [instructions, setInstructions] = useState("")
-  const [clients, setClients] = useState<ClientWithProductFocus[]>([])
-  const [isLoadingClients, setIsLoadingClients] = useState(false)
+  const { clients, isLoadingClients, loadClients } = useClientsWithProductFocus()
   const [feedbackFormOpen, setFeedbackFormOpen] = useState(false)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const [selectedDetailIdea, setSelectedDetailIdea] = useState<IdeaRecommendation | null>(null)
@@ -81,7 +76,6 @@ function MainContent() {
   const [savedTitles, setSavedTitles] = useState<string[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [selectedModel] = useState<string>("Gemini 2.5 Pro")
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
   const [isSharing, setIsSharing] = useState(false)
   const [historyModalOpen, setHistoryModalOpen] = useState(false)
   const [savedIdeasModalOpen, setSavedIdeasModalOpen] = useState(false)
@@ -97,25 +91,10 @@ function MainContent() {
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
-  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null)
   const taskPollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const taskTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const taskContextRef = useRef<{
-    mode: 'initial' | 'append'
-    finalInstructions: string
-    selectedTemplate: string | null
-    selectedModel: string
-    existingConceptIdeas?: string[]
-    clientName: string
-    productFocus: string | null
-  } | null>(null)
+  const taskContextRef = useRef<IdeaGenerationTaskContext | null>(null)
 
-  const [clientServices, setClientServices] = useState<string[]>([])
-  const [isLoadingServices, setIsLoadingServices] = useState(false)
-  const [selectedServices, setSelectedServices] = useState<string[]>([])
-  const [newServiceName, setNewServiceName] = useState("")
-  const [isAddingService, setIsAddingService] = useState(false)
-  const [serviceError, setServiceError] = useState<string | null>(null)
   const [clientSearch, setClientSearch] = useState("")
   
   // Individual idea share state
@@ -140,6 +119,14 @@ function MainContent() {
   const [showPassword, setShowPassword] = useState(false)
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const {
+    pendingNotification,
+    clearPendingNotification,
+    playNotificationSound,
+    playNotificationSoundImmediate,
+    showNotification,
+  } = useIdeaNotifications()
+  usePersistVisualRoutes(topics)
   
   // Get URL parameters
   const urlProductFocus = searchParams.get('productFocus') || null
@@ -147,17 +134,7 @@ function MainContent() {
   const urlClientId = searchParams.get('clientId') || null
   
   // State to track resolved client info
-  const [resolvedClientInfo, setResolvedClientInfo] = useState<{
-    clientName: string;
-    productFocus: string | null;
-    clientId: string | null;
-    adAccount: string | null;
-  }>({
-    clientName: "No Client Selected",
-    productFocus: null,
-    clientId: null,
-    adAccount: null
-  })
+  const [resolvedClientInfo, setResolvedClientInfo] = useState<ResolvedClientInfo>(EMPTY_CLIENT_INFO)
 
   // Derive active values from resolved info
   const activeClientName = resolvedClientInfo.clientName
@@ -166,237 +143,63 @@ function MainContent() {
   const activeAdAccount = resolvedClientInfo.adAccount
   const normalizedClientSearch = clientSearch.trim().toLowerCase()
   const filteredClients = useMemo(() => {
-    if (!normalizedClientSearch) {
-      return clients
-    }
-    return clients.filter((client) => client.clientName.toLowerCase().includes(normalizedClientSearch))
+    return filterClientsBySearch(clients, normalizedClientSearch)
   }, [clients, normalizedClientSearch])
   const orderedClients = useMemo(() => {
-    const activeClient = filteredClients.find((client) => client.clientName === activeClientName)
-    const otherClients = filteredClients.filter((client) => client.clientName !== activeClientName)
-    return activeClient ? [activeClient, ...otherClients] : filteredClients
+    return orderClientsByActiveName(filteredClients, activeClientName)
   }, [filteredClients, activeClientName])
-  const selectedServicesLabel = useMemo(() => {
-    if (selectedServices.length === 0) {
-      return "All Services"
-    }
-    if (selectedServices.length === 1) {
-      return selectedServices[0]
-    }
-    if (selectedServices.length === 2) {
-      return selectedServices.join(", ")
-    }
-    return `${selectedServices.length} services selected`
-  }, [selectedServices])
-  const selectedServicesText = useMemo(() => {
-    if (selectedServices.length === 0) {
-      return undefined
-    }
-    return selectedServices.join(", ")
-  }, [selectedServices])
-  
   const pathname = usePathname()
 
   const activeClientRecord = useMemo(() => {
-    if (!activeClientName || activeClientName === "No Client Selected") {
-      return null
-    }
-    return clients.find(client => client.clientName === activeClientName) || null
+    return findActiveClientRecord(clients, activeClientName)
   }, [clients, activeClientName])
 
   const activeProductFocusEntry = useMemo(() => {
-    if (!activeClientRecord) {
-      return null
-    }
-    if (activeProductFocus) {
-      const matched = activeClientRecord.productFocuses.find(pf => pf.productFocus === activeProductFocus)
-      if (matched) {
-        return matched
-      }
-    }
-    return activeClientRecord.productFocuses[0] || null
+    return findActiveProductFocusEntry(activeClientRecord, activeProductFocus)
   }, [activeClientRecord, activeProductFocus])
+  const {
+    clientServices,
+    isLoadingServices,
+    selectedServices,
+    selectedServicesLabel,
+    selectedServicesText,
+    newServiceName,
+    setNewServiceName,
+    isAddingService,
+    serviceError,
+    setServiceError,
+    handleServiceToggle,
+    handleAddService,
+  } = useClientServices({
+    activeClientId,
+    activeProductFocusEntryId: activeProductFocusEntry?.id,
+    isGenerating,
+  })
 
   const configureUrl = useMemo(() => {
-    if (!activeClientName || activeClientName === "No Client Selected") {
-      return "/configure"
-    }
-    const params = new URLSearchParams()
-    const effectiveClientId = activeClientId || activeProductFocusEntry?.id || activeClientRecord?.id
-    if (effectiveClientId) {
-      params.set("clientId", String(effectiveClientId))
-    }
-    params.set("clientName", activeClientName)
-    if (activeProductFocusEntry?.productFocus) {
-      params.set("productFocus", activeProductFocusEntry.productFocus)
-    }
-    const query = params.toString()
-    return query ? `/configure?${query}` : "/configure"
+    return buildClientScopedRoute({
+      basePath: "/configure",
+      activeClientName,
+      activeClientId,
+      activeClientRecord,
+      activeProductFocusEntry,
+    })
   }, [activeClientName, activeClientId, activeProductFocusEntry, activeClientRecord])
 
   const imagesUrl = useMemo(() => {
-    if (!activeClientName || activeClientName === "No Client Selected") {
-      return "/images"
-    }
-    const params = new URLSearchParams()
-    const productFocusId = activeProductFocusEntry?.id || activeClientRecord?.id
-    if (productFocusId) {
-      params.set("clientId", String(productFocusId))
-    }
-    params.set("clientName", activeClientName)
-    if (activeProductFocusEntry?.productFocus) {
-      params.set("productFocus", activeProductFocusEntry.productFocus)
-    }
-    const query = params.toString()
-    return query ? `/images?${query}` : "/images"
+    return buildClientScopedRoute({
+      basePath: "/images",
+      activeClientName,
+      activeClientRecord,
+      activeProductFocusEntry,
+    })
   }, [activeClientName, activeProductFocusEntry, activeClientRecord])
-
-  // Model options and templates
-  const modelOptions = [
-    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-    { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" },
-    { id: "gpt-4o", name: "GPT-4o" }
-  ]
-
-  useEffect(() => {
-    const routeMap = topics.reduce<Record<string, VisualRoute[]>>((acc, topic) => {
-      const key = getIdeaSelectionKey(topic)
-      if (key && topic.visual_routes?.length) {
-        acc[key] = topic.visual_routes
-      }
-      return acc
-    }, {})
-
-    try {
-      window.sessionStorage.setItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY, JSON.stringify(routeMap))
-    } catch (error) {
-      console.error("[visual-routes] Failed to persist visual routes:", error)
-    }
-  }, [topics])
-  
-  const briefTemplates = [
-    {
-      id: "pain-point",
-      title: "เขียนคอนเทนต์โปรโมชั่น เพื่อกระตุ้นยอดขายแบบเพลิดเพลิน",
-      content: "I want you to generate ideas that directly address a key pain point of our target customers, and clearly show how our product or service uniquely solves this problem."
-    },
-    {
-      id: "brand-engagement",
-      title: "คิดไอเดียคอนเทนต์เพื่อสร้างการตอบรับแบรนด์",
-      content: "Please create ideas that leverage real or hypothetical testimonials—showing authentic customer voices and how their lives improved after using our product or service."
-    },
-    {
-      id: "content-planning",
-      title: "ช่วยวางแผนคอนเทนต์รายสัปดาห์ / อีสีลีพอด 5 วัน สำหรับสินค้าของ",
-      content: "Develop ideas that use 'before and after' scenarios, direct comparisons, or transformation stories to vividly illustrate the difference our product or service makes."
-    },
-    {
-      id: "tiktok-ideas",
-      title: "คิดไอเดียสมุด TikTok โปรโมชันแบรนด์สินค้า",
-      content: "I want you to come up with ideas that highlight unusual, overlooked, or unexpected ways our product or service can be used, providing fresh perspectives that competitors aren't talking about."
-    }
-  ]
 
   // Check authentication on mount
   useEffect(() => {
-    const checkAuthStatus = () => {
-      try {
-        const authData = localStorage.getItem('creative_strategist_auth')
-        if (authData) {
-          const { timestamp, authenticated } = JSON.parse(authData)
-          const now = Date.now()
-          const oneWeek = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
-          
-          // Check if authentication is still valid (within 7 days)
-          if (authenticated && (now - timestamp) < oneWeek) {
-            setIsAuthenticated(true)
-          } else {
-            // Remove expired auth
-            localStorage.removeItem('creative_strategist_auth')
-          }
-        }
-      } catch (error) {
-        console.error('Error checking auth status:', error)
-        localStorage.removeItem('creative_strategist_auth')
-      }
-      setIsCheckingAuth(false)
-    }
-    
-    checkAuthStatus()
+    setIsAuthenticated(hasValidAuthSession())
+    setIsCheckingAuth(false)
   }, [])
-
-  // Function to load clients - simplified to match configure-sidebar exactly
-  const loadClients = async () => {
-    try {
-      setIsLoadingClients(true)
-      console.log('[main-page] Loading clients...')
-      
-      const response = await fetch('/api/clients-with-product-focus')
-      if (response.ok) {
-        const clientsData = await response.json()
-        console.log(`[main-page] Loaded ${clientsData.length} clients:`, clientsData.map((c: any) => c.clientName))
-        setClients(clientsData)
-      } else {
-        console.error('[main-page] Failed to load clients:', response.status, response.statusText)
-      }
-    } catch (error) {
-      console.error('[main-page] Error loading clients:', error)
-    } finally {
-      setIsLoadingClients(false)
-    }
-  }
-
-  // Load clients on mount
-  useEffect(() => {
-    loadClients()
-  }, [])
-
-  useEffect(() => {
-    if (!activeClientId) {
-      setClientServices([])
-      setSelectedServices([])
-      return
-    }
-
-    let isCancelled = false
-    const controller = new AbortController()
-
-    const fetchServices = async () => {
-      try {
-        setIsLoadingServices(true)
-        const response = await fetch(`/api/client-services?clientId=${encodeURIComponent(activeClientId)}`, {
-          signal: controller.signal,
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch services: ${response.status}`)
-        }
-
-        const data = await response.json()
-        if (isCancelled) return
-
-        const services = Array.isArray(data.services) ? data.services.slice().sort((a: string, b: string) => a.localeCompare(b, "th")) : []
-        setClientServices(services)
-        setSelectedServices((prev) => prev.filter((service) => services.includes(service)))
-      } catch (error) {
-        if (isCancelled) return
-        console.error("Error loading services:", error)
-        setClientServices([])
-        setSelectedServices([])
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingServices(false)
-        }
-      }
-    }
-
-    fetchServices()
-
-    return () => {
-      isCancelled = true
-      controller.abort()
-    }
-  }, [activeClientId, activeProductFocusEntry?.id])
 
   // Removed automatic refresh on visibility change to prevent excessive API calls
   // The 1-minute cache will handle data freshness
@@ -411,54 +214,12 @@ function MainContent() {
       urlProductFocus
     })
 
-    let resolvedInfo = {
-      clientName: "No Client Selected",
-      productFocus: null as string | null,
-      clientId: null as string | null,
-      adAccount: null as string | null
-    }
-
-    if (urlClientId) {
-      // Find client by clientId (could be client.id or productFocus.id)
-      const clientByMainId = clients.find(client => client.id === urlClientId)
-      if (clientByMainId) {
-        resolvedInfo = {
-          clientName: clientByMainId.clientName,
-          productFocus: urlProductFocus || (clientByMainId.productFocuses[0]?.productFocus || null),
-          clientId: urlClientId,
-          adAccount: null
-        }
-      } else {
-        // Check if it's a productFocus id
-        for (const client of clients) {
-          const productFocus = client.productFocuses.find(pf => pf.id === urlClientId)
-          if (productFocus) {
-            resolvedInfo = {
-              clientName: client.clientName,
-              productFocus: productFocus.productFocus,
-              clientId: urlClientId,
-              adAccount: null
-            }
-            break
-          }
-        }
-      }
-    } else if (urlClientName) {
-      // Find client by name
-      const clientByName = clients.find(client => client.clientName === urlClientName)
-      if (clientByName) {
-        const productFocus = urlProductFocus ? 
-          clientByName.productFocuses.find(pf => pf.productFocus === urlProductFocus) :
-          clientByName.productFocuses[0]
-        
-        resolvedInfo = {
-          clientName: clientByName.clientName,
-          productFocus: productFocus?.productFocus || null,
-          clientId: productFocus?.id || clientByName.id,
-          adAccount: null
-        }
-      }
-    }
+    const resolvedInfo = resolveClientInfoFromParams({
+      clients,
+      urlClientId,
+      urlClientName,
+      urlProductFocus,
+    })
 
     console.log('[main-page] Resolved client info:', resolvedInfo)
     setResolvedClientInfo(resolvedInfo)
@@ -492,18 +253,6 @@ function MainContent() {
     }
   }, [activeClientName, activeProductFocus])
 
-  // Request notification permission on component mount
-  useEffect(() => {
-    if ('Notification' in window) {
-      setNotificationPermission(Notification.permission)
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
-          setNotificationPermission(permission)
-        })
-      }
-    }
-  }, [])
-
   // Auto-load session history and latest ideas when client changes
   useEffect(() => {
     setSidebarHistory([])
@@ -528,185 +277,6 @@ function MainContent() {
     }
   }, [showResults, topics.length, activeClientName, activeProductFocus])
 
-  // Enhanced notification sound with background tab support
-  const [pendingNotification, setPendingNotification] = useState<boolean>(false)
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
-  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null)
-  
-  // Initialize Web Audio API for reliable background audio
-  useEffect(() => {
-    const initAudio = async () => {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-        setAudioContext(ctx)
-        
-        // Preload audio buffer
-        const response = await fetch('/new-notification-011-364050.mp3')
-        const arrayBuffer = await response.arrayBuffer()
-        const buffer = await ctx.decodeAudioData(arrayBuffer)
-        setAudioBuffer(buffer)
-        
-        console.log('✅ Audio system initialized')
-      } catch (error) {
-        console.error('❌ Failed to initialize audio:', error)
-      }
-    }
-    
-    initAudio()
-  }, [])
-
-  // Handle page visibility change for pending notifications
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && pendingNotification) {
-        console.log('🔔 Tab is now visible, clearing pending notification visual indicator')
-        // Audio was already played, just clear the visual notification
-        setPendingNotification(false)
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [pendingNotification])
-
-  // Update page title when notification is pending
-  useEffect(() => {
-    const originalTitle = document.title
-    
-    if (pendingNotification) {
-      document.title = '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Compass'
-      
-      // Flash title for attention
-      const flashInterval = setInterval(() => {
-        document.title = document.title.startsWith('🔔') 
-          ? 'Creative Compass' 
-          : '🔔 ไอเดียสร้างเสร็จแล้ว! - Creative Compass'
-      }, 1000)
-      
-      return () => {
-        clearInterval(flashInterval)
-        document.title = originalTitle
-      }
-    } else {
-      document.title = originalTitle
-    }
-  }, [pendingNotification])
-
-  function getStorageKey(clientName: string, productFocus: string) {
-    return `ideas_${clientName}_${productFocus}`
-  }
-
-  function saveIdeasToStorage(ideas: IdeaRecommendation[], clientName: string, productFocus: string) {
-    try {
-      const key = getStorageKey(clientName, productFocus)
-      const normalized = ideas.map(normalizeIdea)
-      localStorage.setItem(key, JSON.stringify({
-        ideas: normalized,
-        timestamp: Date.now(),
-        clientName,
-        productFocus
-      }))
-    } catch (error) {
-      console.error('Error saving ideas to localStorage:', error)
-    }
-  }
-
-  function loadIdeasFromStorage(clientName: string, productFocus: string): IdeaRecommendation[] {
-    try {
-      const key = getStorageKey(clientName, productFocus)
-      const stored = localStorage.getItem(key)
-      if (stored) {
-        const data = JSON.parse(stored)
-        const now = Date.now()
-        const timeDiff = now - data.timestamp
-        if (timeDiff < 24 * 60 * 60 * 1000) {
-          return (data.ideas || []).map(normalizeIdea)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading ideas from localStorage:', error)
-    }
-    return []
-  }
-
-  // Immediate audio playback function
-  const playNotificationSoundImmediate = async () => {
-    try {
-      // Method 1: Web Audio API (works better in background)
-      if (audioContext && audioBuffer) {
-        // Resume audio context if suspended (required by browsers)
-        if (audioContext.state === 'suspended') {
-          await audioContext.resume()
-          console.log('📢 Audio context resumed')
-        }
-        
-        const source = audioContext.createBufferSource()
-        const gainNode = audioContext.createGain()
-        
-        source.buffer = audioBuffer
-        gainNode.gain.value = 0.5
-        
-        source.connect(gainNode)
-        gainNode.connect(audioContext.destination)
-        
-        source.start(0)
-        console.log('🔊 Notification sound played via Web Audio API')
-        return
-      }
-      
-      // Method 2: HTML5 Audio fallback
-      const audio = new Audio('/new-notification-011-364050.mp3')
-      audio.volume = 0.5
-      audio.play().then(() => {
-        console.log('🔊 Notification sound played via HTML5 Audio')
-      }).catch(error => {
-        console.error('❌ Could not play notification sound:', error)
-      })
-      
-    } catch (error) {
-      console.error('❌ Could not initialize notification sound:', error)
-    }
-  }
-
-  // Smart notification function that handles background tabs
-  const playNotificationSound = async () => {
-    console.log('🔔 Notification triggered, tab hidden:', document.hidden)
-    
-    // Always play sound immediately, regardless of tab visibility
-    await playNotificationSoundImmediate()
-    
-    if (document.hidden) {
-      // Tab is in background, also set pending notification for visual feedback
-      setPendingNotification(true)
-      console.log('📝 Audio played immediately, pending notification set for visual feedback')
-    } else {
-      console.log('🔊 Audio played immediately on visible tab')
-    }
-  }
-
-  // Function to show browser notification
-  const showNotification = (title: string, message: string, ideaCount: number) => {
-    if (notificationPermission === 'granted') {
-      const notification = new Notification(title, {
-        body: message,
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        tag: 'idea-generation',
-        requireInteraction: true,
-        data: { ideaCount }
-      })
-
-      notification.onclick = () => {
-        window.focus()
-        notification.close()
-        // Clear pending notification when user clicks
-        setPendingNotification(false)
-      }
-
-      setTimeout(() => notification.close(), 10000)
-    }
-  }
-
   const stopTaskPolling = useCallback(() => {
     if (taskPollingRef.current) {
       clearInterval(taskPollingRef.current)
@@ -726,13 +296,7 @@ function MainContent() {
 
   const processTaskResult = useCallback(
     (result: any, context: NonNullable<typeof taskContextRef.current>) => {
-      const rawIdeas: any[] = Array.isArray(result?.ideas)
-        ? result.ideas
-        : Array.isArray(result?.data?.ideas)
-          ? result.data.ideas
-          : []
-
-      const ideas: IdeaRecommendation[] = rawIdeas.map(normalizeIdea)
+      const ideas = getIdeasFromTaskResult(result)
 
       if (!ideas || ideas.length === 0) {
         setIsGenerating(false)
@@ -747,21 +311,7 @@ function MainContent() {
       if (context.mode === 'append') {
         let mergedIdeas: IdeaRecommendation[] = []
         setTopics(prevTopics => {
-          const existingConcepts = new Set(
-            prevTopics.map(topic => topic.concept_idea || topic.title || '')
-          )
-
-          const freshIdeas = ideas.filter(idea => {
-            const key = idea.concept_idea || idea.title || ''
-            if (!key) return true
-            if (existingConcepts.has(key)) {
-              return false
-            }
-            existingConcepts.add(key)
-            return true
-          })
-
-          mergedIdeas = [...prevTopics, ...freshIdeas]
+          mergedIdeas = mergeUniqueIdeas(prevTopics, ideas)
           return mergedIdeas
         })
 
@@ -820,7 +370,6 @@ function MainContent() {
       setShowResults(true)
       setIsGenerating(false)
       setIsLoadingMore(false)
-      setCurrentTaskId(null)
       stopTaskPolling()
       taskContextRef.current = null
     },
@@ -853,7 +402,6 @@ function MainContent() {
 
           if (data.status === 'failed') {
             stopTaskPolling()
-            setCurrentTaskId(null)
             setIsGenerating(false)
             setIsLoadingMore(false)
             taskContextRef.current = null
@@ -872,7 +420,6 @@ function MainContent() {
       }
       taskTimeoutRef.current = setTimeout(() => {
         stopTaskPolling()
-        setCurrentTaskId(null)
         setIsGenerating(false)
         setIsLoadingMore(false)
         taskContextRef.current = null
@@ -899,28 +446,20 @@ function MainContent() {
 
     try {
       const finalInstructions = instructions.trim() || " "
-      const modelId = modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro"
+      const modelId = resolveIdeaGenerationModelId(selectedModel)
 
-      const response = await fetch('/api/generate-ideas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          service: selectedServicesText,
-          instructions: finalInstructions,
-          productDetails: showProductDetails ? productDetails.trim() : undefined,
-          negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
-          hasProductDetails: showProductDetails,
-          model: modelId,
-        }),
+      const data = await enqueueIdeaGenerationTask({
+        clientName: activeClientName,
+        productFocus: activeProductFocus,
+        service: selectedServicesText,
+        instructions: finalInstructions,
+        productDetails: showProductDetails ? productDetails.trim() : undefined,
+        negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
+        hasProductDetails: showProductDetails,
+        model: modelId,
       })
 
-      const data = await response.json()
-
-      if (!response.ok || !data.success || !data.taskId) {
+      if (!data.responseOk || !data.success || !data.taskId) {
         const errorMessage = data.error || 'เกิดข้อผิดพลาดในการเริ่มการสร้างไอเดีย'
         console.error('[generate-ideas] Failed to enqueue task:', errorMessage)
         setIsGenerating(false)
@@ -938,7 +477,6 @@ function MainContent() {
         productFocus: activeProductFocus,
       }
 
-      setCurrentTaskId(data.taskId)
       startTaskPolling(data.taskId)
     } catch (error) {
       console.error('Error generating topics:', error)
@@ -966,29 +504,21 @@ function MainContent() {
     try {
       const existingConceptIdeas = topics.map(topic => topic.concept_idea).filter(Boolean)
       const finalInstructions = instructions.trim() || " "
-      const modelId = modelOptions.find(m => m.name === selectedModel)?.id || "gemini-2.5-pro"
+      const modelId = resolveIdeaGenerationModelId(selectedModel)
 
-      const response = await fetch('/api/generate-ideas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          service: selectedServicesText,
-          instructions: finalInstructions,
-          productDetails: showProductDetails ? productDetails.trim() : undefined,
-          negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
-          hasProductDetails: showProductDetails,
-          model: modelId,
-          existingConceptIdeas,
-        }),
+      const data = await enqueueIdeaGenerationTask({
+        clientName: activeClientName,
+        productFocus: activeProductFocus,
+        service: selectedServicesText,
+        instructions: finalInstructions,
+        productDetails: showProductDetails ? productDetails.trim() : undefined,
+        negativePrompts: negativePrompts.length > 0 ? negativePrompts : undefined,
+        hasProductDetails: showProductDetails,
+        model: modelId,
+        existingConceptIdeas,
       })
 
-      const data = await response.json()
-
-      if (!response.ok || !data.success || !data.taskId) {
+      if (!data.responseOk || !data.success || !data.taskId) {
         const errorMessage = data.error || 'เกิดข้อผิดพลาดในการเริ่มการสร้างไอเดียเพิ่มเติม'
         console.error('[generate-ideas] Failed to enqueue more ideas task:', errorMessage)
         setIsLoadingMore(false)
@@ -1006,7 +536,6 @@ function MainContent() {
         productFocus: activeProductFocus,
       }
 
-      setCurrentTaskId(data.taskId)
       startTaskPolling(data.taskId)
     } catch (error) {
       console.error('Error generating more ideas:', error)
@@ -1096,7 +625,7 @@ function MainContent() {
   }
 
   const handleTemplateSelect = (templateId: string) => {
-    const template = briefTemplates.find(t => t.id === templateId)
+    const template = BRIEF_TEMPLATES.find(t => t.id === templateId)
     if (template) {
       if (selectedTemplate === templateId) {
         // If already selected, deselect it and clear input
@@ -1119,7 +648,7 @@ function MainContent() {
 
     setIsLoadingSidebarHistory(true)
     try {
-      const result = await sessionManager.getHistory({
+      const result = await fetchSessionHistory({
         clientName: activeClientName,
         limit: 30 // Show last 30 sessions in dropdown
       })
@@ -1174,13 +703,9 @@ function MainContent() {
     try {
       console.log(`🎯 Auto-loading latest session ideas for client: ${activeClientName}`)
       
-      const result = await sessionManager.getHistory({
-        clientName: activeClientName,
-        limit: 1 // Get only the most recent session
-      })
+      const latestSession = await fetchLatestSession(activeClientName)
 
-      if (result.success && result.sessions && result.sessions.length > 0) {
-        const latestSession = result.sessions[0]
+      if (latestSession) {
         console.log('📖 Found latest session:', latestSession)
         
         // Load the ideas from the latest session
@@ -1203,26 +728,22 @@ function MainContent() {
   const loadSessionIdeas = async (session: any) => {
     try {
       console.log('🔄 Loading session ideas:', session)
-      
-      // Set the complete ideas from the session's n8nResponse
-      if (session.n8nResponse?.ideas && session.n8nResponse.ideas.length > 0) {
-        const normalized = session.n8nResponse.ideas.map(normalizeIdea)
-        setTopics(normalized)
+
+      const loadedSession = getLoadedSessionIdeas(session)
+
+      if (loadedSession) {
+        setTopics(loadedSession.ideas)
         setShowResults(true)
-        
-        // Also update form state to match the session
-        setInstructions(session.userInput || "")
-        if (session.selectedTemplate) {
-          setSelectedTemplate(session.selectedTemplate)
+        setInstructions(loadedSession.userInput)
+        if (loadedSession.selectedTemplate) {
+          setSelectedTemplate(loadedSession.selectedTemplate)
         }
-        
-        console.log('✅ Session ideas loaded:', normalized.length, 'complete ideas with all fields')
-      } else if (session.ideas && session.ideas.length > 0) {
-        // Fallback to the simplified ideas if n8nResponse is not available
-        const normalized = session.ideas.map(normalizeIdea)
-        setTopics(normalized)
-        setShowResults(true)
-        console.log('✅ Session ideas loaded:', normalized.length, 'simplified ideas')
+
+        console.log(
+          '✅ Session ideas loaded:',
+          loadedSession.ideas.length,
+          loadedSession.source === "n8nResponse" ? 'complete ideas with all fields' : 'simplified ideas'
+        )
       } else {
         console.warn('⚠️ No ideas found in session:', session)
       }
@@ -1248,79 +769,6 @@ function MainContent() {
     }
   }
 
-  const handleServiceToggle = useCallback(
-    (service: string | null) => {
-      if (isGenerating) {
-        return
-      }
-      if (service === null) {
-        setSelectedServices([])
-        return
-      }
-      setSelectedServices((prev) => {
-        if (prev.includes(service)) {
-          return prev.filter((item) => item !== service)
-        }
-        return [...prev, service]
-      })
-    },
-    [isGenerating],
-  )
-
-  const handleAddService = useCallback(async () => {
-    if (!activeClientId) {
-      setServiceError("กรุณาเลือกลูกค้าก่อน")
-      return
-    }
-
-    const value = newServiceName.trim()
-    if (!value) {
-      setServiceError("กรุณากรอกชื่อบริการ")
-      return
-    }
-
-    if (clientServices.some((service) => service.toLowerCase() === value.toLowerCase())) {
-      setServiceError("มีบริการนี้อยู่แล้ว")
-      setSelectedServices((prev) => {
-        if (prev.includes(value)) {
-          return prev
-        }
-        return [...prev, value]
-      })
-      setNewServiceName("")
-      return
-    }
-
-    try {
-      setServiceError(null)
-      setIsAddingService(true)
-      const response = await fetch("/api/client-services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: activeClientId, service: value }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to add service")
-      }
-
-      setClientServices((prev) => {
-        const next = [...prev, value]
-        next.sort((a, b) => a.localeCompare(b, "th"))
-        return next
-      })
-      setSelectedServices((prev) => (prev.includes(value) ? prev : [...prev, value]))
-      setNewServiceName("")
-    } catch (error) {
-      console.error("Failed to add service:", error)
-      setServiceError("ไม่สามารถเพิ่มบริการได้ กรุณาลองใหม่")
-    } finally {
-      setIsAddingService(false)
-    }
-  }, [activeClientId, clientServices, newServiceName])
-
   const handleNewClientNavigation = useCallback(() => {
     if (isNavigatingToNewClient) return
     setIsNavigatingToNewClient(true)
@@ -1328,19 +776,12 @@ function MainContent() {
   }, [isNavigatingToNewClient, router])
 
   const mainUrl = useMemo(() => {
-    if (!activeClientName || activeClientName === "No Client Selected") {
-      return "/"
-    }
-    const params = new URLSearchParams()
-    if (activeClientId) {
-      params.set("clientId", String(activeClientId))
-    }
-    params.set("clientName", activeClientName)
-    if (activeProductFocusEntry?.productFocus) {
-      params.set("productFocus", activeProductFocusEntry.productFocus)
-    }
-    const query = params.toString()
-    return query ? `/?${query}` : "/"
+    return buildClientScopedRoute({
+      basePath: "/",
+      activeClientName,
+      activeClientId,
+      activeProductFocusEntry,
+    })
   }, [activeClientName, activeClientId, activeProductFocusEntry])
 
   const handleImagesNavigation = useCallback(() => {
@@ -1457,44 +898,19 @@ function MainContent() {
 
     setIsSharing(true)
     try {
-      const response = await fetch('/api/share-ideas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ideas: topics.map(topic => ({
-            // Only send essential fields to reduce payload
-            title: topic.title,
-            description: topic.description,
-            category: topic.category,
-            concept_type: topic.concept_type,
-            competitiveGap: topic.competitiveGap,
-            tags: topic.tags,
-            content_pillar: topic.content_pillar,
-            product_focus: topic.product_focus,
-            concept_idea: topic.concept_idea,
-            copywriting: topic.copywriting
-          })),
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          instructions: instructions.trim() || null,
-          model: selectedModel
-        }),
+      const shareUrl = await createShareLink({
+        ideas: topics,
+        clientName: activeClientName,
+        productFocus: activeProductFocus,
+        instructions: instructions.trim() || null,
+        model: selectedModel,
       })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        await navigator.clipboard.writeText(data.shareUrl)
-        setShareSuccess(true)
-        // Link copied to clipboard silently
-      } else {
-        alert(`เกิดข้อผิดพลาด: ${data.error}`)
-      }
+      await navigator.clipboard.writeText(shareUrl)
+      setShareSuccess(true)
+      // Link copied to clipboard silently
     } catch (error) {
       console.error('Error sharing ideas:', error)
-      alert('เกิดข้อผิดพลาดในการสร้างลิงก์แชร์')
+      alert(error instanceof Error ? `เกิดข้อผิดพลาด: ${error.message}` : 'เกิดข้อผิดพลาดในการสร้างลิงก์แชร์')
     } finally {
       setIsSharing(false)
     }
@@ -1514,45 +930,21 @@ function MainContent() {
 
     setIsIndividualSharing(true)
     try {
-      const response = await fetch('/api/share-ideas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ideas: [{
-            title: selectedShareIdea.title,
-            description: selectedShareIdea.description,
-            category: selectedShareIdea.category,
-            concept_type: selectedShareIdea.concept_type,
-            competitiveGap: selectedShareIdea.competitiveGap,
-            tags: selectedShareIdea.tags,
-            content_pillar: selectedShareIdea.content_pillar,
-            product_focus: selectedShareIdea.product_focus,
-            concept_idea: selectedShareIdea.concept_idea,
-            copywriting: selectedShareIdea.copywriting
-          }],
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          instructions: `Individual idea: ${selectedShareIdea.title}`,
-          model: selectedModel
-        }),
+      const shareUrl = await createShareLink({
+        ideas: [selectedShareIdea],
+        clientName: activeClientName,
+        productFocus: activeProductFocus,
+        instructions: `Individual idea: ${selectedShareIdea.title}`,
+        model: selectedModel,
       })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        // Auto-copy the link to clipboard immediately
-        await navigator.clipboard.writeText(data.shareUrl)
-        setCurrentShareUrl(data.shareUrl)
-        setIndividualShareSuccess(true)
-        console.log('Share URL created and copied:', data.shareUrl)
-      } else {
-        alert(`เกิดข้อผิดพลาด: ${data.error}`)
-      }
+      // Auto-copy the link to clipboard immediately
+      await navigator.clipboard.writeText(shareUrl)
+      setCurrentShareUrl(shareUrl)
+      setIndividualShareSuccess(true)
+      console.log('Share URL created and copied:', shareUrl)
     } catch (error) {
       console.error('Error sharing individual idea:', error)
-      alert('เกิดข้อผิดพลาดในการสร้างลิงก์แชร์')
+      alert(error instanceof Error ? `เกิดข้อผิดพลาด: ${error.message}` : 'เกิดข้อผิดพลาดในการสร้างลิงก์แชร์')
     } finally {
       setIsIndividualSharing(false)
     }
@@ -1572,17 +964,7 @@ function MainContent() {
       if (password === correctPassword) {
         setIsAuthenticated(true)
         setPassword("") // Clear password from state for security
-        
-        // Save authentication to localStorage
-        try {
-          const authData = {
-            authenticated: true,
-            timestamp: Date.now()
-          }
-          localStorage.setItem('creative_strategist_auth', JSON.stringify(authData))
-        } catch (storageError) {
-          console.error('Error saving auth to localStorage:', storageError)
-        }
+        saveAuthSession()
       } else {
         setPasswordError("รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง")
       }
@@ -1596,146 +978,21 @@ function MainContent() {
   // Logout function
   const handleLogout = () => {
     setIsAuthenticated(false)
-    try {
-      localStorage.removeItem('creative_strategist_auth')
-    } catch (error) {
-      console.error('Error removing auth from localStorage:', error)
-    }
+    clearAuthSession()
   }
 
-  // Show loading while checking authentication
-  if (isCheckingAuth) {
+  if (isCheckingAuth || !isAuthenticated) {
     return (
-      <div className="flex min-h-screen bg-white items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#1d4ed8] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#8e8e93]">กำลังตรวจสอบการเข้าสู่ระบบ...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Show login form if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-screen bg-white relative animate-in fade-in-0 duration-500">
-        <div className="flex w-full relative z-10">
-          {/* Left Panel - Branding */}
-          <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-            <div 
-              className="absolute inset-0"
-              style={{
-                backgroundImage: 'url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/image-creative-strategist-public/coolbackgrounds-topography-orleans.svg")',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              }}
-            />
-            <div className="absolute inset-0 bg-[#0f172a]/70" />
-            
-            <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
-              <div className="mb-8">
-                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-6">
-                  <Lock className="w-8 h-8 text-white" />
-                </div>
-                <h1 className="text-4xl font-bold mb-4 leading-tight">
-                  Creative Compass<br />Dashboard
-                </h1>
-                <p className="text-xl text-white/90 leading-relaxed">
-                  เข้าสู่ระบบเพื่อเริ่มสร้างไอเดียคอนเทนต์และวิเคราะห์คู่แข่ง
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-white/90">การสร้างไอเดียคอนเทนต์ด้วย AI</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-white/90">การวิเคราะห์คู่แข่งเชิงลึก</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-white/90">การค้นหารูปภาพอ้างอิง</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                  </div>
-                  <span className="text-white/90">การจัดการข้อมูลลูกค้า</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Panel - Login Form */}
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="w-full max-w-md">
-              <div className="text-center mb-8">
-                <div className="lg:hidden w-12 h-12 bg-[#dbeafe] rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Lock className="w-6 h-6 text-[#1d4ed8]" />
-                </div>
-                <h2 className="text-3xl font-bold text-[#535862] mb-2">เข้าสู่ระบบ</h2>
-                <p className="text-[#8e8e93]">กรุณาใส่รหัสผ่านเพื่อเข้าสู่ Creative Compass</p>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-[#535862] mb-2">
-                    รหัสผ่าน
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="ใส่รหัสผ่าน"
-                      className="pr-10 border-[#d1d1d6] focus:border-[#1d4ed8] focus:ring-0"
-                      required
-                      disabled={isAuthenticating}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8e8e93] hover:text-[#535862]"
-                      disabled={isAuthenticating}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {passwordError && (
-                    <p className="text-red-500 text-sm mt-2">{passwordError}</p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={isAuthenticating || !password.trim()}
-                  className="w-full bg-[#1d4ed8] hover:bg-[#063def] text-white py-3 rounded-lg font-medium transition-colors"
-                >
-                  {isAuthenticating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      กำลังตรวจสอบ...
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="w-4 h-4 mr-2" />
-                      เข้าสู่ระบบ
-                    </>
-                  )}
-                </Button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
+      <LoginGate
+        isCheckingAuth={isCheckingAuth}
+        password={password}
+        passwordError={passwordError}
+        showPassword={showPassword}
+        isAuthenticating={isAuthenticating}
+        onPasswordChange={setPassword}
+        onShowPasswordChange={setShowPassword}
+        onLogin={handleLogin}
+      />
     )
   }
 
@@ -1752,286 +1009,41 @@ function MainContent() {
         }}
       />
       <div className="relative z-10 flex min-w-0 w-full">
-        {/* Sidebar */}
-        <aside className={`h-dvh w-[clamp(13.5rem,18vw,16rem)] shrink-0 bg-white/90 backdrop-blur-sm px-4 py-5 sm:p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden ${isGenerating ? 'pointer-events-none opacity-60' : ''}`}>
-          <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-y-auto pr-2">
-              <div className="flex items-center gap-2 mb-8">
-                <Button
-                  onClick={!isGenerating ? handleMainNavigation : undefined}
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-[#535862] hover:text-[#1d4ed8] hover:bg-[#f5f5f5]"
-                  disabled={isGenerating}
-                >
-                  <Home className="h-4 w-4" />
-                  <span className="sr-only">กลับหน้าหลัก</span>
-                </Button>
-                <h1 className="text-lg font-semibold text-[#000000]">Creative Compass</h1>
-              </div>
-              <Button
-                onClick={!isGenerating && !isLoadingMore ? handleNewClientNavigation : undefined}
-                variant="ghost"
-                className="mb-4 w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                disabled={isGenerating || isLoadingMore || isNavigatingToNewClient}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                เพิ่มรายชื่อ
-              </Button>
-              <Input
-                type="search"
-                value={clientSearch}
-                onChange={(event) => setClientSearch(event.target.value)}
-                placeholder="ค้นหาชื่อลูกค้า"
-                className="mb-4 h-9 text-sm border-[#e4e7ec] focus-visible:ring-0 focus-visible:border-[#1d4ed8]"
-                disabled={isGenerating}
-              />
-              <nav className="space-y-2">
-                <Collapsible open={isBrandOpen} onOpenChange={isGenerating ? undefined : setIsBrandOpen} className="w-full">
-                <CollapsibleTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                    disabled={isGenerating}
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    แบรนด์
-                    <ChevronUp
-                      className={`ml-auto h-4 w-4 transition-transform ${isBrandOpen ? "rotate-0" : "rotate-180"}`}
-                    />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1 pl-8 pt-2">
-                  <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                    {orderedClients.length > 0 ? (
-                      orderedClients.map((client) => (
-                        <div key={client.id} className="space-y-1">
-                          {/* Client name - always show, highlight if active */}
-                          {isGenerating ? (
-                            <div
-                              className={`block text-sm py-1 px-2 rounded-md font-medium cursor-not-allowed ${
-                                client.clientName === activeClientName
-                                  ? "text-[#063def] bg-[#dbeafe]"
-                                  : "text-[#535862]"
-                              }`}
-                            >
-                              {client.clientName}
-                            </div>
-                          ) : (
-                            <Link
-                              href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || "")}`}
-                              className={`block text-sm py-1 px-2 rounded-md font-medium ${
-                                client.clientName === activeClientName
-                                  ? "text-[#063def] bg-[#dbeafe]"
-                                  : "text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]"
-                              }`}
-                            >
-                              {client.clientName}
-                            </Link>
-                          )}
-
-                          {/* Show product focus select ONLY for the selected/active client */}
-                          {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
-                            <>
-                              <div className="ml-4 mt-2 mb-2">
-                                <Select
-                                  value={activeProductFocus || ""}
-                                  onValueChange={(value) => handleProductFocusChange(client.clientName, value)}
-                                  disabled={isGenerating}
-                                >
-                                  <SelectTrigger className="w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]">
-                                    <SelectValue placeholder="เลือก Product Focus" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {client.productFocuses.map((pf) => (
-                                      <SelectItem key={pf.id} value={pf.productFocus} className="text-xs">
-                                        {pf.productFocus}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="ml-4 mt-3 mb-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8e8e93] mb-2">
-                                  Services
-                                </p>
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <Input
-                                      value={newServiceName}
-                                      onChange={(event) => {
-                                        setNewServiceName(event.target.value)
-                                        if (serviceError) {
-                                          setServiceError(null)
-                                        }
-                                      }}
-                                      onKeyDown={(event) => {
-                                        if (event.key === "Enter") {
-                                          event.preventDefault()
-                                          handleAddService()
-                                        }
-                                      }}
-                                      placeholder="เพิ่มบริการใหม่"
-                                      disabled={isGenerating || isLoadingServices || isAddingService}
-                                      className="h-7 text-[10px] px-2 py-1 border-[#d9dbe3] focus:border-[#1d4ed8] focus:ring-0 placeholder:text-[#a0a5b1] placeholder:text-[10px]"
-                                    />
-                                    <Button
-                                      size="icon"
-                                      variant="outline"
-                                      className="h-7 w-7 border-[#d9dbe3] text-[#535862] hover:text-[#1d4ed8]"
-                                      onClick={handleAddService}
-                                      disabled={isGenerating || isLoadingServices || isAddingService}
-                                    >
-                                      {isAddingService ? (
-                                        <span className="inline-block h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
-                                      ) : (
-                                        <Plus className="h-3 w-3" />
-                                      )}
-                                    </Button>
-                                  </div>
-                                  {serviceError && <p className="text-[10px] text-red-500">{serviceError}</p>}
-                                  {isLoadingServices ? (
-                                    <div className="text-xs text-[#535862]">กำลังโหลดบริการ...</div>
-                                  ) : clientServices.length > 0 ? (
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="w-full justify-between text-xs border-[#e4e7ec] text-[#535862] hover:text-[#063def]"
-                                          disabled={isGenerating || isLoadingServices}
-                                        >
-                                          <span className="truncate">{selectedServicesLabel}</span>
-                                          <ChevronUp className="ml-2 h-3 w-3 rotate-180 opacity-60" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent className="w-64 max-h-60 overflow-y-auto" align="start">
-                                        <DropdownMenuLabel className="text-xs text-[#535862]">
-                                          เลือกบริการ
-                                        </DropdownMenuLabel>
-                                        <DropdownMenuItem
-                                          className="text-xs text-[#1d4ed8] focus:text-[#1d4ed8]"
-                                          onSelect={(event) => {
-                                            event.preventDefault()
-                                            handleServiceToggle(null)
-                                          }}
-                                        >
-                                          ล้างการเลือกทั้งหมด
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        {clientServices.map((service) => (
-                                          <DropdownMenuCheckboxItem
-                                            key={service}
-                                            className="text-xs"
-                                            checked={selectedServices.includes(service)}
-                                            onCheckedChange={() => handleServiceToggle(service)}
-                                            onSelect={(event) => event.preventDefault()}
-                                          >
-                                            {service}
-                                          </DropdownMenuCheckboxItem>
-                                        ))}
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  ) : (
-                                    <div className="text-xs text-[#8e8e93]">ไม่มีข้อมูลบริการ</div>
-                                  )}
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-xs text-[#8e8e93] p-2">ไม่พบลูกค้าตามการค้นหา</div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </nav>
-            <div className="my-4 border-t border-[#e4e7ec]" />
-            <nav className="space-y-2">
-              <Collapsible open={isHistoryOpen} onOpenChange={isGenerating ? undefined : setIsHistoryOpen} className="w-full">
-                <CollapsibleTrigger asChild>
-                  <Button
-                    onClick={!isGenerating ? handleHistoryToggle : undefined}
-                    variant="ghost"
-                    className="w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
-                    disabled={isGenerating}
-                  >
-                    {isLoadingSidebarHistory ? (
-                      <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <History className="mr-2 h-4 w-4" />
-                    )}
-                    ประวัติการสร้าง
-                    {isLoadingSidebarHistory && (
-                      <span className="ml-1 text-xs text-[#1d4ed8]">(กำลังโหลด...)</span>
-                    )}
-                    <ChevronUp
-                      className={`ml-auto h-4 w-4 transition-transform ${isHistoryOpen ? "rotate-0" : "rotate-180"}`}
-                    />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1 pl-8 pt-2">
-                  <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                    {isLoadingSidebarHistory ? (
-                      <div className="text-[#535862] text-xs p-2">กำลังโหลด...</div>
-                    ) : sidebarHistory.length > 0 ? (
-                      sidebarHistory.map((session, index) => (
-                        <button
-                          key={session.id}
-                          onClick={() => loadSessionIdeas(session)}
-                          className="w-full text-left p-2 rounded-md hover:bg-[#dbeafe] hover:text-[#063def] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1 animate-in fade-in duration-1000 ease-out slide-in-from-left-10"
-                          style={{ animationDelay: `${index * 120}ms`, animationFillMode: "both" }}
-                        >
-                          <div className="font-medium truncate">
-                            {session.selectedTemplate ? 
-                              briefTemplates.find(t => t.id === session.selectedTemplate)?.title?.substring(0, 40) + '...' :
-                              session.userInput?.substring(0, 40) + '...' || 'Custom Ideas'
-                            }
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {session.ideasCount || 0} ideas • {session.createdAt ? new Date(session.createdAt).toLocaleDateString('th-TH') : 'Unknown date'}
-                          </div>
-                        </button>
-                      ))
-                    ) : activeClientName !== "No Client Selected" ? (
-                      <div className="text-[#535862] text-xs p-2">ยังไม่มีประวัติการสร้างไอเดีย</div>
-                    ) : (
-                      <div className="text-[#535862] text-xs p-2">เลือกลูกค้าเพื่อดูประวัติ</div>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </nav>
-          </div>
-          <div className="border-t border-[#e4e7ec] mt-4 pt-4">
-            <div className="flex items-center space-x-3 p-2 mb-2">
-              <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
-              <span className="text-[#000000] font-medium">Admin</span>
-            </div>
-            <Button
-              onClick={!isGenerating && !isLoadingMore ? handleConfigureNavigation : undefined}
-              variant="ghost"
-              className="w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"
-              disabled={isNavigatingToConfigure || isGenerating || isLoadingMore}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              ตั้งค่าและวิเคราะห์
-            </Button>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
-            >
-              <Lock className="mr-2 h-4 w-4" />
-              ออกจากระบบ
-            </Button>
-          </div>
-        </div>
-        </aside>
+        <MainDashboardSidebar
+          isGenerating={isGenerating}
+          isLoadingMore={isLoadingMore}
+          isNavigatingToNewClient={isNavigatingToNewClient}
+          isNavigatingToConfigure={isNavigatingToConfigure}
+          clientSearch={clientSearch}
+          setClientSearch={setClientSearch}
+          isBrandOpen={isBrandOpen}
+          setIsBrandOpen={setIsBrandOpen}
+          orderedClients={orderedClients}
+          activeClientName={activeClientName}
+          activeProductFocus={activeProductFocus}
+          newServiceName={newServiceName}
+          setNewServiceName={setNewServiceName}
+          serviceError={serviceError}
+          setServiceError={setServiceError}
+          isLoadingServices={isLoadingServices}
+          isAddingService={isAddingService}
+          clientServices={clientServices}
+          selectedServices={selectedServices}
+          selectedServicesLabel={selectedServicesLabel}
+          isHistoryOpen={isHistoryOpen}
+          setIsHistoryOpen={setIsHistoryOpen}
+          isLoadingSidebarHistory={isLoadingSidebarHistory}
+          sidebarHistory={sidebarHistory}
+          onMainNavigation={handleMainNavigation}
+          onNewClientNavigation={handleNewClientNavigation}
+          onProductFocusChange={handleProductFocusChange}
+          onAddService={handleAddService}
+          onServiceToggle={handleServiceToggle}
+          onHistoryToggle={handleHistoryToggle}
+          onLoadSessionIdeas={loadSessionIdeas}
+          onConfigureNavigation={handleConfigureNavigation}
+          onLogout={handleLogout}
+        />
 
         {/* Main Content */}
         <main className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-transparent p-4 lg:p-8">
@@ -2058,26 +1070,11 @@ function MainContent() {
             </Button>
           </div>
           <div className="flex-1 min-h-0 flex items-start justify-center relative">
-            {/* Pending Notification Banner */}
             {pendingNotification && (
-              <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg border-l-4 border-green-600 animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-4 h-4 bg-white rounded-full animate-ping"></div>
-                  <div>
-                    <p className="font-medium">🎉 ไอเดียสร้างเสร็จแล้ว!</p>
-                    <p className="text-sm opacity-90">คลิกแท็บนี้เพื่อดูผลลัพธ์และฟังเสียงแจ้งเตือน</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      playNotificationSoundImmediate()
-                      setPendingNotification(false)
-                    }}
-                    className="ml-2 bg-white/20 hover:bg-white/30 rounded-full p-1 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              <PendingIdeaNotification
+                onReplaySound={playNotificationSoundImmediate}
+                onDismiss={clearPendingNotification}
+              />
             )}
             
             {isGenerating ? (
@@ -2258,7 +1255,7 @@ function MainContent() {
 
                   {/* Dynamic Template Buttons - HIDDEN */}
                   {/* <div className="flex flex-col gap-4 mb-8 items-center">
-                    {briefTemplates.map((template) => (
+                    {BRIEF_TEMPLATES.map((template) => (
                       <Button
                        key={template.id}
                         onClick={() => handleTemplateSelect(template.id)}

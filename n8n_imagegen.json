@@ -1,0 +1,889 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "07ee5ce9-09ee-43c3-b06a-456ba66e1193",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        656,
+        11168
+      ],
+      "id": "52a1c7dd-5703-4ee2-805e-6c86a65fd97c",
+      "name": "Webhook",
+      "webhookId": "07ee5ce9-09ee-43c3-b06a-456ba66e1193"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Code in JavaScript3').item.json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5456,
+        10304
+      ],
+      "id": "9df16141-c103-45d7-8bad-f4abbaf9e9bc",
+      "name": "Download Reference",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const textPrompt = $('Visual Thinking5').first().json.text || '';\nconst webhookBody = $('Webhook').first().json.body || {};\n\nconst aspectRatio = webhookBody.aspectRatio || webhookBody.aspect_ratio || '4:5';\nconst colorPalette = webhookBody.color_palette || webhookBody.colorPalette || '';\n\nfunction mapAspectRatioToSize(ratio) {\n  const normalized = String(ratio).trim();\n\n  // GPT Image API safe size values\n  const map = {\n    '1:1': '1024x1024',\n    '4:5': 'auto',\n    '5:4': 'auto',\n    '3:4': '1024x1536',\n    '4:3': '1536x1024',\n    '2:3': '1024x1536',\n    '3:2': '1536x1024',\n    '9:16': '1024x1536',\n    '16:9': '1536x1024',\n  };\n\n  return map[normalized] || 'auto';\n}\n\nconst size = mapAspectRatioToSize(aspectRatio);\n\nconst mergedBinary = {};\nconst imageNotes = [];\nlet imageCount = 0;\n\nfor (const item of items) {\n  const binaryData = item.binary || {};\n\n  for (const key of Object.keys(binaryData)) {\n    const newKey = `image_${imageCount}`;\n    mergedBinary[newKey] = binaryData[key];\n\n    if (key === 'material') {\n      imageNotes.push(\n        `[IMAGE ${imageCount + 1}: MATERIAL IMAGE] Use this as the source of truth for product, packaging, logo, brand asset, and physical details. Preserve identity accurately.`\n      );\n    } else if (key === 'reference') {\n      imageNotes.push(\n        `[IMAGE ${imageCount + 1}: STYLE REFERENCE IMAGE] Use this only for mood, layout, composition, graphic direction, and art direction. Do not copy literally.`\n      );\n    } else {\n      imageNotes.push(\n        `[IMAGE ${imageCount + 1}: ${key.toUpperCase()}] Use this image as supporting visual context.`\n      );\n    }\n\n    imageCount++;\n  }\n}\n\nif (imageCount === 0) {\n  throw new Error('No binary images found. Please check previous node output.');\n}\n\nconst prompt = `\nCreate a high-quality promotional advertising image.\n\nภาพโปรโมทโฆษณา , พร้อมรายละเอียดอ่านง่าย ไม่รกดูแล้วสบายตา ไม่ดูแน่นไปหมด มีความ Cretive มีการใช้เทคนิคด้านกราฟิกให้เหมาะสม ให้เหมาะกับประเภทของธุรกิจ ดูเป็นงานที่ดูผ่านการคัดสรรมาอย่างดี, สไตล์ภาพเหมาะกับสมัยปัจจุบัน ไม่ cyberpunk, scifi ไม่ดู AI ดูสบายตาหยุดคนดูได้\n\nMain brief:\n${textPrompt}\n\nBrand color palette:\n${colorPalette || 'Use colors that fit the brand and brief.'}\n\nReference image instructions:\n${imageNotes.join('\\n')}\n\nCreative direction:\n- Make the design clean, readable, and not overcrowded.\n- Use strong visual hierarchy.\n- Make it suitable for a youth-oriented audience.\n- Use graphic techniques that fit the business category.\n- Avoid messy layouts, excessive text, and generic AI-looking visuals.\n- Preserve product/brand identity from material images.\n- Use style references only for mood, composition, and art direction.\n- Output aspect ratio target: \n${aspectRatio}\n`.trim();\n\nreturn [\n  {\n    json: {\n      model: 'gpt-image-2',\n      prompt,\n      size,\n      quality: 'medium',\n      output_format: 'png',\n      image_count: imageCount,\n      has_image_1: imageCount > 1,\n      has_image_2: imageCount > 2\n    },\n    binary: mergedBinary\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5936,
+        10368
+      ],
+      "id": "e669a77a-e270-4995-87a4-c198ef91ae7d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://jztytulnuaxqkrwrymrt.storage.supabase.co/storage/v1/object/images_document/CVC/{{ Math.random().toString(36).substring(2, 15) }}.jpg",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6768,
+        10208
+      ],
+      "id": "5210d51d-e184-45be-b3f9-a9a20264305a",
+      "name": "HTTP Request2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "oHB05lBKvCBwYRPS",
+          "name": "Project - Nexus AI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "59d7fdfe-739e-4b24-8a70-a31c7ecb6354",
+              "name": "gemini",
+              "value": "=https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/{{ $json.Key }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6992,
+        10368
+      ],
+      "id": "7789cb65-0c91-48c0-92da-57aa72280ebf",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Code in JavaScript3').item.json.type }}",
+                    "rightValue": "reference",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "a6498108-11c1-4229-b488-f4e7edb53e0f"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reference"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "05a00770-d43d-414b-9389-2f5fb02be0fa",
+                    "leftValue": "={{ $('Code in JavaScript3').item.json.type }}",
+                    "rightValue": "material",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "material"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        5184,
+        10320
+      ],
+      "id": "ca38babe-c0cf-45ac-bfeb-add316b70ac2",
+      "name": "Switch",
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Code in JavaScript3').item.json.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5440,
+        10480
+      ],
+      "id": "fc4679b1-ef70-49df-bd44-ca644767a79e",
+      "name": "Download Material",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        5712,
+        10368
+      ],
+      "id": "48b2bad7-f59c-4a03-877d-4e638e6653ca",
+      "name": "Merge",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "Clients",
+          "mode": "list",
+          "cachedResultName": "Clients"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "clientName",
+              "value": "={{ $json.body.client }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1296,
+        11168
+      ],
+      "id": "b31b70e6-8f97-4530-a176-202511b36126",
+      "name": "Select rows from a table",
+      "credentials": {
+        "postgres": {
+          "id": "TDp9YsQsOO4onVTP",
+          "name": "Creative Strategist"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3d3329f8-b7e9-4400-a028-55093c44737d",
+              "leftValue": "={{ $('Webhook').item.json.body.use_brand_identity }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1792,
+        11072
+      ],
+      "id": "9c175093-6abd-4c3a-8660-435889d22971",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookBody = $('Webhook').first().json.body || {};\nconst results = [];\n\n// Normalize reference URLs\nconst referenceUrls = Array.isArray(webhookBody.reference_image_urls)\n  ? webhookBody.reference_image_urls\n  : webhookBody.reference_image_url\n    ? [webhookBody.reference_image_url]\n    : [];\n\n// Normalize material URLs\nconst materialUrls = Array.isArray(webhookBody.material_image_urls)\n  ? webhookBody.material_image_urls\n  : [];\n\n// Reference items\nfor (const url of referenceUrls) {\n  if (!url || typeof url !== 'string' || !url.trim()) continue;\n\n  results.push({\n    json: {\n      type: 'reference',\n      url: url.trim(),\n    }\n  });\n}\n\n// Material items\nfor (const url of materialUrls) {\n  if (!url || typeof url !== 'string' || !url.trim()) continue;\n\n  results.push({\n    json: {\n      type: 'material',\n      url: url.trim(),\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4864,
+        10576
+      ],
+      "id": "a1fd68f0-41d2-4349-bd5f-5f47e45da89d",
+      "name": "Code in JavaScript3",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        7232,
+        10176
+      ],
+      "id": "e7e532ec-7b44-4aa2-bdda-88ca36f61936",
+      "name": "Respond to Webhook7"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook').first().json.body || {};\n\nconst materialUrls = Array.isArray(body.material_image_urls)\n  ? body.material_image_urls\n  : [];\n\nconst referenceUrls = Array.isArray(body.reference_image_urls)\n  ? body.reference_image_urls\n  : body.reference_image_url\n    ? [body.reference_image_url]\n    : [];\n\nconst output = [\n  ...materialUrls.map(url => ({\n    json: {\n      type: 'material',\n      image_url: url\n    }\n  })),\n  ...referenceUrls.map(url => ({\n    json: {\n      type: 'reference',\n      image_url: url\n    }\n  }))\n];\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        10896
+      ],
+      "id": "94f8f4c5-4826-428e-a047-036758d56698",
+      "name": "Extract Materials and Reference",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-sonnet-4.6",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        3104,
+        11552
+      ],
+      "id": "52e769b4-599d-492f-935e-695b51494e9f",
+      "name": "OpenRouter Chat Model5",
+      "credentials": {
+        "openRouterApi": {
+          "id": "bYBYDkqKP9fHbt9i",
+          "name": "Art Director AI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User brief:\n{{ $('Webhook').first().json.body.prompt || '' }}\n\nStyle : {{ $('Webhook').first().json.body.userBrief }}\n\n\nBrand:\n{{ $('Webhook').first().json.body.client || '' }}\n\nCategory Lens : {{ $('Select rows from a table').first().json.productFocus }}\n\nBrand identity:\nColor palette / mood / tone:\n{{ JSON.stringify($('Webhook').first().json.body.color_palette || []) }}\n\n\nratio : {{ $('Webhook').item.json.body.aspect_ratio }}\n\nCore concept:\n{{ $('Webhook').first().json.body.core_concept || '' }}\n\nSaved idea:\n{{ JSON.stringify($('Webhook').first().json.body.saved_ideas?.[0] || {}, null, 2) }}\n\n",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "HumanMessagePromptTemplate",
+              "message": "=You are a senior Art Director and visual concept strategist.\nDeliver strong advertising visual concepts for social media.\n\n# MAIN GOAL\nCreate an advertising concept direction based on the provided brand, product/service, copy, reference style, and user constraints.\n\nYour job is not only to follow the reference.\nYour job is to extract the reference’s visual DNA, then elevate it into a stronger, more memorable advertising idea.\n\nThe final output must feel:\nReference-led, brand-fit, visually distinctive, scroll-stopping, layered, uncluttered, and clearly advertising-driven.\n\n# UNIVERSAL RULE: NO HARDCODED VISUAL ELEMENTS\nDo not apply any fixed visual formula by default.\nDo not reuse fixed props, characters, scenes, camera angles, colors, layouts, lighting styles, environments, scale tricks, typography treatments, or aesthetics unless they are supported by the actual input.\n\nEvery major element in the concept must come from at least one of these sources:\n- The provided reference\n- The user brief\n- The brand context\n- The product/service category\n- The core message\n- A clear creative reason\n\nYour job is to extract, translate, and elevate the input — not to force a pre-made template.\n\nCREATIVE MINDSET & PRACTICAL EXECUTION:\nThink like a visionary Art Director but execute like a master Production Designer. Push the boundaries of creativity (e.g., visual metaphors, surreal structural setups, clever optical illusions), but ensure the execution feels grounded in reality. The final concept must feel practically executable—following real-world physics, logical lighting, accurate scale, and believable material behaviors. It should feel like an expensive physical set-build or a brilliant practical camera effect, not a floating, illogical CGI mistake.\n\n# ADVERTISING FIRST, NOT PRODUCT LAYOUT\nThe output must feel like an advertising campaign idea, not a product catalogue layout.\nDo not create a concept that can be reduced to: “main subject + text + background.”\n\nThe visual must include at least one clear advertising idea, such as:\n- A meaningful scene\n- A visual metaphor\n- A product/service-context interaction\n- A human-context interaction\n- A distinctive spatial relationship\n- A strong camera or composition decision\n- A typography-image interaction\n- A memorable scroll-stopping hook\n\nThe main subject must remain the hero, but it should actively participate in the idea instead of simply sitting in the layout.\n\n# SINGLE BEST CONCEPT RULE\nEvaluate all possible creative territories and visual strategies internally, but output ONLY the 1 absolute best concept direction. Do not provide multiple options.\n\n# CREATIVE TERRITORY REQUIREMENT\nBefore developing the concept, define its creative territory.\nPossible territory types may include:\n- Visual metaphor\n- Real-life lifestyle situation\n- Editorial campaign moment\n- Product-world interaction\n- Bold graphic concept\n- Cinematic story moment\n- Surreal conceptual scene\n- Functional benefit dramatization\n- Social-scroll-stopping poster logic\n- Typography-led campaign system\n- Environment-led storytelling\n- Material or texture-led concept\n\nChoose the territory that best fits the brand, product/service, message, reference, and user constraints. Do not default to a clean premium poster unless that is truly the strongest territory.\n\n# REFERENCE STYLE EXTRACTION\nIf a reference style or reference image is provided, first identify the following from the reference only:\n1. MOOD & TONE: What emotional atmosphere does the reference create?\n2. SIGNATURE STYLE: Camera perspective, scale behavior, lighting logic, color behavior, texture treatment, framing, etc.\n3. LAYOUT LOGIC: Hero placement, focal point, reading order, depth structure, etc.\n4. VISUAL MECHANICS: Subject interacts with environment, background creates depth, repetition creates rhythm, etc.\nOnly mention and use what is actually found in the reference.\n\n# REFERENCE TRANSLATION RULE & DESIGN ELEVATION\nTranslate the extracted reference style into the new brand and product/service context.\nPreserve the most important visual principles of the reference. Do not copy it literally or reduce it to a generic clean layout.\nElevate the visual idea through stronger camera angle, composition, color relationship, layout rhythm, depth system, typography interaction, visual hook, and advertising metaphor.\n\n# CLEAN DOES NOT MEAN PLAIN\nIf the user asks for a clean, minimal, white, uncluttered, premium, simple, or easy-to-read design, do not interpret it as a plain catalogue image. Minimal does not mean empty. Premium does not mean lifeless. Simple does not mean boring.\n\n# MEANINGFUL CONTEXT RULE\nDo not add background, props, textures, scenes, or decorative elements only to make the image look less empty. Every context element must help communicate the product/service benefit, the audience situation, the brand personality, the campaign message, the reference style, or the visual hook.\n\n# VISUAL UPGRADE REQUIREMENT\nFor the chosen concept, intentionally improve at least 3 of the following areas:\n1. CAMERA ANGLE\n2. COMPOSITION\n3. COLOR PALETTE\n4. TYPOGRAPHY INTERACTION\n5. VISUAL HOOK\n\n# BRAND & CATEGORY AWARENESS\nAnalyze the brand and category before creating the concept. The visual must fit the brand identity, target audience, usage context, price perception, and cultural context.\n\n# COPY RULE\nRewrite or tighten the copy if it improves the advertisement.\nUse only the strongest message on the image. Move long details to the caption.\nThe on-image copy should be short, natural, clear, visually usable, and easy to understand at a glance.\n\n# TECHNIQUE SELECTION\nPick only 4–5 techniques total for the concept.\nExplain why it fits the reference, brand/category, and how it appears visually.\n\n# OUTPUT LANGUAGE\nCRITICAL RULE: \n- Your entire response (rationales, explanations, strategies, art direction, formatting) MUST be written in ENGLISH.\n- EXCEPT for the actual COPYWRITING texts (Headline, Subheadline, Call to action, etc.), which MUST be strictly in THAI.\n\n# OUTPUT FORMAT\n\n## REFERENCE STYLE SUMMARY\n- Mood & tone\n- Signature style\n- Layout logic\n- Visual mechanics\n\n## THE WINNING CONCEPT DIRECTION\n### CREATIVE TERRITORY\nDefine the territory clearly.\n\n### CONCEPT\nWrite 1–2 sentences. Explain the visual idea and how it translates the reference style into the brand context.\n\n### COPYWRITING (THAI)\nProvide the final on-image headline and supporting lines (strictly in Thai).\n\n### ADVERTISING IDEA\nExplain what makes this more than a layout. Clarify why it is interesting, desirable, meaningful, and scroll-stopping.\n\n### DESIGN ELEVATION\nCover: Camera angle, Composition, Color, Visual hook, Typography-image relationship.\n\n### TECHNIQUES USED\nUse 4–5 bullets only.\n\n### VISUAL DIRECTION FOR DESIGNER (PRACTICAL EXECUTION)\n1. Layout Structure\n2. Layer & Depth System\n3. Art Direction, Lighting & Material Craft (Ensure physical realism is explained here)\n\n# FINAL QUALITY CHECK\nBefore answering, check that the concept passes these rules:\n1. The reference influence is visually obvious.\n2. No hardcoded visual formula is used.\n3. The concept preserves the reference’s style principles.\n4. The concept improves the design idea with stronger camera, composition, hierarchy, or scene logic.\n5. The user’s constraints are respected.\n6. The main subject remains the hero and interacts with the scene/typography meaningfully.\n7. The design must not feel too plain, safe, or catalogue-like.\n8. If the concept involves real-world elements or surreal practical props, they behave logically according to real-world physics, lighting, and material properties. It must not look like an illogical CGI mistake.\n9. If the visual hook is not clear within 1 second, revise it.\n10. The final direction is fully executable by a human designer, photographer, or 3D artist.\n\n# IMPORTANT NEGATIVE RULES\nDo not create a generic minimalist poster.\nDo not invent fixed props or scenes without a conceptual reason.\nDo not make a busy collage.\nDo not include long links or hashtags on the image unless requested.\nDo not let AI randomness control the design."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        3328,
+        10816
+      ],
+      "id": "edb15ff8-1033-456c-a02b-1f7b7e0ca1d0",
+      "name": "Visual Thinking5"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "research_market",
+          "mode": "list",
+          "cachedResultName": "research_market"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "client_name",
+              "value": "={{ $json.clientName }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1536,
+        11152
+      ],
+      "id": "002587d5-759e-4f95-a7a0-af4b84e6849d",
+      "name": "Select rows from a table6",
+      "credentials": {
+        "postgres": {
+          "id": "TDp9YsQsOO4onVTP",
+          "name": "Creative Strategist"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-image-2"
+            },
+            {
+              "name": "prompt",
+              "value": "{{ $('Visual Thinking5').item.json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5600,
+        10816
+      ],
+      "id": "f318c4c6-8b0b-4bcf-94e6-4cef060546e2",
+      "name": "HTTP Request18",
+      "credentials": {
+        "openAiApi": {
+          "id": "UKW2MvJbkG9IFwy8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/edits",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $json.model }}"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "name": "size",
+              "value": "={{ $json.size }}"
+            },
+            {
+              "name": "quality",
+              "value": "={{ $json.quality }}"
+            },
+            {
+              "name": "output_format",
+              "value": "={{ $json.output_format }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "image_0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        6352,
+        10960
+      ],
+      "id": "80165509-8788-4c58-8017-5dc438ea1123",
+      "name": "HTTP Request19",
+      "credentials": {
+        "openAiApi": {
+          "id": "UKW2MvJbkG9IFwy8",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const mimeMap = {\n  png: 'image/png',\n  jpg: 'image/jpeg',\n  jpeg: 'image/jpeg',\n  webp: 'image/webp',\n};\n\nreturn items.map((item, index) => {\n  const response = item.json;\n\n  // =========================\n  // 1) New format\n  // response.data[0].b64_json\n  // =========================\n  const newImage = response?.data?.[0];\n\n  if (newImage?.b64_json) {\n    const format = (newImage.output_format || 'png').toLowerCase();\n    const fileExtension = format === 'jpeg' ? 'jpg' : format;\n    const mimeType = mimeMap[format] || 'image/png';\n\n    return {\n      json: {\n        success: true,\n        source: 'new_format',\n      },\n      binary: {\n        data: {\n          data: newImage.b64_json,\n          mimeType,\n          fileExtension,\n          fileName: `output_${index + 1}.${fileExtension}`,\n        },\n      },\n    };\n  }\n\n  // =========================\n  // 2) Old Gemini format\n  // response.candidates[0].content.parts[].inlineData\n  // =========================\n  const imagePart = response?.candidates?.[0]?.content?.parts?.find(\n    part => part.inlineData?.data\n  );\n\n  if (imagePart) {\n    const mimeType = imagePart.inlineData.mimeType || 'image/png';\n    const fileExtension = mimeType.includes('jpeg')\n      ? 'jpg'\n      : mimeType.includes('webp')\n      ? 'webp'\n      : 'png';\n\n    return {\n      json: {\n        success: true,\n        source: 'gemini_format',\n      },\n      binary: {\n        data: {\n          data: imagePart.inlineData.data,\n          mimeType,\n          fileExtension,\n          fileName: `output_${index + 1}.${fileExtension}`,\n        },\n      },\n    };\n  }\n\n  return {\n    json: {\n      success: false,\n      error: 'No image generated',\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6512,
+        10736
+      ],
+      "id": "c5312910-023c-4c89-8f85-d2c4e39dbc2b",
+      "name": "Code in JavaScript21"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "270c1b43-bdcf-439b-ac47-36641b22ec35",
+              "leftValue": "={{ $json.image_count }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        6080,
+        10768
+      ],
+      "id": "09551491-b566-464c-8d19-e18ee806973a",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/edits",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{ $json.model }}"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "name": "size",
+              "value": "={{ $json.size }}"
+            },
+            {
+              "name": "quality",
+              "value": "={{ $json.quality }}"
+            },
+            {
+              "name": "output_format",
+              "value": "={{ $json.output_format }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "image_0"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "image[]",
+              "inputDataFieldName": "image_1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        6320,
+        10704
+      ],
+      "id": "4a558421-94f5-4951-b579-a2ea6cf19735",
+      "name": "HTTP Request20",
+      "credentials": {
+        "openAiApi": {
+          "id": "UKW2MvJbkG9IFwy8",
+          "name": "OpenAi account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Select rows from a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Reference": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Download Reference",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Material",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Material": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select rows from a table": {
+      "main": [
+        [
+          {
+            "node": "Select rows from a table6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "Extract Materials and Reference",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract Materials and Reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Materials and Reference": {
+      "main": [
+        [
+          {
+            "node": "Visual Thinking5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Visual Thinking5",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Visual Thinking5": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select rows from a table6": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request18": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request19": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript21",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript21": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request20",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request19",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request20": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript21",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Webhook": [
+      {
+        "headers": {
+          "host": "n8n.srv934175.hstgr.cloud",
+          "user-agent": "node",
+          "content-length": "3079",
+          "accept": "*/*",
+          "accept-encoding": "br, gzip, deflate",
+          "accept-language": "*",
+          "content-type": "application/json",
+          "sec-fetch-mode": "cors",
+          "x-forwarded-for": "18.141.224.159",
+          "x-forwarded-host": "n8n.srv934175.hstgr.cloud",
+          "x-forwarded-port": "443",
+          "x-forwarded-proto": "https",
+          "x-forwarded-server": "153809e06b07",
+          "x-invocation-id": "sin1::nxpbk-1779950167219-959264d0fe59",
+          "x-real-ip": "18.141.224.159",
+          "x-vercel-id": "sin1::nxpbk-1779950167219-959264d0fe59"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "prompt": "HL: รวมตัวฮิต พร้อมส่งถึงหน้างาน\n\nเป็นการโชว์ product line  ให้เห็นว่า Sendo มีสกรูรองรับครบทุกงานพร้อมใส่ USP ในเรื่องของการพร้อมส่งเข้าไปเพื่อให้กลุ่มลูกค้าที่กำลังหาสกรูอยู่ตัดสินใจได้ง่ายขึ้น",
+          "saved_ideas": [],
+          "client": "sendo",
+          "productFocus": "สกรูยิงเมทัลชีทแปเหล็ก 2นิ้ว ",
+          "core_concept": "HL: รวมตัวฮิต พร้อมส่งถึงหน้างาน\n\nเป็นการโชว์ product line  ให้เห็นว่า Sendo มีสกรูรองรับครบทุกงานพร้อมใส่ USP ในเรื่องของการพร้อมส่งเข้าไปเพื่อให้กลุ่มลูกค้าที่กำลังหาสกรูอยู่ตัดสินใจได้ง่ายขึ้น",
+          "topic_title": "Custom brief",
+          "topic_description": "HL: รวมตัวฮิต พร้อมส่งถึงหน้างาน\n\nเป็นการโชว์ product line  ให้เห็นว่า Sendo มีสกรูรองรับครบทุกงานพร้อมใส่ USP ในเรื่องของการพร้อมส่งเข้าไปเพื่อให้กลุ่มลูกค้าที่กำลังหาสกรูอยู่ตัดสินใจได้ง่ายขึ้น",
+          "content_pillar": "",
+          "copywriting": null,
+          "selected_visual_route": null,
+          "selectedVisualRoute": null,
+          "color_palette": [
+            "101D8D",
+            "F6E327",
+            "121E3B"
+          ],
+          "material_image_urls": [
+            "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/materials/a3987e41-d461-4da2-a819-151f236bd7be/1779939877699-mxsvic8.png",
+            "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/materials/a3987e41-d461-4da2-a819-151f236bd7be/1779939874583-m22k47b.png",
+            "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/materials/a3987e41-d461-4da2-a819-151f236bd7be/1769670698128-wn5pa1h.JPG"
+          ],
+          "ad_style": "Clean Product Focus",
+          "user_brief": "Create a clean, premium product-led ad with disciplined composition, strong hierarchy, clear product focus, minimal clutter, refined typography integration, and polished commercial lighting.",
+          "userBrief": "Create a clean, premium product-led ad with disciplined composition, strong hierarchy, clear product focus, minimal clutter, refined typography integration, and polished commercial lighting.",
+          "aspect_ratio": "1:1",
+          "image_count": 1,
+          "imageCount": 1,
+          "aspectRatio": "1:1",
+          "reference_image_url": "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/references/1779939805683-5mn4yo0.png"
+        },
+        "webhookUrl": "https://n8n.srv934175.hstgr.cloud/webhook/07ee5ce9-09ee-43c3-b06a-456ba66e1193",
+        "executionMode": "production"
+      }
+    ]
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0d5df4e98d5f75bb8955efbb3b0021e3482789481f25ef7ed8d4fd27b884b9be"
+  }
+}

@@ -16,7 +16,7 @@ import {
   TrendingUp,
   X
 } from "lucide-react"
-import { sessionManager } from "@/lib/session-manager"
+import { fetchSessionHistory } from "@/lib/sessions/history"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
 
@@ -57,7 +57,7 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
     try {
       const currentOffset = reset ? 0 : offset
       
-      const result = await sessionManager.getHistory({
+      const result = await fetchSessionHistory<SessionHistoryItem>({
         clientName: activeClientName,
         limit: ITEMS_PER_PAGE,
         offset: currentOffset

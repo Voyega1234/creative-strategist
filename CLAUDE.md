@@ -19,7 +19,7 @@ Creative Compass is an AI-powered creative strategy and idea generation platform
 ## Development Commands
 
 ```bash
-# Development server (default port 3000)
+# Development server (default port 3000, uses Webpack)
 npm run dev
 
 # Production build
@@ -31,6 +31,12 @@ npm start
 # Lint code
 npm run lint
 ```
+
+### Development Notes
+
+- `npm run dev` intentionally runs `next dev --webpack`. Next.js 16 defaults to Turbopack, but this project has shown Turbopack dev-server hangs where the CLI prints `Ready` while requests to `/` never finish. Use the existing script unless you are specifically debugging Turbopack.
+- `npm run build` is the main verification command. The project currently ignores TypeScript build errors in `next.config.mjs`, so still inspect suspicious type changes manually.
+- If port 3000 appears open but the page does not load, check for a stuck `next-server` process before changing app code.
 
 ## Architecture
 
@@ -49,6 +55,14 @@ This is a Next.js App Router application with the following key directories:
   - `lib/data/` - Database query functions
   - `lib/supabase/` - Supabase client configuration
   - `lib/utils/` - Utility functions including caching
+  - `lib/ideas/` - Idea generation constants, task helpers, local storage helpers, and sharing helpers
+  - `lib/clients/` - Client selection and service/product-focus helpers
+  - `lib/navigation/` - URL construction helpers for client-scoped routes
+  - `lib/sessions/` - Session history API helpers
+- `hooks/` - Shared client hooks extracted from large page components
+- `components/auth/` - Authentication gate/loading UI
+- `components/layout/` - Dashboard-level layout components
+- `components/notifications/` - Notification/banner components
 
 ### Database Architecture (Supabase)
 
@@ -93,6 +107,12 @@ The app uses a singleton `SessionManager` (lib/session-manager.ts) for:
 - Client-side data caching with TTL
 - Debounced session saving (1 second delay)
 
+Additional browser storage helpers are split out by concern:
+
+- `lib/auth/client-auth.ts` - auth-state persistence helpers
+- `lib/ideas/client-storage.ts` - generated/saved idea cache helpers
+- `hooks/use-persist-visual-routes.ts` - persists the latest visual route per client in sessionStorage
+
 ### Async Task Pattern
 
 AI idea generation uses an async webhook pattern:
@@ -101,6 +121,8 @@ AI idea generation uses an async webhook pattern:
 2. n8n processes in background
 3. `POST /api/generate-ideas/callback` - Webhook callback updates task status
 4. `GET /api/generate-ideas/status?taskId=X` - Client polls for results
+
+Client-side task orchestration has been extracted from `app/page.tsx` into `lib/ideas/generation-task.ts`. Prefer adding new task polling, result merging, or task-status normalization there instead of expanding `app/page.tsx`.
 
 ### URL Navigation Pattern
 
@@ -111,7 +133,7 @@ The application heavily uses URL search params for state management:
 - `?serviceFilter=` - Filter by service category
 - `?page=` - Pagination
 
-When updating navigation, always use Next.js router with search params rather than internal state.
+When updating navigation, always use Next.js router with search params rather than internal state. Use `buildClientScopedRoute()` from `lib/navigation/client-routes.ts` when building routes that should preserve active client context.
 
 ### Component Organization
 
@@ -120,6 +142,25 @@ When updating navigation, always use Next.js router with search params rather th
   - Form components: `business-profile-form.tsx`, `feedback-form.tsx`, `facebook-ads-form.tsx`
   - Display components: `competitor-table.tsx`, `research-insights-section.tsx`, `saved-ideas.tsx`
   - Layout: `main-sidebar.tsx`, `configure-sidebar.tsx`
+  - Main dashboard layout: `components/layout/main-dashboard-sidebar.tsx`
+  - Auth UI: `components/auth/login-gate.tsx`
+  - Notification UI: `components/notifications/pending-idea-notification.tsx`
+
+### Main Page Refactor Map
+
+`app/page.tsx` is still the main idea generation interface, but repeated concerns have been moved out. When continuing refactors, keep changes incremental and avoid changing user-visible behavior unless explicitly requested.
+
+- `lib/ideas/generation-options.ts` - model options and brief templates
+- `lib/ideas/generation-task.ts` - generation task enqueueing, result extraction, model resolution, and idea merging
+- `lib/ideas/share.ts` - share payload creation and share-link creation
+- `lib/clients/client-selection.ts` - client selection/search/order helpers
+- `lib/clients/client-services.ts` - service label, service text, and product-focus toggle helpers
+- `hooks/use-idea-notifications.ts` - sound/title/browser notification behavior for pending ideas
+- `hooks/use-client-services.ts` - service fetch/add/toggle state
+- `hooks/use-clients-with-product-focus.ts` - loads `/api/clients-with-product-focus`
+- `lib/sessions/history.ts` - session history fetch/latest-session helpers
+
+Prefer extracting pure helpers and isolated UI first. Avoid broad rewrites of `app/page.tsx` because it coordinates many user workflows and URL states.
 
 ### Styling Conventions
 
@@ -146,6 +187,8 @@ The n8n webhook URL is hardcoded in `app/api/generate-ideas/route.ts`.
 - **Images**: Image optimization is disabled (`unoptimized: true`)
 - **Console Logs**: Removed in production builds
 - **Caching**: Pages use `revalidate = 60` and `dynamic = 'force-dynamic'` for fresh data
+- **Turbopack root**: `next.config.mjs` sets `turbopack.root` to the repository directory to avoid root-inference warnings from nearby lockfiles.
+- **SVG handling**: `.svg` imports use `@svgr/webpack` via both Turbopack rules and Webpack config.
 
 ## Path Aliases
 
@@ -169,6 +212,13 @@ import { getSupabase } from "@/lib/supabase/server"
 3. Frontend calls `/api/generate-ideas`
 4. Receives taskId, polls `/api/generate-ideas/status`
 5. Results display in modal with feedback options
+
+Task status UI, pending notifications, and local idea merging should stay compatible with the existing async webhook contract. Do not change payload shapes to n8n without checking the matching workflow.
+
+### Image Generation
+1. User works from `/images`
+2. Image generation routes call n8n/Supabase-backed APIs
+3. Visual navigation should preserve active `clientId`, `clientName`, `productFocus`, and `serviceFilter` when possible
 
 ### Competitor Research
 1. Navigate to `/configure?clientId=X`
