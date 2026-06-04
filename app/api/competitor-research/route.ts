@@ -156,10 +156,12 @@ export async function POST(request: Request) {
     }
     // --- End API Call ---
     
-    const resolvedClientName =
+    const n8nClientName =
       typeof parsedData?.client_name === 'string'
         ? parsedData.client_name.trim()
         : '';
+
+    const resolvedClientName = normalizedClientName || n8nClientName;
 
     const resolvedProductFocus =
       typeof parsedData?.product_focus === 'string'

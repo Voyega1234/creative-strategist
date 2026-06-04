@@ -37,6 +37,7 @@ import {
   uploadFileToImageStorage,
   uploadGeneratedImageBlob,
 } from "@/lib/images/client"
+import { getSeoBlogBannerWebsite } from "@/lib/seo-blog-banner/client-websites"
 import { getStorageClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
@@ -500,6 +501,24 @@ export function SeoBlogBannerPanel({
     setBrandContext(parsed.notes)
   }
 
+  const applyBrandAssetPayload = (payload: {
+    website?: string
+    brand_name?: string
+    brand_colors?: string
+    brand_context?: string
+    selected_logo_url?: string
+  }) => {
+    setWebsite(payload.website || "")
+    setBrandName(payload.brand_name || "")
+    const extractedColors = extractHexColors(payload.brand_colors || "").map(normalizeHexColor)
+    setBrandColorValues(extractedColors)
+    setBrandColorRoles(extractedColors.map((_, index) => COLOR_ROLE_OPTIONS[index] || "Accent"))
+    applyBrandContext(payload.brand_context || "")
+    setOpenBrandLogoUrl(payload.selected_logo_url || "")
+    setResult(null)
+    setAdditionalOutputs([])
+  }
+
   useEffect(() => {
     setSelectedClientId(activeClientId || "")
   }, [activeClientId])
@@ -526,7 +545,7 @@ export function SeoBlogBannerPanel({
 
   useEffect(() => {
     const lastWebsite = window.localStorage.getItem(BRAND_ASSET_LAST_WEBSITE_KEY) || ""
-    if (!lastWebsite) return
+    if (!lastWebsite || selectedClientId) return
 
     const cache = readBrandAssetCache()
     const cached = cache[normalizeWebsiteCacheKey(lastWebsite)]
@@ -542,7 +561,7 @@ export function SeoBlogBannerPanel({
     window.setTimeout(() => {
       restoringBrandCacheRef.current = false
     }, 0)
-  }, [])
+  }, [selectedClientId])
 
   useEffect(() => {
     const cacheKey = normalizeWebsiteCacheKey(website)
@@ -602,6 +621,43 @@ export function SeoBlogBannerPanel({
       restoringBrandCacheRef.current = false
     }, 0)
   }, [selectedClientId])
+
+  useEffect(() => {
+    if (!selectedClientId) return
+
+    let cancelled = false
+    const loadServerBrandAssets = async () => {
+      try {
+        const response = await fetch(`/api/seo-blog-banner/brand-assets?clientId=${encodeURIComponent(selectedClientId)}`)
+        const payload = await response.json()
+        if (cancelled || !response.ok || !payload.success) return
+
+        restoringBrandCacheRef.current = true
+        applyBrandAssetPayload(payload)
+        window.setTimeout(() => {
+          restoringBrandCacheRef.current = false
+        }, 0)
+      } catch (error) {
+        console.error("Failed to load SEO banner server brand assets:", error)
+      }
+    }
+
+    void loadServerBrandAssets()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedClientId])
+
+  useEffect(() => {
+    if (!selectedClient || website.trim()) return
+
+    const mappedWebsite = getSeoBlogBannerWebsite(selectedClient.clientName)
+    if (!mappedWebsite) return
+
+    setWebsite(mappedWebsite)
+    setResult(null)
+    setAdditionalOutputs([])
+  }, [selectedClient, website])
 
   useEffect(() => {
     if (!selectedClientId || restoringBrandCacheRef.current) return
@@ -801,7 +857,7 @@ export function SeoBlogBannerPanel({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ website: website.trim() }),
+        body: JSON.stringify({ clientId: selectedClientId || undefined, website: website.trim() }),
       })
       const payload = await response.json()
 
@@ -809,14 +865,7 @@ export function SeoBlogBannerPanel({
         throw new Error(payload?.error || "Cannot extract brand assets")
       }
 
-      setBrandName(payload.brand_name || "")
-      const extractedColors = extractHexColors(payload.brand_colors || "").map(normalizeHexColor)
-      setBrandColorValues(extractedColors)
-      setBrandColorRoles(extractedColors.map((_, index) => COLOR_ROLE_OPTIONS[index] || "Accent"))
-      applyBrandContext(payload.brand_context || "")
-      setOpenBrandLogoUrl(payload.selected_logo_url || "")
-      setResult(null)
-      setAdditionalOutputs([])
+      applyBrandAssetPayload(payload)
     } catch (err) {
       console.error("SEO blog banner brand extraction failed:", err)
       setError(err instanceof Error ? err.message : "Cannot extract brand assets")

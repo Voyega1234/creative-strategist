@@ -21,14 +21,22 @@ type TextToImageCodeWorkflow = {
     },
   ) => Promise<{
     success: boolean
+    runId?: string
     publicUrl?: string | null
     localUrl?: string | null
+    logPath?: string | null
     gemini?: string | null
     model?: string
     imageCount?: number
+    materialImageCount?: number
+    referenceImageCount?: number
     size?: string
     finalPrompt?: string
     visualThinking?: string
+    creativePlan?: Record<string, any> | null
+    pipelineMode?: string
+    visualQa?: Record<string, any> | null
+    regeneratedFromVisualQa?: boolean
     revisedPrompt?: string | null
   }>
 }
@@ -54,6 +62,20 @@ async function runCodeImageGenerator(payload: Record<string, any>) {
         source: "code-openai",
       },
     ],
+    debug: {
+      materialImageCount: result.materialImageCount,
+      referenceImageCount: result.referenceImageCount,
+      inputImageCount: result.imageCount,
+      visualQa: result.visualQa,
+      regeneratedFromVisualQa: result.regeneratedFromVisualQa,
+      runId: result.runId,
+      logPath: result.logPath,
+      pipelineMode: result.pipelineMode,
+      finalPrompt: result.finalPrompt,
+      visualThinking: result.visualThinking,
+      creativePlan: result.creativePlan,
+      revisedPrompt: result.revisedPrompt,
+    },
   }
 }
 
@@ -170,6 +192,7 @@ export async function POST(request: Request) {
     const { 
       prompt, 
       reference_image_url, 
+      reference_image_urls,
       client_name, 
       product_focus, 
       selected_topics,
@@ -197,8 +220,8 @@ export async function POST(request: Request) {
     console.log('[generate-image] Topic Title:', topic_title);
     console.log('[generate-image] Ad Style:', ad_style);
     console.log('[generate-image] Selected Visual Route:', selected_visual_route?.route_name || 'none');
-    if (reference_image_url) {
-      console.log('[generate-image] Using reference image:', reference_image_url);
+    if (reference_image_url || reference_image_urls?.length) {
+      console.log('[generate-image] Using reference image(s):', reference_image_url || reference_image_urls?.length);
     }
 
     if (material_image_urls?.length) {
@@ -214,9 +237,9 @@ export async function POST(request: Request) {
     try {
       const payload: Record<string, any> = {
         prompt: prompt || "",
-        saved_ideas: selected_topics || [],
-        client: client_name || "",
-        productFocus: product_focus || "",
+        saved_ideas: selected_topics || body.saved_ideas || [],
+        client: client_name || body.client || "",
+        productFocus: product_focus || body.productFocus || body.product_focus || "",
         core_concept: core_concept || "",
         topic_title: topic_title || "",
         topic_description: topic_description || "",
@@ -233,6 +256,10 @@ export async function POST(request: Request) {
         image_count: sanitizedImageCount,
         imageCount: sanitizedImageCount,
         aspectRatio: selectedAspectRatio,
+      }
+
+      if (Array.isArray(reference_image_urls) && reference_image_urls.length) {
+        payload.reference_image_urls = reference_image_urls
       }
 
       if (reference_image_url) {
@@ -260,6 +287,13 @@ export async function POST(request: Request) {
         image_url: pinterestImages[0]?.url,
         prompt,
         provider,
+        debug: {
+          materialImageCount: Array.isArray(material_image_urls) ? material_image_urls.length : 0,
+          referenceImageCount:
+            (Array.isArray(payload.reference_image_urls) ? payload.reference_image_urls.filter(Boolean).length : 0) +
+            (payload.reference_image_url ? 1 : 0),
+          backend: generationResult.debug || null,
+        },
       });
 
     } catch (webhookError: any) {

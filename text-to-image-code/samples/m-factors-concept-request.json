@@ -1,0 +1,28 @@
+{
+  "client": "M Factors",
+  "prompt": "Create a premium social advertising image for a termite protection service. The message is that premium homeowners choose M Factors because of proven Sentricon technology, expert insect scientists, and 20+ years of experience.",
+  "userBrief": "Avoid a generic 3-reason brochure layout. Make it feel like a creative digital marketing agency concept, not an AI template. Premium, trustworthy, elegant, readable, Thai market.",
+  "core_concept": "A luxury home protected by an invisible intelligent termite-defense system, with Sentricon as the proof of technology and M Factors as the trusted specialist.",
+  "saved_ideas": [
+    {
+      "title": "Premium Home Protection",
+      "description": "3 reasons customers trust M Factors for more than 20 years: Sentricon technology from the USA, insect-science specialists, and 20+ years of experience.",
+      "copywriting": {
+        "headline": "บ้านพรีเมียม ต้องปกป้องแบบพรีเมียม",
+        "sub_headline_1": "ระบบ Sentricon พร้อมทีมผู้เชี่ยวชาญด้านแมลง",
+        "sub_headline_2": "ประสบการณ์กว่า 20 ปี",
+        "bullets": [
+          "เทคโนโลยี Sentricon จากสหรัฐฯ",
+          "ทีมผู้เชี่ยวชาญด้านแมลง",
+          "ประสบการณ์ 20+ ปี"
+        ],
+        "cta": "ปรึกษาฟรี ทักแชตเลย"
+      }
+    }
+  ],
+  "reference_image_urls": [],
+  "material_image_urls": [],
+  "aspect_ratio": "1:1",
+  "color_palette": ["#003B1F", "#061A44", "#F7F1E5", "#FFFFFF"],
+  "use_brand_identity": true
+}

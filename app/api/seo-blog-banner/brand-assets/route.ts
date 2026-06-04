@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { getSeoBlogBannerWebsite } from "@/lib/seo-blog-banner/client-websites"
+import { getSupabase } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
@@ -14,12 +16,45 @@ type OpenBrandLogo = {
   }
 }
 
+type CachedClientBrandAssets = {
+  clientWebsiteUrl?: string | null
+  clientName?: string | null
+  color_palette?: unknown
+  logo_page?: string | null
+}
+
 function normalizeUrl(value: unknown) {
   if (typeof value !== "string") return ""
   const trimmed = value.trim()
   if (!trimmed) return ""
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   return `https://${trimmed}`
+}
+
+function normalizeColorPalette(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item.trim()
+        if (item && typeof item === "object" && "hex" in item && typeof item.hex === "string") return item.hex.trim()
+        return ""
+      })
+      .filter(Boolean)
+  }
+
+  if (typeof value === "string") {
+    try {
+      return normalizeColorPalette(JSON.parse(value))
+    } catch {
+      return value.match(/#[0-9a-fA-F]{3,8}\b/g) || []
+    }
+  }
+
+  return []
+}
+
+function formatBrandColors(colors: string[]) {
+  return colors.map((color, index) => `${index === 0 ? "Primary" : index === 1 ? "Secondary" : "Accent"}: ${color}`).join(", ")
 }
 
 function stripHtml(html: string) {
@@ -131,9 +166,98 @@ async function fetchOpenBrandAssets(website: string) {
   }
 }
 
+async function getClientBrandAssets(clientId: string) {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from("Clients")
+    .select("clientName, clientWebsiteUrl, color_palette, logo_page")
+    .eq("id", clientId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const client = data as CachedClientBrandAssets | null
+  if (!client) return null
+
+  const website = normalizeUrl(client.clientWebsiteUrl) || normalizeUrl(getSeoBlogBannerWebsite(client.clientName))
+  const colors = normalizeColorPalette(client.color_palette)
+  const selectedLogoUrl = normalizeUrl(client.logo_page)
+  const brandContext = website ? await fetchWebsiteContext(website) : ""
+
+  return {
+    success: true,
+    source: selectedLogoUrl || colors.length > 0 ? "cache" : "mapping",
+    website,
+    brand_name: client.clientName || "",
+    brand_colors: formatBrandColors(colors),
+    brand_context: brandContext,
+    selected_logo_url: selectedLogoUrl,
+    raw_assets: null,
+  }
+}
+
+async function saveClientBrandAssets({
+  clientId,
+  website,
+  colors,
+  selectedLogoUrl,
+}: {
+  clientId?: string
+  website: string
+  colors: Array<{ hex?: string }>
+  selectedLogoUrl: string
+}) {
+  if (!clientId) return
+
+  const colorPalette = colors.map((color) => color.hex).filter(Boolean)
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from("Clients")
+    .update({
+      clientWebsiteUrl: website,
+      color_palette: colorPalette,
+      logo_page: selectedLogoUrl || null,
+      updatedAt: new Date().toISOString(),
+    })
+    .eq("id", clientId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const clientId = searchParams.get("clientId") || ""
+
+    if (!clientId) {
+      return NextResponse.json({ success: false, error: "clientId is required" }, { status: 400 })
+    }
+
+    const payload = await getClientBrandAssets(clientId)
+    if (!payload) {
+      return NextResponse.json({ success: false, error: "Client not found" }, { status: 404 })
+    }
+
+    return NextResponse.json(payload)
+  } catch (error) {
+    console.error("[seo-blog-banner/assets] Could not load cached client assets:", error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to load cached brand assets",
+      },
+      { status: 500 },
+    )
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { website?: string }
+    const body = (await request.json()) as { clientId?: string; website?: string }
     const website = normalizeUrl(body.website)
 
     if (!website) {
@@ -145,8 +269,16 @@ export async function POST(request: Request) {
       fetchOpenBrandAssets(website),
     ])
 
+    await saveClientBrandAssets({
+      clientId: body.clientId,
+      website,
+      colors: openBrandAssets.colors,
+      selectedLogoUrl: openBrandAssets.selected_logo_url,
+    })
+
     return NextResponse.json({
       success: true,
+      source: "openbrand",
       website,
       brand_name: openBrandAssets.brand_name,
       brand_colors: openBrandAssets.colors
