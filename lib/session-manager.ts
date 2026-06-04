@@ -149,6 +149,7 @@ class SessionManager {
     clientName?: string
     limit?: number
     offset?: number
+    favoritesOnly?: boolean
   } = {}): Promise<any> {
     const cacheKey = `history_${this.getSessionId()}_${JSON.stringify(options)}`
     
@@ -172,6 +173,9 @@ class SessionManager {
         // If no clientName provided, filter by sessionId
         params.append('sessionId', this.getSessionId())
       }
+      if (options.favoritesOnly) {
+        params.append('favoritesOnly', 'true')
+      }
 
       const response = await fetch(`/api/session-history?${params}`)
       const result = await response.json()
@@ -185,6 +189,46 @@ class SessionManager {
     } catch (error) {
       console.error('History fetch error:', error)
       return { success: false, error: 'Failed to fetch history' }
+    }
+  }
+
+  async setFavorite(sessionId: string, isFavorite: boolean): Promise<boolean> {
+    try {
+      const response = await fetch('/api/session-history/favorite', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, isFavorite })
+      })
+      const result = await response.json()
+      if (result.success) {
+        this.clearHistoryCache()
+        window.dispatchEvent(new CustomEvent('idea-session-favorite-changed'))
+      }
+      return Boolean(result.success)
+    } catch (error) {
+      console.error('Favorite update error:', error)
+      return false
+    }
+  }
+
+  async renameSession(sessionId: string, title: string): Promise<boolean> {
+    try {
+      const response = await fetch('/api/session-history/title', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, title })
+      })
+      const result = await response.json()
+      if (result.success) {
+        this.clearHistoryCache()
+        window.dispatchEvent(new CustomEvent('idea-session-renamed', {
+          detail: { sessionId, title: result.title }
+        }))
+      }
+      return Boolean(result.success)
+    } catch (error) {
+      console.error('Session rename error:', error)
+      return false
     }
   }
 }

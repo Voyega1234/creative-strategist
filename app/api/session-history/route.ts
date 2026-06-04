@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
     const clientName = searchParams.get('clientName')
+    const favoritesOnly = searchParams.get('favoritesOnly') === 'true'
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50) // Cap at 50 for performance
     const offset = parseInt(searchParams.get('offset') || '0')
 
@@ -50,6 +51,9 @@ export async function GET(request: NextRequest) {
     if (clientName) {
       query = query.eq('client_name', clientName)
     }
+    if (favoritesOnly) {
+      query = query.eq('n8n_response->_is_favorite', true)
+    }
 
     const { data: sessions, error } = await query
 
@@ -69,6 +73,9 @@ export async function GET(request: NextRequest) {
     if (clientName) {
       countQuery = countQuery.eq('client_name', clientName)
     }
+    if (favoritesOnly) {
+      countQuery = countQuery.eq('n8n_response->_is_favorite', true)
+    }
     
     const { count } = await countQuery
 
@@ -85,6 +92,8 @@ export async function GET(request: NextRequest) {
         modelUsed: session.model_used,
         ideasCount: session.ideas_count,
         createdAt: session.created_at,
+        isFavorite: session.n8n_response?._is_favorite === true,
+        title: typeof session.n8n_response?._session_title === 'string' ? session.n8n_response._session_title : null,
         // Send full ideas data for loading complete sessions
         ideas: normalizedIdeas,
         n8nResponse: session.n8n_response ? { ...session.n8n_response, ideas: normalizedIdeas } : undefined

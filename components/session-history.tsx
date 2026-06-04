@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   History, 
   Clock, 
@@ -14,7 +16,8 @@ import {
   ChevronRight,
   Calendar,
   TrendingUp,
-  X
+  Pencil,
+  Star
 } from "lucide-react"
 import { sessionManager } from "@/lib/session-manager"
 import { format } from "date-fns"
@@ -29,6 +32,8 @@ interface SessionHistoryItem {
   modelUsed: string
   ideasCount: number
   createdAt: string
+  isFavorite: boolean
+  title?: string | null
   ideas: {
     title: string
     category: string
@@ -44,7 +49,11 @@ interface SessionHistoryProps {
 
 export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHistoryProps) {
   const [sessions, setSessions] = useState<SessionHistoryItem[]>([])
+  const [activeTab, setActiveTab] = useState<"recent" | "favorites">("recent")
   const [loading, setLoading] = useState(false)
+  const [updatingFavoriteId, setUpdatingFavoriteId] = useState("")
+  const [renamingSessionId, setRenamingSessionId] = useState("")
+  const [titleDraft, setTitleDraft] = useState("")
   const [selectedSession, setSelectedSession] = useState<SessionHistoryItem | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
   const ITEMS_PER_PAGE = 5
@@ -55,8 +64,9 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
     try {
       const result = await sessionManager.getHistory({
         clientName: activeClientName,
-        limit: ITEMS_PER_PAGE,
-        offset: 0
+        limit: activeTab === "favorites" ? 50 : ITEMS_PER_PAGE,
+        offset: 0,
+        favoritesOnly: activeTab === "favorites"
       })
 
       if (result.success) {
@@ -67,14 +77,53 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
     } finally {
       setLoading(false)
     }
-  }, [activeClientName])
+  }, [activeClientName, activeTab])
 
   // Load initial data when modal opens
   useEffect(() => {
     if (isOpen) {
       loadHistory()
     }
-  }, [isOpen, activeClientName])
+  }, [isOpen, activeClientName, activeTab])
+
+  const toggleFavorite = async (event: React.MouseEvent, session: SessionHistoryItem) => {
+    event.stopPropagation()
+    setUpdatingFavoriteId(session.id)
+    const success = await sessionManager.setFavorite(session.id, !session.isFavorite)
+    if (success) {
+      setSessions((current) =>
+        activeTab === "favorites"
+          ? current.filter((item) => item.id !== session.id)
+          : current.map((item) => (item.id === session.id ? { ...item, isFavorite: !item.isFavorite } : item)),
+      )
+      if (selectedSession?.id === session.id) {
+        setSelectedSession({ ...selectedSession, isFavorite: !session.isFavorite })
+      }
+    }
+    setUpdatingFavoriteId("")
+  }
+
+  const startRename = (event: React.MouseEvent, session: SessionHistoryItem) => {
+    event.stopPropagation()
+    setRenamingSessionId(session.id)
+    setTitleDraft(session.title || session.userInput || "Custom Ideas")
+  }
+
+  const saveRename = async (session: SessionHistoryItem) => {
+    const normalizedTitle = titleDraft.trim()
+    if (!normalizedTitle) return
+    const success = await sessionManager.renameSession(session.id, normalizedTitle)
+    if (success) {
+      setSessions((current) =>
+        current.map((item) => (item.id === session.id ? { ...item, title: normalizedTitle } : item)),
+      )
+      if (selectedSession?.id === session.id) {
+        setSelectedSession({ ...selectedSession, title: normalizedTitle })
+      }
+      setRenamingSessionId("")
+      setTitleDraft("")
+    }
+  }
 
   // Group sessions by date for better UX
   const groupedSessions = sessions.reduce((groups, session) => {
@@ -98,11 +147,18 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <History className="w-5 h-5 text-blue-600" />
-              ประวัติการสร้างไอเดีย 5 รายการล่าสุด
+              Ideas History
             </DialogTitle>
           </DialogHeader>
           
           <div className="p-6 pt-2">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "recent" | "favorites")} className="mb-5">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="recent">ล่าสุด 5 รายการ</TabsTrigger>
+                <TabsTrigger value="favorites">รายการโปรด</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             {/* Stats Summary */}
             <div className="grid grid-cols-3 gap-4 mb-6">
               <Card className="p-4 bg-blue-50">
@@ -148,6 +204,35 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
+                            {renamingSessionId === session.id ? (
+                              <div className="mb-3 flex gap-2" onClick={(event) => event.stopPropagation()}>
+                                <Input
+                                  value={titleDraft}
+                                  onChange={(event) => setTitleDraft(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") void saveRename(session)
+                                    if (event.key === "Escape") setRenamingSessionId("")
+                                  }}
+                                  maxLength={100}
+                                  autoFocus
+                                />
+                                <Button type="button" size="sm" onClick={() => void saveRename(session)}>
+                                  บันทึก
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="mb-2 flex items-center gap-2">
+                                <p className="font-semibold text-gray-950">{session.title || session.userInput || "Custom Ideas"}</p>
+                                <button
+                                  type="button"
+                                  onClick={(event) => startRename(event, session)}
+                                  className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                                  aria-label="Rename session"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
                             <div className="flex items-center gap-2 mb-2">
                               <User className="w-4 h-4 text-gray-500" />
                               <span className="font-medium text-gray-900">
@@ -188,6 +273,19 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
                           </div>
                           
                           <ChevronRight className="w-5 h-5 text-gray-400 ml-4" />
+                          <button
+                            type="button"
+                            onClick={(event) => void toggleFavorite(event, session)}
+                            disabled={updatingFavoriteId === session.id}
+                            className="ml-2 rounded-full p-2 text-gray-400 transition hover:bg-amber-50 hover:text-amber-500 disabled:opacity-50"
+                            aria-label={session.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                          >
+                            {updatingFavoriteId === session.id ? (
+                              <Clock className="h-5 w-5 animate-spin" />
+                            ) : (
+                              <Star className={`h-5 w-5 ${session.isFavorite ? "fill-amber-400 text-amber-500" : ""}`} />
+                            )}
+                          </button>
                         </div>
                       </Card>
                     ))}
@@ -199,8 +297,10 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
             {sessions.length === 0 && !loading && (
               <div className="text-center py-8">
                 <History className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">ยังไม่มีประวัติการสร้างไอเดีย</p>
-                <p className="text-gray-400 text-sm">เริ่มสร้างไอเดียแรกของคุณกันเถอะ!</p>
+                <p className="text-gray-500">{activeTab === "favorites" ? "ยังไม่มีรายการโปรด" : "ยังไม่มีประวัติการสร้างไอเดีย"}</p>
+                <p className="text-gray-400 text-sm">
+                  {activeTab === "favorites" ? "กดรูปดาวที่ session เพื่อเก็บไว้ในรายการโปรด" : "เริ่มสร้างไอเดียแรกของคุณกันเถอะ!"}
+                </p>
               </div>
             )}
           </div>
@@ -212,9 +312,22 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
         <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
           <DialogContent className="max-w-3xl max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-blue-600" />
-                ไอเดียจาก {format(new Date(selectedSession.createdAt), 'dd MMM yyyy HH:mm', { locale: th })}
+              <DialogTitle className="flex items-center justify-between gap-2 pr-8">
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  {selectedSession.title || `ไอเดียจาก ${format(new Date(selectedSession.createdAt), 'dd MMM yyyy HH:mm', { locale: th })}`}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={(event) => void toggleFavorite(event, selectedSession)}
+                  disabled={updatingFavoriteId === selectedSession.id}
+                >
+                  <Star className={`mr-2 h-4 w-4 ${selectedSession.isFavorite ? "fill-amber-400 text-amber-500" : ""}`} />
+                  {selectedSession.isFavorite ? "Favorited" : "Favorite"}
+                </Button>
               </DialogTitle>
             </DialogHeader>
             

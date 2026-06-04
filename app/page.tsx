@@ -732,9 +732,20 @@ function MainContent() {
         void loadSidebarHistory()
       }
     }
+    const handleSessionRenamed = (event: Event) => {
+      const { sessionId, title } = (event as CustomEvent<{ sessionId?: string; title?: string }>).detail || {}
+      if (!sessionId || !title) return
+      setSidebarHistory((current) =>
+        current.map((session) => (session.id === sessionId ? { ...session, title } : session)),
+      )
+    }
 
     window.addEventListener('idea-session-saved', handleSessionSaved)
-    return () => window.removeEventListener('idea-session-saved', handleSessionSaved)
+    window.addEventListener('idea-session-renamed', handleSessionRenamed)
+    return () => {
+      window.removeEventListener('idea-session-saved', handleSessionSaved)
+      window.removeEventListener('idea-session-renamed', handleSessionRenamed)
+    }
   }, [activeClientName])
 
   const processTaskResult = useCallback(
@@ -2004,9 +2015,10 @@ function MainContent() {
                           style={{ animationDelay: `${index * 120}ms`, animationFillMode: "both" }}
                         >
                           <div className="font-medium truncate">
-                            {session.selectedTemplate ? 
+                            {session.title ||
+                            (session.selectedTemplate ?
                               briefTemplates.find(t => t.id === session.selectedTemplate)?.title?.substring(0, 40) + '...' :
-                              session.userInput?.substring(0, 40) + '...' || 'Custom Ideas'
+                              session.userInput?.substring(0, 40) + '...' || 'Custom Ideas')
                             }
                           </div>
                           <div className="text-xs text-gray-400 mt-1">
