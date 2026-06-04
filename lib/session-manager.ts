@@ -64,6 +64,14 @@ class SessionManager {
     this.cache.clear()
   }
 
+  clearHistoryCache(): void {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith('history_')) {
+        this.cache.delete(key)
+      }
+    }
+  }
+
   // Fast session save (with debouncing)
   private saveTimeouts = new Map<string, NodeJS.Timeout>()
 
@@ -111,6 +119,10 @@ class SessionManager {
           if (result.success) {
             // Cache the saved session
             this.setCache(`session_${result.sessionId}`, result, 300000) // 5 min cache
+            this.clearHistoryCache()
+            window.dispatchEvent(new CustomEvent('idea-session-saved', {
+              detail: { clientName: data.clientName }
+            }))
             console.log(`✅ Session saved successfully in ${result.processingTime}ms`, {
               sessionId: result.sessionId,
               createdAt: result.createdAt

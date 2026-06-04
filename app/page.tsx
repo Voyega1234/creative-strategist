@@ -725,6 +725,18 @@ function MainContent() {
     }
   }, [stopTaskPolling])
 
+  useEffect(() => {
+    const handleSessionSaved = (event: Event) => {
+      const savedClientName = (event as CustomEvent<{ clientName?: string }>).detail?.clientName
+      if (savedClientName === activeClientName) {
+        void loadSidebarHistory()
+      }
+    }
+
+    window.addEventListener('idea-session-saved', handleSessionSaved)
+    return () => window.removeEventListener('idea-session-saved', handleSessionSaved)
+  }, [activeClientName])
+
   const processTaskResult = useCallback(
     (result: any, context: NonNullable<typeof taskContextRef.current>) => {
       const rawIdeas: any[] = Array.isArray(result?.ideas)
@@ -1125,7 +1137,7 @@ function MainContent() {
     try {
       const result = await sessionManager.getHistory({
         clientName: activeClientName,
-        limit: 30 // Show last 30 sessions in dropdown
+        limit: 5
       })
 
       if (result.success) {
@@ -1968,6 +1980,9 @@ function MainContent() {
                       <History className="mr-2 h-4 w-4" />
                     )}
                     ประวัติการสร้าง
+                    {!isLoadingSidebarHistory && sidebarHistory.length > 0 && (
+                      <span className="ml-1 text-xs text-[#8e8e93]">ล่าสุด {sidebarHistory.length}</span>
+                    )}
                     {isLoadingSidebarHistory && (
                       <span className="ml-1 text-xs text-[#1d4ed8]">(กำลังโหลด...)</span>
                     )}

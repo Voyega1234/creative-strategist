@@ -47,45 +47,32 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
   const [loading, setLoading] = useState(false)
   const [selectedSession, setSelectedSession] = useState<SessionHistoryItem | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
-  const [hasMore, setHasMore] = useState(false)
-  const [offset, setOffset] = useState(0)
-  const ITEMS_PER_PAGE = 10
+  const ITEMS_PER_PAGE = 5
 
   // Fast loading with caching
-  const loadHistory = useCallback(async (reset = false) => {
+  const loadHistory = useCallback(async () => {
     setLoading(true)
     try {
-      const currentOffset = reset ? 0 : offset
-      
       const result = await sessionManager.getHistory({
         clientName: activeClientName,
         limit: ITEMS_PER_PAGE,
-        offset: currentOffset
+        offset: 0
       })
 
       if (result.success) {
-        if (reset) {
-          setSessions(result.sessions)
-          setOffset(ITEMS_PER_PAGE)
-        } else {
-          setSessions(prev => [...prev, ...result.sessions])
-          setOffset(prev => prev + ITEMS_PER_PAGE)
-        }
-        
-        setHasMore(result.hasMore)
+        setSessions(result.sessions || [])
       }
     } catch (error) {
       console.error('Failed to load history:', error)
     } finally {
       setLoading(false)
     }
-  }, [activeClientName, offset])
+  }, [activeClientName])
 
   // Load initial data when modal opens
   useEffect(() => {
     if (isOpen) {
-      setOffset(0)
-      loadHistory(true)
+      loadHistory()
     }
   }, [isOpen, activeClientName])
 
@@ -111,7 +98,7 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <History className="w-5 h-5 text-blue-600" />
-              ประวัติการสร้างไอเดีย (7 วันล่าสุด)
+              ประวัติการสร้างไอเดีย 5 รายการล่าสุด
             </DialogTitle>
           </DialogHeader>
           
@@ -208,19 +195,6 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
                 </div>
               ))}
             </div>
-
-            {/* Load More */}
-            {hasMore && (
-              <div className="mt-6 text-center">
-                <Button 
-                  variant="outline" 
-                  onClick={() => loadHistory(false)}
-                  disabled={loading}
-                >
-                  {loading ? 'กำลังโหลด...' : 'โหลดเพิ่มเติม'}
-                </Button>
-              </div>
-            )}
 
             {sessions.length === 0 && !loading && (
               <div className="text-center py-8">

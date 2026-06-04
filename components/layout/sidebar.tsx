@@ -186,7 +186,7 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
                       <Sparkles className="w-3 h-3 text-amber-500" />
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      7 วันล่าสุด
+                      5 รายการล่าสุด
                     </div>
                   </div>
                   <ArrowRight className="w-4 h-4 text-gray-400" />
@@ -196,7 +196,7 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
               <div className="mt-2 text-xs text-gray-500 px-3">
                 <div className="flex items-center justify-between">
                   <span>เซสชันล่าสุด</span>
-                  <span>จัดเก็บ 7 วัน</span>
+                  <span>5 รายการล่าสุด</span>
                 </div>
               </div>
             </div>

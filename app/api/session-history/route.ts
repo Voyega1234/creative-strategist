@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
         created_at,
         n8n_response
       `)
-      .gte('expires_at', new Date().toISOString()) // Only non-expired
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -66,7 +65,6 @@ export async function GET(request: NextRequest) {
     let countQuery = supabase
       .from('idea_sessions')
       .select('id', { count: 'exact', head: true })
-      .gte('expires_at', new Date().toISOString())
     
     if (clientName) {
       countQuery = countQuery.eq('client_name', clientName)
