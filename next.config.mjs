@@ -14,6 +14,7 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', '@radix-ui'],
   },
   turbopack: {
+    root: process.cwd(),
     rules: {
       '*.svg': {
         loaders: ['@svgr/webpack'],

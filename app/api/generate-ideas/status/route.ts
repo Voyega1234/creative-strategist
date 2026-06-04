@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase/server'
+import { IDEA_GENERATION_FAILED_MESSAGE, validateIdeaGenerationResult } from '@/lib/ideas/generation-response'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,32 @@ export async function GET(request: Request) {
 
     if (!data) {
       return NextResponse.json({ success: false, error: 'Task not found' }, { status: 404 })
+    }
+
+    if (data.status === 'completed') {
+      const validation = validateIdeaGenerationResult(data.result)
+      if (!validation.valid) {
+        console.error('[generate-ideas][status] Invalid completed output:', validation.reason, data.result)
+        await supabase
+          .from('idea_generation_tasks')
+          .update({
+            status: 'failed',
+            result: null,
+            error: IDEA_GENERATION_FAILED_MESSAGE,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('task_id', taskId)
+
+        return NextResponse.json({
+          success: true,
+          status: 'failed',
+          result: null,
+          error: IDEA_GENERATION_FAILED_MESSAGE,
+          clientName: data.client_name,
+          productFocus: data.product_focus,
+          payload: data.payload,
+        })
+      }
     }
 
     return NextResponse.json({

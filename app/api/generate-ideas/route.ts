@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
+import { getWebhookResponseError, IDEA_GENERATION_FAILED_MESSAGE } from '@/lib/ideas/generation-response'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120 // this route should respond quickly after enqueueing
@@ -66,20 +67,39 @@ export async function POST(request: Request) {
         console.error('[generate-ideas] Failed to trigger n8n:', response.status, errorText)
         await supabase
           .from('idea_generation_tasks')
-          .update({ status: 'failed', error: errorText || `n8n returned ${response.status}`, updated_at: new Date().toISOString() })
+          .update({ status: 'failed', error: IDEA_GENERATION_FAILED_MESSAGE, updated_at: new Date().toISOString() })
           .eq('task_id', taskId)
 
-        return NextResponse.json({ success: false, error: 'Failed to trigger idea generation', taskId }, { status: 502 })
+        return NextResponse.json({ success: false, error: IDEA_GENERATION_FAILED_MESSAGE, taskId }, { status: 502 })
+      }
+
+      const responseText = await response.text()
+      if (responseText.trim()) {
+        try {
+          const responseData = JSON.parse(responseText)
+          const webhookError = getWebhookResponseError(responseData)
+          if (webhookError) {
+            console.error('[generate-ideas] n8n returned an error payload:', webhookError)
+            await supabase
+              .from('idea_generation_tasks')
+              .update({ status: 'failed', error: IDEA_GENERATION_FAILED_MESSAGE, updated_at: new Date().toISOString() })
+              .eq('task_id', taskId)
+
+            return NextResponse.json({ success: false, error: IDEA_GENERATION_FAILED_MESSAGE, taskId }, { status: 502 })
+          }
+        } catch {
+          console.log('[generate-ideas] n8n returned a non-JSON acknowledgement')
+        }
       }
     } catch (error: any) {
       clearTimeout(timeout)
       console.error('[generate-ideas] Error firing n8n webhook:', error)
       await supabase
         .from('idea_generation_tasks')
-        .update({ status: 'failed', error: error.message || 'n8n webhook failed', updated_at: new Date().toISOString() })
+        .update({ status: 'failed', error: IDEA_GENERATION_FAILED_MESSAGE, updated_at: new Date().toISOString() })
         .eq('task_id', taskId)
 
-      return NextResponse.json({ success: false, error: 'Failed to enqueue generation', taskId }, { status: 502 })
+      return NextResponse.json({ success: false, error: IDEA_GENERATION_FAILED_MESSAGE, taskId }, { status: 502 })
     }
 
     return NextResponse.json({ success: true, taskId, status: 'processing' })

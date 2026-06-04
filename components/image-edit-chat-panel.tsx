@@ -9,9 +9,11 @@ import {
   ChevronsUpDown,
   FileImage,
   ImagePlus,
+  Link2,
   Loader2,
   Maximize2,
   Plus,
+  RefreshCw,
   RotateCcw,
   Sparkles,
   Trash2,
@@ -29,14 +31,17 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { PromptBox } from "@/components/ui/chatgpt-prompt-input"
+import { Switch } from "@/components/ui/switch"
 import {
   dataUrlToBlob,
   downloadBlob,
   uploadFileToImageStorage,
   uploadGeneratedImageBlob,
 } from "@/lib/images/client"
+import { getGoogleDriveFileId, normalizeExternalImageUrl } from "@/lib/images/external-url"
 import { getStorageClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
@@ -83,8 +88,47 @@ type StoredImageAsset = {
   createdAt: string
 }
 
+type BatchResult = {
+  aspectRatio: PmaxAspectRatio
+  status: "queued" | "generating" | "retrying" | "completed" | "failed"
+  attempts: number
+  publicUrl?: string
+  outputBlob?: Blob
+  dimensions?: { width: number; height: number }
+  error?: string
+}
+
+const PMAX_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
+const DEFAULT_PMAX_ASPECT_RATIOS = ["1:1", "4:5", "16:9", "9:16"] as const
+type PmaxAspectRatio = (typeof PMAX_ASPECT_RATIOS)[number]
+
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+async function getBlobDimensions(blob: Blob) {
+  const bitmap = await createImageBitmap(blob)
+  const dimensions = { width: bitmap.width, height: bitmap.height }
+  bitmap.close()
+  return dimensions
+}
+
+function matchesAspectRatio(dimensions: { width: number; height: number }, aspectRatio: PmaxAspectRatio) {
+  const [width, height] = aspectRatio.split(":").map(Number)
+  return Math.abs(dimensions.width / dimensions.height - width / height) <= 0.04
+}
+
+async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>) {
+  let nextIndex = 0
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (nextIndex < items.length) {
+        const item = items[nextIndex]
+        nextIndex += 1
+        await worker(item)
+      }
+    }),
+  )
 }
 
 export function ImageEditChatPanel({
@@ -101,6 +145,7 @@ export function ImageEditChatPanel({
   const sourceUploadInputRef = useRef<HTMLInputElement | null>(null)
   const referenceAssetsRef = useRef<UploadedAsset[]>([])
   const materialAssetsRef = useRef<UploadedAsset[]>([])
+  const retryBatchRatioRef = useRef<((aspectRatio: PmaxAspectRatio) => Promise<void>) | null>(null)
   const isPaintingRef = useRef(false)
   const lastPaintPointRef = useRef<{ x: number; y: number } | null>(null)
   const [currentImageUrl, setCurrentImageUrl] = useState("")
@@ -122,6 +167,10 @@ export function ImageEditChatPanel({
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false)
   const [isMaterialClientPopoverOpen, setIsMaterialClientPopoverOpen] = useState(false)
   const [referenceVisibleCount, setReferenceVisibleCount] = useState(10)
+  const [sourceImageLink, setSourceImageLink] = useState("")
+  const [isPmaxEnabled, setIsPmaxEnabled] = useState(false)
+  const [selectedPmaxRatios, setSelectedPmaxRatios] = useState<PmaxAspectRatio[]>([...DEFAULT_PMAX_ASPECT_RATIOS])
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([])
 
   const hasImage = Boolean(currentImageUrl)
   const isProcessing = isEditing
@@ -384,6 +433,35 @@ export function ImageEditChatPanel({
     ])
   }
 
+  const uploadOutputImage = async (imageDataUrl: string, filenameSuffix: string) => {
+    const outputBlob = dataUrlToBlob(imageDataUrl)
+    const publicUrl = await uploadGeneratedImageBlob(outputBlob, "generated/edit-image-chat-outputs", filenameSuffix)
+    return { outputBlob, publicUrl }
+  }
+
+  const updateBatchResult = (aspectRatio: PmaxAspectRatio, patch: Partial<BatchResult>) => {
+    setBatchResults((current) =>
+      current.map((result) => (result.aspectRatio === aspectRatio ? { ...result, ...patch } : result)),
+    )
+  }
+
+  const useBatchResultAsCurrent = (result: BatchResult) => {
+    if (!result.publicUrl || !result.outputBlob) return
+    setCurrentImageUrl(result.publicUrl)
+    setCurrentImageBlob(result.outputBlob)
+    clearMask()
+  }
+
+  const downloadAllBatchResults = () => {
+    batchResults
+      .filter((result) => result.status === "completed" && result.outputBlob)
+      .forEach((result, index) => {
+        window.setTimeout(() => {
+          downloadBlob(result.outputBlob!, `edit-image-${result.aspectRatio.replace(":", "x")}.png`)
+        }, index * 300)
+      })
+  }
+
   const getCanvasPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = maskCanvasRef.current
     if (!canvas) return null
@@ -462,6 +540,12 @@ export function ImageEditChatPanel({
     }
   }
 
+  const togglePmaxRatio = (aspectRatio: PmaxAspectRatio) => {
+    setSelectedPmaxRatios((current) =>
+      current.includes(aspectRatio) ? current.filter((ratio) => ratio !== aspectRatio) : [...current, aspectRatio],
+    )
+  }
+
   const handleSubmit = async ({ message, imageFile }: { message: string; imageFile: File | null }) => {
     if (isProcessing) return
     if (!message.trim()) {
@@ -471,6 +555,11 @@ export function ImageEditChatPanel({
 
     if (!imageFile && !currentImageUrl) {
       setError("Upload an image first, then describe the edit.")
+      return
+    }
+
+    if (isPmaxEnabled && selectedPmaxRatios.length === 0) {
+      setError("Select at least one PMax size.")
       return
     }
 
@@ -505,27 +594,74 @@ export function ImageEditChatPanel({
         uploadAssets(materialAssets, "generated/edit-image-chat-materials"),
       ])
 
-      const response = await fetch("/api/edit-image-chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          image_url: sourceImageUrl,
-          instruction: message.trim(),
-          mask_bounds: maskBounds,
-          reference_image_urls: referenceUrls,
-          material_image_urls: materialUrls,
-          product_focus: activeProductFocus,
-        }),
-      })
-      const payload = await response.json()
+      const requestEdit = async (aspectRatio?: PmaxAspectRatio) => {
+        const response = await fetch("/api/edit-image-chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            image_url: sourceImageUrl,
+            instruction: message.trim(),
+            operation: aspectRatio ? "resize" : undefined,
+            output_aspect_ratio: aspectRatio,
+            mask_bounds: aspectRatio ? null : maskBounds,
+            reference_image_urls: referenceUrls,
+            material_image_urls: materialUrls,
+            product_focus: activeProductFocus,
+          }),
+        })
+        const payload = await response.json()
 
-      if (!response.ok || !payload.success) {
-        throw new Error(payload?.error || "Cannot edit image")
+        if (!response.ok || !payload.success) {
+          throw new Error(payload?.error || `Cannot generate ${aspectRatio || "edited image"}`)
+        }
+        return payload
       }
 
-      await applyOutputImage(payload.image_data_url, "Edited image", "edited")
+      if (isPmaxEnabled) {
+        setBatchResults(
+          selectedPmaxRatios.map((aspectRatio) => ({ aspectRatio, status: "queued", attempts: 0 })),
+        )
+
+        const generateRatio = async (aspectRatio: PmaxAspectRatio) => {
+          let lastError: unknown = null
+          for (let attempt = 1; attempt <= 2; attempt += 1) {
+            updateBatchResult(aspectRatio, {
+              status: attempt === 1 ? "generating" : "retrying",
+              attempts: attempt,
+              error: undefined,
+            })
+            try {
+              const payload = await requestEdit(aspectRatio)
+              const outputBlob = dataUrlToBlob(payload.image_data_url)
+              const dimensions = await getBlobDimensions(outputBlob)
+              if (!matchesAspectRatio(dimensions, aspectRatio)) {
+                throw new Error(`Output ratio ${dimensions.width}:${dimensions.height} does not match ${aspectRatio}`)
+              }
+              const publicUrl = await uploadGeneratedImageBlob(
+                outputBlob,
+                "generated/edit-image-chat-outputs",
+                `pmax-${aspectRatio.replace(":", "x")}`,
+              )
+              updateBatchResult(aspectRatio, { status: "completed", publicUrl, outputBlob, dimensions })
+              return
+            } catch (error) {
+              lastError = error
+            }
+          }
+          updateBatchResult(aspectRatio, {
+            status: "failed",
+            error: lastError instanceof Error ? lastError.message : "Generation failed",
+          })
+        }
+        retryBatchRatioRef.current = generateRatio
+        await runWithConcurrency(selectedPmaxRatios, 2, generateRatio)
+
+      } else {
+        const payload = await requestEdit()
+        await applyOutputImage(payload.image_data_url, "Edited image", "edited")
+      }
     } catch (err) {
       console.error("Edit image chat failed:", err)
       setError(err instanceof Error ? err.message : "Cannot edit image")
@@ -566,10 +702,65 @@ export function ImageEditChatPanel({
     }
   }
 
+  const handleInitialImageLink = async () => {
+    const imageUrl = normalizeExternalImageUrl(sourceImageLink)
+    if (!imageUrl) {
+      setError("Enter a valid Google Drive or public image link.")
+      return
+    }
+
+    setIsEditing(true)
+    setError("")
+
+    try {
+      let resolvedImageUrl = imageUrl
+      let resolvedImageBlob: Blob | null = null
+
+      if (getGoogleDriveFileId(sourceImageLink)) {
+        const response = await fetch("/api/google-drive-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: sourceImageLink }),
+        })
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null)
+          throw new Error(payload?.error || "Unable to import Google Drive image")
+        }
+
+        resolvedImageBlob = await response.blob()
+        const extension = resolvedImageBlob.type.split("/")[1]?.replace("jpeg", "jpg") || "png"
+        const file = new File([resolvedImageBlob], `google-drive-image.${extension}`, { type: resolvedImageBlob.type })
+        resolvedImageUrl = await uploadFileToImageStorage(file, "generated/edit-image-chat-inputs")
+      }
+
+      setCurrentImageUrl(resolvedImageUrl)
+      setCurrentImageBlob(resolvedImageBlob)
+      setSourceImageLink("")
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createId(),
+          role: "user",
+          text: "Added image from link",
+          imageUrl: resolvedImageUrl,
+        },
+      ])
+      setAssetDialogOpen(false)
+    } catch (err) {
+      console.error("Image link import failed:", err)
+      setError(err instanceof Error ? err.message : "Unable to import image link")
+    } finally {
+      setIsEditing(false)
+    }
+  }
+
   const reset = () => {
     setCurrentImageUrl("")
     setCurrentImageBlob(null)
     setMessages([])
+    setBatchResults([])
+    retryBatchRatioRef.current = null
     setError("")
     setReferenceAssets((prev) => {
       prev.forEach((asset) => {
@@ -715,6 +906,31 @@ export function ImageEditChatPanel({
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
                 Upload image
               </Button>
+              <div className="mt-5 flex w-full max-w-md items-center gap-2">
+                <Input
+                  type="url"
+                  value={sourceImageLink}
+                  onChange={(event) => setSourceImageLink(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleInitialImageLink()
+                  }}
+                  placeholder="Paste a Google Drive image link"
+                  className="h-11 rounded-full bg-white px-4 text-left"
+                  disabled={isProcessing}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11 shrink-0 rounded-full"
+                  onClick={handleInitialImageLink}
+                  disabled={isProcessing || !sourceImageLink.trim()}
+                >
+                  <Link2 className="h-4 w-4" />
+                  <span className="sr-only">Use image link</span>
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">Google Drive files must allow access to anyone with the link.</p>
             </div>
           )}
         </div>
@@ -790,10 +1006,127 @@ export function ImageEditChatPanel({
               Editing image...
             </div>
           ) : null}
+
+          {batchResults.length > 0 ? (
+            <div className="rounded-[24px] border border-indigo-200 bg-indigo-50/70 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-indigo-950">Multi-size results</p>
+                  <p className="mt-1 text-xs text-indigo-700">Maximum 2 sizes generate at once. Incorrect ratios retry automatically.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={downloadAllBatchResults}
+                  disabled={!batchResults.some((result) => result.status === "completed")}
+                >
+                  <ArrowDownToLine className="mr-2 h-4 w-4" />
+                  Download all
+                </Button>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {batchResults.map((result) => (
+                  <div key={result.aspectRatio} className="overflow-hidden rounded-2xl border border-indigo-100 bg-white p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-slate-900">{result.aspectRatio}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{result.status}</span>
+                    </div>
+                    {result.publicUrl ? (
+                      <button type="button" className="mt-2 block w-full" onClick={() => setPreviewUrl(result.publicUrl || "")}>
+                        <img src={result.publicUrl} alt={`Generated ${result.aspectRatio}`} className="max-h-44 w-full rounded-xl object-contain" />
+                      </button>
+                    ) : (
+                      <div className="mt-2 flex h-28 items-center justify-center rounded-xl bg-slate-100 text-xs text-slate-500">
+                        {result.status === "failed" ? result.error || "Generation failed" : <Loader2 className="h-5 w-5 animate-spin" />}
+                      </div>
+                    )}
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 flex-1 rounded-full text-xs"
+                        onClick={() => useBatchResultAsCurrent(result)}
+                        disabled={result.status !== "completed"}
+                      >
+                        Use for edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => void retryBatchRatioRef.current?.(result.aspectRatio)}
+                        disabled={isProcessing || result.status !== "failed"}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span className="sr-only">Retry {result.aspectRatio}</span>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="border-t border-slate-100 bg-white p-4">
           {error ? <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+          <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Generate multi-size set</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Select any Gemini-supported aspect ratios. PMax sizes are selected by default.
+                </p>
+              </div>
+              <Switch checked={isPmaxEnabled} onCheckedChange={setIsPmaxEnabled} disabled={isProcessing || !hasImage} />
+            </div>
+            {isPmaxEnabled ? (
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+                {PMAX_ASPECT_RATIOS.map((aspectRatio) => {
+                  const selected = selectedPmaxRatios.includes(aspectRatio)
+                  return (
+                    <button
+                      key={aspectRatio}
+                      type="button"
+                      onClick={() => togglePmaxRatio(aspectRatio)}
+                      disabled={isProcessing}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                        selected
+                          ? "border-slate-950 bg-slate-950 text-white"
+                          : "border-slate-300 bg-white text-slate-600 hover:border-slate-500",
+                      )}
+                    >
+                      {aspectRatio}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPmaxRatios([...DEFAULT_PMAX_ASPECT_RATIOS])}
+                  disabled={isProcessing}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-500"
+                >
+                  PMax defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPmaxRatios([...PMAX_ASPECT_RATIOS])}
+                  disabled={isProcessing}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-500"
+                >
+                  Select all
+                </button>
+                <span className="self-center text-xs text-slate-500">
+                  {selectedPmaxRatios.length} size{selectedPmaxRatios.length === 1 ? "" : "s"} selected
+                </span>
+              </div>
+            ) : null}
+          </div>
           <PromptBox
             isLoading={isProcessing}
             placeholder={hasImage ? "Tell AI what to edit..." : "Attach an image and describe the first edit..."}
@@ -854,6 +1187,31 @@ export function ImageEditChatPanel({
                 <ImagePlus className="mr-2 h-4 w-4" />
                 Upload image to edit
               </Button>
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Image link</p>
+                <Input
+                  type="url"
+                  value={sourceImageLink}
+                  onChange={(event) => setSourceImageLink(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleInitialImageLink()
+                  }}
+                  placeholder="Google Drive or public image URL"
+                  className="mt-2 h-10 rounded-xl"
+                  disabled={isProcessing}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-full rounded-xl"
+                  onClick={handleInitialImageLink}
+                  disabled={isProcessing || !sourceImageLink.trim()}
+                >
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Use image link
+                </Button>
+                <p className="mt-2 text-xs leading-5 text-slate-500">Google Drive access must be set to anyone with the link.</p>
+              </div>
               <Button
                 type="button"
                 variant="outline"

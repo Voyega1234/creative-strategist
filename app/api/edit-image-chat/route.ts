@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { normalizeExternalImageUrl } from "@/lib/images/external-url"
+
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
@@ -53,12 +55,51 @@ const GEMINI_ASPECT_RATIOS = [
 
 const GEMINI_IMAGE_SIZES = ["1K", "2K", "4K"] as const
 
+function ratioToNumber(value: string) {
+  const match = value.match(/(\d+(?:\.\d+)?)\s*[:x×/]\s*(\d+(?:\.\d+)?)/i)
+  if (!match) return null
+  const width = Number(match[1])
+  const height = Number(match[2])
+  return width > 0 && height > 0 ? width / height : null
+}
+
+function getClosestGeminiAspectRatio(value: string) {
+  const requestedRatio = ratioToNumber(value)
+  if (!requestedRatio) return null
+
+  return GEMINI_ASPECT_RATIOS.reduce((closest, candidate) => {
+    const candidateRatio = ratioToNumber(candidate) || 1
+    const closestRatio = ratioToNumber(closest) || 1
+    return Math.abs(candidateRatio - requestedRatio) < Math.abs(closestRatio - requestedRatio) ? candidate : closest
+  })
+}
+
+function detectResizeIntent(instruction: string) {
+  const normalized = instruction.toLowerCase()
+  const requestedRatio =
+    instruction.match(/\b\d+(?:\.\d+)?\s*[:x×/]\s*\d+(?:\.\d+)?\b/i)?.[0]?.replace(/\s+/g, "") || ""
+  const hasResizeIntent =
+    /\b(resize|re[- ]?size|recompose|reformat|aspect\s*ratio|landscape|portrait|pmax|performance\s*max|google\s*max)\b/i.test(
+      normalized,
+    ) || /(ปรับ|เปลี่ยน|ขยาย|ย่อ|จัด).*(สัดส่วน|แนวนอน|แนวตั้ง|ขนาด|อัตราส่วน)/i.test(instruction)
+  const inferredModelAspectRatio =
+    getClosestGeminiAspectRatio(requestedRatio) ||
+    (/\b(pmax|performance\s*max|google\s*max|landscape)\b/i.test(normalized) || /แนวนอน/i.test(instruction)
+      ? "16:9"
+      : /\bportrait\b/i.test(normalized) || /แนวตั้ง/i.test(instruction)
+        ? "9:16"
+        : null)
+
+  return {
+    hasResizeIntent: hasResizeIntent || Boolean(requestedRatio),
+    requestedRatio,
+    modelAspectRatio: inferredModelAspectRatio,
+  }
+}
+
 function normalizeUrl(value: unknown) {
   if (typeof value !== "string") return ""
-  const trimmed = value.trim()
-  if (!trimmed) return ""
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  return `https://${trimmed}`
+  return normalizeExternalImageUrl(value)
 }
 
 async function fetchImageAsBase64(url: string): Promise<FetchedImage> {
@@ -73,6 +114,9 @@ async function fetchImageAsBase64(url: string): Promise<FetchedImage> {
 
     const arrayBuffer = await response.arrayBuffer()
     const mimeType = response.headers.get("content-type")?.split(";")[0].trim() || "image/png"
+    if (mimeType === "text/html" || mimeType === "text/plain") {
+      throw new Error("The image link did not return an image. For Google Drive, set access to Anyone with the link.")
+    }
     return {
       base64: Buffer.from(arrayBuffer).toString("base64"),
       mimeType,
@@ -141,6 +185,7 @@ function buildEditPrompt({
   referenceCount,
   materialCount,
   outputAspectRatio,
+  requestedAspectRatio,
   outputImageSize,
 }: {
   instruction: string
@@ -151,6 +196,7 @@ function buildEditPrompt({
   referenceCount: number
   materialCount: number
   outputAspectRatio: string
+  requestedAspectRatio: string
   outputImageSize: string
 }) {
   if (operation === "resize") {
@@ -166,8 +212,8 @@ function buildEditPrompt({
       "- Use ONLY the source image provided above as your base.",
       "- This is a RESIZE / ADAPTATION task, NOT a new image creation task.",
       "- Do not create a new concept, new background style, new product, new logo, new text, or new layout system.",
-      "- Keep all essential elements from the source: products, people, text, logos, background style, colors, typography, and overall visual identity.",
-      "- Preserve every readable text element and logo as accurately as possible.",
+      "- Keep the essential message, brand identity, products, people, logos, and recognizable visual assets from the source.",
+      "- Preserve readable text content and logo identity as accurately as possible, while allowing their size, line breaks, placement, and hierarchy to adapt to the new format.",
       referenceCount > 0
         ? "- Reference images are secondary guidance only for safe framing or style continuity. The source image remains the base."
         : "",
@@ -176,19 +222,26 @@ function buildEditPrompt({
         : "",
       clientName ? `- Client context: ${clientName}${productFocus ? ` / ${productFocus}` : ""}.` : "- Client context: default freestyle mode.",
       "",
-      `Target Aspect Ratio: ${outputAspectRatio}`,
+      `User-requested Aspect Ratio: ${requestedAspectRatio || outputAspectRatio}`,
+      `Closest supported generation Aspect Ratio: ${outputAspectRatio}`,
       `Target Image Size: ${outputImageSize}`,
       "",
       "HOW TO RESIZE:",
-      `- Adapt the composition to fit ${outputAspectRatio}.`,
+      `- Redesign the spatial layout to fit the full ${requestedAspectRatio || outputAspectRatio} canvas while preserving the same creative concept and assets.`,
+      "- Treat this as responsive ad-layout adaptation: redistribute the headline, supporting text, logo, CTA, product, and visual subject across the new canvas.",
+      "- The original aspect-ratio boundary must disappear. Do NOT place the original square or portrait design as a visible card, panel, frame, or grouped block on one side.",
+      "- Do NOT leave all text and key elements clustered in their original 1:1 area while merely extending empty background beside it.",
+      "- Use the newly available width or height meaningfully. Maintain balanced whitespace, clear hierarchy, readable text, and intentional alignment across the whole composition.",
+      "- Scale, crop, reposition, regroup, or reflow elements when needed so the result feels designed specifically for the target format.",
+      "- Adapt typography responsively: adjust font size, line breaks, text-block width, alignment, and spacing to remain readable and balanced in the target format.",
       "- If more space is needed, intelligently extend the existing background while preserving the same visual style, lighting, grain, gradients, and color behavior.",
       "- If less space is available, crop smartly while keeping the main subject, important text, logos, product, and CTA-safe visual hierarchy inside the safe area.",
-      "- Reposition elements only when necessary for the new format, but keep the design looking as close to the original as possible.",
+      "- Reposition and resize layout elements as needed for the new format, while preserving their content, identity, and relative visual importance.",
       "- Maintain image quality, sharpness, realistic shadows, and natural edges.",
-      "- Avoid stretching, warping, squashing, or distorting any person, product, logo, or typography.",
+      "- Proportional scaling and perspective-aware adaptation are allowed. Avoid only accidental-looking distortion, unreadable typography, or damage to recognizable brand/product identity.",
       "",
       "OUTPUT:",
-      `The source image resized/adapted to ${outputAspectRatio}, looking as close to the original as possible while fitting the new dimensions.`,
+      `The source image professionally recomposed for ${requestedAspectRatio || outputAspectRatio}, using the full canvas as one cohesive ad layout.`,
       "Return only the final adapted image.",
     ].join("\n")
   }
@@ -238,13 +291,23 @@ export async function POST(request: Request) {
     const body = (await request.json()) as EditImageChatRequest
     const imageUrl = normalizeUrl(body.image_url)
     const instruction = typeof body.instruction === "string" ? body.instruction.trim() : ""
-    const operation = body.operation === "resize" ? "resize" : "edit"
+    const resizeIntent = detectResizeIntent(instruction)
+    const operation = body.operation === "resize" || resizeIntent.hasResizeIntent ? "resize" : "edit"
     const maskBounds = isValidMaskBounds(body.mask_bounds) ? body.mask_bounds : null
     const referenceUrls = normalizeUrlList(body.reference_image_urls)
     const materialUrls = normalizeUrlList(body.material_image_urls)
     const clientName = typeof body.client_name === "string" ? body.client_name.trim() : ""
     const productFocus = typeof body.product_focus === "string" ? body.product_focus.trim() : ""
-    const outputAspectRatio = operation === "resize" ? normalizeChoice(body.output_aspect_ratio, GEMINI_ASPECT_RATIOS, "1:1") : ""
+    const requestedAspectRatio =
+      operation === "resize"
+        ? resizeIntent.requestedRatio || (typeof body.output_aspect_ratio === "string" ? body.output_aspect_ratio : "")
+        : ""
+    const outputAspectRatio =
+      operation === "resize"
+        ? resizeIntent.modelAspectRatio ||
+          getClosestGeminiAspectRatio(requestedAspectRatio) ||
+          normalizeChoice(body.output_aspect_ratio, GEMINI_ASPECT_RATIOS, "1:1")
+        : ""
     const outputImageSize = operation === "resize" ? normalizeChoice(body.output_image_size, GEMINI_IMAGE_SIZES, "1K") : ""
 
     if (!GEMINI_API_KEY) {
@@ -273,6 +336,7 @@ export async function POST(request: Request) {
       referenceCount: referenceImages.length,
       materialCount: materialImages.length,
       outputAspectRatio,
+      requestedAspectRatio,
       outputImageSize,
     })
 
@@ -285,6 +349,7 @@ export async function POST(request: Request) {
       referenceCount: referenceImages.length,
       materialCount: materialImages.length,
       outputAspectRatio,
+      requestedAspectRatio,
       outputImageSize,
       instructionLength: instruction.length,
     })

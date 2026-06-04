@@ -1,0 +1,276 @@
+{
+  "runId": "d0d8202d-9b13-451b-8318-4aee314921ef",
+  "createdAt": "2026-06-01T07:28:05.370Z",
+  "pipelineMode": "sequential",
+  "models": {
+    "creativePipeline": "anthropic/claude-sonnet-4.6",
+    "image": "gpt-image-2"
+  },
+  "request": {
+    "prompt": "",
+    "saved_ideas": [
+      {
+        "id": "71a02bf6-89ea-419f-840d-d6eb3828c069",
+        "clientname": "M Factors",
+        "productfocus": "กำจัดปลวก",
+        "title": "3 เหตุผลที่บ้านหรูเลือก M Factors",
+        "description": "{\"summary\":\"สรุปจุดเด่นที่เป็นเอกลักษณ์และน่าเชื่อถือที่สุดของแบรนด์ 3 ข้อเพื่อปิดการขายกับลูกค้าระดับพรีเมียม\",\"sections\":[{\"group\":\"pain\",\"bullets\":[\"เจ้าของบ้านระดับพรีเมียมต้องการบริการที่มีมาตรฐานสูง ปลอดภัย และไม่สร้างความเสียหายต่อโครงสร้างและการตกแต่งภายในบ้านของตน\"]},{\"group\":\"insight_solution\",\"bullets\":[\"รวบรวม 3 จุดแข็งหลักของ M Factors ได้แก่ ระบบ Sentricon แท้จากอเมริกา ประสบการณ์ 20 ปี และทีมนักวิชาการแมลง เพื่อตอบสนองความต้องการสูงสุด\"]},{\"group\":\"why_evidence\",\"bullets\":[\"ความเชี่ยวชาญเฉพาะทางและประวัติผลงานที่ยาวนานเป็นหลักค้ำประกันความน่าเชื่อถือที่ทำให้ลูกค้าระดับบนตัดสินใจเลือกบริการโดยไม่ลังเล\"]}]}",
+        "category": "Conversion",
+        "concept_type": "New Concept",
+        "competitiveGap": "เน้นความเป็นผู้เชี่ยวชาญเฉพาะทางที่มีมาตรฐานสูงกว่าคู่แข่งทั่วไปในท้องตลาดเพื่อดึงกลุ่มลูกค้าที่มีกำลังซื้อสูง",
+        "tags": [
+          "Conversion",
+          "Premium Service",
+          "3 เหตุผลหลัก"
+        ],
+        "content_pillar": "Brand Authority",
+        "product_focus": "จุดเด่นของแบรนด์ M Factors",
+        "concept_idea": "สร้างคอนเทนต์สรุป 3 เหตุผลหลักเชิงลึกที่ทำให้บ้านหรูและลูกค้าระดับพรีเมียมไว้วางใจเลือกใช้บริการของ M Factors เพื่อเป็นข้อมูลประกอบการตัดสินใจซื้อทันที",
+        "copywriting": {
+          "headline": "ทำไมบ้านระดับพรีเมียมส่วนใหญ่ ถึงเจาะจงเลือกใช้ M Factors",
+          "sub_headline_1": "สรุป 3 เหตุผลหลักที่ทำให้คนรักบ้านไว้วางใจให้เราดูแลโครงสร้างบ้านและครอบครัว",
+          "sub_headline_2": "",
+          "bullets": [
+            "1. ใช้ระบบเหยื่อ Sentricon แท้ 100% จากสหรัฐอเมริกา ปลอดสารเคมีฟุ้งกระจาย",
+            "2. ดูแลอย่างใกล้ชิดโดยทีมนักวิชาการด้านแมลงที่มีความรู้เฉพาะทางตลอดสัญญา",
+            "3. ประสบการณ์ยาวนานกว่า 20 ปี การันตีด้วยอัตราการต่อสัญญาของลูกค้าเก่าสูงที่สุด"
+          ],
+          "cta": "รับข้อเสนอพิเศษสำหรับการดูแลบ้านของคุณ ทักแชตเพื่อปรึกษาฟรี"
+        }
+      }
+    ],
+    "client": "M Factors",
+    "productFocus": "กำจัดปลวก",
+    "core_concept": "สร้างคอนเทนต์สรุป 3 เหตุผลหลักเชิงลึกที่ทำให้บ้านหรูและลูกค้าระดับพรีเมียมไว้วางใจเลือกใช้บริการของ M Factors เพื่อเป็นข้อมูลประกอบการตัดสินใจซื้อทันที",
+    "topic_title": "3 เหตุผลที่บ้านหรูเลือก M Factors",
+    "topic_description": "{\"summary\":\"สรุปจุดเด่นที่เป็นเอกลักษณ์และน่าเชื่อถือที่สุดของแบรนด์ 3 ข้อเพื่อปิดการขายกับลูกค้าระดับพรีเมียม\",\"sections\":[{\"group\":\"pain\",\"bullets\":[\"เจ้าของบ้านระดับพรีเมียมต้องการบริการที่มีมาตรฐานสูง ปลอดภัย และไม่สร้างความเสียหายต่อโครงสร้างและการตกแต่งภายในบ้านของตน\"]},{\"group\":\"insight_solution\",\"bullets\":[\"รวบรวม 3 จุดแข็งหลักของ M Factors ได้แก่ ระบบ Sentricon แท้จากอเมริกา ประสบการณ์ 20 ปี และทีมนักวิชาการแมลง เพื่อตอบสนองความต้องการสูงสุด\"]},{\"group\":\"why_evidence\",\"bullets\":[\"ความเชี่ยวชาญเฉพาะทางและประวัติผลงานที่ยาวนานเป็นหลักค้ำประกันความน่าเชื่อถือที่ทำให้ลูกค้าระดับบนตัดสินใจเลือกบริการโดยไม่ลังเล\"]}]}",
+    "content_pillar": "Brand Authority",
+    "copywriting": {
+      "headline": "ทำไมบ้านระดับพรีเมียมส่วนใหญ่ ถึงเจาะจงเลือกใช้ M Factors",
+      "sub_headline_1": "สรุป 3 เหตุผลหลักที่ทำให้คนรักบ้านไว้วางใจให้เราดูแลโครงสร้างบ้านและครอบครัว",
+      "sub_headline_2": "",
+      "bullets": [
+        "1. ใช้ระบบเหยื่อ Sentricon แท้ 100% จากสหรัฐอเมริกา ปลอดสารเคมีฟุ้งกระจาย",
+        "2. ดูแลอย่างใกล้ชิดโดยทีมนักวิชาการด้านแมลงที่มีความรู้เฉพาะทางตลอดสัญญา",
+        "3. ประสบการณ์ยาวนานกว่า 20 ปี การันตีด้วยอัตราการต่อสัญญาของลูกค้าเก่าสูงที่สุด"
+      ],
+      "cta": "รับข้อเสนอพิเศษสำหรับการดูแลบ้านของคุณ ทักแชตเพื่อปรึกษาฟรี"
+    },
+    "selected_visual_route": null,
+    "selectedVisualRoute": null,
+    "color_palette": [
+      "03601D",
+      "000570",
+      "F0EFEB"
+    ],
+    "material_image_urls": [
+      "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/materials/98ced20e-395f-4939-91a8-5c15b602fef5/1779942448745-x7c74ij.webp"
+    ],
+    "ad_style": "",
+    "user_brief": "",
+    "userBrief": "",
+    "aspect_ratio": "1:1",
+    "image_count": 1,
+    "imageCount": 1,
+    "aspectRatio": "1:1"
+  },
+  "context": {
+    "client": {
+      "id": "b9c775fe-8138-47f8-b113-a0dc86916841",
+      "clientName": "M Factors",
+      "clientWebsiteUrl": "https://www.mfactors.co.th/",
+      "clientFacebookUrl": "https://www.facebook.com/Mfactors/",
+      "market": "Thailand",
+      "productFocus": "บริการกำจัดแมลงและสัตว์รบกวน",
+      "additionalInfo": "",
+      "userCompetitors": null,
+      "timestamp": "2026-02-12T07:27:00.623",
+      "createdAt": "2026-02-12T07:28:39.328047",
+      "updatedAt": "2026-02-12T07:30:23.486",
+      "ad_account_id": "act_1487524295804972",
+      "competitor_summary": "คู่แข่งหลักในตลาดกำจัดสัตว์รบกวนมีหลายรูปแบบ โดย Rentokil Thailand นำเสนอภาพลักษณ์ระดับโลกด้วยบริการครบวงจรและเทคโนโลยีล้ำสมัย ครอบคลุมทั่วประเทศในราคาสูงที่สุด เน้นกลุ่มลูกค้าองค์กรและผู้ที่ต้องการมาตรฐานสากล ขณะที่ King Service Center เป็นแบรนด์ไทยที่มีประสบการณ์ยาวนานกว่า 40 ปี ราคาเข้าถึงง่าย มีสาขามาก ตอบโจทย์ลูกค้ารายย่อยทั่วไป แม้ภาพลักษณ์อาจดูไม่ทันสมัยเท่า Truly Nolen Thailand ซึ่งเป็นแฟรนไชส์อเมริกาที่โดดเด่นด้วยรถสีเหลืองและโปรแกรม 4 ฤดู เน้นบริการเป็นมิตรและมาตรฐานสูงในราคากลางถึงสูง ส่วน Cannon Pest Management มีจุดแข็งที่บริการหลากหลายทั้งกำจัดแมลงและสุขอนามัยสำหรับลูกค้าองค์กรเป็นหลัก แต่ยังไม่เป็นที่รู้จักในตลาดรายย่อยเท่าที่ควร เมื่อพิจารณา Mfactors กำจัดปลวกด้วยระบบวางเหยื่อ Sentricon ซึ่งเน้นความเชี่ยวชาญ ปลอดภัย และกำจัดปลวกตายยกรังในกลุ่มเจ้าของบ้านเดี่ยว ทาวน์โฮมที่มีครอบครัว เด็กเล็ก หรือสัตว์เลี้ยงในกรุงเทพฯ และปริมณฑล ที่ให้ความสำคัญกับความปลอดภัยและผลลัพธ์ระยะยาว โดยมีราคาอยู่ในระดับพรีเมียม การที่ Mfactors จะเติบโตได้ควรเน้นย้ำคุณค่าของการใช้ Sentricon ที่ได้รับรางวัล Presidential Green Chemistry Challenge Award เพื่อตอกย้ำความปลอดภัยและผลลัพธ์ระยะยาวที่คุ้มค่ากว่าระบบฉีดพ่นสารเคมีทั่วไป เพื่อปรับภาพลักษณ์เรื่องราคาสูง พร้อมให้ความรู้เพิ่มเติมเพื่อจัดการความคาดหวังเรื่องระยะเวลาการเห็นผลของระบบเหยื่อ และพิจารณาการสื่อสารการตลาดที่อาจขยายการรับรู้บริการกำจัดสัตว์รบกวนอื่นๆ ของ Mfactors ให้มากขึ้น โดยไม่ลดทอนจุดแข็งด้านความเชี่ยวชาญ Sentricon เพื่อเพิ่มโอกาสในการแข่งขันกับคู่แข่งที่ให้บริการครบวงจร.",
+      "competitor_summary_generated_at": "2026-02-12T07:28:39.36+00:00",
+      "related_news_ids": [],
+      "profile_image": null,
+      "color_palette": "[\"116031\",\"150858\",\"F7F7F7\",\"000000\",\"24B5A3\"]",
+      "logo_page": null,
+      "ad_account_name": "(CC) MFactor"
+    },
+    "market": {
+      "id": "104b0f67-ee44-4d46-9e5a-1ad3d8255a9a",
+      "client_name": "M Factors",
+      "product_focus": "กำจัดปลวก",
+      "created_at": "2026-01-05T07:34:56.051199+00:00",
+      "analysis_data": {
+        "analysis": {
+          "summary": "M Factors มีจุดแข็งที่สำคัญคือประสบการณ์ยาวนานกว่า 20 ปี การใช้เทคโนโลยี Sentricon ที่ได้รับรางวัล EPA Green Chemistry ซึ่งปลอดภัยต่อเด็กและสัตว์เลี้ยง 100% รวมถึงมีฐานลูกค้าที่ภักดีมาอย่างยาวนาน อย่างไรก็ตาม จุดอ่อนอยู่ที่ราคาที่อาจสูงกว่าคู่แข่งบางรายและการจองบริการผ่านเว็บไซต์ที่ยังไม่เป็นระบบอัตโนมัติ เมื่อพิจารณาจากคู่แข่ง M Factors มีโอกาสในการพัฒนาช่องทางการตลาดออนไลน์ให้ทันสมัย สร้างความโดดเด่นด้านบริการลูกค้าที่ต่อเนื่องและน่าเชื่อถือ และสื่อสารความปลอดภัยเชิงวิทยาศาสตร์ให้ชัดเจนยิ่งขึ้น ในขณะเดียวกัน ก็ต้องเผชิญกับอุปสรรคจากการแข่งขันด้านราคาจากคู่แข่ง และความจำเป็นในการตามให้ทันคู่แข่งที่มีนวัตกรรมดิจิทัล การสร้างความแตกต่างด้วยการเน้นย้ำความเป็นผู้เชี่ยวชาญ Sentricon ที่ปลอดภัยภายใต้คอนเซ็ปต์ M Factors Family ควบคู่กับการปรับปรุงระบบออนไลน์ จะเป็นกุญแจสำคัญในการรักษาและขยายฐานลูกค้า",
+          "research": [
+            "บริษัท เอ็ม แฟคเตอร์ส จำกัด (M FACTORS CO., LTD.) เป็นผู้เชี่ยวชาญด้านบริการกำจัดปลวกและแมลงรำคาญอื่นๆ ในประเทศไทย เช่น มด แมลงสาบ และยุง.",
+            "M Factors เป็นตัวแทนผู้ให้บริการอย่างเป็นทางการของระบบกำจัดปลวก Sentricon จาก Dow AgroScience (Thailand) ซึ่งเป็นเทคโนโลยีจากสหรัฐอเมริกา.",
+            "ระบบ Sentricon ใช้เหยื่อกำจัดปลวก (Recruit HD) ที่มีสารออกฤทธิ์ไปรบกวนการลอกคราบของปลวก ทำให้กำจัดได้ทั้งรังอย่างเบ็ดเสร็จ.",
+            "Sentricon System ปลอดภัยต่อผู้อยู่อาศัย เด็กเล็ก สัตว์เลี้ยง และสิ่งแวดล้อม เนื่องจากไม่มีสารเคมีอันตรายในกระบวนการกำจัดปลวก.",
+            "ปลวกจะนำเหยื่อไปป้อนให้ปลวกตัวอื่นๆ ในรัง ทำให้การกำจัดปลวกเป็นไปอย่างมีประสิทธิภาพโดยที่ปลวกไม่รู้ตัวว่าถูกกำจัดจนกว่าจะสายเกินไป.",
+            "โดยทั่วไปแล้ว การกำจัดปลวกทั้งรังด้วยระบบ Sentricon ใช้เวลาประมาณ 2-3 เดือน.",
+            "ระบบนี้ไม่จำเป็นต้องมีการเจาะโครงสร้างอาคารหรือขุดดินรอบบ้าน ซึ่งช่วยลดความเสียหายและผลกระทบต่อพื้นที่.",
+            "M Factors มีประสบการณ์ในการดำเนินกิจการกำจัดปลวกมากว่า 20 ปี.",
+            "บริษัทมีทีมนักวิชาการที่จบปริญญาตรีด้านแมลงหรือสาขาที่เกี่ยวข้อง และผ่านการอบรมระบบ Sentricon และมารยาทในการให้บริการ.",
+            "พนักงานทุกคนมีความสะอาด ปลอดภัย มีมารยาท และเชี่ยวชาญในการให้บริการ.",
+            "M Factors ให้บริการปรึกษาปัญหาปลวกและแมลงทุกชนิดฟรี.",
+            "ข้อดีที่ผู้ใช้งานกล่าวถึงคือความมั่นใจในอุปกรณ์นวัตกรรมที่ออกแบบเฉพาะของ Sentricon และการไม่มีสารเคมีอันตราย.",
+            "ในงาน Faopma 2025 ณ ประเทศมาเลเซีย M Factors ได้เข้าร่วมเฉลิมฉลองครบรอบ 30 ปีของระบบ Sentricon.",
+            "ข้อมูลพื้นฐานการติดต่อ: โทรศัพท์ 02-033-6500, เว็บไซต์ www.mfactors.co.th, Line Official Account: @mfactors.",
+            "เว็บไซต์ M Factors มีบทความให้ความรู้เกี่ยวกับการสังเกตร่องรอยปลวกและปัจจัยที่ทำให้ปลวกบุกบ้าน (เช่น 3 ปัจจัยหลัก).",
+            "การเปรียบเทียบระหว่าง Sentricon และ Exterra พบว่า Sentricon มีประสิทธิภาพสูงกับปลวกใต้ดินชนิด Copto Termes Gestroi ในขณะที่ Exterra อาจครอบคลุมปลวกได้หลากหลายพันธุ์กว่า.",
+            "ราคาและค่าธรรมเนียมบริการกำจัดปลวกของ M Factors ไม่ได้ระบุเป็นตัวเลขตายตัวบนเว็บไซต์สาธารณะ แต่รับประกันราคาที่เป็นไปตามมาตรฐานและไม่มีค่าใช้จ่ายบานปลาย.",
+            "เทรนด์การเลือกบริการกำจัดปลวกในประเทศไทยมีแนวโน้มให้ความสำคัญกับความปลอดภัยของสารเคมีต่อผู้อยู่อาศัยและสัตว์เลี้ยงมากขึ้น โดยเฉพาะในกลุ่มเจ้าของบ้านใหม่.",
+            "การบริการกำจัดปลวกแบบ D.I.Y. อาจไม่ได้ผลจริงและอาจทำให้ปัญหาปลวกขยายวงกว้าง ซึ่งอาจนำไปสู่ค่าใช้จ่ายที่สูงขึ้นในระยะยาว.",
+            "ตลาดการกำจัดปลวกในไทยมีการแข่งขันสูง โดยมีบริษัทชั้นนำอื่นๆ เช่น King Service และ Rentokil ที่ถูกกล่าวถึงใน Pantip.",
+            "มีข้อมูลตำแหน่งงานว่างสำหรับนักวิชาการ/ผู้ช่วยนักวิชาการ/เจ้าหน้าที่ภาคสนาม ของ M Factors ในช่วงเดือนพฤศจิกายน 2568 ด้วยเงินเดือนเริ่มต้น 17,000 บาท พร้อมโบนัสเบี้ยขยัน.",
+            "ข่าวที่เกี่ยวข้องกับธุรกิจและเทรนด์ในภาพรวม (แต่ไม่ใช่ M Factors โดยตรง) ณ สิ้นปี 2568 ถึงต้นปี 2569 ชี้ให้เห็นถึงความสนใจในการลงทุนในเทคโนโลยีและ AI ในประเทศไทย.",
+            "ภาคอุตสาหกรรมในประเทศไทยยังคงมีการลงทุนและเติบโต โดยเฉพาะในกลุ่มเทคโนโลยีและนวัตกรรม.",
+            "มีการกล่าวถึง 'Two main factors are pressuring the market' ในบริบทของการลงทุนในเดือนธันวาคม 2568 ซึ่งอาจส่งผลต่อการตัดสินใจทางธุรกิจโดยรวม.",
+            "สมาคมวิชาชีพกำจัดแมลง ผนึก กรมพัฒนาฝีมือแรงงาน ยกระดับมาตรฐานการจัดการแมลง: สมาคมวิชาชีพกำจัดแมลงร่วมกับกรมพัฒนาฝีมือแรงงานจัดอบรมหลักสูตร \"การจัดการแมลงสัตว์พาหะแบบมืออาชีพตามมาตรฐาน GMP\" เพื่อยกระดับความรู้ ทักษะ และความปลอดภัยในการใช้สารเคมี โดยมีแผนจะลงนาม MOU และเปิดฝึกอบรมในไตรมาส 1 ปี 2569.",
+            "กรมควบคุมโรค เปิดรับสมัครโรงงานเข้าร่วมประเมิน \"โรงงานปลอดโรคไข้เลือดออก\": กรมควบคุมโรคประกาศรับสมัครโรงงานทั่วประเทศเข้าร่วมโครงการประเมินและรับรอง \"โรงงานปลอดโรคไข้เลือดออก\" เพื่อส่งเสริมการจัดการสภาพแวดล้อมและป้องกันการแพร่ระบาดของโรคในสถานประกอบการ.",
+            "กนอ. ชูยุทธศาสตร์ปี 2569 มุ่ง “Green & Digital” ผลักดันนิคมอุตสาหกรรมไทยสู่เวทีโลก: การนิคมอุตสาหกรรมแห่งประเทศไทย (กนอ.) เผยผลงานปี 2568 ดึงดูดการลงทุนสำเร็จตามเป้า พร้อมวางยุทธศาสตร์ปี 2569 เน้นการพัฒนาสู่ \"Green & Digital\" เพื่อยกระดับนิคมฯ ไทยให้ทัดเทียมนานาชาติ ซึ่งอาจส่งผลต่อความต้องการบริการกำจัดแมลงที่เป็นมิตรต่อสิ่งแวดล้อมในภาคอุตสาหกรรม.",
+            "SME ไทยปี 2568–2569 ต้องเร่งใช้เทคโนโลยี รับมือเศรษฐกิจผันผวน: สสว. ประเมินภาพรวม SME ไทยปี 2568-2569 ชี้ว่าผู้ประกอบการต้องเร่งปรับตัวและนำเทคโนโลยีเข้ามาใช้ในการดำเนินธุรกิจ เพื่อรับมือกับความผันผวนทางเศรษฐกิจ และเพิ่มขีดความสามารถในการแข่งขัน ซึ่งรวมถึงการนำเทคโนโลยีมาใช้ในธุรกิจบริการกำจัดแมลง.",
+            "แมลงตัวเล็กคล้ายเพลี้ยกระโดดบุกบ้านในกรุงเทพฯ และปริมณฑล สร้างความผวาให้ชาวบ้าน: เกิดเหตุการณ์แมลงตัวเล็กคล้ายเพลี้ยกระโดดจำนวนมากบุกเข้าบ้านเรือนในหลายพื้นที่ของกรุงเทพฯ และปริมณฑล ทำให้ชาวบ้านเกิดความหวาดกลัว บางรายถูกกัดจนมีอาการคันและเจ็บ.",
+            "ภัยเงียบ \"ปลวก\" แทะคานหลังคาบ้านถล่ม หวิดทับเจ้าของบ้านที่ระยอง: รายงานข่าวจากจังหวัดระยอง เผยเหตุการณ์หลังคาบ้านหลังหนึ่งพังถล่มลงมา โชคดีที่เจ้าของบ้านรอดชีวิตหวุดหวิด สาเหตุมาจากการที่ปลวกเข้าทำลายโครงสร้างคานไม้ของบ้านจนเสียหายอย่างหนัก.",
+            "M Factors ฉลองครบรอบ 30 ปี ระบบกำจัดปลวก Sentricon หนึ่งเดียวในโลก: บริษัท เอ็ม แฟคเตอร์ส จำกัด ซึ่งเป็นผู้ได้รับลิขสิทธิ์อย่างเป็นทางการในประเทศไทย ร่วมเฉลิมฉลองครบรอบ 30 ปีของระบบกำจัดปลวก Sentricon ซึ่งเป็นนวัตกรรมของศาสตราจารย์ นาน ยาว ซู.",
+            "แนวโน้มผู้บริโภคไทยให้ความสำคัญกับผลิตภัณฑ์และบริการกำจัดแมลงที่ปลอดภัย ไร้กลิ่น และมีประสิทธิภาพสูง: จากข้อมูลงานวิจัยตลาดกำจัดแมลง ผู้บริโภคมีแนวโน้มเลือกใช้ผลิตภัณฑ์และบริการที่เน้นความปลอดภัย ไม่มีกลิ่นฉุน ผ่านการรับรองจาก อย. และมีประสิทธิภาพในการกำจัดแมลงสูง.",
+            "ตลาดธุรกิจกำจัดแมลงในไทยมีโอกาสเติบโตต่อเนื่อง สอดรับการฟื้นตัวของตลาดอสังหาริมทรัพย์: สมาคมวิชาชีพกำจัดแมลงเผยผลวิจัยชี้ตลาดธุรกิจกำจัดแมลงยังมีช่องว่างและโอกาสเติบโตต่อเนื่อง โดยเฉพาะอย่างยิ่งจากการฟื้นตัวของตลาดอสังหาริมทรัพย์ในประเทศไทย.",
+            "การจดทะเบียนบริษัทใหม่ในกลุ่มกิจการฆ่าเชื้อและกำจัดเพิ่มขึ้น แสดงถึงการขยายตัวของตลาด: ข้อมูลจากกรมพัฒนาธุรกิจการค้าพบว่า มีบริษัทที่ดำเนินธุรกิจเกี่ยวกับการฆ่าเชื้อและกำจัดยื่นจดทะเบียนเพิ่มขึ้น 5 รายในช่วงต้นปี 2567 ซึ่งสะท้อนถึงการเติบโตและการแข่งขันในตลาดนี้.",
+            "กรมควบคุมโรคคงมาตรการเฝ้าระวังและควบคุมโรคติดต่อนำโดยยุงลายอย่างเข้มข้นตลอดปี 2567: กรมควบคุมโรคยังคงดำเนินการและเน้นย้ำมาตรการเฝ้าระวัง ป้องกัน และควบคุมการแพร่ระบาดของโรคติดต่อนำโดยยุงลาย อาทิ ไข้เลือดออก ตลอดทั้งปี 2567 เพื่อลดจำนวนผู้ป่วยและเสียชีวิต.",
+            "NSTDA เปิดตัวชีวภัณฑ์ “VipPro+” นวัตกรรมกำจัดแมลงศัตรูพืชเพื่อเกษตรปลอดภัย: สวทช. พัฒนาและเปิดตัวชีวภัณฑ์ \"VipPro+\" ซึ่งเป็นนวัตกรรมที่ใช้ในการกำจัดแมลงศัตรูพืชกลุ่มหนอนผีเสื้อได้อย่างมีประสิทธิภาพ โดยมุ่งเน้นความปลอดภัยต่อเกษตรกรและสิ่งแวดล้อม."
+          ],
+          "strengths": [
+            "ประสบการณ์กว่า 20 ปีในการให้บริการกำจัดปลวกและแมลง",
+            "ใช้เทคโนโลยี Sentricon ที่ได้รับรางวัล EPA Green Chemistry ซึ่งเน้นความปลอดภัย",
+            "มีความปลอดภัยต่อเด็กและสัตว์เลี้ยง 100% ซึ่งเป็นจุดเด่นสำคัญสำหรับกลุ่มเป้าหมาย",
+            "มีฐานลูกค้าที่ใช้บริการต่อเนื่องยาวนานกว่า 10-20 ปี แสดงถึงความน่าเชื่อถือและการดูแลลูกค้าที่ดีเยี่ยม",
+            "จุดเด่นในการเป็นผู้เชี่ยวชาญ Sentricon ที่เน้นความปลอดภัยด้วยมาตรฐานรางวัลระดับสากล",
+            "มี Brand Tone ที่อบอุ่น เป็นกันเองแบบครอบครัว (M Factors Family) และเป็นมืออาชีพ"
+          ],
+          "weaknesses": [
+            "การเน้นระบบเหยื่อ Sentricon เป็นหลักอาจมีราคาสูงกว่าระบบอัดน้ำยา ทำให้ราคาเข้าถึงยากสำหรับบางกลุ่ม",
+            "ช่องทางการจองผ่านหน้าเว็บไซต์ยังไม่เป็นระบบอัตโนมัติ ทำให้ลูกค้าไม่ได้รับความสะดวกเท่าที่ควร",
+            "ราคาอาจถูกมองว่าเข้าถึงยากสำหรับกลุ่มงบประมาณจำกัดเมื่อเทียบกับคู่แข่งบางราย"
+          ],
+          "market_gaps": [
+            "โอกาสในการพัฒนาช่องทางการจองออนไลน์ให้เป็นระบบอัตโนมัติและทันสมัย เพื่อดึงดูดลูกค้ากลุ่มใหม่ที่ต้องการความรวดเร็ว",
+            "การสร้างความโดดเด่นด้านบริการลูกค้าและการดูแลต่อเนื่องให้เหนือกว่าคู่แข่งที่มีปัญหาเรื่องความล่าช้าในการบริการ (Rentokil) หรือความไม่เสถียรของทีมช่างในบางพื้นที่ (Bug Solutions, Dr. Pluak)",
+            "สามารถเน้นย้ำถึงความน่าเชื่อถือทางวิทยาศาสตร์ของเทคโนโลยีที่ใช้ (EPA Green Chemistry) เพื่อสร้างความแตกต่างจากคู่แข่งที่เน้นความปลอดภัยจากธรรมชาติแต่มีข้อกังวลเรื่องการรับรองทางวิทยาศาสตร์ (Dr. Pluak)",
+            "โอกาสในการขยายตลาดไปยังกลุ่มลูกค้าที่มองหาบริการระดับพรีเมียมที่เน้นความปลอดภัยและความเป็นกันเอง ซึ่งแตกต่างจากแบรนด์ระดับโลกที่อาจดูเป็นทางการเกินไป (Rentokil)"
+          ],
+          "shared_patterns": [
+            "การแข่งขันด้านราคากับคู่แข่งที่มีราคาเข้าถึงง่ายกว่า เช่น Dr. Pluak และ Bug Solutions",
+            "คู่แข่งบางรายมีนวัตกรรมดิจิทัลและทีมวิจัยและพัฒนาของตนเอง (Rentokil) ซึ่งอาจนำมาซึ่งบริการที่ทันสมัยกว่า",
+            "คู่แข่งรายเก่าแก่และมีชื่อเสียงในระบบ Sentricon (King Service Center) ทำให้เกิดการแข่งขันสูงในตลาดนี้",
+            "คู่แข่งบางรายมีกลยุทธ์การตลาดออนไลน์ที่แข็งแกร่งและเข้าถึงคนรุ่นใหม่ได้ดีกว่า (Bug Solutions) ซึ่ง M Factors ยังมีจุดอ่อน"
+          ],
+          "differentiation_strategies": [
+            "เน้นย้ำ USP: 'ผู้เชี่ยวชาญ Sentricon ที่เน้นความปลอดภัยต่อสิ่งมีชีวิตในบ้านด้วยมาตรฐานรางวัลระดับสากล' ควบคู่กับ Brand Tone 'ความเป็นครอบครัว M Factors' เพื่อสร้างความแตกต่างด้านความน่าเชื่อถือและความอบอุ่น",
+            "พัฒนาและปรับปรุงระบบการจองบริการออนไลน์ให้เป็นอัตโนมัติและใช้งานง่าย เพื่อตอบสนองความต้องการของลูกค้ายุคใหม่และเพิ่มความสะดวกสบาย",
+            "สื่อสารและตอกย้ำจุดแข็งด้าน 'ความปลอดภัย 100% ต่อเด็กและสัตว์เลี้ยง' และ 'เทคโนโลยี EPA Green Chemistry' อย่างต่อเนื่อง เพื่อสร้างความมั่นใจและตอกย้ำความแตกต่างด้านความปลอดภัยเชิงวิทยาศาสตร์",
+            "ใช้ Testimonial จากฐานลูกค้าเก่าที่ใช้บริการมาอย่างยาวนาน เพื่อสร้างความน่าเชื่อถือและภาพลักษณ์ของการดูแลลูกค้าที่ดีเยี่ยมและต่อเนื่อง",
+            "พิจารณาการนำเสนอบริการที่หลากหลายหรือแพ็คเกจทางเลือกที่ตอบโจทย์งบประมาณที่แตกต่างกัน เพื่อขยายฐานลูกค้าโดยยังคงจุดแข็งด้านคุณภาพและความปลอดภัย"
+          ]
+        },
+        "news_insights": {
+          "research": [
+            "สมาคมวิชาชีพกำจัดแมลง ผนึก กรมพัฒนาฝีมือแรงงาน ยกระดับมาตรฐานการจัดการแมลง: สมาคมวิชาชีพกำจัดแมลงร่วมกับกรมพัฒนาฝีมือแรงงานจัดอบรมหลักสูตร \"การจัดการแมลงสัตว์พาหะแบบมืออาชีพตามมาตรฐาน GMP\" เพื่อยกระดับความรู้ ทักษะ และความปลอดภัยในการใช้สารเคมี โดยมีแผนจะลงนาม MOU และเปิดฝึกอบรมในไตรมาส 1 ปี 2569.",
+            "กรมควบคุมโรค เปิดรับสมัครโรงงานเข้าร่วมประเมิน \"โรงงานปลอดโรคไข้เลือดออก\": กรมควบคุมโรคประกาศรับสมัครโรงงานทั่วประเทศเข้าร่วมโครงการประเมินและรับรอง \"โรงงานปลอดโรคไข้เลือดออก\" เพื่อส่งเสริมการจัดการสภาพแวดล้อมและป้องกันการแพร่ระบาดของโรคในสถานประกอบการ.",
+            "กนอ. ชูยุทธศาสตร์ปี 2569 มุ่ง “Green & Digital” ผลักดันนิคมอุตสาหกรรมไทยสู่เวทีโลก: การนิคมอุตสาหกรรมแห่งประเทศไทย (กนอ.) เผยผลงานปี 2568 ดึงดูดการลงทุนสำเร็จตามเป้า พร้อมวางยุทธศาสตร์ปี 2569 เน้นการพัฒนาสู่ \"Green & Digital\" เพื่อยกระดับนิคมฯ ไทยให้ทัดเทียมนานาชาติ ซึ่งอาจส่งผลต่อความต้องการบริการกำจัดแมลงที่เป็นมิตรต่อสิ่งแวดล้อมในภาคอุตสาหกรรม.",
+            "SME ไทยปี 2568–2569 ต้องเร่งใช้เทคโนโลยี รับมือเศรษฐกิจผันผวน: สสว. ประเมินภาพรวม SME ไทยปี 2568-2569 ชี้ว่าผู้ประกอบการต้องเร่งปรับตัวและนำเทคโนโลยีเข้ามาใช้ในการดำเนินธุรกิจ เพื่อรับมือกับความผันผวนทางเศรษฐกิจ และเพิ่มขีดความสามารถในการแข่งขัน ซึ่งรวมถึงการนำเทคโนโลยีมาใช้ในธุรกิจบริการกำจัดแมลง.",
+            "แมลงตัวเล็กคล้ายเพลี้ยกระโดดบุกบ้านในกรุงเทพฯ และปริมณฑล สร้างความผวาให้ชาวบ้าน: เกิดเหตุการณ์แมลงตัวเล็กคล้ายเพลี้ยกระโดดจำนวนมากบุกเข้าบ้านเรือนในหลายพื้นที่ของกรุงเทพฯ และปริมณฑล ทำให้ชาวบ้านเกิดความหวาดกลัว บางรายถูกกัดจนมีอาการคันและเจ็บ.",
+            "ภัยเงียบ \"ปลวก\" แทะคานหลังคาบ้านถล่ม หวิดทับเจ้าของบ้านที่ระยอง: รายงานข่าวจากจังหวัดระยอง เผยเหตุการณ์หลังคาบ้านหลังหนึ่งพังถล่มลงมา โชคดีที่เจ้าของบ้านรอดชีวิตหวุดหวิด สาเหตุมาจากการที่ปลวกเข้าทำลายโครงสร้างคานไม้ของบ้านจนเสียหายอย่างหนัก.",
+            "M Factors ฉลองครบรอบ 30 ปี ระบบกำจัดปลวก Sentricon หนึ่งเดียวในโลก: บริษัท เอ็ม แฟคเตอร์ส จำกัด ซึ่งเป็นผู้ได้รับลิขสิทธิ์อย่างเป็นทางการในประเทศไทย ร่วมเฉลิมฉลองครบรอบ 30 ปีของระบบกำจัดปลวก Sentricon ซึ่งเป็นนวัตกรรมของศาสตราจารย์ นาน ยาว ซู.",
+            "แนวโน้มผู้บริโภคไทยให้ความสำคัญกับผลิตภัณฑ์และบริการกำจัดแมลงที่ปลอดภัย ไร้กลิ่น และมีประสิทธิภาพสูง: จากข้อมูลงานวิจัยตลาดกำจัดแมลง ผู้บริโภคมีแนวโน้มเลือกใช้ผลิตภัณฑ์และบริการที่เน้นความปลอดภัย ไม่มีกลิ่นฉุน ผ่านการรับรองจาก อย. และมีประสิทธิภาพในการกำจัดแมลงสูง.",
+            "ตลาดธุรกิจกำจัดแมลงในไทยมีโอกาสเติบโตต่อเนื่อง สอดรับการฟื้นตัวของตลาดอสังหาริมทรัพย์: สมาคมวิชาชีพกำจัดแมลงเผยผลวิจัยชี้ตลาดธุรกิจกำจัดแมลงยังมีช่องว่างและโอกาสเติบโตต่อเนื่อง โดยเฉพาะอย่างยิ่งจากการฟื้นตัวของตลาดอสังหาริมทรัพย์ในประเทศไทย.",
+            "การจดทะเบียนบริษัทใหม่ในกลุ่มกิจการฆ่าเชื้อและกำจัดเพิ่มขึ้น แสดงถึงการขยายตัวของตลาด: ข้อมูลจากกรมพัฒนาธุรกิจการค้าพบว่า มีบริษัทที่ดำเนินธุรกิจเกี่ยวกับการฆ่าเชื้อและกำจัดยื่นจดทะเบียนเพิ่มขึ้น 5 รายในช่วงต้นปี 2567 ซึ่งสะท้อนถึงการเติบโตและการแข่งขันในตลาดนี้.",
+            "กรมควบคุมโรคคงมาตรการเฝ้าระวังและควบคุมโรคติดต่อนำโดยยุงลายอย่างเข้มข้นตลอดปี 2567: กรมควบคุมโรคยังคงดำเนินการและเน้นย้ำมาตรการเฝ้าระวัง ป้องกัน และควบคุมการแพร่ระบาดของโรคติดต่อนำโดยยุงลาย อาทิ ไข้เลือดออก ตลอดทั้งปี 2567 เพื่อลดจำนวนผู้ป่วยและเสียชีวิต.",
+            "NSTDA เปิดตัวชีวภัณฑ์ “VipPro+” นวัตกรรมกำจัดแมลงศัตรูพืชเพื่อเกษตรปลอดภัย: สวทช. พัฒนาและเปิดตัวชีวภัณฑ์ \"VipPro+\" ซึ่งเป็นนวัตกรรมที่ใช้ในการกำจัดแมลงศัตรูพืชกลุ่มหนอนผีเสื้อได้อย่างมีประสิทธิภาพ โดยมุ่งเน้นความปลอดภัยต่อเกษตรกรและสิ่งแวดล้อม."
+          ]
+        },
+        "groundingMetadata": {}
+      }
+    }
+  },
+  "inputImages": [
+    {
+      "type": "material",
+      "url": "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/materials/98ced20e-395f-4939-91a8-5c15b602fef5/1779942448745-x7c74ij.webp"
+    }
+  ],
+  "imageCounts": {
+    "total": 1,
+    "material": 1,
+    "reference": 0
+  },
+  "agentOutputs": {
+    "strategist": {
+      "smp": "บ้านหรูเลือก M Factors เพราะนี่คือผู้เชี่ยวชาญปลวกที่ไว้วางใจได้จริง ไม่ใช่แค่บริการทั่วไป",
+      "audience_insight": "เจ้าของบ้านระดับพรีเมียมไม่ได้กลัวปลวก — พวกเขากลัวการตัดสินใจผิดพลาดที่ทำให้บ้านที่ลงทุนมาทั้งชีวิตเสียหาย และพวกเขาจะจ่ายแพงกว่าเพื่อซื้อความมั่นใจว่า 'ไม่ต้องคิดเรื่องนี้อีก'",
+      "desired_feeling": "ความโล่งใจที่ได้เจอคนที่ใช่ — รู้สึกว่าบ้านของตัวเองอยู่ในมือที่เชื่อถือได้แล้ว"
+    },
+    "concept": {
+      "options": [
+        {
+          "device": "visual_metaphor",
+          "idea": "A master watchmaker's hands — white gloves, precision tools, extreme close-up — delicately servicing the internal mechanism of a luxury watch, but when you pull back the frame reveals it is actually the wooden foundation beam of a high-end home being inspected with the same obsessive care.",
+          "how_it_carries_smp": "Equates M Factors' expertise with the world's most trusted precision craftsmen; the luxury watch codes (white gloves, jeweler's loupe, steady hands) transfer directly onto the act of termite protection, making 'trusted specialist' visceral without a single word.",
+          "risk_of_going_generic": "If the craft metaphor reads as generic 'attention to detail' branding rather than termite-specific trust, it becomes an insurance or financial-services ad. The wooden beam must be unmistakable."
+        },
+        {
+          "device": "reveal_hidden",
+          "idea": "A perfect, magazine-worthy luxury living room shot in warm golden light — then a single thin crack runs across the image like an X-ray scan activating, peeling back the surface layer to reveal the invisible structural skeleton beneath: beams completely intact, clean, protected, with a subtle M Factors seal glowing at the joint — the hidden truth is safety, not damage.",
+          "how_it_carries_smp": "Reframes the fear: premium homeowners don't want to see destruction, they want proof the invisible world is already handled. The reveal shows protection already in place — 'you don't need to think about this anymore' — which is exactly the desired feeling of relief.",
+          "risk_of_going_generic": "X-ray/cross-section visuals are overused in insurance and construction categories. Must avoid the trope of showing damage inside; the reveal must be reassurance, not horror."
+        },
+        {
+          "device": "scale_shift",
+          "idea": "An architect's scale model of a luxury villa sits on a table — beautifully crafted, every detail perfect — and a single uniformed M Factors specialist stands at normal human scale beside it, one hand resting protectively over the roof of the tiny house like a guardian, the size difference making the home look precious and held-safe rather than small.",
+          "how_it_carries_smp": "The scale inversion makes the specialist monumental — a protector whose expertise dwarfs the problem — while the miniature house triggers the emotional truth that this home is precious cargo, something to be guarded by someone bigger and more capable than the threat. 'The right hands' is shown, not said.",
+          "risk_of_going_generic": "Giant-person-over-tiny-house has appeared in insurance and real estate ads. The specialist's uniform, posture, and expression must read as calm authority — not superhero, not giant — or it tips into cliché."
+        },
+        {
+          "device": "juxtaposition",
+          "idea": "Split image, no dividing line — left side: a luxury hotel concierge handing over a room key with white-gloved ceremony, total confidence, eye contact; right side: an M Factors specialist handing over a completed protection certificate in the same exact compositional pose, same white gloves, same eye contact — the ceremony is identical, only the context differs.",
+          "how_it_carries_smp": "Borrows the established visual language of 'trusted premium service' from the hospitality world and transfers it frame-for-frame onto termite protection, arguing that M Factors operates at that same tier of reliability and care — a specialist you trust the way you trust a five-star concierge with your stay.",
+          "risk_of_going_generic": "Side-by-side comparisons are structurally weak if the viewer reads it as 'we are like a hotel' rather than 'we ARE that level of trust.' Execution must be seamless enough that the eye travels across both halves as one ritual."
+        }
+      ],
+      "chosen": {
+        "device": "reveal_hidden",
+        "idea": "A perfect, magazine-worthy luxury living room shot in warm golden light — then a single thin scan line moves across the image like an X-ray activating, peeling back the surface to reveal the structural skeleton beneath: beams completely intact, protected, with a subtle M Factors seal glowing at the core joint — the hidden truth is safety already in place, not damage waiting to happen.",
+        "how_it_carries_smp": "This is the only option that puts the viewer INSIDE the homeowner's deepest fear — the invisible world beneath the beautiful surface — and then immediately resolves it with proof of protection already present. It doesn't sell a service; it delivers the emotional payoff of 'someone already handled this.' The desired feeling of relief is built into the visual mechanics: you see the threat-space, then you see it is clean and sealed. 'Trusted specialist' is communicated because only an expert could make that invisible world safe. No competitor shows you the hidden truth and makes it comforting rather than terrifying — that gap is where M Factors owns the space.",
+        "risk_of_going_generic": "X-ray/cross-section is a known device. The entire execution hinges on the reveal being reassurance not damage — if the beam shows any rot or infestation the ad becomes fear-based pest control like every competitor. The M Factors seal must feel like a hallmark of craft, not a logo stamp. Color temperature must stay warm and residential throughout, never clinical or cold."
+      }
+    },
+    "artDirector": {
+      "composition": "Wide living room scene fills 80% of frame. The scan-line transition sits at the golden ratio — roughly 38% from the left edge — dividing the image into two zones: right side is the finished, styled room (sofa, warm lamp, linen cushions); left side is the revealed structural interior (timber beam cross-section, wall cavity, joint). The M Factors seal glows at the exact center-left intersection point, becoming the single focal anchor. Eye enters bottom-right through the luxury surface, travels left along the scan line, lands on the glowing seal, then rests. The two worlds share the same warm light source so the reveal feels like truth, not intrusion.",
+      "camera": "Straight-on eye-level shot, slight 5-degree rise — not a low power angle, not top-down. This is the homeowner's natural standing gaze into their own living room. Framing is wide (16:9 cinematic crop), giving the scan-line room to breathe horizontally. No Dutch tilt, no drama — the calm framing is what makes the hidden reveal feel reassuring rather than alarming.",
+      "lighting": "Single warm practical source — a floor lamp on the right side of the room — casts soft directional light at 45 degrees across the scene. Color temperature: 2900K throughout, including inside the structural reveal zone. The beam interior is NOT lit with cool clinical light; it receives the same amber warmth, making the skeleton feel domestic and safe. The M Factors seal emits a contained soft glow — amber-gold, not blue-white — radius no wider than 4cm in final image. No hard shadows on the structural side; soft fill from the same warm source wraps the timber. Hardness: soft on room side, slightly more defined edge-light on the timber grain to show material truth.",
+      "palette": "Warm Parchment (#E8D5B0) as the dominant room tone — walls, linen, light. Raw Timber (#8B6340) for the structural reveal zone — honest, warm, not rotted. Amber Seal (#C8860A) exclusively for the M Factors glow point. Three colors, all warm, no cool deviation.",
+      "materials": "Right side (luxury zone): actual linen fabric with visible weave, matte plaster wall with slight texture, real timber floorboards with grain catch-light. Left side (structural reveal): rough-sawn timber beam with visible grain rings and tool marks — NOT rendered smooth, must show real wood fiber. Plaster lath or brick cavity wall with genuine mortar texture. The scan-line itself is a thin luminous edge — like the leading edge of a lightsheet — with a faint chromatic fringe (1px amber, 1px white) to feel optical rather than digital. The M Factors seal: embossed metal hallmark aesthetic, not a flat logo — slight relief shadow beneath it as if physically set into the beam.",
+      "negative_space": "Top 22% of frame is clean Warm Parchment ceiling — this is where the primary headline composites in post. A secondary clean zone sits bottom-left in the structural reveal area (below the beam, above the floor line) — approximately 30% width × 15% height — reserved for subhead or product descriptor. No elements crowd the seal; a 15% radius around it stays clear so it reads as the visual full stop.",
+      "text_mode": "composite_after"
+    },
+    "promptEngineer": {
+      "final_prompt": "[Intended use] Advertising image for M Factors termite protection service, single square 1:1 social/digital ad.\n\n[Scene] A wide, magazine-worthy luxury Thai residential living room interior. The right two-thirds of the scene shows the finished, styled room: a linen sofa with textured cushions, a warm floor lamp casting soft amber light, matte plaster walls, and polished timber floorboards. The left one-third of the scene is peeled back by a single vertical scan-line — positioned at the golden ratio, approximately 38% from the left edge — revealing the structural skeleton behind the wall: a rough-sawn timber beam cross-section, a plaster-lath cavity wall with visible mortar, and a structural joint at the center-left intersection. The ceiling is a clean, uninterrupted expanse of warm parchment tone occupying the top 22% of the frame. The bottom-left structural zone, below the beam and above the floor line (approximately 30% width × 15% height), is also clean and uncluttered.\n\n[Subject + idea] The hero is the luxury living room itself — beautiful, calm, and completely intact. The visual device is a single thin luminous scan-line, like the leading edge of a lightsheet activating an X-ray, that divides the room at the golden ratio: right side shows the perfect finished surface; left side reveals the structural interior — timber beams with visible grain rings, wall cavity, and structural joint. At the exact center-left intersection point where the two worlds meet, a small embossed metal hallmark seal glows in amber-gold, physically set into the beam like a craftsman's mark. The payoff is immediate and unambiguous: the hidden world beneath this beautiful home is already clean, intact, and protected — the seal is proof that an expert has already been here. The reveal is reassurance, not threat. No rot, no infestation, no damage — only safe, sound structure with a trusted specialist's mark at its core.\n\n[Details] Right side luxury zone: real linen fabric with visible weave texture on sofa and cushions; matte plaster wall with subtle surface grain; timber floorboards with warm grain catch-light. Left side structural reveal zone: rough-sawn timber beam with clearly visible annual grain rings and tool marks — not smooth-rendered, must show real wood fiber and surface texture; plaster lath or brick cavity wall with genuine mortar texture and depth. The scan-line itself is a thin luminous vertical edge — 1px amber fringe, 1px white fringe — optical and physical in feel, not digital or glowing-neon. The M Factors seal at the beam joint: embossed metal hallmark aesthetic with slight relief shadow beneath it as if physically pressed into the timber — not a flat logo stamp, reads as a craftsman's quality mark. Product identity is carried by the seal alone; no additional product packaging in scene.\n\n[Lighting] Single warm practical source — a floor lamp positioned on the right side of the room — casting soft directional light at 45 degrees across the entire scene, color temperature 2900K throughout, including inside the structural reveal zone. The beam interior and wall cavity receive the same amber warmth as the finished room — never clinical, never cool. The M Factors seal emits a contained soft ambient glow in amber-gold (#C8860A), radius no wider than 4cm in final image, no blue-white light. Soft fill wraps the timber on the structural side; slightly more defined edge-light on the timber grain to reveal material truth. No hard shadows on the structural reveal side. Overall hardness: soft and residential throughout.\n\n[Palette] Warm Parchment (#E8D5B0) dominant — walls, ceiling, linen, ambient light fill. Raw Timber (#8B6340) for the entire structural reveal zone — honest, warm, unrotted. Amber Seal (#C8860A) exclusively for the M Factors glow point and scan-line fringe. All three colors warm; zero cool deviation anywhere in the image.\n\n[Composition] Straight-on eye-level shot with a slight 5-degree upward rise — the natural standing gaze of a homeowner looking into their own living room. Framing is square 1:1. The scan-line divides the image vertically at the golden ratio (38% from left). Eye enters bottom-right through the luxury surface, travels left along the scan-line, lands on the glowing amber seal at the center-left intersection, then rests. Negative space: top 22% of frame is clean Warm Parchment ceiling with no objects, no furniture tops, no light fixtures intruding — reserved for headline composite. Bottom-left structural zone (approx. 30% width × 15% height, below beam above floor) is clean and empty — reserved for subhead composite. A 15% clear radius around the M Factors seal keeps it isolated as the single visual full stop. No Dutch tilt, no dramatic angle, no lens distortion.\n\n[Text] Leave clean empty space at top 22% of frame (ceiling zone), no text rendered in image. Leave clean empty space at bottom-left structural zone (30% width × 15% height), no text rendered in image. No Thai or Latin text, numerals, or lettering anywhere in the generated image — all copy composited after.\n\n[Constraints] Photorealistic, real textures — no illustration, no 3D-render aesthetic, no painterly treatment. No watermark, no extra logos, no competitor marks. The structural reveal must show zero termite damage, zero rot, zero infestation — clean intact timber only; any damage imagery is strictly excluded. The M Factors seal is the only brand mark present; render it as an embossed metal hallmark, not a digital badge. Color temperature must remain warm (2900K) throughout — no cool or clinical lighting anywhere. No Dutch tilt, no horror or fear aesthetic, no dark shadows. Scan-line must read as optical/physical, not as a digital UI element or HUD graphic. Aspect ratio 1:1. Brand color reference for seal and accent: amber-gold (#C8860A). Overall mood: calm, reassuring, premium residential — never alarming."
+    },
+    "singleAgentPlan": null
+  },
+  "visualThinking": "## SEQUENTIAL CREATIVE PIPELINE\n\n### STRATEGIST\nSMP: บ้านหรูเลือก M Factors เพราะนี่คือผู้เชี่ยวชาญปลวกที่ไว้วางใจได้จริง ไม่ใช่แค่บริการทั่วไป\nAudience insight: เจ้าของบ้านระดับพรีเมียมไม่ได้กลัวปลวก — พวกเขากลัวการตัดสินใจผิดพลาดที่ทำให้บ้านที่ลงทุนมาทั้งชีวิตเสียหาย และพวกเขาจะจ่ายแพงกว่าเพื่อซื้อความมั่นใจว่า 'ไม่ต้องคิดเรื่องนี้อีก'\nDesired feeling: ความโล่งใจที่ได้เจอคนที่ใช่ — รู้สึกว่าบ้านของตัวเองอยู่ในมือที่เชื่อถือได้แล้ว\n\n### CONCEPT\nChosen device: reveal_hidden\nChosen idea: A perfect, magazine-worthy luxury living room shot in warm golden light — then a single thin scan line moves across the image like an X-ray activating, peeling back the surface to reveal the structural skeleton beneath: beams completely intact, protected, with a subtle M Factors seal glowing at the core joint — the hidden truth is safety already in place, not damage waiting to happen.\nHow it carries SMP: This is the only option that puts the viewer INSIDE the homeowner's deepest fear — the invisible world beneath the beautiful surface — and then immediately resolves it with proof of protection already present. It doesn't sell a service; it delivers the emotional payoff of 'someone already handled this.' The desired feeling of relief is built into the visual mechanics: you see the threat-space, then you see it is clean and sealed. 'Trusted specialist' is communicated because only an expert could make that invisible world safe. No competitor shows you the hidden truth and makes it comforting rather than terrifying — that gap is where M Factors owns the space.\nRisk of going generic: X-ray/cross-section is a known device. The entire execution hinges on the reveal being reassurance not damage — if the beam shows any rot or infestation the ad becomes fear-based pest control like every competitor. The M Factors seal must feel like a hallmark of craft, not a logo stamp. Color temperature must stay warm and residential throughout, never clinical or cold.\n\n### ART DIRECTOR\nComposition: Wide living room scene fills 80% of frame. The scan-line transition sits at the golden ratio — roughly 38% from the left edge — dividing the image into two zones: right side is the finished, styled room (sofa, warm lamp, linen cushions); left side is the revealed structural interior (timber beam cross-section, wall cavity, joint). The M Factors seal glows at the exact center-left intersection point, becoming the single focal anchor. Eye enters bottom-right through the luxury surface, travels left along the scan line, lands on the glowing seal, then rests. The two worlds share the same warm light source so the reveal feels like truth, not intrusion.\nCamera: Straight-on eye-level shot, slight 5-degree rise — not a low power angle, not top-down. This is the homeowner's natural standing gaze into their own living room. Framing is wide (16:9 cinematic crop), giving the scan-line room to breathe horizontally. No Dutch tilt, no drama — the calm framing is what makes the hidden reveal feel reassuring rather than alarming.\nLighting: Single warm practical source — a floor lamp on the right side of the room — casts soft directional light at 45 degrees across the scene. Color temperature: 2900K throughout, including inside the structural reveal zone. The beam interior is NOT lit with cool clinical light; it receives the same amber warmth, making the skeleton feel domestic and safe. The M Factors seal emits a contained soft glow — amber-gold, not blue-white — radius no wider than 4cm in final image. No hard shadows on the structural side; soft fill from the same warm source wraps the timber. Hardness: soft on room side, slightly more defined edge-light on the timber grain to show material truth.\nPalette: Warm Parchment (#E8D5B0) as the dominant room tone — walls, linen, light. Raw Timber (#8B6340) for the structural reveal zone — honest, warm, not rotted. Amber Seal (#C8860A) exclusively for the M Factors glow point. Three colors, all warm, no cool deviation.\nMaterials: Right side (luxury zone): actual linen fabric with visible weave, matte plaster wall with slight texture, real timber floorboards with grain catch-light. Left side (structural reveal): rough-sawn timber beam with visible grain rings and tool marks — NOT rendered smooth, must show real wood fiber. Plaster lath or brick cavity wall with genuine mortar texture. The scan-line itself is a thin luminous edge — like the leading edge of a lightsheet — with a faint chromatic fringe (1px amber, 1px white) to feel optical rather than digital. The M Factors seal: embossed metal hallmark aesthetic, not a flat logo — slight relief shadow beneath it as if physically set into the beam.\nNegative space: Top 22% of frame is clean Warm Parchment ceiling — this is where the primary headline composites in post. A secondary clean zone sits bottom-left in the structural reveal area (below the beam, above the floor line) — approximately 30% width × 15% height — reserved for subhead or product descriptor. No elements crowd the seal; a 15% radius around it stays clear so it reads as the visual full stop.\nText mode: composite_after\n\n### PROMPT ENGINEER\n[Intended use] Advertising image for M Factors termite protection service, single square 1:1 social/digital ad.\n\n[Scene] A wide, magazine-worthy luxury Thai residential living room interior. The right two-thirds of the scene shows the finished, styled room: a linen sofa with textured cushions, a warm floor lamp casting soft amber light, matte plaster walls, and polished timber floorboards. The left one-third of the scene is peeled back by a single vertical scan-line — positioned at the golden ratio, approximately 38% from the left edge — revealing the structural skeleton behind the wall: a rough-sawn timber beam cross-section, a plaster-lath cavity wall with visible mortar, and a structural joint at the center-left intersection. The ceiling is a clean, uninterrupted expanse of warm parchment tone occupying the top 22% of the frame. The bottom-left structural zone, below the beam and above the floor line (approximately 30% width × 15% height), is also clean and uncluttered.\n\n[Subject + idea] The hero is the luxury living room itself — beautiful, calm, and completely intact. The visual device is a single thin luminous scan-line, like the leading edge of a lightsheet activating an X-ray, that divides the room at the golden ratio: right side shows the perfect finished surface; left side reveals the structural interior — timber beams with visible grain rings, wall cavity, and structural joint. At the exact center-left intersection point where the two worlds meet, a small embossed metal hallmark seal glows in amber-gold, physically set into the beam like a craftsman's mark. The payoff is immediate and unambiguous: the hidden world beneath this beautiful home is already clean, intact, and protected — the seal is proof that an expert has already been here. The reveal is reassurance, not threat. No rot, no infestation, no damage — only safe, sound structure with a trusted specialist's mark at its core.\n\n[Details] Right side luxury zone: real linen fabric with visible weave texture on sofa and cushions; matte plaster wall with subtle surface grain; timber floorboards with warm grain catch-light. Left side structural reveal zone: rough-sawn timber beam with clearly visible annual grain rings and tool marks — not smooth-rendered, must show real wood fiber and surface texture; plaster lath or brick cavity wall with genuine mortar texture and depth. The scan-line itself is a thin luminous vertical edge — 1px amber fringe, 1px white fringe — optical and physical in feel, not digital or glowing-neon. The M Factors seal at the beam joint: embossed metal hallmark aesthetic with slight relief shadow beneath it as if physically pressed into the timber — not a flat logo stamp, reads as a craftsman's quality mark. Product identity is carried by the seal alone; no additional product packaging in scene.\n\n[Lighting] Single warm practical source — a floor lamp positioned on the right side of the room — casting soft directional light at 45 degrees across the entire scene, color temperature 2900K throughout, including inside the structural reveal zone. The beam interior and wall cavity receive the same amber warmth as the finished room — never clinical, never cool. The M Factors seal emits a contained soft ambient glow in amber-gold (#C8860A), radius no wider than 4cm in final image, no blue-white light. Soft fill wraps the timber on the structural side; slightly more defined edge-light on the timber grain to reveal material truth. No hard shadows on the structural reveal side. Overall hardness: soft and residential throughout.\n\n[Palette] Warm Parchment (#E8D5B0) dominant — walls, ceiling, linen, ambient light fill. Raw Timber (#8B6340) for the entire structural reveal zone — honest, warm, unrotted. Amber Seal (#C8860A) exclusively for the M Factors glow point and scan-line fringe. All three colors warm; zero cool deviation anywhere in the image.\n\n[Composition] Straight-on eye-level shot with a slight 5-degree upward rise — the natural standing gaze of a homeowner looking into their own living room. Framing is square 1:1. The scan-line divides the image vertically at the golden ratio (38% from left). Eye enters bottom-right through the luxury surface, travels left along the scan-line, lands on the glowing amber seal at the center-left intersection, then rests. Negative space: top 22% of frame is clean Warm Parchment ceiling with no objects, no furniture tops, no light fixtures intruding — reserved for headline composite. Bottom-left structural zone (approx. 30% width × 15% height, below beam above floor) is clean and empty — reserved for subhead composite. A 15% clear radius around the M Factors seal keeps it isolated as the single visual full stop. No Dutch tilt, no dramatic angle, no lens distortion.\n\n[Text] Leave clean empty space at top 22% of frame (ceiling zone), no text rendered in image. Leave clean empty space at bottom-left structural zone (30% width × 15% height), no text rendered in image. No Thai or Latin text, numerals, or lettering anywhere in the generated image — all copy composited after.\n\n[Constraints] Photorealistic, real textures — no illustration, no 3D-render aesthetic, no painterly treatment. No watermark, no extra logos, no competitor marks. The structural reveal must show zero termite damage, zero rot, zero infestation — clean intact timber only; any damage imagery is strictly excluded. The M Factors seal is the only brand mark present; render it as an embossed metal hallmark, not a digital badge. Color temperature must remain warm (2900K) throughout — no cool or clinical lighting anywhere. No Dutch tilt, no horror or fear aesthetic, no dark shadows. Scan-line must read as optical/physical, not as a digital UI element or HUD graphic. Aspect ratio 1:1. Brand color reference for seal and accent: amber-gold (#C8860A). Overall mood: calm, reassuring, premium residential — never alarming.",
+  "finalPrompt": "[Intended use] Advertising image for M Factors termite protection service, single square 1:1 social/digital ad.\n\n[Scene] A wide, magazine-worthy luxury Thai residential living room interior. The right two-thirds of the scene shows the finished, styled room: a linen sofa with textured cushions, a warm floor lamp casting soft amber light, matte plaster walls, and polished timber floorboards. The left one-third of the scene is peeled back by a single vertical scan-line — positioned at the golden ratio, approximately 38% from the left edge — revealing the structural skeleton behind the wall: a rough-sawn timber beam cross-section, a plaster-lath cavity wall with visible mortar, and a structural joint at the center-left intersection. The ceiling is a clean, uninterrupted expanse of warm parchment tone occupying the top 22% of the frame. The bottom-left structural zone, below the beam and above the floor line (approximately 30% width × 15% height), is also clean and uncluttered.\n\n[Subject + idea] The hero is the luxury living room itself — beautiful, calm, and completely intact. The visual device is a single thin luminous scan-line, like the leading edge of a lightsheet activating an X-ray, that divides the room at the golden ratio: right side shows the perfect finished surface; left side reveals the structural interior — timber beams with visible grain rings, wall cavity, and structural joint. At the exact center-left intersection point where the two worlds meet, a small embossed metal hallmark seal glows in amber-gold, physically set into the beam like a craftsman's mark. The payoff is immediate and unambiguous: the hidden world beneath this beautiful home is already clean, intact, and protected — the seal is proof that an expert has already been here. The reveal is reassurance, not threat. No rot, no infestation, no damage — only safe, sound structure with a trusted specialist's mark at its core.\n\n[Details] Right side luxury zone: real linen fabric with visible weave texture on sofa and cushions; matte plaster wall with subtle surface grain; timber floorboards with warm grain catch-light. Left side structural reveal zone: rough-sawn timber beam with clearly visible annual grain rings and tool marks — not smooth-rendered, must show real wood fiber and surface texture; plaster lath or brick cavity wall with genuine mortar texture and depth. The scan-line itself is a thin luminous vertical edge — 1px amber fringe, 1px white fringe — optical and physical in feel, not digital or glowing-neon. The M Factors seal at the beam joint: embossed metal hallmark aesthetic with slight relief shadow beneath it as if physically pressed into the timber — not a flat logo stamp, reads as a craftsman's quality mark. Product identity is carried by the seal alone; no additional product packaging in scene.\n\n[Lighting] Single warm practical source — a floor lamp positioned on the right side of the room — casting soft directional light at 45 degrees across the entire scene, color temperature 2900K throughout, including inside the structural reveal zone. The beam interior and wall cavity receive the same amber warmth as the finished room — never clinical, never cool. The M Factors seal emits a contained soft ambient glow in amber-gold (#C8860A), radius no wider than 4cm in final image, no blue-white light. Soft fill wraps the timber on the structural side; slightly more defined edge-light on the timber grain to reveal material truth. No hard shadows on the structural reveal side. Overall hardness: soft and residential throughout.\n\n[Palette] Warm Parchment (#E8D5B0) dominant — walls, ceiling, linen, ambient light fill. Raw Timber (#8B6340) for the entire structural reveal zone — honest, warm, unrotted. Amber Seal (#C8860A) exclusively for the M Factors glow point and scan-line fringe. All three colors warm; zero cool deviation anywhere in the image.\n\n[Composition] Straight-on eye-level shot with a slight 5-degree upward rise — the natural standing gaze of a homeowner looking into their own living room. Framing is square 1:1. The scan-line divides the image vertically at the golden ratio (38% from left). Eye enters bottom-right through the luxury surface, travels left along the scan-line, lands on the glowing amber seal at the center-left intersection, then rests. Negative space: top 22% of frame is clean Warm Parchment ceiling with no objects, no furniture tops, no light fixtures intruding — reserved for headline composite. Bottom-left structural zone (approx. 30% width × 15% height, below beam above floor) is clean and empty — reserved for subhead composite. A 15% clear radius around the M Factors seal keeps it isolated as the single visual full stop. No Dutch tilt, no dramatic angle, no lens distortion.\n\n[Text] Leave clean empty space at top 22% of frame (ceiling zone), no text rendered in image. Leave clean empty space at bottom-left structural zone (30% width × 15% height), no text rendered in image. No Thai or Latin text, numerals, or lettering anywhere in the generated image — all copy composited after.\n\n[Constraints] Photorealistic, real textures — no illustration, no 3D-render aesthetic, no painterly treatment. No watermark, no extra logos, no competitor marks. The structural reveal must show zero termite damage, zero rot, zero infestation — clean intact timber only; any damage imagery is strictly excluded. The M Factors seal is the only brand mark present; render it as an embossed metal hallmark, not a digital badge. Color temperature must remain warm (2900K) throughout — no cool or clinical lighting anywhere. No Dutch tilt, no horror or fear aesthetic, no dark shadows. Scan-line must read as optical/physical, not as a digital UI element or HUD graphic. Aspect ratio 1:1. Brand color reference for seal and accent: amber-gold (#C8860A). Overall mood: calm, reassuring, premium residential — never alarming.",
+  "image": {
+    "localPath": "/Users/waveconvertcake/Desktop/CVC Projects/CVC-Strategist/creative-strategist-dashboard/public/generated-images/d0d8202d-9b13-451b-8318-4aee314921ef.png",
+    "localUrl": "/generated-images/d0d8202d-9b13-451b-8318-4aee314921ef.png",
+    "publicUrl": null,
+    "contentType": "image/png",
+    "extension": "png",
+    "size": "1024x1024",
+    "revisedPrompt": null
+  },
+  "visualQa": null,
+  "regeneratedFromVisualQa": false
+}

@@ -54,6 +54,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { sessionManager } from "@/lib/session-manager"
 import type { IdeaRecommendation, VisualRoute } from "@/lib/ideas/types"
 import { normalizeIdea } from "@/lib/ideas/idea-normalization"
+import { IDEA_GENERATION_FAILED_MESSAGE } from "@/lib/ideas/generation-response"
 import { getIdeaSelectionKey, VISUAL_ROUTES_BY_IDEA_STORAGE_KEY } from "@/lib/ideas/idea-storage"
 
 type ClientWithProductFocus = {
@@ -735,9 +736,12 @@ function MainContent() {
       const ideas: IdeaRecommendation[] = rawIdeas.map(normalizeIdea)
 
       if (!ideas || ideas.length === 0) {
+        stopTaskPolling()
+        setCurrentTaskId(null)
         setIsGenerating(false)
         setIsLoadingMore(false)
-        alert('No ideas returned from generator. Please try again.')
+        taskContextRef.current = null
+        alert(IDEA_GENERATION_FAILED_MESSAGE)
         return
       }
 
@@ -857,7 +861,7 @@ function MainContent() {
             setIsGenerating(false)
             setIsLoadingMore(false)
             taskContextRef.current = null
-            alert(data.error || 'Idea generation failed. Please try again.')
+            alert(data.error || IDEA_GENERATION_FAILED_MESSAGE)
             return
           }
         } catch (error) {
@@ -876,8 +880,8 @@ function MainContent() {
         setIsGenerating(false)
         setIsLoadingMore(false)
         taskContextRef.current = null
-        alert('การสร้างไอเดียใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง')
-      }, 15 * 60 * 1000) // Changed from 10 to 15 minutes
+        alert('เจนไอเดียไม่สำเร็จ: ใช้เวลาเกิน 10 นาที กรุณาลองใหม่อีกครั้ง')
+      }, 10 * 60 * 1000)
     },
     [processTaskResult, stopTaskPolling]
   )

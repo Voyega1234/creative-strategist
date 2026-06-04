@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase/server'
+import { IDEA_GENERATION_FAILED_MESSAGE, validateIdeaGenerationResult } from '@/lib/ideas/generation-response'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,21 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabase()
-    const resolvedStatus = status || (data ? 'completed' : 'failed')
+    let resolvedStatus = status || (data ? 'completed' : 'failed')
+    let resolvedError = error || ''
+
+    if (resolvedStatus === 'completed') {
+      const validation = validateIdeaGenerationResult(data)
+      if (!validation.valid) {
+        console.error('[generate-ideas][callback] Invalid completed output:', validation.reason, data)
+        resolvedStatus = 'failed'
+      }
+    }
+
+    if (resolvedStatus !== 'completed') {
+      console.error('[generate-ideas][callback] Generation failed:', resolvedError || 'Unknown n8n callback error')
+      resolvedError = IDEA_GENERATION_FAILED_MESSAGE
+    }
 
     const updatePayload: Record<string, any> = {
       status: resolvedStatus,
@@ -25,7 +40,7 @@ export async function POST(request: Request) {
       updatePayload.error = null
     } else {
       updatePayload.result = null
-      updatePayload.error = error || 'Unknown error from n8n callback'
+      updatePayload.error = resolvedError || IDEA_GENERATION_FAILED_MESSAGE
     }
 
     const { error: updateError } = await supabase
