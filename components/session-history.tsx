@@ -56,7 +56,7 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
   const [titleDraft, setTitleDraft] = useState("")
   const [selectedSession, setSelectedSession] = useState<SessionHistoryItem | null>(null)
   const [detailModalOpen, setDetailModalOpen] = useState(false)
-  const ITEMS_PER_PAGE = 5
+  const ITEMS_PER_PAGE = 50
 
   // Fast loading with caching
   const loadHistory = useCallback(async () => {
@@ -109,6 +109,11 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
     setTitleDraft(session.title || session.userInput || "Custom Ideas")
   }
 
+  const cancelRename = () => {
+    setRenamingSessionId("")
+    setTitleDraft("")
+  }
+
   const saveRename = async (session: SessionHistoryItem) => {
     const normalizedTitle = titleDraft.trim()
     if (!normalizedTitle) return
@@ -154,7 +159,7 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
           <div className="p-6 pt-2">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "recent" | "favorites")} className="mb-5">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="recent">ล่าสุด 5 รายการ</TabsTrigger>
+                <TabsTrigger value="recent">ประวัติทั้งหมด</TabsTrigger>
                 <TabsTrigger value="favorites">รายการโปรด</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -205,13 +210,21 @@ export function SessionHistory({ isOpen, onClose, activeClientName }: SessionHis
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             {renamingSessionId === session.id ? (
-                              <div className="mb-3 flex gap-2" onClick={(event) => event.stopPropagation()}>
+                              <div
+                                className="mb-3 flex gap-2"
+                                onClick={(event) => event.stopPropagation()}
+                                onBlur={(event) => {
+                                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                    cancelRename()
+                                  }
+                                }}
+                              >
                                 <Input
                                   value={titleDraft}
                                   onChange={(event) => setTitleDraft(event.target.value)}
                                   onKeyDown={(event) => {
                                     if (event.key === "Enter") void saveRename(session)
-                                    if (event.key === "Escape") setRenamingSessionId("")
+                                    if (event.key === "Escape") cancelRename()
                                   }}
                                   maxLength={100}
                                   autoFocus

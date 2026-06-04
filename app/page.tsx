@@ -42,6 +42,8 @@ import {
   Check,
   X,
   Home,
+  Star,
+  Pencil,
 } from "lucide-react"
 import { FeedbackForm } from "@/components/feedback-form"
 import { IdeaDetailModal } from "@/components/idea-detail-modal"
@@ -91,6 +93,8 @@ function MainContent() {
   const [showResults, setShowResults] = useState(false)
   const [sidebarHistory, setSidebarHistory] = useState<any[]>([])
   const [isLoadingSidebarHistory, setIsLoadingSidebarHistory] = useState(false)
+  const [renamingSidebarSessionId, setRenamingSidebarSessionId] = useState("")
+  const [sidebarSessionTitleDraft, setSidebarSessionTitleDraft] = useState("")
   const [isNavigatingToConfigure, setIsNavigatingToConfigure] = useState(false)
   const [isNavigatingToNewClient, setIsNavigatingToNewClient] = useState(false)
   const [isNavigatingToImages, setIsNavigatingToImages] = useState(false)
@@ -1148,7 +1152,7 @@ function MainContent() {
     try {
       const result = await sessionManager.getHistory({
         clientName: activeClientName,
-        limit: 5
+        limit: 10
       })
 
       if (result.success) {
@@ -1166,6 +1170,41 @@ function MainContent() {
   const handleHistoryToggle = () => {
     setIsHistoryOpen(!isHistoryOpen)
     // No need to load here since we auto-load when client changes
+  }
+
+  const toggleSidebarSessionFavorite = async (event: React.MouseEvent, session: any) => {
+    event.stopPropagation()
+    const success = await sessionManager.setFavorite(session.id, !session.isFavorite)
+    if (success) {
+      setSidebarHistory((current) =>
+        current.map((item) => (item.id === session.id ? { ...item, isFavorite: !item.isFavorite } : item)),
+      )
+    }
+  }
+
+  const startSidebarSessionRename = (event: React.MouseEvent, session: any) => {
+    event.stopPropagation()
+    setRenamingSidebarSessionId(session.id)
+    setSidebarSessionTitleDraft(session.title || session.userInput || "Custom Ideas")
+  }
+
+  const cancelSidebarSessionRename = () => {
+    setRenamingSidebarSessionId("")
+    setSidebarSessionTitleDraft("")
+  }
+
+  const saveSidebarSessionRename = async (event: React.MouseEvent | React.KeyboardEvent, session: any) => {
+    event.stopPropagation()
+    const normalizedTitle = sidebarSessionTitleDraft.trim()
+    if (!normalizedTitle) return
+    const success = await sessionManager.renameSession(session.id, normalizedTitle)
+    if (success) {
+      setSidebarHistory((current) =>
+        current.map((item) => (item.id === session.id ? { ...item, title: normalizedTitle } : item)),
+      )
+      setRenamingSidebarSessionId("")
+      setSidebarSessionTitleDraft("")
+    }
   }
 
   // Fetch client ad account data
@@ -1991,9 +2030,6 @@ function MainContent() {
                       <History className="mr-2 h-4 w-4" />
                     )}
                     ประวัติการสร้าง
-                    {!isLoadingSidebarHistory && sidebarHistory.length > 0 && (
-                      <span className="ml-1 text-xs text-[#8e8e93]">ล่าสุด {sidebarHistory.length}</span>
-                    )}
                     {isLoadingSidebarHistory && (
                       <span className="ml-1 text-xs text-[#1d4ed8]">(กำลังโหลด...)</span>
                     )}
@@ -2008,23 +2044,77 @@ function MainContent() {
                       <div className="text-[#535862] text-xs p-2">กำลังโหลด...</div>
                     ) : sidebarHistory.length > 0 ? (
                       sidebarHistory.map((session, index) => (
-                        <button
+                        <div
                           key={session.id}
                           onClick={() => loadSessionIdeas(session)}
-                          className="w-full text-left p-2 rounded-md hover:bg-[#dbeafe] hover:text-[#063def] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1 animate-in fade-in duration-1000 ease-out slide-in-from-left-10"
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault()
+                              loadSessionIdeas(session)
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          className="group w-full text-left p-2 rounded-md hover:bg-[#dbeafe] hover:text-[#063def] transition-colors text-xs text-[#535862] border border-transparent hover:border-[#b692f6] mb-1 animate-in fade-in duration-1000 ease-out slide-in-from-left-10"
                           style={{ animationDelay: `${index * 120}ms`, animationFillMode: "both" }}
                         >
-                          <div className="font-medium truncate">
-                            {session.title ||
-                            (session.selectedTemplate ?
-                              briefTemplates.find(t => t.id === session.selectedTemplate)?.title?.substring(0, 40) + '...' :
-                              session.userInput?.substring(0, 40) + '...' || 'Custom Ideas')
-                            }
-                          </div>
+                          {renamingSidebarSessionId === session.id ? (
+                            <div
+                              className="mb-2 flex gap-1"
+                              onClick={(event) => event.stopPropagation()}
+                              onBlur={(event) => {
+                                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                  cancelSidebarSessionRename()
+                                }
+                              }}
+                            >
+                              <Input
+                                value={sidebarSessionTitleDraft}
+                                onChange={(event) => setSidebarSessionTitleDraft(event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") void saveSidebarSessionRename(event, session)
+                                  if (event.key === "Escape") cancelSidebarSessionRename()
+                                }}
+                                className="h-7 text-xs"
+                                autoFocus
+                              />
+                              <Button type="button" size="sm" className="h-7 px-2 text-xs" onClick={(event) => void saveSidebarSessionRename(event, session)}>
+                                Save
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <div className="min-w-0 flex-1 truncate font-medium">
+                                {session.title ||
+                                (session.selectedTemplate ?
+                                  briefTemplates.find(t => t.id === session.selectedTemplate)?.title?.substring(0, 40) + '...' :
+                                  session.userInput?.substring(0, 40) + '...' || 'Custom Ideas')
+                                }
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(event) => startSidebarSessionRename(event, session)}
+                                className="rounded p-1 text-gray-400 opacity-0 transition hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100 focus:opacity-100"
+                                aria-label="Rename session"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => void toggleSidebarSessionFavorite(event, session)}
+                                className={`rounded p-1 text-gray-400 transition hover:bg-amber-50 hover:text-amber-500 group-hover:opacity-100 focus:opacity-100 ${
+                                  session.isFavorite ? "opacity-100" : "opacity-0"
+                                }`}
+                                aria-label={session.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                              >
+                                <Star className={`h-3.5 w-3.5 ${session.isFavorite ? "fill-amber-400 text-amber-500 opacity-100" : ""}`} />
+                              </button>
+                            </div>
+                          )}
                           <div className="text-xs text-gray-400 mt-1">
                             {session.ideasCount || 0} ideas • {session.createdAt ? new Date(session.createdAt).toLocaleDateString('th-TH') : 'Unknown date'}
                           </div>
-                        </button>
+                        </div>
                       ))
                     ) : activeClientName !== "No Client Selected" ? (
                       <div className="text-[#535862] text-xs p-2">ยังไม่มีประวัติการสร้างไอเดีย</div>
