@@ -257,9 +257,10 @@ export function AIImageGenerator({
           })
           setSelectedClientId(activeClientId)
           setSelectedProductFocus(activeProductFocus)
-        } else if (clients.length > 0) {
+        } else if (normalizedClients.length > 0) {
           // Fallback to first client if no props provided
-          const firstClient = clients[0]
+          const firstClient = normalizedClients.find((client: any) => client.existsInSystem !== false && client.productFocuses.length > 0)
+            || normalizedClients[0]
           setSelectedClientId(firstClient.id)
           if (firstClient.productFocuses.length > 0) {
             setSelectedProductFocus(firstClient.productFocuses[0].productFocus)

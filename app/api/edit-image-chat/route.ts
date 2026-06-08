@@ -211,9 +211,25 @@ function buildEditPrompt({
       "CRITICAL RULES:",
       "- Use ONLY the source image provided above as your base.",
       "- This is a RESIZE / ADAPTATION task, NOT a new image creation task.",
-      "- Do not create a new concept, new background style, new product, new logo, new text, or new layout system.",
-      "- Keep the essential message, brand identity, products, people, logos, and recognizable visual assets from the source.",
-      "- Preserve readable text content and logo identity as accurately as possible, while allowing their size, line breaks, placement, and hierarchy to adapt to the new format.",
+      "- Keep ALL essential elements from the source: products, people, objects, text, logos, CTA, background, colors, typography, style, and overall visual identity.",
+      "- Do not create, remove, replace, redraw, regenerate, reinterpret, or visually edit any existing object.",
+      "",
+      "NON-NEGOTIABLE OBJECT LOCK:",
+      "- Treat every foreground element as a locked visual object. Objects may be moved, reordered, regrouped, or uniformly scaled to fit the target layout, but their internal appearance must remain unchanged.",
+      "- Preserve each object's shape, proportions, perspective, colors, texture, lighting, details, and identity exactly as shown in the source.",
+      "- Never stretch, warp, rotate, perspective-transform, crop through, repaint, or restyle a locked object.",
+      "- Products, people, logos, icons, badges, labels, CTA blocks, and decorative elements must remain visually identical to the source.",
+      "- If an object does not fit, uniformly scale it down or move it into safe space. Never recreate or modify it.",
+      "",
+      "NON-NEGOTIABLE TEXT LOCK:",
+      "- Every existing logo, word, character, numeral, punctuation mark, URL, phone number, badge, label, and CTA must remain EXACTLY identical to the source image.",
+      "- Preserve the original language and exact spelling. This is especially strict for Thai text and mixed Thai/English text.",
+      "- Do NOT redraw, regenerate, reinterpret, translate, paraphrase, correct, replace, or invent any logo or text.",
+      "- Treat every logo and text block as a locked, immutable visual asset copied from the source, not as content to generate.",
+      "- You may only move or uniformly scale an entire locked logo/text block. Preserve its internal pixels, font shapes, colors, effects, spacing, line breaks, and proportions.",
+      "- Never stretch, warp, rotate, perspective-transform, crop, split, reflow, or restyle a locked logo/text block.",
+      "- If a locked logo/text block does not fit, uniformly scale it down or move it into safe space. Never recreate it.",
+      "- It is better to leave extra whitespace or use a simpler composition than to alter any locked object, character, or logo detail.",
       referenceCount > 0
         ? "- Reference images are secondary guidance only for safe framing or style continuity. The source image remains the base."
         : "",
@@ -227,21 +243,19 @@ function buildEditPrompt({
       `Target Image Size: ${outputImageSize}`,
       "",
       "HOW TO RESIZE:",
-      `- Redesign the spatial layout to fit the full ${requestedAspectRatio || outputAspectRatio} canvas while preserving the same creative concept and assets.`,
-      "- Treat this as responsive ad-layout adaptation: redistribute the headline, supporting text, logo, CTA, product, and visual subject across the new canvas.",
+      `- Adapt the composition to fit the full ${requestedAspectRatio || outputAspectRatio} canvas while preserving every locked object.`,
+      "- Reposition and uniformly scale locked objects as complete intact units to create a balanced responsive layout.",
       "- The original aspect-ratio boundary must disappear. Do NOT place the original square or portrait design as a visible card, panel, frame, or grouped block on one side.",
       "- Do NOT leave all text and key elements clustered in their original 1:1 area while merely extending empty background beside it.",
       "- Use the newly available width or height meaningfully. Maintain balanced whitespace, clear hierarchy, readable text, and intentional alignment across the whole composition.",
-      "- Scale, crop, reposition, regroup, or reflow elements when needed so the result feels designed specifically for the target format.",
-      "- Adapt typography responsively: adjust font size, line breaks, text-block width, alignment, and spacing to remain readable and balanced in the target format.",
       "- If more space is needed, intelligently extend the existing background while preserving the same visual style, lighting, grain, gradients, and color behavior.",
-      "- If less space is available, crop smartly while keeping the main subject, important text, logos, product, and CTA-safe visual hierarchy inside the safe area.",
-      "- Reposition and resize layout elements as needed for the new format, while preserving their content, identity, and relative visual importance.",
-      "- Maintain image quality, sharpness, realistic shadows, and natural edges.",
-      "- Proportional scaling and perspective-aware adaptation are allowed. Avoid only accidental-looking distortion, unreadable typography, or damage to recognizable brand/product identity.",
+      "- If less space is available, crop only the background. Keep every locked foreground object fully visible inside the safe area.",
+      "- Preserve all visual elements, colors, typography, style, image quality, and sharpness.",
       "",
       "OUTPUT:",
-      `The source image professionally recomposed for ${requestedAspectRatio || outputAspectRatio}, using the full canvas as one cohesive ad layout.`,
+      `The source image resized to ${requestedAspectRatio || outputAspectRatio}, looking as close to the original as possible while fitting the new dimensions.`,
+      "Before returning the image, compare every locked object, logo, and text block against the source. If anything changed internally, restore the exact original object.",
+      "Preserving locked objects and text exactly has higher priority than layout creativity.",
       "Return only the final adapted image.",
     ].join("\n")
   }
@@ -308,7 +322,7 @@ export async function POST(request: Request) {
           getClosestGeminiAspectRatio(requestedAspectRatio) ||
           normalizeChoice(body.output_aspect_ratio, GEMINI_ASPECT_RATIOS, "1:1")
         : ""
-    const outputImageSize = operation === "resize" ? normalizeChoice(body.output_image_size, GEMINI_IMAGE_SIZES, "1K") : ""
+    const outputImageSize = normalizeChoice(body.output_image_size, GEMINI_IMAGE_SIZES, "2K")
 
     if (!GEMINI_API_KEY) {
       return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
@@ -400,14 +414,10 @@ export async function POST(request: Request) {
           ],
           generationConfig: {
             responseModalities: ["TEXT", "IMAGE"],
-            ...(operation === "resize"
-              ? {
-                  imageConfig: {
-                    aspectRatio: outputAspectRatio,
-                    imageSize: outputImageSize,
-                  },
-                }
-              : {}),
+            imageConfig: {
+              ...(operation === "resize" ? { aspectRatio: outputAspectRatio } : {}),
+              imageSize: outputImageSize,
+            },
           },
         }),
       },
@@ -442,13 +452,10 @@ export async function POST(request: Request) {
       image_data_url: `data:${mimeType};base64,${imageBase64}`,
       mime_type: mimeType,
       model: GEMINI_IMAGE_MODEL,
-      image_config:
-        operation === "resize"
-          ? {
-              aspectRatio: outputAspectRatio,
-              imageSize: outputImageSize,
-            }
-          : null,
+      image_config: {
+        ...(operation === "resize" ? { aspectRatio: outputAspectRatio } : {}),
+        imageSize: outputImageSize,
+      },
       prompt,
     })
   } catch (error) {

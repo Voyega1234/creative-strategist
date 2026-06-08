@@ -10,20 +10,13 @@ import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { SessionHistory } from "@/components/session-history"
 // import { cachedApiCall } from "@/lib/utils/cache"
+import type { ClientWithProductFocus } from "@/lib/client-options"
+import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
 
 type AppSidebarProps = {
   activeClientId: string | null
   activeClientName: string | null
   activeProductFocus: string | null
-}
-
-type ClientWithProductFocus = {
-  id: string
-  clientName: string
-  productFocuses: Array<{
-    id: string
-    productFocus: string
-  }>
 }
 
 export function AppSidebar({ activeClientId, activeClientName, activeProductFocus }: AppSidebarProps) {
@@ -87,8 +80,15 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
           >
             {clients.map((client) => (
               <DropdownMenuItem key={client.id} asChild>
-                <Link href={`${currentPath}?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}`}>
-                  {client.clientName}
+                <Link
+                  href={
+                    clientExistsInSystem(client)
+                      ? `${currentPath}?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}`
+                      : buildMissingClientOnboardingUrl(client.clientName)
+                  }
+                  className={clientExistsInSystem(client) ? undefined : "text-[#a0a5b1]"}
+                >
+                  <span>{client.clientName}</span>
                 </Link>
               </DropdownMenuItem>
             ))}
@@ -206,7 +206,7 @@ export function AppSidebar({ activeClientId, activeClientName, activeProductFocu
       <SessionHistory
         isOpen={historyModalOpen}
         onClose={() => setHistoryModalOpen(false)}
-        activeClientName={activeClientName}
+        activeClientName={activeClientName ?? undefined}
       />
     </div>
   )

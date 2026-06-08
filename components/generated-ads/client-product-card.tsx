@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Check, ChevronsUpDown, Loader2, Plus, Target } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
 
 interface ClientProductOption {
   id: string
@@ -23,6 +25,7 @@ interface ClientProductOption {
   productFocuses: Array<{
     productFocus: string
   }>
+  existsInSystem?: boolean
 }
 
 interface ClientProductCardProps {
@@ -52,6 +55,7 @@ export function ClientProductCard({
   onClearClient,
   onClearProductFocus,
 }: ClientProductCardProps) {
+  const router = useRouter()
   const selectedClientProductFocuses =
     clients.find((client) => client.id === selectedClientId)?.productFocuses || []
 
@@ -118,16 +122,33 @@ export function ClientProductCard({
                             <CommandItem
                               key={client.id}
                               value={client.clientName}
-                              onSelect={() => onClientChange(client.id)}
+                              onSelect={() => {
+                                if (!clientExistsInSystem(client)) {
+                                  onClientPopoverOpenChange(false)
+                                  router.push(buildMissingClientOnboardingUrl(client.clientName))
+                                  return
+                                }
+
+                                onClientChange(client.id)
+                              }}
                               className="flex items-center justify-between px-3 py-2"
                             >
-                              <span>{client.clientName}</span>
-                              <Check
+                              <span
                                 className={cn(
-                                  "h-4 w-4 text-slate-900",
-                                  selectedClientId === client.id ? "opacity-100" : "opacity-0",
+                                  "truncate",
+                                  clientExistsInSystem(client) ? "text-slate-900" : "text-slate-400",
                                 )}
-                              />
+                              >
+                                {client.clientName}
+                              </span>
+                              {clientExistsInSystem(client) && (
+                                <Check
+                                  className={cn(
+                                    "h-4 w-4 shrink-0 text-slate-900",
+                                    selectedClientId === client.id ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                              )}
                             </CommandItem>
                           ))}
                         </CommandGroup>

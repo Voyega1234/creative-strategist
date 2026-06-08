@@ -605,6 +605,7 @@ export function ImageEditChatPanel({
             instruction: message.trim(),
             operation: aspectRatio ? "resize" : undefined,
             output_aspect_ratio: aspectRatio,
+            output_image_size: "2K",
             mask_bounds: aspectRatio ? null : maskBounds,
             reference_image_urls: referenceUrls,
             material_image_urls: materialUrls,
@@ -960,6 +961,30 @@ export function ImageEditChatPanel({
               <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setAssetDialogOpen(true)}>
                 Manage images
               </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                ...referenceAssets.map((asset) => ({ ...asset, kind: "Reference" as const })),
+                ...materialAssets.map((asset) => ({ ...asset, kind: "Material" as const })),
+              ].map((asset) => (
+                <button
+                  key={`${asset.kind}-${asset.id}`}
+                  type="button"
+                  title={`${asset.kind}: ${asset.name}`}
+                  onClick={() => setAssetDialogOpen(true)}
+                  className="group relative h-12 w-12 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 transition hover:border-slate-400"
+                >
+                  <img src={asset.previewUrl} alt={`${asset.kind}: ${asset.name}`} className="h-full w-full object-cover" />
+                  <span
+                    className={cn(
+                      "absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-[8px] font-semibold text-white",
+                      asset.kind === "Reference" ? "bg-indigo-600/90" : "bg-emerald-600/90",
+                    )}
+                  >
+                    {asset.kind}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         ) : null}
@@ -1319,6 +1344,14 @@ export function ImageEditChatPanel({
                     {[...referenceAssets.map((asset) => ({ ...asset, kind: "reference" as const })), ...materialAssets.map((asset) => ({ ...asset, kind: "material" as const }))].map((asset) => (
                       <div key={`${asset.kind}-${asset.id}`} className="relative h-14 w-14 overflow-hidden rounded-xl border border-slate-200">
                         <img src={asset.previewUrl} alt={asset.name} className="h-full w-full object-cover" />
+                        <span
+                          className={cn(
+                            "absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-center text-[8px] font-semibold text-white",
+                            asset.kind === "reference" ? "bg-indigo-600/90" : "bg-emerald-600/90",
+                          )}
+                        >
+                          {asset.kind === "reference" ? "Reference" : "Material"}
+                        </span>
                         <button
                           type="button"
                           onClick={() => removeAsset(asset.id, asset.kind)}

@@ -10,15 +10,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock, Home } from "lucide-react"
 import { SavedIdeas } from "./saved-ideas"
-
-type ClientWithProductFocus = {
-  id: string
-  clientName: string
-  productFocuses: Array<{
-    id: string
-    productFocus: string
-  }>
-}
+import type { ClientWithProductFocus } from "@/lib/client-options"
+import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
 
 type SidebarMode = "configure" | "images"
 
@@ -88,6 +81,10 @@ export function MainSidebar({
   }
 
   const buildClientUrl = (client: ClientWithProductFocus) => {
+    if (!clientExistsInSystem(client)) {
+      return buildMissingClientOnboardingUrl(client.clientName)
+    }
+
     if (mode === "images") {
       const firstFocus = client.productFocuses[0]
       const params = new URLSearchParams()
@@ -201,20 +198,27 @@ export function MainSidebar({
                   {hasClientResults ? (
                     filteredClients.map((client) => (
                       <div key={client.id} className="space-y-1">
+                        {(() => {
+                          const existsInSystem = clientExistsInSystem(client)
+
+                          return (
+                            <>
                         {/* Client name - always show, highlight if active */}
                         <Link
                           href={buildClientUrl(client)}
                           className={`block text-sm py-1 px-2 rounded-md font-medium ${
                             client.clientName === activeClientName
                               ? 'text-[#063def] bg-[#dbeafe]'
-                              : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
+                              : existsInSystem
+                                ? 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
+                                : 'text-[#a0a5b1] hover:text-[#8e8e93] hover:bg-[#f5f5f5]'
                           }`}
                         >
-                          {client.clientName}
+                          <span className="block truncate">{client.clientName}</span>
                         </Link>
                         
                         {/* Show product focus select ONLY for the selected/active client */}
-                        {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
+                        {existsInSystem && client.clientName === activeClientName && client.productFocuses.length >= 1 && (
                           <>
                             <div className="ml-4 mt-2 mb-2">
                               <Select
@@ -265,6 +269,9 @@ export function MainSidebar({
                             )}
                           </>
                         )}
+                            </>
+                          )
+                        })()}
                       </div>
                     ))
                   ) : (
@@ -360,7 +367,7 @@ export function MainSidebar({
         isOpen={savedIdeasModalOpen}
         onClose={() => setSavedIdeasModalOpen(false)}
         activeClientName={activeClientName}
-        activeProductFocus={activeProductFocus}
+        activeProductFocus={activeProductFocus ?? undefined}
         onViewDetails={() => {
           // Close modal when viewing details
           setSavedIdeasModalOpen(false)

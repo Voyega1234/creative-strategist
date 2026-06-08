@@ -8,20 +8,13 @@ import { ChevronUp, Plus, User, ArrowLeft, Settings, Images } from "lucide-react
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { LoadingPopup } from "@/components/loading-popup"
+import type { ClientWithProductFocus } from "@/lib/client-options"
+import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
 
 type ConfigureSidebarProps = {
   activeClientId: string | null
   activeClientName: string | null
   activeProductFocus: string | null
-}
-
-type ClientWithProductFocus = {
-  id: string
-  clientName: string
-  productFocuses: Array<{
-    id: string
-    productFocus: string
-  }>
 }
 
 export function ConfigureSidebar({ activeClientId, activeClientName, activeProductFocus }: ConfigureSidebarProps) {
@@ -107,6 +100,10 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
                         {/* Client name - always show, highlight if active */}
                         <button
                           onClick={() => {
+                            if (!clientExistsInSystem(client)) {
+                              window.location.href = buildMissingClientOnboardingUrl(client.clientName)
+                              return
+                            }
                             const productFocus = client.productFocuses[0]?.productFocus
                             const url = `/configure?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}${productFocus ? `&productFocus=${encodeURIComponent(productFocus)}` : ''}`
                             console.log('🔄 Navigating to configure page:', url)
@@ -115,14 +112,16 @@ export function ConfigureSidebar({ activeClientId, activeClientName, activeProdu
                           className={`block w-full text-left text-sm py-1 px-2 rounded-md font-medium ${
                             client.clientName === activeClientName
                               ? 'text-[#063def] bg-[#dbeafe]'
-                              : 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
+                              : clientExistsInSystem(client)
+                                ? 'text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]'
+                                : 'text-[#a0a5b1] hover:text-[#8e8e93] hover:bg-[#f5f5f5]'
                           }`}
                         >
-                          {client.clientName}
+                          <span className="block truncate">{client.clientName}</span>
                         </button>
                         
                         {/* Show product focuses ONLY for the selected/active client */}
-                        {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
+                        {clientExistsInSystem(client) && client.clientName === activeClientName && client.productFocuses.length >= 1 && (
                           <div className="ml-4 space-y-1 mb-2">
                             {client.productFocuses.map((pf) => (
                               <button

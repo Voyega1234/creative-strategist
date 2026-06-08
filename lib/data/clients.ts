@@ -1,5 +1,7 @@
 import { getSupabase } from "@/lib/supabase/server"
 import { cachedQuery } from "@/lib/utils/server-cache"
+import type { ClientWithProductFocus } from "@/lib/client-options"
+import { getMappingClients, mergeMappingClients } from "@/lib/data/mapping-clients"
 
 // Type for client list, based on Clients table
 export type ClientListItem = {
@@ -32,16 +34,6 @@ export async function getClients(): Promise<ClientListItem[]> {
 
     return uniqueClients || []
   }, 60 * 1000)
-}
-
-// Type for client with product focuses
-export type ClientWithProductFocus = {
-  id: string
-  clientName: string
-  productFocuses: Array<{
-    id: string
-    productFocus: string
-  }>
 }
 
 // Get clients with their product focuses
@@ -84,6 +76,9 @@ export async function getClientsWithProductFocus(): Promise<ClientWithProductFoc
       }
     })
 
-    return Array.from(clientsMap.values())
+    const systemClients = Array.from(clientsMap.values())
+    const mappingClients = await getMappingClients()
+
+    return mergeMappingClients(systemClients, mappingClients)
   }, 60 * 1000)
 }

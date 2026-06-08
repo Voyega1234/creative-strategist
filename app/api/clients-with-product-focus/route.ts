@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server';
+import { getMappingClients, mergeMappingClients } from '@/lib/data/mapping-clients';
+import { invalidateCache } from '@/lib/utils/server-cache';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -99,7 +101,13 @@ export async function GET() {
       });
     });
 
-    const clients = Array.from(clientsMap.values());
+    const systemClients = Array.from(clientsMap.values()).map((client: any) => ({
+      ...client,
+      existsInSystem: true,
+      source: 'system' as const
+    }));
+    const mappingClients = await getMappingClients();
+    const clients = mergeMappingClients(systemClients, mappingClients);
     
     // Cache the result
     clientsCache = clients;
@@ -129,6 +137,8 @@ export async function POST() {
   try {
     clientsCache = null;
     cacheTimestamp = 0;
+    invalidateCache('clients');
+    invalidateCache('mapping-clients');
     console.log('[clients-with-product-focus] Cache cleared successfully');
     return NextResponse.json({ success: true, message: 'Cache cleared' });
   } catch (error) {

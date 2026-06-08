@@ -15,6 +15,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+text-to-image-code/output/
+text-to-image-code/logs/
 
 # env files
 .env*

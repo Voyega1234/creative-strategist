@@ -1,0 +1,10 @@
+{
+  "client": "Example Brand",
+  "prompt": "Create a promotional ad image for a new product launch.",
+  "userBrief": "Clean, modern, readable, youth-oriented.",
+  "reference_image_urls": [],
+  "material_image_urls": [],
+  "aspect_ratio": "4:5",
+  "color_palette": ["#111111", "#ffffff"],
+  "use_brand_identity": true
+}

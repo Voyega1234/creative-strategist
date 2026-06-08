@@ -29,6 +29,8 @@ export default function NewClientPage() {
   const [showProductFocusTooltip, setShowProductFocusTooltip] = useState(false)
   const [showOptionalFields, setShowOptionalFields] = useState(false)
   const [isNavigatingToClient, setIsNavigatingToClient] = useState(false)
+  const [prefilledClientName, setPrefilledClientName] = useState("")
+  const [fromMapping, setFromMapping] = useState(false)
   
   const router = useRouter()
 
@@ -78,6 +80,22 @@ export default function NewClientPage() {
     }
     fetchClients()
   }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setPrefilledClientName((params.get("clientName") || "").trim())
+    setFromMapping(params.get("fromMapping") === "1")
+  }, [])
+
+  useEffect(() => {
+    if (!prefilledClientName) return
+
+    setFormData((prev) => ({
+      ...prev,
+      clientName: prev.clientName || prefilledClientName,
+    }))
+    setShowOptionalFields(true)
+  }, [prefilledClientName])
 
   const validateAndFormatAdAccountId = (adAccountId: string): string | null => {
     if (!adAccountId.trim()) return null
@@ -345,6 +363,12 @@ export default function NewClientPage() {
 
               <TabsContent value="new-client">
                 <div className="space-y-6">
+                  {fromMapping && prefilledClientName && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      พบรายชื่อ <span className="font-semibold">{prefilledClientName}</span> จาก Mapping sheet แต่ยังไม่มีข้อมูลใน Creative Compass กรุณากรอก Facebook Page URL เพื่อเริ่มวิเคราะห์และสร้างข้อมูลเข้าระบบ
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-[#535862] mb-1.5">
                       Facebook Page URL <span className="text-red-500">*</span>

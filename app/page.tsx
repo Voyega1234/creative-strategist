@@ -58,15 +58,8 @@ import type { IdeaRecommendation, VisualRoute } from "@/lib/ideas/types"
 import { normalizeIdea } from "@/lib/ideas/idea-normalization"
 import { IDEA_GENERATION_FAILED_MESSAGE } from "@/lib/ideas/generation-response"
 import { getIdeaSelectionKey, VISUAL_ROUTES_BY_IDEA_STORAGE_KEY } from "@/lib/ideas/idea-storage"
-
-type ClientWithProductFocus = {
-  id: string
-  clientName: string
-  productFocuses: Array<{
-    id: string
-    productFocus: string
-  }>
-}
+import type { ClientWithProductFocus } from "@/lib/client-options"
+import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
 
 // Client component that uses useSearchParams
 function MainContent() {
@@ -1306,6 +1299,9 @@ function MainContent() {
   // Handle product focus selection
   const handleProductFocusChange = (clientName: string, productFocusValue: string) => {
     const selectedClient = clients.find(client => client.clientName === clientName)
+    if (!selectedClient || !clientExistsInSystem(selectedClient)) {
+      return
+    }
     const selectedProductFocus = selectedClient?.productFocuses.find(pf => pf.productFocus === productFocusValue)
     
     if (selectedClient && selectedProductFocus) {
@@ -1872,32 +1868,45 @@ function MainContent() {
                     {orderedClients.length > 0 ? (
                       orderedClients.map((client) => (
                         <div key={client.id} className="space-y-1">
+                          {(() => {
+                            const existsInSystem = clientExistsInSystem(client)
+
+                            return (
+                              <>
                           {/* Client name - always show, highlight if active */}
                           {isGenerating ? (
                             <div
                               className={`block text-sm py-1 px-2 rounded-md font-medium cursor-not-allowed ${
                                 client.clientName === activeClientName
                                   ? "text-[#063def] bg-[#dbeafe]"
-                                  : "text-[#535862]"
+                                  : existsInSystem
+                                    ? "text-[#535862]"
+                                    : "text-[#a0a5b1]"
                               }`}
                             >
-                              {client.clientName}
+                              <span className="block truncate">{client.clientName}</span>
                             </div>
                           ) : (
                             <Link
-                              href={`?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || "")}`}
+                              href={
+                                existsInSystem
+                                  ? `?clientId=${client.productFocuses[0]?.id || client.id}&clientName=${encodeURIComponent(client.clientName)}&productFocus=${encodeURIComponent(client.productFocuses[0]?.productFocus || "")}`
+                                  : buildMissingClientOnboardingUrl(client.clientName)
+                              }
                               className={`block text-sm py-1 px-2 rounded-md font-medium ${
                                 client.clientName === activeClientName
                                   ? "text-[#063def] bg-[#dbeafe]"
-                                  : "text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]"
+                                  : existsInSystem
+                                    ? "text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]"
+                                    : "text-[#a0a5b1] hover:text-[#8e8e93] hover:bg-[#f5f5f5]"
                               }`}
                             >
-                              {client.clientName}
+                              <span className="block truncate">{client.clientName}</span>
                             </Link>
                           )}
 
                           {/* Show product focus select ONLY for the selected/active client */}
-                          {client.clientName === activeClientName && client.productFocuses.length >= 1 && (
+                          {existsInSystem && client.clientName === activeClientName && client.productFocuses.length >= 1 && (
                             <>
                               <div className="ml-4 mt-2 mb-2">
                                 <Select
@@ -2005,6 +2014,9 @@ function MainContent() {
                               </div>
                             </>
                           )}
+                              </>
+                            )
+                          })()}
                         </div>
                       ))
                     ) : (
