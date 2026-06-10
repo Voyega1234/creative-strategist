@@ -69,4 +69,16 @@ export const AD_STYLE_OPTIONS = [
     userBrief:
       "Create a premium mixed-media campaign ad that blends photography and graphic design intentionally, with layered framing, text integrated into the composition, and a distinctive brand-ownable visual system.",
   },
+  {
+    value: "page-reference-match",
+    label: "Match Page Style",
+    previewImage: "/style-previews/mixed-media-campaign.svg",
+    hoverDescription:
+      "ดึงโฆษณาแบบรูปภาพจาก Facebook Ads Library ของแบรนด์มาเป็น reference แล้วสุ่มใช้ 2-3 รูปเพื่อให้ภาพใหม่เข้ากับสไตล์โฆษณา.",
+    userBrief:
+      "Match the visual style, color treatment, mood, composition, and overall art direction of the brand's existing Facebook page posts shown in the provided reference images, while keeping the new ad on-brief.",
+  },
 ] as const
+
+// Special style that scrapes the brand's Facebook page and uses random scraped posts as references.
+export const PAGE_REFERENCE_STYLE_VALUE = "page-reference-match"

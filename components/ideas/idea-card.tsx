@@ -13,6 +13,7 @@ interface IdeaCardProps {
   topic: IdeaRecommendation
   index: number
   isSaved: boolean
+  showVisualRoutePreview?: boolean
   onDetailClick: (topic: IdeaRecommendation) => void
   onSaveClick: (topic: IdeaRecommendation, index: number) => void
   onFeedback: (topic: IdeaRecommendation, type: "good" | "bad") => void
@@ -23,6 +24,7 @@ export const IdeaCard = memo(function IdeaCard({
   topic,
   index,
   isSaved,
+  showVisualRoutePreview = true,
   onDetailClick,
   onSaveClick,
   onFeedback,
@@ -125,7 +127,7 @@ export const IdeaCard = memo(function IdeaCard({
               {topic.concept_idea}
             </p>
           )}
-          {activeRoute && (
+          {showVisualRoutePreview && activeRoute && (
             <div className="mt-4 rounded-xl border border-[#e4e7ec] bg-[#fbfcfe] p-3 transition-all">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#667085]">

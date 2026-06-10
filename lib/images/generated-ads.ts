@@ -65,6 +65,8 @@ export type GeneratedAdRequestParams = {
   adStyleLabel?: string | null
   userBrief?: string | null
   aspectRatio: string
+  creativeFormat?: string
+  creativeFormatLabel?: string
 }
 
 const GENERATED_IMAGES_STORAGE_PREFIX = "cvc_generated_images"
@@ -114,7 +116,14 @@ export function saveGeneratedImagesToStorage(storageKey: string, images: Generat
 
   try {
     const persistedImages = images
-      .filter((image) => image.status === "completed" && image.url)
+      // Only persist remote (http/https) URLs. Never store data:/blob: URLs — base64 images blow
+      // the localStorage quota and don't survive a reload anyway.
+      .filter(
+        (image) =>
+          image.status === "completed" &&
+          typeof image.url === "string" &&
+          /^https?:\/\//.test(image.url),
+      )
       .slice(0, MAX_STORED_GENERATED_IMAGES)
 
     if (persistedImages.length === 0) {
@@ -186,6 +195,8 @@ export function buildGeneratedAdRequestPayload(params: GeneratedAdRequestParams)
     material_image_urls: params.materialImageUrls,
     ad_style: params.adStyleLabel || null,
     user_brief: params.userBrief || null,
+    creative_format: params.creativeFormat || null,
+    creative_format_label: params.creativeFormatLabel || null,
     aspect_ratio: params.aspectRatio,
     image_count: 1,
   }

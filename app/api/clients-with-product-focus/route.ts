@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server';
 import { getMappingClients, mergeMappingClients } from '@/lib/data/mapping-clients';
 import { invalidateCache } from '@/lib/utils/server-cache';
+import type { ClientWithProductFocus } from '@/lib/client-options';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,7 +10,7 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 // In-memory cache for clients data with better structure
-let clientsCache: any = null;
+let clientsCache: ClientWithProductFocus[] | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minute cache
 const MAX_CACHE_AGE = 300000; // 5 minutes max before forced refresh
@@ -49,13 +50,13 @@ export async function GET() {
     }
 
     // OPTIMIZED: Ultra-fast grouping with Set for deduplication
-    const clientsMap = new Map();
-    const seenProducts = new Set();
+    const clientsMap = new Map<string, ClientWithProductFocus>();
+    const seenProducts = new Set<string>();
     
     const sanitizeColorValue = (value: string) =>
       value.replace(/[^0-9a-fA-F]/g, "").substring(0, 6).toUpperCase()
 
-    const parseColorPalette = (paletteValue: any): string[] => {
+    const parseColorPalette = (paletteValue: unknown): string[] => {
       if (!paletteValue) return []
       if (Array.isArray(paletteValue))
         return paletteValue
@@ -86,22 +87,30 @@ export async function GET() {
       if (seenProducts.has(productKey)) return;
       seenProducts.add(productKey);
       
+      const rowColorPalette = parseColorPalette(row.color_palette)
+
       if (!clientsMap.has(row.clientName)) {
         clientsMap.set(row.clientName, {
           id: row.id,
           clientName: row.clientName,
           productFocuses: [],
-          colorPalette: parseColorPalette(row.color_palette)
+          colorPalette: rowColorPalette
         });
       }
+
+      const client = clientsMap.get(row.clientName)
+      if (client && (client.colorPalette?.length || 0) === 0 && rowColorPalette.length > 0) {
+        client.colorPalette = rowColorPalette;
+      }
       
-      clientsMap.get(row.clientName).productFocuses.push({
+      client?.productFocuses.push({
         id: row.id,
-        productFocus: row.productFocus
+        productFocus: row.productFocus,
+        colorPalette: rowColorPalette
       });
     });
 
-    const systemClients = Array.from(clientsMap.values()).map((client: any) => ({
+    const systemClients = Array.from(clientsMap.values()).map((client) => ({
       ...client,
       existsInSystem: true,
       source: 'system' as const

@@ -270,7 +270,23 @@ async function resizeWithGemini({
   return geminiImage
 }
 
-function buildPreservePrompt(critique: CritiquePayload) {
+function buildReferenceGuidance(mode: EnhanceMode) {
+  const modeGuidance =
+    mode === "preserve"
+      ? "For this preserve pass, keep the source composition and identity authoritative. Apply only compatible visual finish cues from the reference."
+      : "For this reimagine pass, you may translate the reference's visual principles into a new composition, but the source image's subject, product identity, message, and required content remain authoritative."
+
+  return [
+    "Two images are provided in this order: IMAGE 1 is the source image to enhance. IMAGE 2 is an optional visual reference.",
+    "Use IMAGE 2 only as advisory visual direction for mood, lighting quality, color treatment, material finish, composition rhythm, depth, and overall craft level.",
+    modeGuidance,
+    "Do not replace the source subject with the reference subject. Do not copy or import products, people, faces, logos, brand marks, text, claims, prices, props, or distinctive objects from the reference.",
+    "Do not blend the two images literally. Extract visual principles from the reference and apply them selectively where they improve IMAGE 1.",
+    "If the reference conflicts with the source image, the source image and the user's requested edit always win.",
+  ].join(" ")
+}
+
+function buildPreservePrompt(critique: CritiquePayload, hasReference: boolean) {
   const spellCheckGuidance = buildSpellCheckGuidance(critique)
 
   return [
@@ -288,12 +304,13 @@ function buildPreservePrompt(critique: CritiquePayload) {
     "Preserve all existing text, typography, pricing, product names, badges, promotional labels, logo placement, and graphic overlays from the source image.",
     "If text styling needs cleanup, re-typeset it cleanly while keeping the same meaning, offer, and hierarchy.",
     spellCheckGuidance,
+    hasReference ? buildReferenceGuidance("preserve") : "",
     "Do not make it look like a new campaign route.",
     "The result should feel like the same image, only improved slightly.",
   ].filter(Boolean).join(" ")
 }
 
-function buildReimaginePrompt(critique: CritiquePayload) {
+function buildReimaginePrompt(critique: CritiquePayload, hasReference: boolean) {
   const spellCheckGuidance = buildSpellCheckGuidance(critique)
 
   return [
@@ -314,6 +331,7 @@ function buildReimaginePrompt(critique: CritiquePayload) {
     "Typography is important. Rebuild the ad layout so the text feels intentionally designed, readable, persuasive, and integrated with the image.",
     "Do not remove or forget the source image's key product details, prices, or promotional information.",
     spellCheckGuidance,
+    hasReference ? buildReferenceGuidance("reimagine") : "",
     "The result should feel like a better advertising idea built from the same original asset, not a random style experiment.",
   ].filter(Boolean).join(" ")
 }
@@ -322,6 +340,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const imageUrl = typeof body?.image_url === "string" ? body.image_url.trim() : ""
+    const referenceImageUrl =
+      typeof body?.reference_image_url === "string" ? body.reference_image_url.trim() : ""
     const userNotes = typeof body?.user_notes === "string" ? body.user_notes.trim() : ""
     const sourceWidth = typeof body?.source_width === "number" ? body.source_width : Number(body?.source_width)
     const sourceHeight = typeof body?.source_height === "number" ? body.source_height : Number(body?.source_height)
@@ -343,7 +363,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "OPENAI_API_KEY ไม่ได้ถูกตั้งค่า" }, { status: 500 })
     }
 
-    const basePrompt = mode === "preserve" ? buildPreservePrompt(critique) : buildReimaginePrompt(critique)
+    const basePrompt =
+      mode === "preserve"
+        ? buildPreservePrompt(critique, Boolean(referenceImageUrl))
+        : buildReimaginePrompt(critique, Boolean(referenceImageUrl))
     const prompt = userNotes
       ? `${basePrompt} Additional team direction to follow: ${userNotes}`
       : basePrompt
@@ -361,7 +384,10 @@ export async function POST(request: Request) {
     const endpoint = OPENAI_EDITS_ENDPOINT
     const bodyPayload = {
       model: OPENAI_IMAGE_MODEL,
-      images: [{ image_url: imageUrl }],
+      images: [
+        { image_url: imageUrl },
+        ...(referenceImageUrl ? [{ image_url: referenceImageUrl }] : []),
+      ],
       prompt,
       size: requestedOpenAiSize,
     }
@@ -450,6 +476,7 @@ export async function POST(request: Request) {
       output_aspect_ratio: finalAspectRatio || expectedAspectRatio,
       requested_openai_size: requestedOpenAiSize,
       final_image_size: needsFinalGeminiResize ? DEFAULT_FINAL_IMAGE_SIZE : null,
+      reference_used: Boolean(referenceImageUrl),
     })
   } catch (error) {
     console.error("[enhance-generate] Unexpected error:", error)

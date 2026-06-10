@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { getStorageClient } from "@/lib/supabase/client"
 import type { ReferenceImage } from "@/lib/images/generated-ads"
+import { loadClientReferenceImages, uploadClientReferenceFiles } from "@/lib/images/reference-library"
 
 const MAX_REFERENCE_SELECTION = 5
 
@@ -12,6 +13,8 @@ interface UseGeneratedAdAssetsParams {
   selectedProductFocus: string
   clientColorPalette?: string[]
   onClientColorPaletteSaved: (clientId: string, colorPalette: string[]) => void
+  loadAssets?: boolean
+  loadReferences?: boolean
 }
 
 export function useGeneratedAdAssets({
@@ -19,6 +22,8 @@ export function useGeneratedAdAssets({
   selectedProductFocus,
   clientColorPalette,
   onClientColorPaletteSaved,
+  loadAssets = true,
+  loadReferences = true,
 }: UseGeneratedAdAssetsParams) {
   const materialInputRef = useRef<HTMLInputElement | null>(null)
   const referenceInputRef = useRef<HTMLInputElement | null>(null)
@@ -38,6 +43,11 @@ export function useGeneratedAdAssets({
   useEffect(() => {
     setColorPalette(clientColorPalette || [])
   }, [clientColorPalette, selectedClientId])
+
+  useEffect(() => {
+    setSelectedMaterials([])
+    setSelectedReferenceImages([])
+  }, [selectedClientId, selectedProductFocus])
 
   const loadMaterialImages = useCallback(async (clientId: string) => {
     try {
@@ -103,80 +113,38 @@ export function useGeneratedAdAssets({
 
   const loadReferenceImages = useCallback(async () => {
     try {
-      console.log("🔄 Starting to load reference images...")
       setLoadingReferenceImages(true)
-      const storageClient = getStorageClient()
-
-      if (!storageClient) {
-        console.error("❌ Storage client not available")
-        return
-      }
-
-      console.log("🔍 Fetching files from Supabase storage...")
-      const { data: files, error } = await storageClient.from("ads-creative-image").list("references/", {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: "name", order: "desc" },
-      })
-
-      console.log("📊 Supabase storage response:", {
-        filesCount: files?.length || 0,
-        error: error?.message || "No error",
-        files:
-          files?.map((file) => ({
-            name: file.name,
-            size: file.metadata?.size,
-            created_at: file.created_at,
-          })) || [],
-      })
-
-      if (error) {
-        console.error("Error loading reference images:", error)
-        return
-      }
-
-      if (!files || files.length === 0) {
-        console.log("No reference images found")
-        setReferenceImages([])
-        return
-      }
-
-      const imagePromises = files.map(async (file) => {
-        const { data: urlData } = storageClient.from("ads-creative-image").getPublicUrl(`references/${file.name}`)
-
-        return {
-          name: file.name,
-          url: urlData.publicUrl,
-          size: file.metadata?.size || 0,
-          created_at: file.created_at || new Date().toISOString(),
-        }
-      })
-
-      const imageList = await Promise.all(imagePromises)
-      const sortedImages = imageList.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      const { images } = await loadClientReferenceImages(selectedClientId)
+      setReferenceImages(
+        images.map((image) => ({
+          name: image.name,
+          url: image.url,
+          size: image.size,
+          created_at: image.createdAt,
+        })),
       )
-
-      setReferenceImages(sortedImages)
-      console.log("[AI Image Generator] Loaded", sortedImages.length, "reference images")
     } catch (error) {
       console.error("Error loading reference images:", error)
+      setReferenceImages([])
     } finally {
       setLoadingReferenceImages(false)
     }
-  }, [])
+  }, [selectedClientId])
 
   useEffect(() => {
     if (selectedClientId && selectedProductFocus) {
-      setSelectedReferenceImages([])
-      void loadReferenceImages()
-      void loadMaterialImages(selectedClientId)
+      if (loadReferences) {
+        void loadReferenceImages()
+      }
+      if (loadAssets) {
+        void loadMaterialImages(selectedClientId)
+      }
     } else {
       setMaterialImages([])
       setSelectedMaterials([])
       setSelectedReferenceImages([])
     }
-  }, [loadMaterialImages, loadReferenceImages, selectedClientId, selectedProductFocus])
+  }, [loadAssets, loadMaterialImages, loadReferenceImages, loadReferences, selectedClientId, selectedProductFocus])
 
   const toggleMaterial = (url: string) => {
     setSelectedMaterials((prev) => {
@@ -187,33 +155,43 @@ export function useGeneratedAdAssets({
     })
   }
 
-  const uploadReferences = async (files: FileList | null) => {
-    if (!files) return
+  const selectMaterial = (url: string) => {
+    if (!url) return
+    setSelectedMaterials((prev) => (prev.includes(url) ? prev : [...prev, url]))
+  }
 
-    const storageClient = getStorageClient()
-    if (!storageClient) {
-      alert("ไม่สามารถเชื่อมต่อที่จัดเก็บไฟล์ได้")
+  const selectReference = useCallback((url: string) => {
+    if (!url) return
+    setSelectedReferenceImages((prev) =>
+      prev.includes(url) ? prev : [...prev, url].slice(0, MAX_REFERENCE_SELECTION),
+    )
+  }, [])
+
+  const uploadReferences = async (files: FileList | null) => {
+    if (!files?.length) return []
+    if (!selectedClientId || selectedClientId === "general") {
+      alert("กรุณาเลือกลูกค้าก่อนอัปโหลด Reference")
+      return []
+    }
+
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"))
+    if (!imageFiles.length) {
       return
     }
 
     setIsUploadingReferences(true)
     try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith("image/")) continue
-        const fileExt = file.name.split(".").pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
-        const fullPath = `references/${fileName}`
-        const { error } = await storageClient.from("ads-creative-image").upload(fullPath, file)
-        if (error) {
-          console.error("Reference upload error:", error)
-          throw error
-        }
-      }
-
+      const uploaded = await uploadClientReferenceFiles(selectedClientId, imageFiles)
+      const uploadedUrls = uploaded.map((image) => image.url)
+      setSelectedReferenceImages((current) =>
+        [...current, ...uploadedUrls.filter((url) => !current.includes(url))].slice(0, MAX_REFERENCE_SELECTION),
+      )
       await loadReferenceImages()
+      return uploadedUrls
     } catch (error) {
       console.error("Failed to upload references:", error)
       alert("เกิดข้อผิดพลาดในการอัปโหลดรูป reference")
+      return []
     } finally {
       setIsUploadingReferences(false)
       setIsReferenceDropActive(false)
@@ -349,9 +327,13 @@ export function useGeneratedAdAssets({
     isSavingPalette,
     maxReferenceSelection: MAX_REFERENCE_SELECTION,
     setColorInput,
+    setColorPalette,
     setIsReferenceDropActive,
     toggleMaterial,
+    selectMaterial,
+    selectReference,
     toggleReference,
+    loadMaterialImages,
     uploadReferences,
     uploadMaterials,
     addColor,

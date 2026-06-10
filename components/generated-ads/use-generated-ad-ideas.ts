@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ComponentProps } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 
 import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal"
 import { getSupabase } from "@/lib/supabase/client"
@@ -32,6 +32,10 @@ export function useGeneratedAdIdeas({
   const [selectedTopic, setSelectedTopic] = useState<string>("")
   const [visualRoutesByIdea, setVisualRoutesByIdea] = useState<Record<string, VisualRoute[]>>({})
   const [selectedVisualRouteIndex, setSelectedVisualRouteIndex] = useState<number | null>(null)
+  // A route index handed off together with a topic (e.g. from a concept idea). The reset effect
+  // below clears the route index whenever the topic changes; this ref lets a provided index
+  // survive that reset for the matching topic instead of being wiped to null.
+  const pendingRouteRef = useRef<{ title: string; index: number | null } | null>(null)
   const [customIdeaInput, setCustomIdeaInput] = useState("")
   const [isCustomIdeaDialogOpen, setIsCustomIdeaDialogOpen] = useState(false)
   const [isParsingCustomIdea, setIsParsingCustomIdea] = useState(false)
@@ -62,6 +66,36 @@ export function useGeneratedAdIdeas({
   const selectedTopicSummary = selectedTopicData ? getTopicPreviewText(selectedTopicData.description) : ""
   const visibleTopics = showAllTopics ? savedTopics : savedTopics.slice(0, 4)
 
+  const selectProvidedTopic = useCallback((topic: SavedTopic, initialRouteIndex: number | null = null) => {
+    // Cache the handoff idea's visual routes by key. loadSavedTopics later replaces
+    // savedTopics with DB rows that have no visual_routes column, so availableVisualRoutes
+    // must be able to recover the routes from this cache.
+    if (topic.visual_routes?.length) {
+      const key = getTopicSelectionKey(topic)
+      if (key) {
+        setVisualRoutesByIdea((current) => {
+          const next = { ...current, [key]: topic.visual_routes! }
+          try {
+            window.sessionStorage.setItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY, JSON.stringify(next))
+          } catch (error) {
+            console.error("[AI Image Generator] Failed to persist visual routes:", error)
+          }
+          return next
+        })
+      }
+    }
+    pendingRouteRef.current = { title: topic.title, index: initialRouteIndex }
+    setSavedTopics((currentTopics) => {
+      const remainingTopics = currentTopics.filter((currentTopic) => currentTopic.title !== topic.title)
+      return [topic, ...remainingTopics]
+    })
+    setSelectedTopic(topic.title)
+    // Set directly too, so re-selecting the already-selected topic (no selectedTopic change,
+    // so the reset effect won't fire) still applies the provided route index.
+    setSelectedVisualRouteIndex(initialRouteIndex)
+    setIsIdeasOpen(true)
+  }, [])
+
   useEffect(() => {
     try {
       const stored = window.sessionStorage.getItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY)
@@ -74,7 +108,9 @@ export function useGeneratedAdIdeas({
   }, [])
 
   useEffect(() => {
-    setSelectedVisualRouteIndex(null)
+    const pending = pendingRouteRef.current
+    setSelectedVisualRouteIndex(pending && pending.title === selectedTopic ? pending.index : null)
+    pendingRouteRef.current = null
   }, [selectedTopic])
 
   useEffect(() => {
@@ -475,6 +511,7 @@ export function useGeneratedAdIdeas({
     setIsCustomIdeaDialogOpen,
     setShowAllTopics,
     setIsIdeasOpen,
+    selectProvidedTopic,
     addCustomIdea,
     deleteTopic,
     openTopicEdit,

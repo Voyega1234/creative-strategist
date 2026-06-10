@@ -10,7 +10,6 @@ import {
   Globe2,
   ImagePlus,
   Loader2,
-  Maximize2,
   Plus,
   Sparkles,
   UploadCloud,
@@ -34,11 +33,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea"
 import {
   downloadBlob,
+  downloadImageFromUrl,
   uploadFileToImageStorage,
   uploadGeneratedImageBlob,
 } from "@/lib/images/client"
 import { getStorageClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import {
+  GeneratedImageGallery,
+  type ImageGenerationSession,
+} from "@/components/generated-image-gallery"
 
 type UploadedAsset = {
   file?: File
@@ -437,11 +441,13 @@ function AssetUpload({
 type SeoBlogBannerPanelProps = {
   clients?: ClientOption[]
   activeClientId?: string | null
+  variant?: "classic" | "v2"
 }
 
 export function SeoBlogBannerPanel({
   clients = [],
   activeClientId = null,
+  variant = "classic",
 }: SeoBlogBannerPanelProps) {
   const [website, setWebsite] = useState("")
   const [brandName, setBrandName] = useState("")
@@ -474,13 +480,23 @@ export function SeoBlogBannerPanel({
   const [savedLogos, setSavedLogos] = useState<StoredAsset[]>([])
   const [savedMaterials, setSavedMaterials] = useState<StoredAsset[]>([])
   const [isLoadingClientAssets, setIsLoadingClientAssets] = useState(false)
+  const [galleryRefreshKey, setGalleryRefreshKey] = useState(0)
+  const [selectedGallerySessionId, setSelectedGallerySessionId] = useState<string | null>(null)
   const generationInFlightRef = useRef(false)
   const resizeInFlightRef = useRef(false)
   const logoAssetRef = useRef<UploadedAsset | null>(null)
   const referenceAssetRef = useRef<UploadedAsset | null>(null)
   const insertAssetsRef = useRef<UploadedAsset[]>([])
   const restoringBrandCacheRef = useRef(false)
-  const selectedClient = clients.find((client) => client.id === selectedClientId)
+  const selectedClient = clients.find(
+    (client) =>
+      client.id === selectedClientId ||
+      client.productFocuses.some((productFocus) => productFocus.id === selectedClientId),
+  )
+  const selectedProductFocus =
+    selectedClient?.productFocuses.find((productFocus) => productFocus.id === selectedClientId)?.productFocus ||
+    selectedClient?.productFocuses[0]?.productFocus ||
+    null
   const composedBrandContext = useMemo(
     () =>
       composeBrandContext({
@@ -890,6 +906,35 @@ export function SeoBlogBannerPanel({
         targetMasterSize: payload.target_master_size || "1600x900",
         brandAssets: payload.brand_assets || null,
       })
+      setSelectedGallerySessionId(null)
+
+      void fetch("/api/image-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          featureType: "seo-banner",
+          clientName: selectedClient?.clientName,
+          productFocus: selectedProductFocus,
+          title: headline.trim(),
+          prompt: userBrief.trim() || headline.trim(),
+          model: payload.model || "gpt-image-2",
+          outputUrls: [publicUrl],
+          inputUrls: [brandLogoUrl, referenceImageUrl, ...insertImageUrls].filter(Boolean),
+          metadata: {
+            website: website.trim(),
+            brandName: brandName.trim(),
+            headline: headline.trim(),
+            subHeadline: subHeadline.trim(),
+            targetMasterSize: payload.target_master_size || "1600x900",
+            requestedSize: payload.requested_size || "2K",
+            brandAssets: payload.brand_assets || null,
+          },
+        }),
+      })
+        .then((saveResponse) => {
+          if (saveResponse.ok) setGalleryRefreshKey((value) => value + 1)
+        })
+        .catch((saveError) => console.error("Failed to save SEO Banner gallery item:", saveError))
 
       if (selectedClientId) {
         void loadClientAssets(selectedClientId)
@@ -904,8 +949,47 @@ export function SeoBlogBannerPanel({
   }
 
   const handleDownload = () => {
-    if (!resultBlob) return
-    downloadBlob(resultBlob, "seo-blog-banner-master-1600x900.png")
+    if (resultBlob) {
+      downloadBlob(resultBlob, "seo-blog-banner-master-1600x900.png")
+      return
+    }
+    if (result?.imageUrl) {
+      void downloadImageFromUrl(result.imageUrl, "seo-blog-banner-master-1600x900.png")
+    }
+  }
+
+  const handleGalleryImageSelect = (session: ImageGenerationSession) => {
+    const imageUrl = session.outputUrls[0]
+    if (!imageUrl) return
+
+    const metadata = session.metadata
+    const savedHeadline = typeof metadata.headline === "string" ? metadata.headline : session.title
+    const savedSubHeadline = typeof metadata.subHeadline === "string" ? metadata.subHeadline : ""
+    const savedWebsite = typeof metadata.website === "string" ? metadata.website : ""
+    const savedBrandName = typeof metadata.brandName === "string" ? metadata.brandName : ""
+
+    if (savedHeadline) setHeadline(savedHeadline)
+    if (savedSubHeadline) setSubHeadline(savedSubHeadline)
+    if (savedWebsite) setWebsite(savedWebsite)
+    if (savedBrandName) setBrandName(savedBrandName)
+
+    setResultBlob(null)
+    setAdditionalOutputs([])
+    setResult({
+      imageUrl,
+      sourceDataUrl: imageUrl,
+      provider: "openai",
+      model: session.model || "image-generation",
+      prompt: session.prompt,
+      requestedSize: typeof metadata.requestedSize === "string" ? metadata.requestedSize : "2K",
+      targetMasterSize: typeof metadata.targetMasterSize === "string" ? metadata.targetMasterSize : "1600x900",
+      brandAssets:
+        metadata.brandAssets && typeof metadata.brandAssets === "object"
+          ? (metadata.brandAssets as SeoBlogBannerResult["brandAssets"])
+          : null,
+    })
+    setSelectedGallerySessionId(session.id)
+    setError(null)
   }
 
   const handleResizeAdditionalSize = async () => {
@@ -973,16 +1057,603 @@ export function SeoBlogBannerPanel({
     downloadBlob(output.blob, `seo-blog-banner-${output.key}-${output.width}x${output.height}.png`)
   }
 
+  const isV2 = variant === "v2"
+  const v2LogoPreviewUrl = logoAsset?.previewUrl || openBrandLogoUrl
+
+  if (isV2) {
+    return (
+      <div className="grid gap-4 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
+        <section className="min-w-0 space-y-4">
+          <GeneratedImageGallery
+            featureType="seo-banner"
+            clientName={selectedClient?.clientName}
+            productFocus={selectedProductFocus}
+            refreshKey={galleryRefreshKey}
+            selectedSessionId={selectedGallerySessionId}
+            onSelect={handleGalleryImageSelect}
+          />
+
+          <Card className="overflow-hidden rounded-[26px] border-black/10 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)] ring-1 ring-black/[0.02]">
+            <div className="border-b border-black/5 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                  <Globe2 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-semibold text-slate-950">SEO Banner</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-600">
+                    Generate a 16:9 master, then resize after approval.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 p-4">
+              <div className="space-y-2">
+                <Label>Client</Label>
+                <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={isClientPopoverOpen}
+                      className="h-10 w-full justify-between rounded-2xl border-black/10 bg-white px-3 font-normal text-slate-900 hover:bg-white"
+                    >
+                      <span className="truncate">{selectedClient?.clientName || "Default mode / no client"}</span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-500" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    className="w-[var(--radix-popover-trigger-width)] min-w-[280px] rounded-2xl border-slate-200 p-0"
+                  >
+                    <Command>
+                      <CommandInput placeholder="Type to search client..." />
+                      <CommandList>
+                        <CommandEmpty>No client found</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="Default mode / no client"
+                            onSelect={() => {
+                              setSelectedClientId("")
+                              setIsClientPopoverOpen(false)
+                            }}
+                            className="flex items-center justify-between px-3 py-2"
+                          >
+                            <span>Default mode / no client</span>
+                            <Check className={cn("h-4 w-4 text-slate-900", selectedClientId ? "opacity-0" : "opacity-100")} />
+                          </CommandItem>
+                          {clients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={client.clientName}
+                              onSelect={() => {
+                                setSelectedClientId(client.id)
+                                setIsClientPopoverOpen(false)
+                              }}
+                              className="flex items-center justify-between px-3 py-2"
+                            >
+                              <span>{client.clientName}</span>
+                              <Check
+                                className={cn(
+                                  "h-4 w-4 text-slate-900",
+                                  selectedClientId === client.id ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                    <div className="border-t border-slate-100 p-2">
+                      <Link
+                        href="/new-client"
+                        onClick={() => setIsClientPopoverOpen(false)}
+                        className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add new client
+                      </Link>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seo-website">Website *</Label>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  <Input
+                    id="seo-website"
+                    value={website}
+                    onChange={(event) => {
+                      setWebsite(event.target.value)
+                      setResult(null)
+                    }}
+                    placeholder="https://brand.com"
+                    className="h-10 rounded-2xl"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleExtractBrandAssets}
+                    disabled={!website.trim() || isExtractingBrand}
+                    className="h-10 rounded-2xl px-3"
+                  >
+                    {isExtractingBrand ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    <span className="ml-2 hidden sm:inline">Extract</span>
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-[22px] border border-black/10 bg-white p-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("seo-logo-upload-v2")?.click()}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-slate-400 transition hover:border-slate-400"
+                    aria-label="Upload logo"
+                  >
+                    {v2LogoPreviewUrl ? (
+                      <img src={v2LogoPreviewUrl} alt="Brand logo" className="h-full w-full object-contain p-1.5" />
+                    ) : (
+                      <UploadCloud className="h-4 w-4" />
+                    )}
+                  </button>
+                  <input
+                    id="seo-logo-upload-v2"
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    className="hidden"
+                    onChange={(event) => {
+                      handleLogoSelect(event.target.files)
+                      event.target.value = ""
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      id="seo-brand-name"
+                      value={brandName}
+                      onChange={(event) => {
+                        setBrandName(event.target.value)
+                        setResult(null)
+                      }}
+                      placeholder="Brand name"
+                      className="h-9 rounded-xl bg-white text-sm"
+                    />
+                    <div className="mt-2 flex items-center gap-1.5">
+                      {brandColorValues.length > 0 ? (
+                        brandColorValues.slice(0, 6).map((color, index) => (
+                          <input
+                            key={`brand-color-v2-compact-${index}`}
+                            type="color"
+                            value={color}
+                            onChange={(event) => updateBrandColor(index, event.target.value)}
+                            className="h-5 w-5 cursor-pointer appearance-none rounded-full border border-slate-200 bg-transparent p-0 [&::-moz-color-swatch]:rounded-full [&::-moz-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+                            aria-label={`Brand color ${index + 1}`}
+                          />
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-500">No colors</span>
+                      )}
+                      <Input
+                        value={brandHexInput}
+                        onChange={(event) => {
+                          setBrandHexInput(event.target.value)
+                          setBrandHexError("")
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault()
+                            addBrandHexColor()
+                          }
+                        }}
+                        placeholder="#HEX"
+                        className="ml-auto h-7 max-w-[82px] rounded-full bg-white px-2 font-mono text-[11px]"
+                      />
+                      <Button type="button" variant="outline" onClick={addBrandHexColor} className="h-7 rounded-full px-2 text-[11px]">
+                        Add
+                      </Button>
+                    </div>
+                    {brandHexError ? <p className="mt-1 text-xs text-red-600">{brandHexError}</p> : null}
+                  </div>
+                </div>
+
+                <details className="mt-2">
+                  <summary className="cursor-pointer list-none text-xs font-semibold text-slate-500 hover:text-slate-800">
+                    Brand context
+                  </summary>
+                  <Textarea
+                    value={composedBrandContext}
+                    onChange={(event) => {
+                      applyBrandContext(event.target.value)
+                      setResult(null)
+                    }}
+                    placeholder="Site name, page title, meta description, and useful website context"
+                    className="mt-2 min-h-[80px] resize-y rounded-2xl bg-white"
+                  />
+                </details>
+              </div>
+
+              <div className="space-y-2 rounded-[22px] border border-black/10 bg-slate-50/80 p-3">
+                <Label>Copy</Label>
+                <Textarea
+                  id="seo-headline"
+                  value={headline}
+                  onChange={(event) => setHeadline(event.target.value)}
+                  placeholder="Headline * เช่น 5 วิธีเพิ่มยอดขายจาก SEO Content"
+                  className="min-h-[58px] resize-none rounded-2xl bg-white"
+                />
+                <Textarea
+                  id="seo-subheadline"
+                  value={subHeadline}
+                  onChange={(event) => setSubHeadline(event.target.value)}
+                  placeholder="Subheadline"
+                  className="min-h-[44px] resize-none rounded-2xl bg-white"
+                />
+                <Textarea
+                  id="seo-user-brief"
+                  value={userBrief}
+                  onChange={(event) => {
+                    setUserBrief(event.target.value)
+                    setResult(null)
+                  }}
+                  placeholder="Creative direction เช่น editorial, clean, premium"
+                  className="min-h-[52px] resize-none rounded-2xl bg-white"
+                />
+              </div>
+
+              <details className="rounded-[22px] border border-black/10 bg-white p-4">
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">References & materials</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {[
+                        referenceAsset ? "reference selected" : "",
+                        insertAssets.length ? `${insertAssets.length} material${insertAssets.length > 1 ? "s" : ""}` : "",
+                        savedMaterials.length ? `${savedMaterials.length} saved` : "",
+                      ].filter(Boolean).join(" • ") || "Optional image direction and inserts."}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-black/10">
+                    Manage
+                  </span>
+                </summary>
+
+                <div className="mt-4 space-y-4">
+                  <AssetUpload
+                    label="Reference Image"
+                    description="Optional visual direction."
+                    asset={referenceAsset}
+                    onSelect={handleReferenceSelect}
+                    onRemove={() => {
+                      revokeAsset(referenceAsset)
+                      setReferenceAsset(null)
+                      setResult(null)
+                    }}
+                  />
+
+                  <div className="rounded-[22px] border border-slate-200 bg-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">Saved client assets</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          {selectedClientId ? "Reuse saved materials or upload insert images." : "Choose a client to see saved materials."}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {isLoadingClientAssets ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => document.getElementById("seo-insert-assets-v2")?.click()}
+                          disabled={insertAssets.length >= MAX_INSERT_IMAGES}
+                        >
+                          <ImagePlus className="mr-2 h-4 w-4" />
+                          Upload
+                        </Button>
+                      </div>
+                    </div>
+
+                    {selectedClientId && savedLogos.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Saved logos</p>
+                        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                          {savedLogos.slice(0, 8).map((asset) => (
+                            <button
+                              key={asset.url}
+                              type="button"
+                              onClick={() => {
+                                revokeAsset(logoAsset)
+                                setLogoAsset(createStoredAsset(asset))
+                                setOpenBrandLogoUrl("")
+                                setResult(null)
+                              }}
+                              className="h-14 w-14 flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition hover:border-slate-500"
+                            >
+                              <img src={asset.url} alt={asset.name} className="h-full w-full object-contain p-1" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {selectedClientId && savedMaterials.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Saved materials</p>
+                        <div className="mt-2 grid grid-cols-4 gap-2">
+                          {savedMaterials.slice(0, 8).map((asset) => {
+                            const selected = insertAssets.some((item) => item.url === asset.url)
+                            return (
+                              <button
+                                key={asset.url}
+                                type="button"
+                                disabled={selected || insertAssets.length >= MAX_INSERT_IMAGES}
+                                onClick={() => {
+                                  setInsertAssets((prev) => [...prev, createStoredAsset(asset)].slice(0, MAX_INSERT_IMAGES))
+                                  setResult(null)
+                                }}
+                                className={cn(
+                                  "relative aspect-square overflow-hidden rounded-2xl border bg-slate-50 transition",
+                                  selected ? "border-slate-950 opacity-80" : "border-slate-200 hover:border-slate-500",
+                                )}
+                              >
+                                <img src={asset.url} alt={asset.name} className="h-full w-full object-cover" />
+                                {selected ? (
+                                  <span className="absolute inset-x-1 bottom-1 rounded-full bg-slate-950 px-2 py-1 text-[10px] font-semibold text-white">
+                                    Selected
+                                  </span>
+                                ) : null}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {insertAssets.length > 0 ? (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Selected insert images</p>
+                        <div className="mt-2 grid grid-cols-2 gap-3">
+                          {insertAssets.map((asset, index) => (
+                            <div key={asset.previewUrl} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                              <img src={asset.previewUrl} alt={`Insert image ${index + 1}`} className="h-24 w-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => removeInsertAsset(index)}
+                                className="absolute right-2 top-2 rounded-full bg-slate-950 p-1 text-white opacity-90 transition hover:bg-slate-700"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <input
+                      id="seo-insert-assets-v2"
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                      multiple
+                      className="hidden"
+                      onChange={(event) => {
+                        handleInsertSelect(event.target.files)
+                        event.target.value = ""
+                      }}
+                    />
+                  </div>
+                </div>
+              </details>
+
+              {error ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+              ) : null}
+
+              <Button
+                type="button"
+                onClick={handleGenerate}
+                disabled={!canGenerate || isGenerating}
+                className="h-14 w-full rounded-full bg-slate-950 text-base font-semibold text-white hover:bg-slate-800"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Generating master...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Generate SEO Banner
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+        </section>
+
+        <section className="min-w-0">
+          <Card className="overflow-hidden rounded-[26px] border-black/10 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)] ring-1 ring-black/[0.02]">
+            <div className="flex items-center justify-between gap-4 border-b border-black/5 px-5 py-4">
+              <div>
+                <p className="text-lg font-semibold text-slate-950">Master Output</p>
+                <p className="mt-1 text-sm text-slate-500">1600 × 900 px · 16:9 master</p>
+              </div>
+              {result ? (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={handleGenerate}
+                    disabled={!canGenerate || isGenerating}
+                  >
+                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Generate
+                  </Button>
+                  <Button type="button" className="rounded-full bg-slate-950 text-white hover:bg-slate-800" onClick={handleDownload}>
+                    <ArrowDownToLine className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="p-5">
+              {result ? (
+                <div className="space-y-5">
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="group block w-full overflow-hidden rounded-[24px] border border-slate-200 bg-slate-100 shadow-sm"
+                  >
+                    <div className="aspect-video w-full">
+                      <img
+                        src={result.imageUrl}
+                        alt="SEO blog banner master"
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.01]"
+                      />
+                    </div>
+                  </button>
+
+                  <div className="rounded-[22px] border border-black/10 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">Resize exports</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          Adapt the approved master into the selected SEO placement.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={handleResizeAdditionalSize}
+                        disabled={isResizing || !result}
+                        className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
+                      >
+                        {isResizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        Resize selected
+                      </Button>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                      {ADDITIONAL_SIZES.map((size) => (
+                        <button
+                          key={size.key}
+                          type="button"
+                          onClick={() => setSelectedAdditionalSize(size.key)}
+                          className={cn(
+                            "rounded-2xl border p-4 text-left transition",
+                            selectedAdditionalSize === size.key
+                              ? "border-slate-950 bg-slate-950 text-white shadow-sm"
+                              : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white",
+                          )}
+                        >
+                          <span className="block text-sm font-semibold">{size.label}</span>
+                          <span className={cn("mt-1 block text-xs", selectedAdditionalSize === size.key ? "text-slate-300" : "text-slate-500")}>
+                            {size.width} × {size.height} px
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {additionalOutputs.length > 0 ? (
+                      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                        {additionalOutputs.map((output) => (
+                          <div key={output.id} className="overflow-hidden rounded-[22px] border border-slate-200 bg-slate-50">
+                            <div className="bg-white p-3">
+                              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                                <img src={output.imageUrl} alt={output.label} className="aspect-video h-auto w-full object-cover" />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 border-t border-slate-200 p-4">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-950">{output.label}</p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {output.width} × {output.height} px · {output.model}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="shrink-0 rounded-full"
+                                onClick={() => handleDownloadAdditional(output)}
+                              >
+                                <ArrowDownToLine className="mr-2 h-4 w-4" />
+                                Download
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-4">
+                  <div className="flex aspect-video w-full items-center justify-center rounded-[20px] bg-white shadow-inner">
+                    <div className="max-w-sm text-center">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-500 shadow-sm">
+                        <Sparkles className="h-6 w-6" />
+                      </div>
+                      <p className="mt-4 text-base font-semibold text-slate-950">No banner generated yet</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-500">
+                        Add website and headline, then generate the 16:9 master.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </section>
+
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="max-w-[96vw] rounded-[28px] border-slate-200 bg-white p-4">
+            <DialogHeader>
+              <DialogTitle>SEO Blog Banner Master</DialogTitle>
+            </DialogHeader>
+            {result ? (
+              <div className="flex max-h-[82vh] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+                <img src={result.imageUrl} alt="SEO blog banner preview" className="max-h-[82vh] w-auto max-w-full object-contain" />
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+
+  const shellClassName = "grid gap-6 xl:grid-cols-[minmax(400px,580px)_1fr]"
+  const cardClassName = "overflow-hidden rounded-[32px] border-slate-200 bg-white shadow-sm"
+  const cardHeaderClassName = "border-b border-slate-100 p-6"
+  const cardBodyClassName = "space-y-5 p-6"
+  const fieldPanelClassName = "rounded-[24px] border border-slate-200 bg-slate-50 p-4"
+  const nestedPanelClassName = "rounded-[24px] border border-slate-200 bg-white p-4"
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(400px,580px)_1fr]">
+    <div className={shellClassName}>
+      <div className="xl:col-span-2">
+        <GeneratedImageGallery
+          featureType="seo-banner"
+          clientName={selectedClient?.clientName}
+          productFocus={selectedProductFocus}
+          refreshKey={galleryRefreshKey}
+          selectedSessionId={selectedGallerySessionId}
+          onSelect={handleGalleryImageSelect}
+        />
+      </div>
+
       <section className="space-y-4">
-        <Card className="overflow-hidden rounded-[32px] border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-100 p-6">
+        <Card className={cardClassName}>
+          <div className={cardHeaderClassName}>
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
                 <Globe2 className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-lg font-semibold text-slate-950">SEO Blog Banner</p>
                 <p className="mt-1 text-sm leading-6 text-slate-600">
                   Generate the master blog header first. Additional sizes can be generated later after the master is approved.
@@ -991,7 +1662,7 @@ export function SeoBlogBannerPanel({
             </div>
           </div>
 
-          <div className="space-y-5 p-6">
+          <div className={cardBodyClassName}>
             <div className="grid gap-4">
               <div className="space-y-2">
                 <Label>Client connection</Label>
@@ -1105,7 +1776,7 @@ export function SeoBlogBannerPanel({
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)] lg:items-stretch">
-              <div className="flex h-full flex-col space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <div className={cn(fieldPanelClassName, "flex h-full flex-col space-y-4")}>
                 <AssetUpload
                   label="Brand Logo"
                   description={openBrandLogoUrl ? "Detected from OpenBrand. Upload another logo to override." : "Upload a logo, or click Extract to detect one from the website."}
@@ -1140,7 +1811,7 @@ export function SeoBlogBannerPanel({
                 </div>
               </div>
 
-              <div className="h-full space-y-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+              <div className={cn(fieldPanelClassName, "h-full space-y-4")}>
                 <div className="space-y-2">
                   <Label htmlFor="seo-brand-name">Brand name</Label>
                   <Input
@@ -1235,7 +1906,7 @@ export function SeoBlogBannerPanel({
               </div>
             </div>
 
-            <div className="space-y-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+            <div className={cn(fieldPanelClassName, "space-y-3")}>
               <div className="space-y-2">
                 <Label htmlFor="seo-headline">Headline *</Label>
                 <Textarea
@@ -1276,7 +1947,7 @@ export function SeoBlogBannerPanel({
               </div>
             </div>
 
-            <details className="rounded-[24px] border border-slate-200 bg-white p-4">
+            <details className={nestedPanelClassName}>
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-950">Reference and materials</p>
@@ -1308,7 +1979,7 @@ export function SeoBlogBannerPanel({
               />
             </div>
 
-            <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+            <div className={nestedPanelClassName}>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-950">Saved client assets</p>
@@ -1466,17 +2137,23 @@ export function SeoBlogBannerPanel({
       </section>
 
       <section className="min-w-0">
-        <Card className="min-h-[640px] overflow-hidden rounded-[32px] border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between gap-4 border-b border-slate-100 p-6">
+        <Card className={cn(cardClassName, "min-h-[640px]")}>
+          <div className={cn("flex items-center justify-between gap-4", cardHeaderClassName)}>
             <div>
               <p className="text-lg font-semibold text-slate-950">Master Output</p>
               <p className="mt-1 text-sm text-slate-500">Target: 1600 × 900 px, 16:9</p>
             </div>
             {result ? (
               <div className="flex gap-2">
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => setIsPreviewOpen(true)}>
-                  <Maximize2 className="mr-2 h-4 w-4" />
-                  Preview
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={handleGenerate}
+                  disabled={!canGenerate || isGenerating}
+                >
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Generate
                 </Button>
                 <Button type="button" className="rounded-full bg-slate-950 text-white hover:bg-slate-800" onClick={handleDownload}>
                   <ArrowDownToLine className="mr-2 h-4 w-4" />
@@ -1502,21 +2179,6 @@ export function SeoBlogBannerPanel({
                     />
                   </div>
                 </button>
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs text-slate-500">Master size</p>
-                    <p className="mt-1 font-semibold text-slate-950">{result.targetMasterSize}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs text-slate-500">Model</p>
-                    <p className="mt-1 font-semibold text-slate-950">{result.model}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs text-slate-500">GPT render size</p>
-                    <p className="mt-1 font-semibold text-slate-950">{result.requestedSize}</p>
-                  </div>
-                </div>
 
                 {result.brandAssets ? (
                   <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
@@ -1552,7 +2214,7 @@ export function SeoBlogBannerPanel({
                   </div>
                 ) : null}
 
-                <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+                <div className={nestedPanelClassName}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-950">Additional sizes</p>
@@ -1639,7 +2301,12 @@ export function SeoBlogBannerPanel({
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-[520px] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-slate-50">
+              <div
+                className={cn(
+                  "flex items-center justify-center border border-dashed border-slate-300 bg-slate-50",
+                  "min-h-[520px] rounded-[28px]",
+                )}
+              >
                 <div className="max-w-sm text-center">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
                     <Sparkles className="h-6 w-6" />

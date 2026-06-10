@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthGuard } from '@/components/auth-guard'
 
 export const metadata: Metadata = {
   title: 'Creative Compass',
@@ -38,7 +39,9 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <AuthGuard>{children}</AuthGuard>
+      </body>
     </html>
   )
 }

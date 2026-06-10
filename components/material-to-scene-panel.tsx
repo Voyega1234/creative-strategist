@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eraser,
   Image as ImageIcon,
@@ -16,16 +18,33 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { downloadImageFromUrl, downloadImagesFromUrls, uploadDataUrlToImageStorage, uploadFileToImageStorage } from "@/lib/images/client"
 import { cn } from "@/lib/utils"
 import { MaterialToSceneError } from "@/components/material-to-scene/material-to-scene-error"
 import { MaterialToSceneHeader } from "@/components/material-to-scene/material-to-scene-header"
-import { MaterialToSceneSteps } from "@/components/material-to-scene/material-to-scene-steps"
+import {
+  GeneratedImageGallery,
+  type ImageGenerationSession,
+} from "@/components/generated-image-gallery"
 
 type Preset = "Ad Creative" | "E-commerce Product Shot" | "Interior & Material" | "Social Media Content"
 type AspectRatio = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "9:16" | "16:9" | "21:9"
 type ImageSize = "1K" | "2K" | "4K"
+type PhotographyStyle =
+  | "auto"
+  | "clean-white"
+  | "lifestyle"
+  | "minimal"
+  | "dark-moody"
+  | "natural-light"
+  | "flat-lay"
+  | "hero-shot"
+  | "texture-rich"
+  | "reflection"
+  | "pop-color"
 
 const DEFAULT_PRESET: Preset = "Ad Creative"
 const DEFAULT_IMAGE_SIZE: ImageSize = "1K"
@@ -33,6 +52,58 @@ const DEFAULT_IMAGE_SIZE: ImageSize = "1K"
 const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "9:16", "16:9", "21:9"]
 const MAX_SCENE_REFERENCES = 3
 const DEFAULT_GENERATED_SCENE_COUNT = 4
+const PROMPT_GUIDE_IMAGES = [
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/714323688_26825581140398513_5075227470531270632_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/714840598_26825579840398643_4814536452737644819_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/712644070_26825580187065275_6773900674408780827_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/711466084_26825579797065314_1169710766738408931_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/712586086_26825580647065229_1204656809304785058_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/713328683_26825580620398565_5089659842261570408_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/714223586_26825579770398650_4047996130643631903_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/713843467_26825581153731845_4863941376081867232_n.jpg",
+  "https://jztytulnuaxqkrwrymrt.supabase.co/storage/v1/object/public/images_document/714466175_26825580263731934_8112067728227924977_n.jpg",
+] as const
+const PHOTOGRAPHY_STYLES: Array<{
+  value: PhotographyStyle
+  label: string
+  description: string
+}> = [
+  { value: "auto", label: "Auto — Follow brief", description: "ให้ระบบเลือกสไตล์จาก scene brief และ reference" },
+  { value: "clean-white", label: "Clean White", description: "พื้นขาวสะอาด แสงสตูดิโอนุ่ม รายละเอียดสินค้าชัด" },
+  { value: "lifestyle", label: "Lifestyle", description: "จัดสินค้าในสถานการณ์ใช้งานจริงและดูเป็นธรรมชาติ" },
+  { value: "minimal", label: "Minimal", description: "องค์ประกอบน้อย พื้นที่ว่างชัด และสินค้าเด่น" },
+  { value: "dark-moody", label: "Dark & Moody", description: "โทนเข้ม คอนทราสต์สูง และแสงดรามาติก" },
+  { value: "natural-light", label: "Natural Light", description: "แสงธรรมชาติอบอุ่นพร้อมเงาที่สมจริง" },
+  { value: "flat-lay", label: "Flat Lay", description: "มุมมองจากด้านบนพร้อมองค์ประกอบที่เป็นระบบ" },
+  { value: "hero-shot", label: "Hero Shot", description: "มุมทรงพลัง เน้นรูปทรงและความโดดเด่นของสินค้า" },
+  { value: "texture-rich", label: "Texture Rich", description: "เน้นพื้นผิว วัสดุ และรายละเอียดสัมผัส" },
+  { value: "reflection", label: "Reflection", description: "ใช้เงาสะท้อนที่ควบคุมอย่างประณีตเพื่อเพิ่มมิติ" },
+  { value: "pop-color", label: "Pop Color", description: "สีสดและ color blocking ที่ทำให้สินค้าสะดุดตา" },
+]
+
+const PREVIEW_ASPECT_CLASS: Record<AspectRatio, string> = {
+  "1:1": "aspect-square",
+  "2:3": "aspect-[2/3]",
+  "3:2": "aspect-[3/2]",
+  "3:4": "aspect-[3/4]",
+  "4:3": "aspect-[4/3]",
+  "4:5": "aspect-[4/5]",
+  "9:16": "aspect-[9/16]",
+  "16:9": "aspect-video",
+  "21:9": "aspect-[21/9]",
+}
+
+const PREVIEW_WIDTH_CLASS: Record<AspectRatio, string> = {
+  "1:1": "max-w-[620px]",
+  "2:3": "max-w-[440px]",
+  "3:2": "max-w-[760px]",
+  "3:4": "max-w-[480px]",
+  "4:3": "max-w-[700px]",
+  "4:5": "max-w-[500px]",
+  "9:16": "max-w-[390px]",
+  "16:9": "max-w-[820px]",
+  "21:9": "max-w-[900px]",
+}
 
 type SceneReference = {
   file: File
@@ -47,21 +118,31 @@ async function uploadDataUrlToStorage(dataUrl: string) {
   return uploadDataUrlToImageStorage(dataUrl, "generated/material-to-scene-temp")
 }
 
-export function MaterialToScenePanel() {
+type MaterialToScenePanelProps = {
+  clientName?: string | null
+  productFocus?: string | null
+}
+
+export function MaterialToScenePanel({ clientName, productFocus }: MaterialToScenePanelProps = {}) {
   const [file, setFile] = useState<File | null>(null)
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
   const [sceneReferences, setSceneReferences] = useState<SceneReference[]>([])
   const [prompt, setPrompt] = useState("")
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1")
+  const [photographyStyle, setPhotographyStyle] = useState<PhotographyStyle>("auto")
   const [generatedImageUrls, setGeneratedImageUrls] = useState<string[]>([])
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [promptGuideIndex, setPromptGuideIndex] = useState<number | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isRemovingBg, setIsRemovingBg] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+  const [selectedHistorySessionId, setSelectedHistorySessionId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const sceneInputRef = useRef<HTMLInputElement | null>(null)
+  const promptTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const sceneReferencesRef = useRef<SceneReference[]>([])
   const generationInFlightRef = useRef(false)
   const removeBackgroundInFlightRef = useRef(false)
@@ -87,6 +168,66 @@ export function MaterialToScenePanel() {
   const currentImageUrl = generatedImageUrls[selectedImageIndex] || ""
   const hasOutput = generatedImageUrls.length > 0
   const canGenerate = Boolean(file && prompt.trim())
+
+  const saveGenerationSession = async ({
+    outputUrls,
+    inputUrls,
+    model,
+  }: {
+    outputUrls: string[]
+    inputUrls: string[]
+    model: string
+  }) => {
+    try {
+      const response = await fetch("/api/image-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          featureType: "product-scene",
+          clientName,
+          productFocus,
+          title: prompt.trim().slice(0, 100),
+          prompt: prompt.trim(),
+          model,
+          outputUrls,
+          inputUrls,
+          metadata: {
+            aspectRatio,
+            photographyStyle,
+            preset: DEFAULT_PRESET,
+            imageSize: DEFAULT_IMAGE_SIZE,
+          },
+        }),
+      })
+
+      if (response.ok) setHistoryRefreshKey((value) => value + 1)
+    } catch (error) {
+      console.error("Failed to save Product Scene session:", error)
+    }
+  }
+
+  const handleGalleryImageSelect = (session: ImageGenerationSession, imageIndex: number) => {
+    if (session.outputUrls.length === 0) return
+
+    const savedAspectRatio = session.metadata.aspectRatio
+    const savedPhotographyStyle = session.metadata.photographyStyle
+
+    if (typeof savedAspectRatio === "string" && ASPECT_RATIOS.includes(savedAspectRatio as AspectRatio)) {
+      setAspectRatio(savedAspectRatio as AspectRatio)
+    }
+    if (
+      typeof savedPhotographyStyle === "string" &&
+      PHOTOGRAPHY_STYLES.some((style) => style.value === savedPhotographyStyle)
+    ) {
+      setPhotographyStyle(savedPhotographyStyle as PhotographyStyle)
+    }
+
+    setPrompt(session.prompt || "")
+    setGeneratedImageUrls(session.outputUrls)
+    setSelectedImageIndex(imageIndex)
+    setSelectedHistorySessionId(session.id)
+    setError(null)
+  }
 
   const uploadHint = useMemo(() => {
     if (!file) return "อัปโหลด material photo เพื่อให้ระบบวิเคราะห์ texture และสร้าง scene ใหม่"
@@ -171,6 +312,7 @@ export function MaterialToScenePanel() {
           preset: DEFAULT_PRESET,
           prompt: prompt.trim(),
           aspect_ratio: aspectRatio,
+          photography_style: photographyStyle,
           image_size: DEFAULT_IMAGE_SIZE,
         }),
       })
@@ -192,6 +334,12 @@ export function MaterialToScenePanel() {
 
       setGeneratedImageUrls(urls)
       setSelectedImageIndex(0)
+      setSelectedHistorySessionId(null)
+      void saveGenerationSession({
+        outputUrls: urls,
+        inputUrls: [referenceImageUrl, ...sceneReferenceImageUrls],
+        model: typeof result.model === "string" ? result.model : "gemini-image",
+      })
     } catch (err) {
       console.error("Material to Scene generation failed:", err)
       const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการสร้างภาพ"
@@ -252,18 +400,57 @@ export function MaterialToScenePanel() {
     setError(null)
   }
 
+  const selectedPhotographyStyle =
+    PHOTOGRAPHY_STYLES.find((style) => style.value === photographyStyle) ?? PHOTOGRAPHY_STYLES[0]
+  const selectedPromptGuide = promptGuideIndex === null ? null : PROMPT_GUIDE_IMAGES[promptGuideIndex]
+
+  const handlePromptChange = (value: string) => {
+    setPrompt(value)
+
+    const textarea = promptTextareaRef.current
+    if (!textarea) return
+
+    textarea.style.height = "72px"
+    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 72), 160)}px`
+  }
+
+  const showPreviousPromptGuide = () => {
+    setPromptGuideIndex((current) =>
+      current === null ? 0 : (current - 1 + PROMPT_GUIDE_IMAGES.length) % PROMPT_GUIDE_IMAGES.length,
+    )
+  }
+
+  const showNextPromptGuide = () => {
+    setPromptGuideIndex((current) => (current === null ? 0 : (current + 1) % PROMPT_GUIDE_IMAGES.length))
+  }
+
+  const showPreviousGeneratedImage = () => {
+    setSelectedImageIndex((current) => (current - 1 + generatedImageUrls.length) % generatedImageUrls.length)
+  }
+
+  const showNextGeneratedImage = () => {
+    setSelectedImageIndex((current) => (current + 1) % generatedImageUrls.length)
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <MaterialToSceneHeader aspectRatio={aspectRatio} />
 
       <MaterialToSceneError message={error} />
 
-      {!hasOutput ? (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-          <Card className="rounded-[32px] border-slate-200/80 bg-white p-7 shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
-            <div className="space-y-8">
-              <MaterialToSceneSteps />
+      <GeneratedImageGallery
+        featureType="product-scene"
+        clientName={clientName}
+        productFocus={productFocus}
+        refreshKey={historyRefreshKey}
+        selectedSessionId={selectedHistorySessionId}
+        onSelect={handleGalleryImageSelect}
+      />
 
+      {!hasOutput ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_340px]">
+          <Card className="rounded-[28px] border-slate-200/80 bg-white p-5 shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
+            <div className="space-y-5">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -288,110 +475,136 @@ export function MaterialToScenePanel() {
                 }}
               />
 
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "group flex min-h-[320px] w-full items-center justify-center overflow-hidden rounded-[30px] border border-dashed transition-all",
-                  file
-                    ? "border-slate-300 bg-[linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] hover:border-slate-400"
-                    : "border-slate-200 bg-[linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] hover:border-slate-300",
-                )}
-              >
-                {originalImageUrl ? (
-                  <div className="grid h-full w-full gap-6 p-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
-                    <div className="relative mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-[24px] bg-slate-50 shadow-sm">
-                      <img src={originalImageUrl} alt="Material preview" className="h-full w-full object-contain" />
-                    </div>
-                    <div className="space-y-3 text-left">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Material ready</p>
-                      <h3 className="text-2xl font-semibold tracking-[-0.02em] text-slate-950">Replace or keep this material</h3>
-                      <p className="max-w-xl text-base leading-7 text-slate-600">
-                        ระบบจะใช้ภาพนี้เป็น hero material แล้วพยายามรักษา texture, color และ surface เดิมให้มากที่สุดใน scene ใหม่
-                      </p>
-                      <p className="text-base text-slate-500">{uploadHint}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4 px-6 text-center">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-slate-950 text-white shadow-sm">
-                      <UploadCloud className="h-7 w-7" />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-xl font-semibold tracking-[-0.02em] text-slate-950">Upload material photo</h3>
-                      <p className="mx-auto max-w-md text-base leading-7 text-slate-600">
-                        อัปโหลดภาพสินค้า, วัสดุ, texture sample หรือ product detail shot ที่ต้องการเอาไปสร้างเป็น scene ใหม่
-                      </p>
-                    </div>
-                    <p className="text-sm text-slate-500">JPG, PNG, WEBP</p>
-                  </div>
-                )}
-              </button>
-
-              <div className="rounded-[30px] border border-slate-200 bg-slate-50/70 p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Optional Scene Reference
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-slate-950">
-                      Upload scene or background guide
-                    </h3>
-                    <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-600">
-                      ใช้เป็น background/source scene ได้ด้วย เช่น คงฉากเดิม เปลี่ยนเฉพาะ object ตาม material แล้วปรับมุมกล้อง แสง
-                      และเงาให้เนียนเหมือนภาพถ่ายจริง
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => sceneInputRef.current?.click()}
-                    disabled={sceneReferences.length >= MAX_SCENE_REFERENCES}
-                    className="h-11 shrink-0 rounded-2xl border-slate-200 bg-white"
+              <Tabs defaultValue="product" className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-3">
+                <TabsList className="grid h-10 w-full grid-cols-2 rounded-[14px] bg-slate-200/60 p-1">
+                  <TabsTrigger
+                    value="product"
+                    className="rounded-[10px] py-1 text-sm text-slate-600 data-[state=active]:text-slate-950"
                   >
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    {sceneReferences.length ? "Add scene" : "Upload scene"}
-                  </Button>
-                </div>
+                    Product / Material{file ? " · 1" : ""}
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="background"
+                    className="rounded-[10px] py-1 text-sm text-slate-600 data-[state=active]:text-slate-950"
+                  >
+                    Background / Scene{sceneReferences.length ? ` · ${sceneReferences.length}` : ""}
+                  </TabsTrigger>
+                </TabsList>
 
-                {sceneReferences.length > 0 ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    {sceneReferences.map((reference, index) => (
-                      <div key={reference.previewUrl} className="relative overflow-hidden rounded-[20px] border border-slate-200 bg-white">
-                        <div className="aspect-[4/3] bg-slate-100">
-                          <img
-                            src={reference.previewUrl}
-                            alt={`Scene reference ${index + 1}`}
-                            className="h-full w-full object-cover"
-                          />
+                <TabsContent value="product" className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "group flex min-h-[190px] w-full items-center justify-center overflow-hidden rounded-[20px] border border-dashed transition-all",
+                      file
+                        ? "border-slate-300 bg-white hover:border-slate-400"
+                        : "border-slate-200 bg-white hover:border-slate-300",
+                    )}
+                  >
+                    {originalImageUrl ? (
+                      <div className="grid h-full w-full gap-4 p-4 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
+                        <div className="relative mx-auto aspect-square w-full max-w-[140px] overflow-hidden rounded-[16px] bg-slate-50 shadow-sm">
+                          <img src={originalImageUrl} alt="Product or material preview" className="h-full w-full object-contain" />
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSceneReference(index)}
-                          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/75 text-white shadow-sm backdrop-blur transition-colors hover:bg-black"
-                          aria-label={`Remove scene reference ${index + 1}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                        <div className="px-3 py-2">
-                          <p className="truncate text-sm font-medium text-slate-900">{reference.file.name}</p>
-                          <p className="mt-0.5 text-xs text-slate-500">{(reference.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <div className="space-y-2 text-left">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Asset ready</p>
+                          <h3 className="text-lg font-semibold text-slate-950">Product or material selected</h3>
+                          <p className="max-w-xl text-sm leading-6 text-slate-600">
+                            ระบบจะใช้ภาพนี้เป็น hero asset และพยายามรักษารูปทรง สี พื้นผิว และรายละเอียดเดิมใน scene ใหม่
+                          </p>
+                          <p className="text-sm text-slate-500">{uploadHint}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="mt-4 rounded-[22px] border border-dashed border-slate-200 bg-white px-4 py-5 text-sm leading-6 text-slate-500">
-                    ถ้าไม่อัปโหลด scene reference ระบบจะสร้างฉากจาก scene brief อย่างเดียว
-                  </div>
-                )}
-              </div>
+                    ) : (
+                      <div className="space-y-3 px-6 text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-slate-950 text-white shadow-sm">
+                          <UploadCloud className="h-5 w-5" />
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="text-lg font-semibold text-slate-950">Upload product or material</h3>
+                          <p className="mx-auto max-w-md text-sm leading-6 text-slate-600">
+                            เลือกภาพสินค้า วัสดุ texture sample หรือ product detail shot ที่ต้องการใช้เป็นพระเอกของภาพ
+                          </p>
+                        </div>
+                        <p className="text-xs text-slate-500">JPG, PNG, WEBP</p>
+                      </div>
+                    )}
+                  </button>
+                </TabsContent>
 
-              <div className="space-y-3">
+                <TabsContent value="background" className="mt-3">
+                  <div className="min-h-[190px] rounded-[20px] border border-dashed border-slate-200 bg-white p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                          Optional reference
+                        </p>
+                        <h3 className="mt-1 text-lg font-semibold text-slate-950">
+                          Add background or scene
+                        </h3>
+                        <p className="mt-1.5 text-sm text-slate-500">เพิ่มได้สูงสุด {MAX_SCENE_REFERENCES} รูป</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => sceneInputRef.current?.click()}
+                        disabled={sceneReferences.length >= MAX_SCENE_REFERENCES}
+                        className="h-10 shrink-0 rounded-xl border-slate-200 bg-white"
+                      >
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        {sceneReferences.length ? "Add more" : "Upload images"}
+                      </Button>
+                    </div>
+
+                    {sceneReferences.length > 0 ? (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        {sceneReferences.map((reference, index) => (
+                          <div key={reference.previewUrl} className="relative overflow-hidden rounded-[18px] border border-slate-200 bg-white">
+                            <div className="aspect-[4/3] bg-slate-100">
+                              <img
+                                src={reference.previewUrl}
+                                alt={`Scene reference ${index + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSceneReference(index)}
+                              className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/75 text-white shadow-sm backdrop-blur transition-colors hover:bg-black"
+                              aria-label={`Remove scene reference ${index + 1}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            <div className="px-3 py-2">
+                              <p className="truncate text-sm font-medium text-slate-900">{reference.file.name}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {(reference.file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => sceneInputRef.current?.click()}
+                        className="mt-3 flex min-h-[105px] w-full flex-col items-center justify-center rounded-[16px] bg-slate-50 px-6 text-center transition-colors hover:bg-slate-100"
+                      >
+                        <UploadCloud className="h-6 w-6 text-slate-500" />
+                        <p className="mt-3 text-sm font-medium text-slate-800">Choose background or scene references</p>
+                        <p className="mt-1 text-sm text-slate-500">ถ้าไม่เลือก ระบบจะสร้างฉากจาก scene brief</p>
+                      </button>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Scene Brief</p>
-                    <h3 className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-slate-950">Describe what you want to create</h3>
+                    <h3 className="mt-1 text-lg font-semibold text-slate-950">Describe what you want to create</h3>
                   </div>
                   {prompt.trim() && (
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
@@ -400,14 +613,47 @@ export function MaterialToScenePanel() {
                   )}
                 </div>
                 <Textarea
+                  ref={promptTextareaRef}
+                  rows={2}
                   value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
+                  onChange={(event) => handlePromptChange(event.target.value)}
                   placeholder="เช่น: ใช้ material นี้เป็น hero wall panel ใน living room modern luxury แสงธรรมชาติช่วงเช้า soft shadow โทนอุ่น composition แบบงาน interior campaign มีเฟอร์นิเจอร์น้อยแต่ดูพรีเมียม"
-                  className="min-h-[180px] resize-none rounded-[24px] border-slate-200 bg-white px-5 py-4 text-slate-950 focus:border-slate-950 focus:ring-0"
+                  className="h-[72px] min-h-[72px] max-h-[160px] resize-none overflow-y-auto rounded-[18px] border-slate-200 bg-white px-4 py-3 text-slate-950 focus:border-slate-950 focus:ring-0"
                 />
-                <p className="text-sm leading-6 text-slate-500">
+                <p className="text-xs leading-5 text-slate-500">
                   เขียนให้ตรงงาน เช่น “เปลี่ยนเสื้อบนเก้าอี้ให้เป็น material นี้ ใช้พื้นหลังเดิม และเปลี่ยนแค่มุมกล้อง”
                 </p>
+
+                <div className="rounded-[18px] border border-slate-200 bg-slate-50/70 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">Prompt guidelines</p>
+                      <p className="text-xs text-slate-500">ตัวอย่าง keyword และ visual style สำหรับเขียน scene brief</p>
+                    </div>
+                    <span className="shrink-0 text-xs text-slate-400">{PROMPT_GUIDE_IMAGES.length} guides</span>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {PROMPT_GUIDE_IMAGES.map((imageUrl, index) => (
+                      <button
+                        key={imageUrl}
+                        type="button"
+                        onClick={() => setPromptGuideIndex(index)}
+                        className="group relative h-[68px] w-[108px] shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-slate-400"
+                        aria-label={`Open prompt guideline ${index + 1}`}
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={`Prompt guideline ${index + 1}`}
+                          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+                          loading="lazy"
+                        />
+                        <span className="absolute bottom-1 right-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          {index + 1}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </Card>
@@ -425,23 +671,41 @@ export function MaterialToScenePanel() {
                     <ImageIcon className="h-3.5 w-3.5 text-slate-700" />
                     Aspect ratio
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {ASPECT_RATIOS.map((ratio) => (
-                      <button
-                        key={ratio}
-                        type="button"
-                        onClick={() => setAspectRatio(ratio)}
-                        className={cn(
-                          "rounded-full border px-2.5 py-1.5 text-sm font-medium transition-all",
-                          aspectRatio === ratio
-                            ? "border-slate-950 bg-slate-950 text-white"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
-                        )}
-                      >
-                        {ratio}
-                      </button>
-                    ))}
+                  <Select value={aspectRatio} onValueChange={(value) => setAspectRatio(value as AspectRatio)}>
+                    <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-white">
+                      <SelectValue aria-label={`Aspect ratio ${aspectRatio}`}>{aspectRatio}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ASPECT_RATIOS.map((ratio) => (
+                        <SelectItem key={ratio} value={ratio}>
+                          {ratio}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                    <Sparkles className="h-3.5 w-3.5 text-slate-700" />
+                    Product photography style
                   </div>
+                  <Select
+                    value={photographyStyle}
+                    onValueChange={(value) => setPhotographyStyle(value as PhotographyStyle)}
+                  >
+                    <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PHOTOGRAPHY_STYLES.map((style) => (
+                        <SelectItem key={style.value} value={style.value}>
+                          {style.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs leading-5 text-slate-500">{selectedPhotographyStyle.description}</p>
                 </div>
 
                 <div className="rounded-[20px] bg-slate-50 px-3.5 py-3.5">
@@ -450,6 +714,10 @@ export function MaterialToScenePanel() {
                     <div className="flex items-center justify-between gap-3">
                       <span>Aspect ratio</span>
                       <span className="font-medium text-slate-900">{aspectRatio}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Style</span>
+                      <span className="text-right font-medium text-slate-900">{selectedPhotographyStyle.label}</span>
                     </div>
                   </div>
                 </div>
@@ -552,14 +820,14 @@ export function MaterialToScenePanel() {
                   </div>
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px] lg:items-stretch">
+                <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-[linear-gradient(180deg,_#f8fafc_0%,_#ffffff_100%)]">
                   <button
                     type="button"
                     onClick={() => currentImageUrl && setIsPreviewOpen(true)}
                     disabled={!currentImageUrl}
-                    className="relative mx-auto block w-full max-w-[580px] overflow-hidden rounded-[24px] bg-[linear-gradient(180deg,_#f8fafc_0%,_#ffffff_100%)] text-left transition-transform lg:max-w-[540px]"
+                    className="block w-full text-left"
                   >
-                    <div className="aspect-[6/5] min-h-[300px] lg:h-full lg:min-h-[490px] lg:aspect-auto">
+                    <div className="flex min-h-[320px] items-center justify-center p-4 lg:h-[min(58vh,620px)]">
                       {isGenerating ? (
                         <div className="flex h-full items-center justify-center">
                           <div className="flex flex-col items-center text-slate-500">
@@ -575,49 +843,73 @@ export function MaterialToScenePanel() {
                           </div>
                         </div>
                       ) : currentImageUrl ? (
-                        <img src={currentImageUrl} alt="Generated scene" className="h-full w-full object-contain" />
+                        <div
+                          className={cn(
+                            "relative w-full overflow-hidden rounded-[20px] bg-white shadow-sm",
+                            PREVIEW_ASPECT_CLASS[aspectRatio],
+                            PREVIEW_WIDTH_CLASS[aspectRatio],
+                          )}
+                        >
+                          <img src={currentImageUrl} alt="Generated scene" className="h-full w-full object-contain" />
+                        </div>
                       ) : null}
                     </div>
                     {currentImageUrl && !isGenerating && !isRemovingBg ? (
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end bg-gradient-to-t from-black/30 via-transparent to-transparent p-3">
-                        <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm backdrop-blur">
-                          Click to zoom
-                        </span>
-                      </div>
+                      <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm backdrop-blur">
+                        Click to zoom
+                      </span>
                     ) : null}
                   </button>
 
-                  <div className="grid grid-cols-2 gap-2 lg:h-full lg:grid-cols-1 lg:grid-rows-2">
-                    {generatedImageUrls.map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className={cn(
-                          "relative overflow-hidden rounded-[18px] border bg-white transition-all lg:h-full",
-                          selectedImageIndex === index
-                            ? "border-slate-950 shadow-[0_10px_20px_rgba(15,23,42,0.08)]"
-                            : "border-slate-200 hover:border-slate-300",
-                        )}
+                  {generatedImageUrls.length > 1 && !isGenerating && !isRemovingBg ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={showPreviousGeneratedImage}
+                        className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-md backdrop-blur transition hover:bg-white"
+                        aria-label="Previous generated scene"
                       >
-                        <button type="button" onClick={() => setSelectedImageIndex(index)} className="block w-full lg:h-full">
-                          <div className="aspect-square bg-slate-50 lg:h-full lg:aspect-auto">
-                            <img src={url} alt={`Generated scene ${index + 1}`} className="h-full w-full object-cover" />
-                          </div>
-                        </button>
-                        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-2">
-                          <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium text-slate-600 shadow-sm backdrop-blur">
-                            Image {index + 1}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => void downloadImageFromUrl(url, `material-to-scene-${index + 1}.png`)}
-                            className="pointer-events-auto inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-slate-950"
-                            aria-label={`Download image ${index + 1}`}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                        <ChevronLeft className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={showNextGeneratedImage}
+                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-800 shadow-md backdrop-blur transition hover:bg-white"
+                        aria-label="Next generated scene"
+                      >
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    </>
+                  ) : null}
+
+                  <div className="flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {generatedImageUrls.map((url, index) => (
+                        <button
+                          key={`${url}-${index}`}
+                          type="button"
+                          onClick={() => setSelectedImageIndex(index)}
+                          className={cn(
+                            "h-2 rounded-full transition-all",
+                            selectedImageIndex === index ? "w-6 bg-slate-950" : "w-2 bg-slate-300 hover:bg-slate-400",
+                          )}
+                          aria-label={`Show generated scene ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        currentImageUrl &&
+                        void downloadImageFromUrl(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.png`)
+                      }
+                      className="rounded-full border-slate-200 bg-white"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Download image {selectedImageIndex + 1}
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -694,10 +986,57 @@ export function MaterialToScenePanel() {
           <DialogHeader className="border-b border-slate-200 px-6 py-4">
             <DialogTitle className="text-base text-slate-950">Preview image {selectedImageIndex + 1}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[calc(92vh-72px)] overflow-auto bg-[linear-gradient(180deg,_#f8fafc_0%,_#ffffff_100%)] p-4 sm:p-6">
+          <div className="flex max-h-[calc(92vh-72px)] items-center justify-center overflow-auto bg-[linear-gradient(180deg,_#f8fafc_0%,_#ffffff_100%)] p-4 sm:p-6">
             {currentImageUrl ? (
-              <img src={currentImageUrl} alt={`Preview image ${selectedImageIndex + 1}`} className="mx-auto h-auto max-w-full rounded-[20px] object-contain" />
+              <div
+                className={cn(
+                  "relative w-full overflow-hidden rounded-[20px] bg-white shadow-sm",
+                  PREVIEW_ASPECT_CLASS[aspectRatio],
+                  PREVIEW_WIDTH_CLASS[aspectRatio],
+                )}
+              >
+                <img src={currentImageUrl} alt={`Preview image ${selectedImageIndex + 1}`} className="h-full w-full object-contain" />
+              </div>
             ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={promptGuideIndex !== null} onOpenChange={(open) => !open && setPromptGuideIndex(null)}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-hidden border-slate-200 bg-white p-0">
+          <DialogHeader className="border-b border-slate-200 px-6 py-4">
+            <DialogTitle className="text-base text-slate-950">
+              Prompt guideline {promptGuideIndex === null ? "" : `${promptGuideIndex + 1} / ${PROMPT_GUIDE_IMAGES.length}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="relative flex min-h-0 items-center justify-center bg-slate-100 p-4 sm:p-6">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={showPreviousPromptGuide}
+              className="absolute left-3 z-10 h-10 w-10 rounded-full border-slate-200 bg-white/95 shadow-sm"
+              aria-label="Previous prompt guideline"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            {selectedPromptGuide ? (
+              <img
+                src={selectedPromptGuide}
+                alt={`Prompt guideline ${(promptGuideIndex ?? 0) + 1}`}
+                className="max-h-[calc(92vh-112px)] max-w-full rounded-[16px] object-contain shadow-sm"
+              />
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={showNextPromptGuide}
+              className="absolute right-3 z-10 h-10 w-10 rounded-full border-slate-200 bg-white/95 shadow-sm"
+              aria-label="Next prompt guideline"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

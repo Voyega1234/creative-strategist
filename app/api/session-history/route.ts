@@ -17,13 +17,16 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
+    const ideaSessionId = searchParams.get('ideaSessionId')
     const clientName = searchParams.get('clientName')
     const favoritesOnly = searchParams.get('favoritesOnly') === 'true'
+    // summary mode: skip heavy ideas payload (used by the sidebar list which only needs title/count/date)
+    const summaryOnly = searchParams.get('summary') === 'true'
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50) // Cap at 50 for performance
     const offset = parseInt(searchParams.get('offset') || '0')
 
     // SessionId is optional - if not provided, we'll get all sessions for the client
-    console.log('🔍 Session history request:', { sessionId, clientName, limit, offset })
+    console.log('🔍 Session history request:', { sessionId, ideaSessionId, clientName, limit, offset })
 
     // Initialize Supabase client - using anon key since service role key is not properly configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -44,10 +47,14 @@ export async function GET(request: NextRequest) {
         created_at,
         n8n_response
       `)
+      .or('selected_template.is.null,selected_template.not.like.image:%')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
     // Add client filter - this should be the primary filter
+    if (ideaSessionId) {
+      query = query.eq('id', ideaSessionId)
+    }
     if (clientName) {
       query = query.eq('client_name', clientName)
     }
@@ -69,9 +76,13 @@ export async function GET(request: NextRequest) {
     let countQuery = supabase
       .from('idea_sessions')
       .select('id', { count: 'exact', head: true })
+      .or('selected_template.is.null,selected_template.not.like.image:%')
     
     if (clientName) {
       countQuery = countQuery.eq('client_name', clientName)
+    }
+    if (ideaSessionId) {
+      countQuery = countQuery.eq('id', ideaSessionId)
     }
     if (favoritesOnly) {
       countQuery = countQuery.eq('n8n_response->_is_favorite', true)
@@ -81,9 +92,7 @@ export async function GET(request: NextRequest) {
 
     // Transform for frontend (minimize data transfer)
     const transformedSessions = sessions?.map(session => {
-      const normalizedIdeas = Array.isArray(session.n8n_response?.ideas) ? session.n8n_response.ideas.map(normalizeIdea) : []
-
-      return {
+      const base = {
         id: session.id,
         clientName: session.client_name,
         productFocus: session.product_focus,
@@ -94,6 +103,16 @@ export async function GET(request: NextRequest) {
         createdAt: session.created_at,
         isFavorite: session.n8n_response?._is_favorite === true,
         title: typeof session.n8n_response?._session_title === 'string' ? session.n8n_response._session_title : null,
+      }
+
+      if (summaryOnly) {
+        return base
+      }
+
+      const normalizedIdeas = Array.isArray(session.n8n_response?.ideas) ? session.n8n_response.ideas.map(normalizeIdea) : []
+
+      return {
+        ...base,
         // Send full ideas data for loading complete sessions
         ideas: normalizedIdeas,
         n8nResponse: session.n8n_response ? { ...session.n8n_response, ideas: normalizedIdeas } : undefined

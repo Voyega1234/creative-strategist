@@ -1,4 +1,24 @@
+import { readFile } from "node:fs/promises"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { requiredEnv } from "./env.mjs"
+
+const PROMPT_ENGINEER_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../prompts/prompt-engineer.md",
+)
+
+// Source of truth for the concept system prompt is prompts/prompt-engineer.md (editable).
+// The inline string below is only a fallback if that file can't be read at runtime.
+async function loadVisualThinkingSystemPrompt() {
+  try {
+    const fileContent = (await readFile(PROMPT_ENGINEER_PATH, "utf8")).trim()
+    if (fileContent) return fileContent
+  } catch (error) {
+    console.warn("[visual-thinking] Falling back to inline system prompt:", error.message)
+  }
+  return visualThinkingSystemPrompt
+}
 
 const visualThinkingSystemPrompt = `You are a senior Art Director and visual concept strategist.
 Deliver one strong advertising visual concept for social media.
@@ -38,6 +58,32 @@ Use 4-5 bullets only.
 1. Layout Structure
 2. Layer & Depth System
 3. Art Direction, Lighting & Material Craft`
+
+const MAX_VISUAL_THINKING_IMAGES = 6
+
+// Material images = the real product/packaging/brand assets. Feeding them to the concept LLM lets
+// it plan a visual that actually matches what the product looks like from the start.
+function collectMaterialImageUrls(body) {
+  const urls = Array.isArray(body.material_image_urls) ? body.material_image_urls : []
+  return urls
+    .filter((url) => typeof url === "string" && /^https?:\/\//.test(url.trim()))
+    .map((url) => url.trim())
+    .slice(0, MAX_VISUAL_THINKING_IMAGES)
+}
+
+// Reference images = the desired visual style/mood (brand ads, attached references). Feeding them
+// to the concept LLM lets it extract their visual DNA and match the mood from the start.
+function collectReferenceImageUrls(body) {
+  const urls = Array.isArray(body.reference_image_urls)
+    ? body.reference_image_urls
+    : body.reference_image_url
+      ? [body.reference_image_url]
+      : []
+  return urls
+    .filter((url) => typeof url === "string" && /^https?:\/\//.test(url.trim()))
+    .map((url) => url.trim())
+    .slice(0, MAX_VISUAL_THINKING_IMAGES)
+}
 
 export function buildVisualThinkingUserPrompt(body, context = {}) {
   return `User brief:
@@ -88,6 +134,31 @@ ${buildVisualThinkingUserPrompt(body, context)}`
   }
 
   const model = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.6"
+  const systemPrompt = await loadVisualThinkingSystemPrompt()
+
+  const userText = buildVisualThinkingUserPrompt(body, context)
+  const materialImageUrls = collectMaterialImageUrls(body)
+  const referenceImageUrls = collectReferenceImageUrls(body)
+
+  // Send a multimodal message so the LLM can actually see the product (materials) and the desired
+  // style (references) and plan a coherent, on-style concept. Falls back to plain text if none.
+  const imageParts = []
+  if (materialImageUrls.length) {
+    imageParts.push({
+      type: "text",
+      text: "MATERIAL IMAGES (the actual product, packaging, or brand asset). Treat them as the real hero subject and keep the concept faithful to how they actually look — shape, color, logo, proportions.",
+    })
+    materialImageUrls.forEach((url) => imageParts.push({ type: "image_url", image_url: { url } }))
+  }
+  if (referenceImageUrls.length) {
+    imageParts.push({
+      type: "text",
+      text: "STYLE REFERENCE IMAGES (existing brand ads / chosen references). Extract their visual DNA — mood, color treatment, lighting, composition, typography feel, and art direction — and make the new concept clearly match this style. Do NOT copy their exact content or subject.",
+    })
+    referenceImageUrls.forEach((url) => imageParts.push({ type: "image_url", image_url: { url } }))
+  }
+
+  const userContent = imageParts.length ? [{ type: "text", text: userText }, ...imageParts] : userText
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -100,8 +171,8 @@ ${buildVisualThinkingUserPrompt(body, context)}`
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: visualThinkingSystemPrompt },
-        { role: "user", content: buildVisualThinkingUserPrompt(body, context) },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
       ],
       temperature: 0.7,
     }),

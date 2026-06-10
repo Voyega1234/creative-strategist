@@ -27,6 +27,31 @@ const PRESET_STYLES: Record<string, string> = {
     "Trendy, lifestyle-oriented, aesthetic, slightly stylized, engaging composition, soft or dramatic lighting depending on mood.",
 }
 
+const PHOTOGRAPHY_STYLES: Record<string, string> = {
+  auto:
+    "Choose the most appropriate product photography treatment from the user's brief and references. Do not impose a fixed visual formula.",
+  "clean-white":
+    "Clean white product photography: seamless bright white or very light neutral set, controlled soft studio lighting, crisp product detail, restrained props, and a believable contact shadow.",
+  lifestyle:
+    "Lifestyle product photography: place the product in a believable real-life use context with natural supporting props, authentic scale, and an unstaged but commercially polished composition.",
+  minimal:
+    "Minimal product photography: use very few purposeful elements, strong negative space, restrained geometric forms, and a clear single focal point on the product.",
+  "dark-moody":
+    "Dark and moody product photography: low-key lighting, deep shadows, controlled highlights, rich contrast, and a premium dramatic atmosphere without losing product detail.",
+  "natural-light":
+    "Natural-light product photography: believable window or daylight illumination, warm-to-neutral color temperature, soft directional shadows, and an organic lived-in atmosphere.",
+  "flat-lay":
+    "Flat-lay product photography: top-down camera, carefully organized supporting objects, clean spacing, realistic surface contact, and strong graphic balance.",
+  "hero-shot":
+    "Hero-shot product photography: commanding low or three-quarter camera angle, bold scale, focused dramatic lighting, and a composition that makes the product feel iconic and powerful.",
+  "texture-rich":
+    "Texture-rich product photography: emphasize tactile surfaces, material contrast, fine grain, condensation or natural imperfections where appropriate, while keeping the product identity exact.",
+  reflection:
+    "Reflection product photography: use a physically plausible reflective surface or controlled mirrored light to add depth and premium polish without duplicating or distorting the product.",
+  "pop-color":
+    "Pop-color product photography: use bold saturated color blocking and one energetic accent relationship, with clean separation and strong product readability.",
+}
+
 const ASPECT_RATIO_MAP: Record<string, string> = {
   "2:3": "3:4",
   "3:2": "4:3",
@@ -285,7 +310,13 @@ async function analyzeMaterial(referenceImageBase64: string, mimeType: string) {
   return materialDescription
 }
 
-function buildGenerationPrompt(materialDescription: string, preset: string, prompt: string, hasSceneReferences: boolean) {
+function buildGenerationPrompt(
+  materialDescription: string,
+  preset: string,
+  photographyStyle: string,
+  prompt: string,
+  hasSceneReferences: boolean,
+) {
   return `
 Create an ultra-realistic, photographic, production-ready scene image.
 The image must look indistinguishable from a real photograph, shot with a high-end DSLR camera, perfect studio lighting, physically accurate shadows, and flawless texture rendering.
@@ -354,6 +385,10 @@ ${materialDescription}
 
 Use Case Style:
 ${PRESET_STYLES[preset] || PRESET_STYLES["Ad Creative"]}
+
+PRODUCT PHOTOGRAPHY STYLE:
+${PHOTOGRAPHY_STYLES[photographyStyle] || PHOTOGRAPHY_STYLES.auto}
+Apply this as the photographic treatment only. The user's explicit scene, object, lighting, color, and composition instructions still take priority.
 
 BRIEF INTERPRETATION RULES:
 The user's brief below may be short, vague, or written casually. Your job is to interpret it like an experienced art director — understand creative intent, not just literal words.
@@ -451,6 +486,10 @@ export async function POST(request: Request) {
       : []
     const requestedMimeType = typeof body.mime_type === "string" ? body.mime_type.trim() : "image/png"
     const preset = typeof body.preset === "string" ? body.preset : "Ad Creative"
+    const photographyStyle =
+      typeof body.photography_style === "string" && PHOTOGRAPHY_STYLES[body.photography_style]
+        ? body.photography_style
+        : "auto"
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : ""
     const aspectRatioInput = typeof body.aspect_ratio === "string" ? body.aspect_ratio.trim() : "1:1"
     const imageSize = typeof body.image_size === "string" ? body.image_size.trim() : "1K"
@@ -478,7 +517,13 @@ export async function POST(request: Request) {
       mimeType,
     )
     const aspectRatio = ASPECT_RATIO_MAP[aspectRatioInput] || aspectRatioInput
-    const generationPrompt = buildGenerationPrompt(materialDescription, preset, prompt, sceneReferences.length > 0)
+    const generationPrompt = buildGenerationPrompt(
+      materialDescription,
+      preset,
+      photographyStyle,
+      prompt,
+      sceneReferences.length > 0,
+    )
 
     const payloads = await Promise.all(
       Array.from({ length: GENERATED_IMAGE_COUNT }).map(() =>
@@ -535,6 +580,7 @@ export async function POST(request: Request) {
           aspect_ratio: aspectRatio,
           image_size: imageSize,
           preset,
+          photography_style: photographyStyle,
         })
 
         return {
@@ -560,6 +606,7 @@ export async function POST(request: Request) {
       aspect_ratio: aspectRatio,
       image_size: imageSize,
       preset,
+      photography_style: photographyStyle,
       saved_output_count: images.filter((image) => Boolean(image.url)).length,
     })
   } catch (error) {

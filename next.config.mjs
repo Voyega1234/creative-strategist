@@ -13,6 +13,11 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui'],
   },
+  // Ensure the visual-thinking prompt markdown is bundled into the image-generation function
+  // (it is read from disk at runtime, not imported, so tracing wouldn't include it otherwise).
+  outputFileTracingIncludes: {
+    '/api/generate-image': ['./text-to-image-code/prompts/**'],
+  },
   turbopack: {
     root: process.cwd(),
     rules: {

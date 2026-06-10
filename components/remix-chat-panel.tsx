@@ -16,6 +16,10 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Switch } from "@/components/ui/switch"
+import {
+  loadClientReferenceImages,
+  uploadClientReferenceFiles,
+} from "@/lib/images/reference-library"
 import { getStorageClient } from "@/lib/supabase/client"
 import {
   Upload,
@@ -591,30 +595,36 @@ export function RemixChatPanel({
     setColorPalette(c?.colorPalette || [])
   }, [selectedClientId, clients])
 
+  useEffect(() => {
+    setPendingImages([])
+  }, [selectedClientId, selectedProductFocus])
+
   // ─── Load reference library ────────────────────────────────
 
   const loadReferenceLibrary = useCallback(async () => {
     try {
       setLoadingReferenceLibrary(true)
-      const storage = getStorageClient()
-      if (!storage) return
-      const { data: files, error } = await storage.from("ads-creative-image").list("references/", {
-        limit: 60, offset: 0, sortBy: { column: "name", order: "desc" },
-      })
-      if (error || !files?.length) { setReferenceLibrary([]); return }
-      const images = await Promise.all(
-        files.map(async (f) => {
-          const { data: u } = storage.from("ads-creative-image").getPublicUrl(`references/${f.name}`)
-          return { name: f.name, previewUrl: u.publicUrl, uploadedUrl: u.publicUrl, url: u.publicUrl, size: f.metadata?.size || 0, created_at: f.created_at || new Date().toISOString() } satisfies ReferenceImage
-        }),
+      const { images } = await loadClientReferenceImages(selectedClientId, 60)
+      setReferenceLibrary(
+        images.map(
+          (image) =>
+            ({
+              name: image.name,
+              previewUrl: image.url,
+              uploadedUrl: image.url,
+              url: image.url,
+              size: image.size,
+              created_at: image.createdAt,
+            }) satisfies ReferenceImage,
+        ),
       )
-      setReferenceLibrary(images.sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()))
     } catch (err) {
       console.error("Failed to load reference library:", err)
+      setReferenceLibrary([])
     } finally {
       setLoadingReferenceLibrary(false)
     }
-  }, [])
+  }, [selectedClientId])
 
   useEffect(() => { loadReferenceLibrary() }, [loadReferenceLibrary])
 
@@ -746,21 +756,14 @@ export function RemixChatPanel({
 
   const handleReferenceUpload = useCallback(async (files: FileList | null) => {
     if (!files?.length) return
-    const storage = getStorageClient()
-    if (!storage) return
+    if (!selectedClientId || selectedClientId === "general") {
+      alert("กรุณาเลือกลูกค้าก่อนอัปโหลด Reference")
+      return
+    }
     setIsUploadingReferences(true)
     try {
-      const uploads = await Promise.all(
-        Array.from(files).filter((f) => f.type.startsWith("image/")).map(async (file) => {
-          const ext = file.name.split(".").pop()
-          const name = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`
-          const path = `references/${name}`
-          const { error } = await storage.from("ads-creative-image").upload(path, file)
-          if (error) throw error
-          const { data: u } = storage.from("ads-creative-image").getPublicUrl(path)
-          return u.publicUrl
-        }),
-      )
+      const uploaded = await uploadClientReferenceFiles(selectedClientId, Array.from(files))
+      const uploads = uploaded.map((image) => image.url)
       if (uploads.length) {
         setPendingImages((prev) => {
           const next = [...prev]
@@ -777,7 +780,7 @@ export function RemixChatPanel({
       setIsUploadingReferences(false)
       if (fileInputRef.current) fileInputRef.current.value = ""
     }
-  }, [loadReferenceLibrary])
+  }, [loadReferenceLibrary, selectedClientId])
 
   const removePendingImage = useCallback((url: string) => {
     setPendingImages((prev) => prev.filter((u) => u !== url))

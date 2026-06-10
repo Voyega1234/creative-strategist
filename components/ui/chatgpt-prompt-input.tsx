@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ImagePlus, Loader2, Send, X } from "lucide-react"
+import { Loader2, Paperclip, Send, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -124,7 +124,7 @@ export function PromptBox({
           className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Attach image"
         >
-          <ImagePlus className="h-5 w-5" />
+          <Paperclip className="h-5 w-5" />
         </button>
         <p className="text-xs text-slate-400">Shift + Enter for new line</p>
         <button

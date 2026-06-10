@@ -46,8 +46,8 @@ export async function uploadImageToSupabase(buffer, options = {}) {
   const config = getSupabaseConfig()
   if (!config) return null
 
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "images_document"
-  const prefix = (process.env.SUPABASE_STORAGE_PREFIX || "CVC").replace(/^\/|\/$/g, "")
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET || "ads-creative-image"
+  const prefix = (process.env.SUPABASE_STORAGE_PREFIX || "generated/text-to-image").replace(/^\/|\/$/g, "")
   const extension = options.extension || "png"
   const contentType = options.contentType || "image/png"
   const objectPath = `${prefix}/${randomUUID()}.${extension}`

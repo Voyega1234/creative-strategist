@@ -15,6 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  loadClientReferenceImages,
+  uploadClientReferenceFiles,
+} from "@/lib/images/reference-library"
 import { getStorageClient } from "@/lib/supabase/client"
 import {
   Upload,
@@ -704,47 +708,24 @@ export function ReferenceRemixPanel({
   const loadReferenceLibrary = useCallback(async () => {
     try {
       setLoadingReferenceLibrary(true)
-      const storageClient = getStorageClient()
-      if (!storageClient) return
-
-      const { data: files, error } = await storageClient.from("ads-creative-image").list("references/", {
-        limit: 60,
-        offset: 0,
-        sortBy: { column: "name", order: "desc" },
-      })
-
-      if (error) {
-        console.error("Error loading reference library:", error)
-        return
-      }
-
-      if (!files?.length) {
-        setReferenceLibrary([])
-        return
-      }
-
-      const imagePromises = files.map(async (file) => {
-        const { data: urlData } = storageClient.from("ads-creative-image").getPublicUrl(`references/${file.name}`)
-        return {
-          name: file.name,
-          previewUrl: urlData.publicUrl,
-          uploadedUrl: urlData.publicUrl,
-          url: urlData.publicUrl,
-          size: file.metadata?.size || 0,
-          created_at: file.created_at || new Date().toISOString(),
-        } satisfies ReferenceImage
-      })
-
-      const imageList = await Promise.all(imagePromises)
+      const { images } = await loadClientReferenceImages(selectedClientId, 60)
       setReferenceLibrary(
-        imageList.sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()),
+        images.map((image) => ({
+          name: image.name,
+          previewUrl: image.url,
+          uploadedUrl: image.url,
+          url: image.url,
+          size: image.size,
+          created_at: image.createdAt,
+        })),
       )
     } catch (error) {
       console.error("Failed to load reference library:", error)
+      setReferenceLibrary([])
     } finally {
       setLoadingReferenceLibrary(false)
     }
-  }, [])
+  }, [selectedClientId])
 
   useEffect(() => {
     loadReferenceLibrary()
@@ -753,29 +734,23 @@ export function ReferenceRemixPanel({
   const handleReferenceLibraryUpload = useCallback(
     async (files: FileList | null) => {
       if (!files?.length) return
-      const storageClient = getStorageClient()
-      if (!storageClient) return
+      if (!selectedClientId) {
+        alert("กรุณาเลือกลูกค้าก่อนอัปโหลด Reference")
+        return
+      }
       setIsUploadingReferences(true)
       try {
-        const uploads = await Promise.all(
-          Array.from(files)
-            .filter((file) => file.type.startsWith("image/"))
-            .map(async (file) => {
-              const fileExt = file.name.split(".").pop()
-              const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`
-              const fullPath = `references/${fileName}`
-              const { error } = await storageClient.from("ads-creative-image").upload(fullPath, file)
-              if (error) throw error
-              const { data: urlData } = storageClient.from("ads-creative-image").getPublicUrl(fullPath)
-              return {
-                name: file.name,
-                previewUrl: urlData.publicUrl,
-                uploadedUrl: urlData.publicUrl,
-                url: urlData.publicUrl,
-                size: file.size,
-                created_at: new Date().toISOString(),
-              } satisfies ReferenceImage
-            }),
+        const uploadedImages = await uploadClientReferenceFiles(selectedClientId, Array.from(files))
+        const uploads = uploadedImages.map(
+          (image) =>
+            ({
+              name: image.name,
+              previewUrl: image.url,
+              uploadedUrl: image.url,
+              url: image.url,
+              size: image.size,
+              created_at: image.createdAt,
+            }) satisfies ReferenceImage,
         )
 
         if (uploads.length > 0) {
@@ -792,7 +767,7 @@ export function ReferenceRemixPanel({
         }
       }
     },
-    [addReferencesToSelection],
+    [addReferencesToSelection, selectedClientId],
   )
 
   const handleDrop = useCallback(

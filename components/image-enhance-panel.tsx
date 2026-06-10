@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import { dataUrlToBlob, downloadBlob, getClosestAspectRatioLabel, readImageDimensions, uploadFileToImageStorage } from "@/lib/images/client"
 import { cn } from "@/lib/utils"
-import { CheckCircle2, Loader2, Sparkles, Upload, Wand2 } from "lucide-react"
+import { CheckCircle2, ImagePlus, Loader2, Sparkles, Upload, Wand2, X } from "lucide-react"
 
 type EnhanceMode = "preserve" | "reimagine"
 
@@ -64,6 +64,8 @@ type SourceImageMeta = {
   height: number
   aspectRatioLabel: string
 }
+
+type WorkspaceEnhanceStep = "upload" | "review" | "result"
 
 type AutoResizeTextareaProps = ComponentProps<typeof Textarea>
 
@@ -146,14 +148,23 @@ async function uploadFileToStorage(file: File) {
   return uploadFileToImageStorage(file, "generated/enhance-inputs")
 }
 
-export function ImageEnhancePanel() {
+type ImageEnhancePanelProps = {
+  variant?: "legacy" | "workspace"
+}
+
+export function ImageEnhancePanel({ variant = "legacy" }: ImageEnhancePanelProps) {
+  const isWorkspace = variant === "workspace"
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const referenceInputRef = useRef<HTMLInputElement | null>(null)
   const analyzeInFlightRef = useRef(false)
   const generateInFlightRef = useRef(false)
   const removeTextInFlightRef = useRef(false)
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null)
+  const [referenceFile, setReferenceFile] = useState<File | null>(null)
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null)
+  const [uploadedReferenceUrl, setUploadedReferenceUrl] = useState<string | null>(null)
   const [sourceImageMeta, setSourceImageMeta] = useState<SourceImageMeta | null>(null)
   const [critique, setCritique] = useState<CritiquePayload | null>(null)
   const [selectedMode, setSelectedMode] = useState<EnhanceMode | null>(null)
@@ -165,6 +176,7 @@ export function ImageEnhancePanel() {
   const [showAllSpellCorrections, setShowAllSpellCorrections] = useState(false)
   const [userNotes, setUserNotes] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [workspaceStep, setWorkspaceStep] = useState<WorkspaceEnhanceStep>("upload")
 
   useEffect(() => {
     return () => {
@@ -173,6 +185,14 @@ export function ImageEnhancePanel() {
       }
     }
   }, [previewUrl])
+
+  useEffect(() => {
+    return () => {
+      if (referencePreviewUrl) {
+        URL.revokeObjectURL(referencePreviewUrl)
+      }
+    }
+  }, [referencePreviewUrl])
 
   const uploadHint = useMemo(() => {
     if (!file) return "อัปโหลดภาพเดิมก่อน เพื่อให้ AI วิจารณ์และแนะนำว่า Preserve หรือ Reimagine เหมาะกว่า"
@@ -196,9 +216,36 @@ export function ImageEnhancePanel() {
       setShowAllSpellCorrections(false)
       setUserNotes("")
       setError(null)
+      setWorkspaceStep("upload")
     } catch (err) {
       console.error("Failed to read enhance image metadata:", err)
       alert(err instanceof Error ? err.message : "ไม่สามารถอ่านขนาดรูปได้")
+    }
+  }
+
+  const handleReferenceSelect = (selectedFile: File) => {
+    if (referencePreviewUrl) {
+      URL.revokeObjectURL(referencePreviewUrl)
+    }
+
+    setReferenceFile(selectedFile)
+    setReferencePreviewUrl(URL.createObjectURL(selectedFile))
+    setUploadedReferenceUrl(null)
+    setGeneratedResult(null)
+    setError(null)
+  }
+
+  const handleReferenceRemove = () => {
+    if (referencePreviewUrl) {
+      URL.revokeObjectURL(referencePreviewUrl)
+    }
+
+    setReferenceFile(null)
+    setReferencePreviewUrl(null)
+    setUploadedReferenceUrl(null)
+    setGeneratedResult(null)
+    if (referenceInputRef.current) {
+      referenceInputRef.current.value = ""
     }
   }
 
@@ -246,6 +293,7 @@ export function ImageEnhancePanel() {
       setCritique(result.critique)
       setShowAllSpellCorrections(false)
       setSelectedMode(result.critique.recommended_mode)
+      setWorkspaceStep("review")
     } catch (err) {
       console.error("Enhance critique failed:", err)
       const message = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการวิเคราะห์ภาพ"
@@ -275,6 +323,7 @@ export function ImageEnhancePanel() {
       setIsGenerating(true)
       setSelectedMode(mode)
       setError(null)
+      setWorkspaceStep("result")
 
       const sourceImageUrl = uploadedImageUrl || (file ? await uploadFileToStorage(file) : null)
       if (!sourceImageUrl) {
@@ -285,6 +334,14 @@ export function ImageEnhancePanel() {
         setUploadedImageUrl(sourceImageUrl)
       }
 
+      const referenceImageUrl =
+        uploadedReferenceUrl ||
+        (referenceFile ? await uploadFileToImageStorage(referenceFile, "generated/enhance-references") : null)
+
+      if (referenceImageUrl && !uploadedReferenceUrl) {
+        setUploadedReferenceUrl(referenceImageUrl)
+      }
+
       const response = await fetch("/api/enhance-generate", {
         method: "POST",
         headers: {
@@ -292,6 +349,7 @@ export function ImageEnhancePanel() {
         },
         body: JSON.stringify({
           image_url: sourceImageUrl,
+          reference_image_url: referenceImageUrl,
           mode,
           critique: cleanCritiqueForRequest(critique),
           user_notes: userNotes,
@@ -381,9 +439,418 @@ export function ImageEnhancePanel() {
   const spellCorrections = critique?.spell_check?.issues || []
   const visibleSpellCorrections = showAllSpellCorrections ? spellCorrections : spellCorrections.slice(0, 4)
   const scoreBreakdownItems = critique ? getScoreBreakdownItems(critique) : []
+  const workspaceSteps: Array<{ id: WorkspaceEnhanceStep; label: string; disabled: boolean }> = [
+    { id: "upload", label: "Upload", disabled: false },
+    { id: "review", label: "AI Review", disabled: !critique },
+    { id: "result", label: "Result", disabled: !generatedResult && !isGenerating },
+  ]
+
+  if (isWorkspace) {
+    return (
+      <div className="space-y-4">
+        {error && (
+          <div className="rounded-[20px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-slate-200 bg-slate-50/80 p-2">
+          <div className="flex min-w-0 flex-1 gap-1">
+            {workspaceSteps.map((step, index) => (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => {
+                  if (!step.disabled) setWorkspaceStep(step.id)
+                }}
+                disabled={step.disabled}
+                className={cn(
+                  "flex h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-3 text-xs font-semibold transition",
+                  workspaceStep === step.id
+                    ? "bg-[#1f1f1f] text-white shadow-sm"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100",
+                  step.disabled && "cursor-not-allowed opacity-45 hover:bg-white",
+                )}
+              >
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-current/10 text-[10px]">
+                  {index + 1}
+                </span>
+                <span className="truncate">{step.label}</span>
+              </button>
+            ))}
+          </div>
+          {sourceImageMeta && (
+            <Badge className="rounded-full bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-white">
+              {sourceImageMeta.aspectRatioLabel}
+            </Badge>
+          )}
+        </div>
+
+        <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          {workspaceStep === "upload" && (
+            <div className="grid gap-4 p-4 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)]">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-950">Upload image</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    เลือกรูปที่ต้องการให้ AI ตรวจคุณภาพและเสนอวิธีปรับ
+                  </p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0]
+                    if (selectedFile) void handleFileSelect(selectedFile)
+                  }}
+                />
+                <input
+                  ref={referenceInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0]
+                    if (selectedFile) handleReferenceSelect(selectedFile)
+                    event.target.value = ""
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-[280px] w-full items-center justify-center rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 text-center transition hover:border-slate-400 hover:bg-slate-100"
+                >
+                  {previewUrl ? (
+                    <div className="w-full space-y-3">
+                      <div className="relative mx-auto aspect-square w-full max-w-[220px] overflow-hidden rounded-[22px] bg-white">
+                        <Image src={previewUrl} alt={file?.name || "Preview"} fill className="object-contain" sizes="220px" />
+                      </div>
+                      <div>
+                        <p className="truncate text-sm font-semibold text-slate-950">{file?.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">{uploadHint}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-800 shadow-sm">
+                        <Upload className="h-5 w-5" />
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-slate-950">Drop or upload image</p>
+                      <p className="mt-1 text-xs text-slate-500">PNG, JPG, WEBP</p>
+                    </div>
+                  )}
+                </button>
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={!file || isAnalyzing}
+                  className="h-11 w-full rounded-full bg-[#1f1f1f] text-white hover:bg-black"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking image...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Run AI Check
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-950">Visual reference</p>
+                      <Badge className="rounded-full bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-white">
+                        Optional
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      ใช้เป็นแนวทางด้าน mood, แสง, สี และภาษาภาพ โดยไม่แทนที่เนื้อหาจากรูปหลัก
+                    </p>
+                  </div>
+                  {referenceFile && (
+                    <button
+                      type="button"
+                      onClick={handleReferenceRemove}
+                      aria-label="Remove reference image"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => referenceInputRef.current?.click()}
+                  className="mt-4 flex h-[210px] w-full items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-slate-300 bg-white px-4 text-center transition hover:border-slate-400 hover:bg-slate-50"
+                >
+                  {referencePreviewUrl ? (
+                    <div className="relative h-full w-full">
+                      <Image
+                        src={referencePreviewUrl}
+                        alt={referenceFile?.name || "Visual reference"}
+                        fill
+                        className="object-contain p-3"
+                        sizes="(max-width: 1024px) 100vw, 560px"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                        <ImagePlus className="h-5 w-5" />
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-slate-950">Add reference image</p>
+                      <p className="mt-1 text-xs text-slate-500">PNG, JPG, WEBP</p>
+                    </div>
+                  )}
+                </button>
+
+                <div className="mt-3 rounded-2xl bg-white px-3 py-2.5 text-xs leading-5 text-slate-500 ring-1 ring-slate-200">
+                  AI จะไม่คัดลอกสินค้า โลโก้ ข้อความ หรือบุคคลจากภาพ Reference เว้นแต่ระบุไว้ใน Team notes
+                </div>
+              </div>
+            </div>
+          )}
+
+          {workspaceStep === "review" && (
+            <div className="p-4">
+              {!critique ? (
+                <div className="flex min-h-[360px] items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 text-center">
+                  <div>
+                    <Wand2 className="mx-auto h-7 w-7 text-slate-400" />
+                    <p className="mt-3 text-sm font-semibold text-slate-950">Run AI Check ก่อน</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-[116px_minmax(0,1fr)]">
+                      <div className="flex aspect-square w-[116px] flex-col justify-center rounded-[24px] bg-[#1f1f1f] px-4 text-white">
+                        <p className="text-[11px] font-medium text-white/60">Score</p>
+                        <p className="mt-1 text-[42px] font-semibold leading-none tracking-[-0.06em]">
+                          {formatScore(critique.overall_score)}
+                        </p>
+                        <p className="mt-2 text-[11px] text-white/50">out of 10</p>
+                      </div>
+                      <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                        <Badge
+                          className={cn(
+                            "rounded-full",
+                            critique.recommended_mode === "preserve"
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-amber-100 text-amber-700 hover:bg-amber-100",
+                          )}
+                        >
+                          Recommended: {critique.recommended_mode === "preserve" ? "ปรับภาพเดิม" : "คิดภาพใหม่"}
+                        </Badge>
+                        <AutoResizeTextarea
+                          value={critique.rationale}
+                          onChange={(event) => updateCritiqueField("rationale", event.target.value)}
+                          className="mt-3 min-h-[92px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
+                        />
+                      </div>
+                    </div>
+
+                    {scoreBreakdownItems.length > 0 && (
+                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        {scoreBreakdownItems.slice(0, 4).map((item) => (
+                          <div key={item.label} className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="truncate text-xs text-slate-500">{item.label}</p>
+                            <p className="mt-1 text-lg font-semibold leading-none text-slate-950">{formatScore(item.value)}/10</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Fix First</p>
+                          <p className="mt-1 text-sm text-slate-500">แก้เฉพาะจุดที่มีผลกับคุณภาพงานจริง</p>
+                        </div>
+                        <Badge className="rounded-full bg-slate-100 text-slate-700 hover:bg-slate-100">
+                          {critique.priority_fixes.length} fixes
+                        </Badge>
+                      </div>
+                      <AutoResizeTextarea
+                        value={critique.priority_fixes.join("\n")}
+                        onChange={(event) => updateCritiqueList("priority_fixes", event.target.value)}
+                        className="mt-3 min-h-[118px] border-slate-200 text-sm leading-6 text-slate-700"
+                      />
+                    </div>
+
+                    {spellCorrections.length > 0 && (
+                      <div className="rounded-[24px] border border-slate-200 bg-white p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Copy / Spell Fixes</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {spellCorrections.slice(0, 4).map((issue, index) => (
+                            <div key={`${issue.original_text}-${index}`} className="rounded-2xl bg-slate-50 px-3 py-2 text-xs">
+                              <span className="font-semibold text-rose-700">{issue.original_text || "-"}</span>
+                              <span className="px-2 text-slate-400">→</span>
+                              <span className="font-semibold text-emerald-700">{issue.suggested_text || "-"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Choose output</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        เลือกว่าจะคงโครงเดิมหรือให้ AI สร้าง visual direction ใหม่
+                      </p>
+                    </div>
+                    <AutoResizeTextarea
+                      value={critique.preserve_focus.join("\n")}
+                      onChange={(event) => updateCritiqueList("preserve_focus", event.target.value)}
+                      className="min-h-[88px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => void handleGenerate("preserve")}
+                      disabled={isGenerating}
+                      className="h-11 w-full rounded-full bg-[#1f1f1f] text-white hover:bg-black"
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      ปรับภาพเดิม
+                    </Button>
+                    <AutoResizeTextarea
+                      value={critique.reimagine_brief}
+                      onChange={(event) => updateCritiqueField("reimagine_brief", event.target.value)}
+                      className="min-h-[88px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => void handleGenerate("reimagine")}
+                      disabled={isGenerating}
+                      className="h-11 w-full rounded-full bg-white text-slate-900 ring-1 ring-slate-200 hover:bg-slate-100"
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      คิดภาพใหม่
+                    </Button>
+                    <AutoResizeTextarea
+                      value={userNotes}
+                      onChange={(event) => setUserNotes(event.target.value)}
+                      placeholder="Team notes เพิ่มเติม..."
+                      className="min-h-[76px] border-slate-200 bg-white text-sm leading-6 text-slate-700"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {workspaceStep === "result" && (
+            <div className="p-4">
+              {isGenerating ? (
+                <div className="flex min-h-[420px] items-center justify-center rounded-[24px] border border-slate-200 bg-slate-50 text-center">
+                  <div>
+                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-slate-500" />
+                    <p className="mt-4 text-sm font-semibold text-slate-950">
+                      {selectedMode === "preserve" ? "กำลังปรับภาพเดิม..." : "กำลังคิดภาพใหม่..."}
+                    </p>
+                  </div>
+                </div>
+              ) : generatedResult ? (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                  <button
+                    type="button"
+                    onClick={() => setIsGeneratedPreviewOpen(true)}
+                    className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50"
+                  >
+                    <img
+                      src={generatedResult.imageUrl}
+                      alt={generatedResult.mode === "preserve" ? "Preserve result" : "Reimagine result"}
+                      className="max-h-[560px] w-full object-contain p-4"
+                    />
+                  </button>
+                  <div className="space-y-3 rounded-[24px] border border-slate-200 bg-white p-4">
+                    <p className="text-sm font-semibold text-slate-950">
+                      {generatedResult.mode === "preserve" ? "ปรับภาพเดิม" : "คิดภาพใหม่"}
+                    </p>
+                    <p className="text-xs leading-5 text-slate-500">Generated with {generatedResult.model}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRemoveText}
+                      disabled={isRemovingText}
+                      className="h-10 w-full rounded-full border-slate-200"
+                    >
+                      {isRemovingText ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      ลบข้อความ
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleDownloadGenerated}
+                      className="h-10 w-full rounded-full bg-[#1f1f1f] text-white hover:bg-black"
+                    >
+                      ดาวน์โหลด
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setWorkspaceStep("review")}
+                      className="h-10 w-full rounded-full border-slate-200"
+                    >
+                      กลับไปปรับ direction
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex min-h-[360px] items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 text-center">
+                  <div>
+                    <Sparkles className="mx-auto h-7 w-7 text-slate-400" />
+                    <p className="mt-3 text-sm font-semibold text-slate-950">เลือก output จากหน้า AI Review ก่อน</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Dialog open={isGeneratedPreviewOpen} onOpenChange={setIsGeneratedPreviewOpen}>
+          <DialogContent className="h-[92vh] max-w-6xl border-slate-200 p-0">
+            <DialogHeader className="border-b border-slate-200 px-6 py-4">
+              <div className="flex flex-col gap-3 pr-10 lg:flex-row lg:items-center lg:justify-between">
+                <DialogTitle className="text-base text-slate-950">
+                  {generatedResult?.mode === "preserve" ? "ภาพที่ปรับจากต้นฉบับ" : "ภาพแนวคิดใหม่"}
+                </DialogTitle>
+                {generatedResult && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={handleDownloadGenerated} className="rounded-full border-slate-200">
+                      ดาวน์โหลดภาพ
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </DialogHeader>
+            {generatedResult && (
+              <div className="flex h-[calc(92vh-76px)] items-center justify-center bg-slate-50 p-6">
+                <img
+                  src={generatedResult.imageUrl}
+                  alt={generatedResult.mode === "preserve" ? "Preserve result full preview" : "Reimagine result full preview"}
+                  className="max-h-full max-w-full rounded-[20px] border border-slate-200 bg-white object-contain shadow-sm"
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", isWorkspace && "space-y-4")}>
+      {!isWorkspace && (
       <Card className="rounded-[20px] border-slate-200/80 bg-white px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)] sm:rounded-[24px] sm:px-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 max-w-2xl">
@@ -400,6 +867,7 @@ export function ImageEnhancePanel() {
           </div>
         </div>
       </Card>
+      )}
 
       {error && (
         <Card className="rounded-[24px] border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
@@ -407,8 +875,20 @@ export function ImageEnhancePanel() {
         </Card>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)_360px]">
-        <Card className="h-fit overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm xl:sticky xl:top-4">
+      <div
+        className={cn(
+          "grid gap-5",
+          isWorkspace
+            ? "lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:items-start"
+            : "xl:grid-cols-[340px_minmax(0,1fr)_360px]",
+        )}
+      >
+        <Card
+          className={cn(
+            "h-fit overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm",
+            isWorkspace ? "lg:col-start-1 lg:row-start-1" : "xl:sticky xl:top-4",
+          )}
+        >
           <div className="border-b border-slate-100 px-5 py-4">
             <h4 className="text-base font-semibold text-slate-950">1. Upload</h4>
             <p className="mt-1 text-sm text-slate-500">เลือกรูปที่ต้องการตรวจและปรับคุณภาพ</p>
@@ -432,7 +912,8 @@ export function ImageEnhancePanel() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className={cn(
-                "flex min-h-[260px] w-full items-center justify-center rounded-[24px] border border-dashed px-5 text-center transition-colors",
+                "flex w-full items-center justify-center rounded-[24px] border border-dashed px-5 text-center transition-colors",
+                isWorkspace ? "min-h-[210px]" : "min-h-[260px]",
                 previewUrl
                   ? "border-slate-200 bg-white hover:border-slate-300"
                   : "border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100",
@@ -488,7 +969,12 @@ export function ImageEnhancePanel() {
           </div>
         </Card>
 
-        <Card className="overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm">
+        <Card
+          className={cn(
+            "overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm",
+            isWorkspace ? "lg:col-start-2 lg:row-span-2 lg:row-start-1" : "",
+          )}
+        >
           <div className="border-b border-slate-100 px-5 py-4">
             <h4 className="text-base font-semibold text-slate-950">2. AI Check</h4>
             <p className="mt-1 text-sm text-slate-500">Creative critique และ spell check แยกกันชัดเจน</p>
@@ -496,7 +982,12 @@ export function ImageEnhancePanel() {
 
           <div className="p-5">
             {!critique ? (
-              <div className="flex min-h-[520px] items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-6 text-center">
+              <div
+                className={cn(
+                  "flex items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-6 text-center",
+                  isWorkspace ? "min-h-[360px]" : "min-h-[520px]",
+                )}
+              >
                 <div>
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-900 shadow-sm">
                     <Wand2 className="h-6 w-6" />
@@ -715,7 +1206,12 @@ export function ImageEnhancePanel() {
           </div>
         </Card>
 
-        <Card className="h-fit overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm xl:sticky xl:top-4">
+        <Card
+          className={cn(
+            "h-fit overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm",
+            isWorkspace ? "lg:col-start-1 lg:row-start-2" : "xl:sticky xl:top-4",
+          )}
+        >
           <div className="border-b border-slate-100 px-5 py-4">
             <h4 className="text-base font-semibold text-slate-950">3. Generate</h4>
             <p className="mt-1 text-sm text-slate-500">เลือก output ที่ต้องการหลังตรวจเสร็จ</p>

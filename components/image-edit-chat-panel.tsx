@@ -22,6 +22,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { AddImagesDialog } from "@/components/add-images-dialog"
 import {
   Command,
   CommandEmpty,
@@ -42,6 +43,10 @@ import {
   uploadGeneratedImageBlob,
 } from "@/lib/images/client"
 import { getGoogleDriveFileId, normalizeExternalImageUrl } from "@/lib/images/external-url"
+import {
+  loadClientReferenceImages,
+  uploadClientReferenceFiles,
+} from "@/lib/images/reference-library"
 import { getStorageClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 
@@ -71,6 +76,7 @@ type ImageEditChatPanelProps = {
   clients?: ClientOption[]
   activeClientId?: string | null
   activeProductFocus?: string | null
+  variant?: "classic" | "workspace"
 }
 
 type ClientOption = {
@@ -135,11 +141,11 @@ export function ImageEditChatPanel({
   clients = [],
   activeClientId = null,
   activeProductFocus = null,
+  variant = "classic",
 }: ImageEditChatPanelProps) {
   const imageRef = useRef<HTMLImageElement | null>(null)
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const maskDataCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const emptyUploadInputRef = useRef<HTMLInputElement | null>(null)
   const referenceInputRef = useRef<HTMLInputElement | null>(null)
   const materialInputRef = useRef<HTMLInputElement | null>(null)
   const sourceUploadInputRef = useRef<HTMLInputElement | null>(null)
@@ -159,11 +165,13 @@ export function ImageEditChatPanel({
   const [previewUrl, setPreviewUrl] = useState("")
   const [referenceAssets, setReferenceAssets] = useState<UploadedAsset[]>([])
   const [materialAssets, setMaterialAssets] = useState<UploadedAsset[]>([])
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false)
   const [assetDialogOpen, setAssetDialogOpen] = useState(false)
   const [selectedMaterialClientId, setSelectedMaterialClientId] = useState(activeClientId || "general")
   const [referenceLibrary, setReferenceLibrary] = useState<StoredImageAsset[]>([])
   const [materialLibrary, setMaterialLibrary] = useState<StoredImageAsset[]>([])
   const [isLoadingReferences, setIsLoadingReferences] = useState(false)
+  const [isUploadingReferences, setIsUploadingReferences] = useState(false)
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false)
   const [isMaterialClientPopoverOpen, setIsMaterialClientPopoverOpen] = useState(false)
   const [referenceVisibleCount, setReferenceVisibleCount] = useState(10)
@@ -174,8 +182,13 @@ export function ImageEditChatPanel({
 
   const hasImage = Boolean(currentImageUrl)
   const isProcessing = isEditing
-  const selectedMaterialClient = clients.find((client) => client.id === selectedMaterialClientId)
+  const selectedMaterialClient = clients.find(
+    (client) =>
+      client.id === selectedMaterialClientId ||
+      client.productFocuses.some((productFocus) => productFocus.id === selectedMaterialClientId),
+  )
   const visibleReferenceLibrary = referenceLibrary.slice(0, referenceVisibleCount)
+  const isWorkspace = variant === "workspace"
 
   useEffect(() => {
     setHasMaskPaint(false)
@@ -184,6 +197,12 @@ export function ImageEditChatPanel({
 
   useEffect(() => {
     setSelectedMaterialClientId(activeClientId || "general")
+    setReferenceAssets((previous) => {
+      previous.forEach((asset) => {
+        if (asset.file) URL.revokeObjectURL(asset.previewUrl)
+      })
+      return []
+    })
   }, [activeClientId])
 
   useEffect(() => {
@@ -325,40 +344,51 @@ export function ImageEditChatPanel({
   const loadReferenceLibrary = useCallback(async () => {
     try {
       setIsLoadingReferences(true)
-      const storage = getStorageClient()
-      if (!storage) {
-        setReferenceLibrary([])
-        return
-      }
-
-      const { data: files, error } = await storage.from("ads-creative-image").list("references/", {
-        limit: 80,
-        offset: 0,
-        sortBy: { column: "name", order: "desc" },
-      })
-
-      if (error || !files?.length) {
-        setReferenceLibrary([])
-        return
-      }
-
-      const images = files.map((file) => {
-        const { data } = storage.from("ads-creative-image").getPublicUrl(`references/${file.name}`)
-        return {
-          name: file.name,
-          url: data.publicUrl,
-          createdAt: file.created_at || new Date().toISOString(),
-        }
-      })
-
-      setReferenceLibrary(images.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+      const { images } = await loadClientReferenceImages(activeClientId || "", 80)
+      setReferenceLibrary(images)
     } catch (error) {
       console.error("Failed to load reference library:", error)
       setReferenceLibrary([])
     } finally {
       setIsLoadingReferences(false)
     }
-  }, [])
+  }, [activeClientId])
+
+  const uploadReferenceAssets = useCallback(
+    async (files: FileList | null) => {
+      if (!files?.length) return
+      if (!activeClientId) {
+        alert("กรุณาเลือกลูกค้าก่อนอัปโหลด Reference")
+        return
+      }
+
+      setIsUploadingReferences(true)
+      try {
+        const uploaded = await uploadClientReferenceFiles(activeClientId, Array.from(files))
+        const nextAssets = uploaded.map((image) => ({
+          id: createId(),
+          name: image.name,
+          url: image.url,
+          previewUrl: image.url,
+        }))
+
+        setReferenceAssets((previous) => {
+          const unique = nextAssets.filter(
+            (image) => !previous.some((existing) => existing.url === image.url),
+          )
+          return [...previous, ...unique].slice(0, 6)
+        })
+        await loadReferenceLibrary()
+      } catch (error) {
+        console.error("Failed to upload reference images:", error)
+        alert("เกิดข้อผิดพลาดในการอัปโหลดรูปอ้างอิง")
+      } finally {
+        setIsUploadingReferences(false)
+        if (referenceInputRef.current) referenceInputRef.current.value = ""
+      }
+    },
+    [activeClientId, loadReferenceLibrary],
+  )
 
   const loadMaterialLibrary = useCallback(async (clientId: string) => {
     if (!clientId || clientId === "general") {
@@ -590,7 +620,10 @@ export function ImageEditChatPanel({
       }
 
       const [referenceUrls, materialUrls] = await Promise.all([
-        uploadAssets(referenceAssets, "generated/edit-image-chat-references"),
+        uploadAssets(
+          referenceAssets,
+          activeClientId ? `references/${activeClientId}` : "generated/edit-image-chat-references",
+        ),
         uploadAssets(materialAssets, "generated/edit-image-chat-materials"),
       ])
 
@@ -686,6 +719,7 @@ export function ImageEditChatPanel({
       const publicUrl = await uploadFileToImageStorage(file, "generated/edit-image-chat-inputs")
       setCurrentImageUrl(publicUrl)
       setCurrentImageBlob(file)
+      setSourceDialogOpen(false)
       setMessages((prev) => [
         ...prev,
         {
@@ -747,7 +781,7 @@ export function ImageEditChatPanel({
           imageUrl: resolvedImageUrl,
         },
       ])
-      setAssetDialogOpen(false)
+      setSourceDialogOpen(false)
     } catch (err) {
       console.error("Image link import failed:", err)
       setError(err instanceof Error ? err.message : "Unable to import image link")
@@ -778,43 +812,95 @@ export function ImageEditChatPanel({
   }
 
   return (
-    <div className="grid h-full min-h-[680px] gap-5 xl:grid-cols-[minmax(420px,1fr)_minmax(380px,520px)]">
-      <Card className="flex min-h-0 flex-col overflow-hidden rounded-[32px] border-slate-200 bg-white shadow-sm">
+    <div
+      className={cn(
+        "grid h-full gap-4",
+        isWorkspace
+          ? "min-h-0 xl:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]"
+          : "min-h-[680px] xl:grid-cols-[minmax(420px,1fr)_minmax(380px,520px)]",
+      )}
+    >
+      <Card
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm",
+          isWorkspace && "order-2 xl:sticky xl:top-0 xl:h-full",
+        )}
+      >
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5">
           <div>
-            <p className="text-base font-semibold text-slate-950">Current Image</p>
-            <p className="mt-1 text-sm text-slate-500">Upload once, then keep editing through chat.</p>
+            <div className="flex items-center gap-2">
+              <p className="text-base font-semibold text-slate-950">Source Image</p>
+              <span className="rounded-full bg-slate-950 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                Required
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">This is the main image AI will edit.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {hasImage ? (
               <>
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => setPreviewUrl(currentImageUrl)}>
-                  <Maximize2 className="mr-2 h-4 w-4" />
-                  Preview
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full"
+                  onClick={() => setSourceDialogOpen(true)}
+                  title="Replace source image"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  <span className="sr-only">Replace source image</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full"
+                  onClick={() => setPreviewUrl(currentImageUrl)}
+                  title="Preview source image"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                  <span className="sr-only">Preview source image</span>
                 </Button>
                 <Button
                   type="button"
                   variant={isBrushMode ? "default" : "outline"}
+                  size="icon"
                   className="rounded-full"
                   onClick={() => setIsBrushMode((value) => !value)}
+                  title="Brush edit area"
                 >
-                  <Brush className="mr-2 h-4 w-4" />
-                  Brush
+                  <Brush className="h-4 w-4" />
+                  <span className="sr-only">Brush edit area</span>
                 </Button>
-                <Button type="button" variant="outline" className="rounded-full" onClick={handleDownload} disabled={!currentImageBlob}>
-                  <ArrowDownToLine className="mr-2 h-4 w-4" />
-                  Download
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full"
+                  onClick={handleDownload}
+                  disabled={!currentImageBlob}
+                  title="Download image"
+                >
+                  <ArrowDownToLine className="h-4 w-4" />
+                  <span className="sr-only">Download image</span>
                 </Button>
-                <Button type="button" variant="outline" className="rounded-full text-red-600 hover:text-red-700" onClick={reset}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  Reset
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full text-red-600 hover:text-red-700"
+                  onClick={reset}
+                  title="Reset edit session"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="sr-only">Reset edit session</span>
                 </Button>
               </>
             ) : null}
           </div>
         </div>
 
-        {hasImage ? (
+        {hasImage && isBrushMode ? (
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-white px-5 py-3">
             <div className="flex items-center gap-2 text-sm text-slate-600">
               <Brush className="h-4 w-4" />
@@ -880,72 +966,42 @@ export function ImageEditChatPanel({
               </div>
             </div>
           ) : (
-            <div className="flex min-h-[420px] w-full max-w-xl flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white p-8 text-center">
-              <input
-                ref={emptyUploadInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  void handleInitialImageUpload(event.target.files?.[0] || null)
-                  event.target.value = ""
-                }}
-              />
+            <div className="flex min-h-[260px] w-full max-w-xl flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white p-7 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-950 text-white">
                 <ImagePlus className="h-7 w-7" />
               </div>
               <p className="mt-5 text-lg font-semibold text-slate-950">Start with an image</p>
               <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                Attach an image in the chat box and tell AI what to edit. The result becomes the next editable image.
+                Add the image you want to edit, then describe each change in the chat.
               </p>
               <Button
                 type="button"
                 className="mt-5 rounded-full bg-slate-950 px-5 text-white hover:bg-slate-800"
-                onClick={() => emptyUploadInputRef.current?.click()}
+                onClick={() => setSourceDialogOpen(true)}
                 disabled={isProcessing}
               >
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
-                Upload image
+                Choose source image
               </Button>
-              <div className="mt-5 flex w-full max-w-md items-center gap-2">
-                <Input
-                  type="url"
-                  value={sourceImageLink}
-                  onChange={(event) => setSourceImageLink(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleInitialImageLink()
-                  }}
-                  placeholder="Paste a Google Drive image link"
-                  className="h-11 rounded-full bg-white px-4 text-left"
-                  disabled={isProcessing}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 shrink-0 rounded-full"
-                  onClick={handleInitialImageLink}
-                  disabled={isProcessing || !sourceImageLink.trim()}
-                >
-                  <Link2 className="h-4 w-4" />
-                  <span className="sr-only">Use image link</span>
-                </Button>
-              </div>
-              <p className="mt-2 text-xs text-slate-400">Google Drive files must allow access to anyone with the link.</p>
             </div>
           )}
         </div>
       </Card>
 
-      <Card className="flex min-h-0 flex-col overflow-hidden rounded-[32px] border-slate-200 bg-white shadow-sm">
+      <Card
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden rounded-[28px] border-slate-200 bg-white shadow-sm",
+          isWorkspace && "order-1",
+        )}
+      >
         <div className="border-b border-slate-100 p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-base font-semibold text-slate-950">Edit Chat</p>
-              <p className="mt-1 text-sm text-slate-500">Powered by Gemini image editing, no n8n flow.</p>
+              <p className="text-base font-semibold text-slate-950">Edit Image</p>
+              <p className="mt-1 text-sm text-slate-500">Describe the change and continue refining the result.</p>
             </div>
           </div>
         </div>
@@ -959,7 +1015,7 @@ export function ImageEditChatPanel({
                 {materialAssets.length} material{materialAssets.length === 1 ? "" : "s"}
               </div>
               <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setAssetDialogOpen(true)}>
-                Manage images
+                Manage supporting images
               </Button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -991,12 +1047,21 @@ export function ImageEditChatPanel({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50/70 p-5">
           {messages.length === 0 ? (
-            <div className="rounded-[24px] border border-slate-200 bg-white p-5">
-              <p className="text-sm font-semibold text-slate-950">Examples</p>
-              <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-                <p>• Remove the text and keep only the background and product.</p>
-                <p>• Change the background to a clean studio scene, keep the product unchanged.</p>
-                <p>• Make the lighting more premium and realistic without changing composition.</p>
+            <div className="flex h-full min-h-[180px] flex-col justify-center">
+              <p className="text-center text-sm font-medium text-slate-500">Try an edit</p>
+              <div className="mt-3 grid gap-2">
+                {[
+                  "Remove the text and keep the product unchanged.",
+                  "Change the background to a clean studio scene.",
+                  "Make the lighting more premium and realistic.",
+                ].map((example) => (
+                  <div
+                    key={example}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-5 text-slate-600"
+                  >
+                    {example}
+                  </div>
+                ))}
               </div>
             </div>
           ) : (
@@ -1099,14 +1164,9 @@ export function ImageEditChatPanel({
 
         <div className="border-t border-slate-100 bg-white p-4">
           {error ? <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-          <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Generate multi-size set</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Select any Gemini-supported aspect ratios. PMax sizes are selected by default.
-                </p>
-              </div>
+              <p className="text-sm font-medium text-slate-700">Generate multiple sizes</p>
               <Switch checked={isPmaxEnabled} onCheckedChange={setIsPmaxEnabled} disabled={isProcessing || !hasImage} />
             </div>
             {isPmaxEnabled ? (
@@ -1153,18 +1213,22 @@ export function ImageEditChatPanel({
             ) : null}
           </div>
           <PromptBox
+            disabled={!hasImage}
             isLoading={isProcessing}
-            placeholder={hasImage ? "Tell AI what to edit..." : "Attach an image and describe the first edit..."}
+            placeholder={hasImage ? "Tell AI what to edit..." : "Choose a source image before writing an edit..."}
             onAttachClick={() => setAssetDialogOpen(true)}
             onSubmit={handleSubmit}
           />
         </div>
       </Card>
 
-      <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
-        <DialogContent className="max-h-[88vh] max-w-5xl overflow-hidden rounded-[28px] border-slate-200 bg-white p-0">
+      <Dialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen}>
+        <DialogContent className="max-w-xl rounded-[28px] border-slate-200 bg-white p-0">
           <DialogHeader className="border-b border-slate-100 px-6 py-5">
-            <DialogTitle>Add images</DialogTitle>
+            <DialogTitle>{hasImage ? "Replace source image" : "Choose source image"}</DialogTitle>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Select the main image you want AI to edit. References and materials can be added after this step.
+            </p>
           </DialogHeader>
 
           <input
@@ -1175,9 +1239,65 @@ export function ImageEditChatPanel({
             onChange={(event) => {
               void handleInitialImageUpload(event.target.files?.[0] || null)
               event.target.value = ""
-              setAssetDialogOpen(false)
             }}
           />
+
+          <div className="space-y-4 p-6">
+            <Button
+              type="button"
+              className="h-12 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-800"
+              onClick={() => sourceUploadInputRef.current?.click()}
+              disabled={isProcessing}
+            >
+              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
+              Upload source image
+            </Button>
+
+            <div className="flex items-center gap-3 text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" />
+              Or use a link
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <Input
+                type="url"
+                value={sourceImageLink}
+                onChange={(event) => setSourceImageLink(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleInitialImageLink()
+                }}
+                placeholder="Google Drive or public image URL"
+                className="h-11 rounded-xl bg-white"
+                disabled={isProcessing}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 h-11 w-full rounded-xl bg-white"
+                onClick={handleInitialImageLink}
+                disabled={isProcessing || !sourceImageLink.trim()}
+              >
+                <Link2 className="mr-2 h-4 w-4" />
+                Use image link
+              </Button>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Google Drive access must be set to anyone with the link.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AddImagesDialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
+        <DialogContent className="max-h-[88vh] max-w-5xl overflow-hidden rounded-[28px] border-slate-200 bg-white p-0">
+          <DialogHeader className="border-b border-slate-100 px-6 py-5">
+            <DialogTitle>Add supporting images</DialogTitle>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Optional references guide the look. Materials provide products, logos, models, or objects to use in the edit.
+            </p>
+          </DialogHeader>
+
           <input
             ref={referenceInputRef}
             type="file"
@@ -1185,8 +1305,7 @@ export function ImageEditChatPanel({
             multiple
             className="hidden"
             onChange={(event) => {
-              addAssets(event.target.files, "reference")
-              event.target.value = ""
+              void uploadReferenceAssets(event.target.files)
             }}
           />
           <input
@@ -1206,45 +1325,15 @@ export function ImageEditChatPanel({
               <Button
                 type="button"
                 className="w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-800"
-                onClick={() => sourceUploadInputRef.current?.click()}
-                disabled={isProcessing}
-              >
-                <ImagePlus className="mr-2 h-4 w-4" />
-                Upload image to edit
-              </Button>
-              <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Image link</p>
-                <Input
-                  type="url"
-                  value={sourceImageLink}
-                  onChange={(event) => setSourceImageLink(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleInitialImageLink()
-                  }}
-                  placeholder="Google Drive or public image URL"
-                  className="mt-2 h-10 rounded-xl"
-                  disabled={isProcessing}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-2 w-full rounded-xl"
-                  onClick={handleInitialImageLink}
-                  disabled={isProcessing || !sourceImageLink.trim()}
-                >
-                  <Link2 className="mr-2 h-4 w-4" />
-                  Use image link
-                </Button>
-                <p className="mt-2 text-xs leading-5 text-slate-500">Google Drive access must be set to anyone with the link.</p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full rounded-2xl"
                 onClick={() => referenceInputRef.current?.click()}
+                disabled={isUploadingReferences || !activeClientId}
               >
-                <FileImage className="mr-2 h-4 w-4" />
-                Upload reference
+                {isUploadingReferences ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileImage className="mr-2 h-4 w-4" />
+                )}
+                {isUploadingReferences ? "Uploading..." : "Upload reference"}
               </Button>
               <Button
                 type="button"
@@ -1465,7 +1554,7 @@ export function ImageEditChatPanel({
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+      </AddImagesDialog>
 
       <Dialog open={Boolean(previewUrl)} onOpenChange={(open) => !open && setPreviewUrl("")}>
         <DialogContent className="max-w-[96vw] rounded-[28px] border-slate-200 bg-white p-4">

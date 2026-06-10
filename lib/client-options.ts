@@ -1,6 +1,7 @@
 export type ClientProductFocus = {
   id: string
   productFocus: string
+  colorPalette?: string[]
 }
 
 export type ClientWithProductFocus = {

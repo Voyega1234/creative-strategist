@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabase } from "@/lib/supabase/server"
+import { invalidateCache } from "@/lib/utils/server-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -15,10 +16,14 @@ export async function POST(request: Request) {
       )
     }
 
+    const sanitizedColorPalette = colorPalette
+      .map((value: unknown) => String(value).replace(/[^0-9a-fA-F]/g, "").substring(0, 6).toUpperCase())
+      .filter(Boolean)
+
     const supabase = getSupabase()
     const { error } = await supabase
       .from("Clients")
-      .update({ color_palette: colorPalette })
+      .update({ color_palette: sanitizedColorPalette })
       .eq("id", clientId)
 
     if (error) {
@@ -29,6 +34,7 @@ export async function POST(request: Request) {
       )
     }
 
+    invalidateCache("clients")
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[update-client-color] Unexpected error:", error)
