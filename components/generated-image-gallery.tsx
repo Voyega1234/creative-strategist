@@ -28,6 +28,8 @@ type GeneratedImageGalleryProps = {
   onSelect: (session: ImageGenerationSession, imageIndex: number) => void
 }
 
+const GALLERY_PAGE_SIZE = 20
+
 export function GeneratedImageGallery({
   featureType,
   clientName,
@@ -38,6 +40,7 @@ export function GeneratedImageGallery({
 }: GeneratedImageGalleryProps) {
   const [sessions, setSessions] = useState<ImageGenerationSession[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -45,7 +48,7 @@ export function GeneratedImageGallery({
     const loadGallery = async () => {
       setIsLoading(true)
       try {
-        const params = new URLSearchParams({ featureType, limit: "12" })
+        const params = new URLSearchParams({ featureType, limit: "100" })
         if (clientName) params.set("clientName", clientName)
         if (productFocus) params.set("productFocus", productFocus)
 
@@ -79,6 +82,10 @@ export function GeneratedImageGallery({
     [sessions],
   )
 
+  useEffect(() => {
+    setVisibleCount(GALLERY_PAGE_SIZE)
+  }, [galleryImages.length])
+
   if (isLoading) {
     return (
       <div className="flex h-28 items-center justify-center rounded-[22px] border border-slate-200 bg-white text-sm text-slate-500">
@@ -103,8 +110,8 @@ export function GeneratedImageGallery({
         <span className="text-xs text-slate-400">{galleryImages.length} images</span>
       </div>
 
-      <div className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
-        {galleryImages.map(({ id, url, imageIndex, session }) => {
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {galleryImages.slice(0, visibleCount).map(({ id, url, imageIndex, session }) => {
           const createdAt = session.createdAt
             ? new Intl.DateTimeFormat("th-TH", {
                 day: "numeric",
@@ -147,6 +154,18 @@ export function GeneratedImageGallery({
           )
         })}
       </div>
+
+      {galleryImages.length > visibleCount ? (
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((current) => current + GALLERY_PAGE_SIZE)}
+            className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+          >
+            See more ({galleryImages.length - visibleCount})
+          </button>
+        </div>
+      ) : null}
     </section>
   )
 }

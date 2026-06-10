@@ -117,6 +117,7 @@ export function TextToImageMode({
   // Ids of images whose URL failed to load (e.g. expired / truncated persisted data URLs).
   // These are hidden so the gallery only shows images that actually render.
   const [brokenImageIds, setBrokenImageIds] = useState<string[]>([]);
+  const [resultsVisibleCount, setResultsVisibleCount] = useState(20);
   const [generationLogs, setGenerationLogs] = useState<GenerationLogEntry[]>([]);
   const [uploadedReferenceFiles, setUploadedReferenceFiles] = useState<File[]>([]);
   const [brandWebsiteUrl, setBrandWebsiteUrl] = useState("");
@@ -292,6 +293,7 @@ export function TextToImageMode({
   // Load this client's previously generated images so the gallery survives page reloads.
   useEffect(() => {
     setBrokenImageIds([]);
+    setResultsVisibleCount(20);
     if (!selectedClientId || !selectedProductFocus) {
       hydratedStorageKeyRef.current = null;
       setGeneratedImages([]);
@@ -1098,8 +1100,8 @@ export function TextToImageMode({
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-            {visibleGeneratedImages.slice(0, 6).map((image) => (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {visibleGeneratedImages.slice(0, resultsVisibleCount).map((image) => (
               <div key={image.id} className="relative aspect-square overflow-hidden rounded-[22px] border border-black/10 bg-slate-50">
                 {image.status === "generating" && (
                   <div className="flex h-full flex-col items-center justify-center text-sm text-[#667085]">
@@ -1174,6 +1176,19 @@ export function TextToImageMode({
               </div>
             )}
           </div>
+
+          {visibleGeneratedImages.length > resultsVisibleCount && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setResultsVisibleCount((current) => current + 20)}
+                className="rounded-full border-black/10 bg-white"
+              >
+                See more ({visibleGeneratedImages.length - resultsVisibleCount})
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

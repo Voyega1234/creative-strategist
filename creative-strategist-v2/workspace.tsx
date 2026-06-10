@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
+import { ArrowUp } from "lucide-react";
 import { ConceptMode } from "./modes/concept-mode";
 import { EditImageMode } from "./modes/edit-image-mode";
 import { EnhanceMode } from "./modes/enhance-mode";
@@ -41,6 +42,8 @@ export function V2Workspace({
   ideaSessionId,
   startNewSession = false,
 }: V2WorkspaceProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeMode, setActiveMode] = useState<WorkspaceMode>(DEFAULT_WORKSPACE_MODE);
   const [mountedModes, setMountedModes] = useState<WorkspaceMode[]>([DEFAULT_WORKSPACE_MODE]);
   const [conceptHasIdeas, setConceptHasIdeas] = useState(false);
@@ -61,7 +64,6 @@ export function V2Workspace({
     (activeMode === "concept" && conceptHasIdeas) ||
     (activeMode === "text-to-image" && textToImageNeedsScroll) ||
     activeMode === "enhance" ||
-    activeMode === "edit-image" ||
     activeMode === "material-to-scene" ||
     activeMode === "image-assets" ||
     activeMode === "seo-banner";
@@ -186,6 +188,8 @@ export function V2Workspace({
         ].join(" ")}
       >
         <div
+          ref={scrollRef}
+          onScroll={(event) => setShowScrollTop(event.currentTarget.scrollTop > 320)}
           className={[
             "min-h-0",
             usesFullHeight ? "h-full" : "",
@@ -279,6 +283,17 @@ export function V2Workspace({
       >
         <ModeSwitcher activeMode={activeMode} onModeChange={handleModeChange} />
       </div>
+
+      {isScrollableMode && showScrollTop && (
+        <button
+          type="button"
+          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="กลับขึ้นด้านบน"
+          className="fixed bottom-6 right-6 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-[#1f1f1f] text-white shadow-[0_12px_30px_rgba(15,23,42,0.25)] transition hover:bg-black"
+        >
+          <ArrowUp className="h-5 w-5" />
+        </button>
+      )}
     </div>
   );
 }

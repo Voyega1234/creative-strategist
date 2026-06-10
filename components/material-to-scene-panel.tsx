@@ -438,15 +438,6 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
 
       <MaterialToSceneError message={error} />
 
-      <GeneratedImageGallery
-        featureType="product-scene"
-        clientName={clientName}
-        productFocus={productFocus}
-        refreshKey={historyRefreshKey}
-        selectedSessionId={selectedHistorySessionId}
-        onSelect={handleGalleryImageSelect}
-      />
-
       {!hasOutput ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_340px]">
           <Card className="rounded-[28px] border-slate-200/80 bg-white p-5 shadow-[0_14px_32px_rgba(15,23,42,0.04)]">
@@ -980,6 +971,15 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
           </div>
         </div>
       )}
+
+      <GeneratedImageGallery
+        featureType="product-scene"
+        clientName={clientName}
+        productFocus={productFocus}
+        refreshKey={historyRefreshKey}
+        selectedSessionId={selectedHistorySessionId}
+        onSelect={handleGalleryImageSelect}
+      />
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-h-[92vh] max-w-5xl border-slate-200 p-0">

@@ -182,6 +182,11 @@ export function ImageEditChatPanel({
 
   const hasImage = Boolean(currentImageUrl)
   const isProcessing = isEditing
+  const sampleSourceImages = [
+    "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/references/Beaverman_Apr_R03_1200x1200.jpg",
+    "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/references/Dotlife_AW2-Edit.jpg",
+    "https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-creative-image/references/gallery-row-1-1.jpg",
+  ]
   const selectedMaterialClient = clients.find(
     (client) =>
       client.id === selectedMaterialClientId ||
@@ -983,6 +988,29 @@ export function ImageEditChatPanel({
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
                 Choose source image
               </Button>
+
+              <div className="mt-6 w-full">
+                <p className="mb-2.5 text-xs font-medium text-slate-400">หรือเริ่มจากตัวอย่าง</p>
+                <div className="flex justify-center gap-3">
+                  {sampleSourceImages.map((url) => (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => setCurrentImageUrl(url)}
+                      disabled={isProcessing}
+                      className="group relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm transition hover:border-slate-400 hover:shadow-md disabled:opacity-50"
+                      title="ใช้รูปนี้เป็นภาพตั้งต้น"
+                    >
+                      <img
+                        src={url}
+                        alt="Example source image"
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

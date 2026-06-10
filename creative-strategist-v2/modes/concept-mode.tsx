@@ -107,6 +107,7 @@ export function ConceptMode({
   const taskTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const taskContextRef = useRef<TaskContext | null>(null);
   const ideasRef = useRef<IdeaRecommendation[]>([]);
+  const savedTitlesRef = useRef<string[]>([]);
 
   const [ideas, setIdeas] = useState<IdeaRecommendation[]>([]);
   const [savedTitles, setSavedTitles] = useState<string[]>([]);
@@ -128,6 +129,10 @@ export function ConceptMode({
     ideasRef.current = ideas;
     cacheVisualRoutesForIdeas(ideas);
   }, [ideas]);
+
+  useEffect(() => {
+    savedTitlesRef.current = savedTitles;
+  }, [savedTitles]);
 
   useEffect(() => {
     onHasIdeasChange?.(hasIdeas);
@@ -465,10 +470,10 @@ export function ConceptMode({
     }
   };
 
-  const handleSaveIdea = (idea: IdeaRecommendation, index: number) => {
+  const handleSaveIdea = useCallback((idea: IdeaRecommendation, index: number) => {
     if (!activeClientName || !activeProductFocus) return;
 
-    const isSaved = savedTitles.includes(idea.title);
+    const isSaved = savedTitlesRef.current.includes(idea.title);
     const action = isSaved ? "unsave" : "save";
     setSavedTitles((currentTitles) =>
       action === "save"
@@ -488,7 +493,7 @@ export function ConceptMode({
     }).catch((error) => {
       console.error("[ConceptMode] Background save failed:", error, index);
     });
-  };
+  }, [activeClientName, activeProductFocus]);
 
   const ensureIdeaSaved = async (idea: IdeaRecommendation) => {
     if (savedTitles.includes(idea.title)) return;
@@ -549,12 +554,12 @@ export function ConceptMode({
     }
   };
 
-  const handleFeedback = (idea: IdeaRecommendation) => {
+  const handleFeedback = useCallback((idea: IdeaRecommendation) => {
     setFeedbackIdea(idea);
     setIsFeedbackOpen(true);
-  };
+  }, []);
 
-  const handleShareIdea = async (idea: IdeaRecommendation) => {
+  const handleShareIdea = useCallback(async (idea: IdeaRecommendation) => {
     if (!activeClientName || !activeProductFocus) {
       alert("กรุณาเลือกลูกค้าและ Product Focus ก่อนแชร์");
       return;
@@ -583,7 +588,7 @@ export function ConceptMode({
       console.error("[ConceptMode] Share failed:", error);
       alert("เกิดข้อผิดพลาดในการสร้างลิงก์แชร์");
     }
-  };
+  }, [activeClientName, activeProductFocus]);
 
   return (
     <section className="mx-auto flex w-full max-w-none flex-col gap-4 pb-2">
@@ -637,8 +642,8 @@ export function ConceptMode({
                 showVisualRoutePreview={false}
                 onDetailClick={setDetailIdea}
                 onSaveClick={handleSaveIdea}
-                onFeedback={(topic) => handleFeedback(topic)}
-                onShare={(topic) => void handleShareIdea(topic)}
+                onFeedback={handleFeedback}
+                onShare={handleShareIdea}
               />
             ))}
           </div>
