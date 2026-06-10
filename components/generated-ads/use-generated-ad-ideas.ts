@@ -97,14 +97,22 @@ export function useGeneratedAdIdeas({
   }, [])
 
   useEffect(() => {
-    try {
-      const stored = window.sessionStorage.getItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY)
-      if (stored) {
-        setVisualRoutesByIdea(JSON.parse(stored))
+    const loadVisualRoutesCache = () => {
+      try {
+        const stored = window.sessionStorage.getItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY)
+        if (stored) {
+          setVisualRoutesByIdea(JSON.parse(stored))
+        }
+      } catch (error) {
+        console.error("[AI Image Generator] Failed to load visual routes:", error)
       }
-    } catch (error) {
-      console.error("[AI Image Generator] Failed to load visual routes:", error)
     }
+
+    loadVisualRoutesCache()
+    // ConceptMode caches routes for displayed ideas; re-read when it signals an update so saved
+    // ideas selected here pick up routes regardless of which mode mounted first.
+    window.addEventListener("cvc-visual-routes-updated", loadVisualRoutesCache)
+    return () => window.removeEventListener("cvc-visual-routes-updated", loadVisualRoutesCache)
   }, [])
 
   useEffect(() => {

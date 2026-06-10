@@ -1064,15 +1064,6 @@ export function SeoBlogBannerPanel({
     return (
       <div className="grid gap-4 xl:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]">
         <section className="min-w-0 space-y-4">
-          <GeneratedImageGallery
-            featureType="seo-banner"
-            clientName={selectedClient?.clientName}
-            productFocus={selectedProductFocus}
-            refreshKey={galleryRefreshKey}
-            selectedSessionId={selectedGallerySessionId}
-            onSelect={handleGalleryImageSelect}
-          />
-
           <Card className="overflow-hidden rounded-[26px] border-black/10 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)] ring-1 ring-black/[0.02]">
             <div className="border-b border-black/5 px-4 py-3">
               <div className="flex items-start gap-3">
@@ -1474,7 +1465,7 @@ export function SeoBlogBannerPanel({
           </Card>
         </section>
 
-        <section className="min-w-0">
+        <section className="min-w-0 space-y-4">
           <Card className="overflow-hidden rounded-[26px] border-black/10 bg-white shadow-[0_16px_44px_rgba(15,23,42,0.07)] ring-1 ring-black/[0.02]">
             <div className="flex items-center justify-between gap-4 border-b border-black/5 px-5 py-4">
               <div>
@@ -1608,6 +1599,15 @@ export function SeoBlogBannerPanel({
               )}
             </div>
           </Card>
+
+          <GeneratedImageGallery
+            featureType="seo-banner"
+            clientName={selectedClient?.clientName}
+            productFocus={selectedProductFocus}
+            refreshKey={galleryRefreshKey}
+            selectedSessionId={selectedGallerySessionId}
+            onSelect={handleGalleryImageSelect}
+          />
         </section>
 
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>

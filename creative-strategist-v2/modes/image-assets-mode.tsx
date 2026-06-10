@@ -2,13 +2,15 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ImageIcon, Loader2 } from "lucide-react";
+import { ArrowRight, ImageIcon, Loader2, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   loadAllReferenceImages,
   loadBrandReferenceImages,
+  uploadClientReferenceFiles,
+  uploadSharedReferenceFiles,
 } from "@/lib/images/reference-library";
 
 type StoredReference = {
@@ -34,9 +36,39 @@ export function ImageAssetsMode({ clientId, clientName, onUseImage }: ImageAsset
   const [filter, setFilter] = useState<LibraryFilter>("brand");
   const [libraryRevision, setLibraryRevision] = useState(0);
   const [visibleCount, setVisibleCount] = useState(IMAGES_PAGE_SIZE);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks the client we've already auto-fallen-back to "all" for, so an empty brand library
   // switches to "all" once on load without bouncing the user if they manually re-pick "brand".
   const autoFallbackClientRef = useRef<string | null>(null);
+
+  const canUploadToBrand = filter === "brand" && Boolean(clientId);
+
+  const handleUploadFiles = async (fileList: FileList | null) => {
+    const files = Array.from(fileList || []).filter((file) => file.type.startsWith("image/"));
+    if (files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      if (filter === "brand") {
+        if (!clientId) {
+          alert("เลือก Client ก่อนอัปโหลดรูปสำหรับแบรนด์นี้");
+          return;
+        }
+        await uploadClientReferenceFiles(clientId, files);
+      } else {
+        await uploadSharedReferenceFiles(files);
+      }
+      // Reload the current view so the new images appear.
+      setLibraryRevision((current) => current + 1);
+    } catch (error) {
+      console.error("Failed to upload reference images:", error);
+      alert("อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +177,26 @@ export function ImageAssetsMode({ clientId, clientName, onUseImage }: ImageAsset
               ทั้งหมด
             </button>
           </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(event) => void handleUploadFiles(event.target.files)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading || (filter === "brand" && !canUploadToBrand)}
+            className="rounded-full border-black/10 bg-white"
+          >
+            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            {filter === "brand" ? "อัปโหลดเข้าแบรนด์นี้" : "อัปโหลดเข้าทั้งหมด"}
+          </Button>
+
           {!isLoading && (
             <div className="text-sm text-[#667085]">
               <span className="font-semibold text-[#1f1f1f]">{images.length}</span> images

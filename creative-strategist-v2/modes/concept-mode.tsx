@@ -12,8 +12,34 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PromptInputBox } from "@/creative-strategist-v2/chat-model";
 import { IDEA_GENERATION_FAILED_MESSAGE } from "@/lib/ideas/generation-response";
 import { normalizeIdea } from "@/lib/ideas/idea-normalization";
+import { getIdeaSelectionKey, VISUAL_ROUTES_BY_IDEA_STORAGE_KEY } from "@/lib/ideas/idea-storage";
 import type { IdeaRecommendation } from "@/lib/ideas/types";
 import { sessionManager } from "@/lib/session-manager";
+
+// Cache the visual routes of the currently displayed concept ideas so that selecting the same idea
+// later from the "Use saved idea" list in Text to Image (which loads from a table without routes)
+// can recover them by key.
+function cacheVisualRoutesForIdeas(ideas: IdeaRecommendation[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const stored = window.sessionStorage.getItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY);
+    const map = stored ? (JSON.parse(stored) as Record<string, unknown>) : {};
+    let changed = false;
+    for (const idea of ideas) {
+      const key = getIdeaSelectionKey(idea);
+      if (key && idea.visual_routes?.length) {
+        map[key] = idea.visual_routes;
+        changed = true;
+      }
+    }
+    if (changed) {
+      window.sessionStorage.setItem(VISUAL_ROUTES_BY_IDEA_STORAGE_KEY, JSON.stringify(map));
+      window.dispatchEvent(new Event("cvc-visual-routes-updated"));
+    }
+  } catch (error) {
+    console.warn("[ConceptMode] Failed to cache visual routes:", error);
+  }
+}
 
 type ConceptModeProps = {
   clientName?: string;
@@ -100,6 +126,7 @@ export function ConceptMode({
 
   useEffect(() => {
     ideasRef.current = ideas;
+    cacheVisualRoutesForIdeas(ideas);
   }, [ideas]);
 
   useEffect(() => {

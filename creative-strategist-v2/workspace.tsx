@@ -63,7 +63,8 @@ export function V2Workspace({
     activeMode === "enhance" ||
     activeMode === "edit-image" ||
     activeMode === "material-to-scene" ||
-    activeMode === "image-assets";
+    activeMode === "image-assets" ||
+    activeMode === "seo-banner";
   const usesFullHeight = isToolMode || isScrollableMode;
   const showModeRail =
     (activeMode === "concept" && conceptHasIdeas) ||

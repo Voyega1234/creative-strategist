@@ -85,7 +85,21 @@ function collectReferenceImageUrls(body) {
     .slice(0, MAX_VISUAL_THINKING_IMAGES)
 }
 
+// The visual route the user explicitly picked for this idea — the concept must follow it.
+function formatChosenVisualRoute(route) {
+  if (!route || typeof route !== "object") return ""
+  const parts = []
+  const name = route.route_name || route.routeName
+  const type = route.route_type || route.routeType
+  if (name) parts.push(type ? `${name} (${type})` : name)
+  if (route.visual_idea) parts.push(route.visual_idea)
+  if (route.why_it_fits) parts.push(`Why it fits: ${route.why_it_fits}`)
+  return parts.join("\n")
+}
+
 export function buildVisualThinkingUserPrompt(body, context = {}) {
+  const chosenVisualRoute = formatChosenVisualRoute(body.selected_visual_route || body.selectedVisualRoute)
+
   return `User brief:
 ${body.prompt || ""}
 
@@ -110,6 +124,9 @@ ${body.aspect_ratio || body.aspectRatio || "4:5"}
 
 Core concept:
 ${body.core_concept || ""}
+
+Chosen visual route (the user explicitly picked this direction — build the concept around it and do not contradict it):
+${chosenVisualRoute || "None specified — choose the strongest direction for the brief."}
 
 Saved idea:
 ${JSON.stringify(body.saved_ideas?.[0] || {}, null, 2)}`
