@@ -586,7 +586,7 @@ export function ConceptMode({
   };
 
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col gap-4 pb-2">
+    <section className="mx-auto flex w-full max-w-none flex-col gap-4 pb-2">
       {!hasIdeas && (
         <div className="mx-auto w-full max-w-5xl">
           <PromptInputBox
@@ -627,7 +627,7 @@ export function ConceptMode({
             </Button>
           </div>
 
-          <div className="grid gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {ideas.map((idea, index) => (
               <IdeaCard
                 key={`${idea.title}-${index}`}

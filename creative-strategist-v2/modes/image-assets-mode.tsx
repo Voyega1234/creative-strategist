@@ -215,7 +215,7 @@ export function ImageAssetsMode({ clientId, clientName, onUseImage }: ImageAsset
           </div>
         ) : images.length > 0 ? (
           <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
             {images.slice(0, visibleCount).map((image) => (
               <button
                 key={image.url}

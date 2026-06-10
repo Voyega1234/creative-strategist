@@ -608,7 +608,7 @@ export function TextToImageMode({
   };
 
   return (
-    <section className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+    <section className="mx-auto flex w-full max-w-6xl flex-col gap-4">
       <div className="rounded-[28px] border border-black/10 bg-white shadow-[0_20px_70px_rgba(15,23,42,0.12)]">
         <div className="space-y-4 p-4 sm:p-5">
           <div className="flex flex-wrap justify-end gap-2">
@@ -1098,7 +1098,7 @@ export function TextToImageMode({
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {visibleGeneratedImages.slice(0, 6).map((image) => (
               <div key={image.id} className="relative aspect-square overflow-hidden rounded-[22px] border border-black/10 bg-slate-50">
                 {image.status === "generating" && (

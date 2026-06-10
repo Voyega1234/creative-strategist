@@ -164,7 +164,7 @@ export function V2Workspace({
     <div
       className={[
         "mx-auto flex min-h-0 w-full flex-col transition-[max-width] duration-300 ease-out",
-        showModeRail ? "max-w-[82rem]" : "max-w-6xl",
+        showModeRail ? "max-w-[110rem]" : "max-w-6xl",
         usesFullHeight ? "h-full justify-start" : "min-h-full justify-center",
       ].join(" ")}
     >
