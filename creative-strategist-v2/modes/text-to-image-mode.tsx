@@ -930,11 +930,13 @@ export function TextToImageMode({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="flex h-8 items-center gap-1 rounded-full px-2 text-[#777] transition hover:bg-black/5 hover:text-[#1f1f1f]"
+                      className="flex h-8 items-center gap-1.5 rounded-full border border-[#1f1f1f]/15 bg-[#1f1f1f]/[0.04] px-3 text-[#1f1f1f] transition hover:border-[#1f1f1f]/30 hover:bg-[#1f1f1f]/[0.08]"
                       aria-label="Select ad style"
                     >
                       <Wand2 className="h-4 w-4" />
-                      {selectedAdStyleOption && <span className="whitespace-nowrap text-xs font-medium">{selectedAdStyleOption.label}</span>}
+                      <span className="whitespace-nowrap text-xs font-medium">
+                        {selectedAdStyleOption ? selectedAdStyleOption.label : "Auto Style"}
+                      </span>
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-72 rounded-2xl border-black/10 bg-white">
@@ -946,18 +948,32 @@ export function TextToImageMode({
                       Auto style
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    {AD_STYLE_OPTIONS.map((style) => (
-                      <DropdownMenuItem
-                        key={style.value}
-                        onClick={() => setSelectedAdStyle(style.value)}
-                        className={cn("rounded-xl text-sm", selectedAdStyle === style.value && "font-semibold text-[#1f1f1f]")}
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate">{style.label}</span>
-                          <span className="block truncate text-xs text-[#667085]">{style.hoverDescription}</span>
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
+                    {AD_STYLE_OPTIONS.map((style) => {
+                      const isRecommended = style.value === PAGE_REFERENCE_STYLE_VALUE;
+                      return (
+                        <DropdownMenuItem
+                          key={style.value}
+                          onClick={() => setSelectedAdStyle(style.value)}
+                          className={cn(
+                            "rounded-xl text-sm",
+                            selectedAdStyle === style.value && "font-semibold text-[#1f1f1f]",
+                            isRecommended && "bg-blue-50/70 ring-1 ring-blue-200 focus:bg-blue-50",
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="flex items-center gap-2">
+                              <span className="block truncate">{style.label}</span>
+                              {isRecommended && (
+                                <span className="shrink-0 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                                  แนะนำ
+                                </span>
+                              )}
+                            </span>
+                            <span className="block truncate text-xs text-[#667085]">{style.hoverDescription}</span>
+                          </span>
+                        </DropdownMenuItem>
+                      );
+                    })}
                   </DropdownMenuContent>
                 </DropdownMenu>
 
