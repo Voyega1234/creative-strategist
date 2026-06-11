@@ -45,7 +45,19 @@ html {
   /* UI was authored at a 12px root (compact density). Scale the root fluidly with viewport
      width so the whole interface grows proportionally on large monitors instead of looking
      tiny; never shrinks below the authored size on laptops. */
-  font-size: clamp(13px, 9.1px + 0.27vw, 16px);
+  font-size: clamp(13.5px, 10.9px + 0.18vw, 16px);
+}
+
+/* Main app canvas: soft light gradient over the brand backdrop image; flat deep navy in dark mode. */
+.app-canvas {
+  background-image: linear-gradient(120deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.76)),
+    url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-placement/v904-nunny-012.jpg");
+  background-position: center;
+  background-size: cover;
+}
+
+.dark .app-canvas {
+  background-image: linear-gradient(140deg, #0b1018 0%, #11182a 55%, #0d1322 100%);
 }
 
 body {
@@ -97,25 +109,25 @@ body {
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 222 38% 8%;
+    --foreground: 214 32% 94%;
+    --card: 222 32% 11%;
+    --card-foreground: 214 32% 94%;
+    --popover: 222 32% 11%;
+    --popover-foreground: 214 32% 94%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 221 25% 17%;
+    --secondary-foreground: 214 32% 94%;
+    --muted: 221 25% 17%;
+    --muted-foreground: 215 16% 62%;
+    --accent: 221 25% 17%;
+    --accent-foreground: 214 32% 94%;
+    --destructive: 0 62.8% 40%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 218 20% 22%;
+    --input: 218 20% 22%;
+    --ring: 221 83% 60%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -165,3 +177,106 @@ body {
     opacity: 0.7;
   }
 }
+
+/* ============================================================================
+   DARK THEME REMAP
+   The v2 UI is authored with a small set of light-mode utility tokens.
+   Remapping those tokens here themes every card, panel, and mode at once,
+   keeping the palette consistent by construction.
+   Palette: deep navy canvas, #141925 cards, white hairlines, blue accent.
+   ========================================================================== */
+
+/* --- Surfaces --- */
+.dark .bg-white { background-color: #141925; }
+.dark .bg-white\/95 { background-color: rgba(20, 25, 37, 0.95); }
+.dark .bg-white\/90 { background-color: rgba(20, 25, 37, 0.9); }
+.dark .bg-white\/80 { background-color: rgba(20, 25, 37, 0.8); }
+.dark .bg-white\/70 { background-color: rgba(20, 25, 37, 0.7); }
+.dark .bg-slate-50,
+.dark .bg-slate-50\/70,
+.dark .bg-slate-50\/80,
+.dark .bg-\[\#f8fafc\] { background-color: #1b2130; }
+.dark .bg-slate-100,
+.dark .bg-\[\#f2f4f7\],
+.dark .bg-slate-200\/60 { background-color: #202737; }
+.dark .hover\:bg-white:hover { background-color: #222a3c; }
+.dark .hover\:bg-slate-50:hover { background-color: #1f2636; }
+.dark .hover\:bg-black\/5:hover { background-color: rgba(255, 255, 255, 0.06); }
+.dark .bg-black\/\[0\.04\] { background-color: rgba(255, 255, 255, 0.05); }
+
+/* --- Borders & rings --- */
+.dark .border-black\/10,
+.dark .border-black\/5,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-200\/80,
+.dark .border-\[\#e4e7ec\] { border-color: rgba(255, 255, 255, 0.09); }
+.dark .border-slate-300 { border-color: rgba(255, 255, 255, 0.16); }
+.dark .hover\:border-black\/20:hover,
+.dark .hover\:border-slate-400:hover,
+.dark .hover\:border-black\/15:hover { border-color: rgba(255, 255, 255, 0.28); }
+.dark .ring-black\/5 { --tw-ring-color: rgba(255, 255, 255, 0.08); }
+.dark .ring-black\/\[0\.02\] { --tw-ring-color: rgba(255, 255, 255, 0.04); }
+
+/* --- Text: dark ink -> light --- */
+.dark .text-\[\#1f1f1f\],
+.dark .text-\[\#111827\],
+.dark .text-\[\#000000\],
+.dark .text-slate-950,
+.dark .text-slate-900 { color: #f1f5f9; }
+.dark .hover\:text-\[\#111827\]:hover,
+.dark .hover\:text-\[\#1f1f1f\]:hover { color: #ffffff; }
+.dark .group:hover .group-hover\:text-\[\#1f1f1f\],
+.dark .group:hover .group-hover\:text-\[\#111827\] { color: #ffffff; }
+
+/* --- Text: mid grays --- */
+.dark .text-\[\#475467\],
+.dark .text-\[\#535862\],
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-\[\#3f3f3f\] { color: #c3cbd8; }
+.dark .text-\[\#667085\],
+.dark .text-slate-500,
+.dark .text-\[\#555\] { color: #94a0b3; }
+.dark .text-\[\#777\],
+.dark .text-\[\#8e8e93\],
+.dark .text-\[\#98a2b3\],
+.dark .text-\[\#a0a5b1\],
+.dark .text-slate-400 { color: #6f7a8c; }
+
+/* --- Primary actions: ink buttons become brand blue for contrast on dark --- */
+.dark .bg-\[\#1f1f1f\],
+.dark .bg-slate-950 { background-color: #2563eb; }
+.dark .hover\:bg-black:hover,
+.dark .hover\:bg-slate-800:hover { background-color: #1d4ed8; }
+.dark .border-\[\#1f1f1f\] { border-color: #2563eb; }
+
+/* --- Landing card tints --- */
+.dark .from-\[\#F4F1FE\] { --tw-gradient-from: #1d1f33 var(--tw-gradient-from-position); }
+.dark .from-\[\#EEF6FF\] { --tw-gradient-from: #16233a var(--tw-gradient-from-position); }
+.dark .from-\[\#FFF9E8\] { --tw-gradient-from: #2a2415 var(--tw-gradient-from-position); }
+.dark .to-white { --tw-gradient-to: #141925 var(--tw-gradient-to-position); }
+
+/* --- Soften heavy light-mode shadows on dark --- */
+.dark .shadow-\[0_24px_80px_rgba\(15\,23\,42\,0\.12\)\],
+.dark .shadow-\[0_18px_56px_rgba\(15\,23\,42\,0\.10\)\],
+.dark .shadow-\[0_16px_48px_rgba\(15\,23\,42\,0\.10\)\] { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45); }
+
+/* --- Dark remap: stragglers found in the wild --- */
+/* Arbitrary white linear-gradient cards (e.g. Photostock header) */
+.dark [class*="bg-[linear-gradient"] {
+  background-image: none;
+  background-color: #141925;
+}
+/* Important-modifier overrides used by composer boxes (!bg-white etc.) */
+.dark .\!bg-white { background-color: #141925 !important; }
+.dark .\!border-black\/10 { border-color: rgba(255, 255, 255, 0.09) !important; }
+/* Style chip on the TTI toolbar */
+.dark .bg-\[\#1f1f1f\]\/\[0\.04\] { background-color: rgba(255, 255, 255, 0.07); }
+.dark .hover\:bg-\[\#1f1f1f\]\/\[0\.08\]:hover { background-color: rgba(255, 255, 255, 0.12); }
+.dark .border-\[\#1f1f1f\]\/15 { border-color: rgba(255, 255, 255, 0.18); }
+.dark .hover\:border-\[\#1f1f1f\]\/30:hover { border-color: rgba(255, 255, 255, 0.32); }
+/* Gray-scale leftovers */
+.dark .bg-gray-50 { background-color: #1b2130; }
+.dark .bg-gray-500 { background-color: #3a4356; }
+.dark .text-gray-400 { color: #6f7a8c; }

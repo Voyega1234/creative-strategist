@@ -223,11 +223,11 @@ export function V2Workspace({
     return (
       <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-1">
         <div className="mb-12 shrink-0 text-center">
-          <p className="mb-3 text-sm font-medium text-[#667085]">
+          <p className="mb-3 text-sm font-medium text-[#667085] dark:text-slate-400">
             {clientName ? `${clientName}${productFocus ? ` / ${productFocus}` : ""}` : "Creative workspace"}
           </p>
-          <h1 className="text-4xl font-semibold tracking-tight text-[#1f1f1f] sm:text-5xl">Creative Compass</h1>
-          <p className="mt-4 text-base font-medium tracking-normal text-[#555] sm:text-lg">
+          <h1 className="text-4xl font-semibold tracking-tight text-[#1f1f1f] dark:text-white sm:text-5xl">Creative Compass</h1>
+          <p className="mt-4 text-base font-medium tracking-normal text-[#555] dark:text-slate-300 sm:text-lg">
             เลือกโหมดที่ตรงกับงานของคุณเพื่อเริ่มต้น
           </p>
         </div>
@@ -239,7 +239,7 @@ export function V2Workspace({
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: index * 0.09, ease: [0.32, 0.72, 0, 1] }}
-              className="rounded-[2rem] bg-black/[0.04] p-1.5 ring-1 ring-black/5 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1"
+              className="rounded-[2rem] bg-black/[0.04] p-1.5 ring-1 ring-black/5 dark:bg-white/[0.06] dark:ring-white/10 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1"
             >
               <section
                 className={`flex h-full flex-col rounded-[calc(2rem-0.375rem)] ${group.tint} p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_18px_44px_rgba(15,23,42,0.06)]`}
@@ -286,18 +286,16 @@ export function V2Workspace({
     <div
       className={[
         "mx-auto flex min-h-0 w-full flex-col transition-[max-width] duration-300 ease-out",
-        showModeRail ? "max-w-[110rem]" : "max-w-6xl",
+        showModeRail ? (activeMode === "concept" ? "max-w-[110rem]" : "max-w-[96rem]") : "max-w-6xl",
         usesFullHeight ? "h-full justify-start" : "min-h-full justify-center",
       ].join(" ")}
     >
-      <div className={["shrink-0 text-center", usesFullHeight ? "mb-4" : "mb-8"].join(" ")}>
-        <p className="mb-3 text-sm font-medium text-[#667085]">
+      {/* In-mode header is compact: the big hero (and its "choose a mode" line) belongs to the landing. */}
+      <div className={["shrink-0 text-center", usesFullHeight ? "mb-3" : "mb-8"].join(" ")}>
+        <p className="mb-1.5 text-sm font-medium text-[#667085] dark:text-slate-400">
           {clientName ? `${clientName}${productFocus ? ` / ${productFocus}` : ""}` : "Creative workspace"}
         </p>
-        <h1 className="text-4xl font-semibold tracking-normal text-[#1f1f1f] sm:text-5xl">Creative Compass</h1>
-        <p className="mt-4 text-base font-medium tracking-normal text-[#555] sm:text-lg">
-          Choose a mode, then work in the format that fits the task.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1f1f1f] dark:text-white">Creative Compass</h1>
       </div>
 
       <div
@@ -429,11 +427,11 @@ function WorkspaceMascotHint({ children, image }: { children: ReactNode; image: 
         repeat: Infinity,
       }}
     >
-      <div className="relative max-w-[12.5rem] rounded-[20px] border border-black/10 bg-white/95 px-4 py-3 text-sm leading-relaxed text-[#475467] shadow-[0_14px_35px_rgba(15,23,42,0.08)]">
+      <div className="relative max-w-[13.5rem] rounded-[20px] border border-black/10 bg-white/95 px-4 py-3 text-sm leading-relaxed text-[#475467] shadow-[0_14px_35px_rgba(15,23,42,0.08)]">
         <span className="font-semibold text-[#111827]">ทิปเล็กน้อย:</span> {children}
         <span className="absolute -right-2 bottom-5 h-4 w-4 rotate-45 border-r border-t border-black/10 bg-white" />
       </div>
-      <div className="relative h-24 w-20 shrink-0">
+      <div className="relative h-16 w-14 shrink-0">
         <Image
           src={image}
           alt="Creative Compass mascot"

@@ -291,28 +291,28 @@ export function MainSidebar({
 
   const isV2Mode = mode === "v2"
   const shellClassName = isV2Mode
-    ? "h-dvh w-[clamp(13.5rem,18vw,16rem)] shrink-0 bg-white/95 px-4 py-5 sm:p-6 border-r border-black/10 shadow-[12px_0_35px_rgba(15,23,42,0.06)] flex flex-col overflow-hidden"
+    ? "h-dvh w-[clamp(13.5rem,18vw,16rem)] shrink-0 bg-white/95 dark:bg-[#0d1322]/95 px-4 py-5 sm:p-6 border-r border-black/10 dark:border-white/10 shadow-[12px_0_35px_rgba(15,23,42,0.06)] dark:shadow-none flex flex-col overflow-hidden"
     : "h-dvh w-[clamp(13.5rem,18vw,16rem)] shrink-0 bg-white/90 backdrop-blur-sm px-4 py-5 sm:p-6 border-r border-[#e4e7ec] flex flex-col overflow-hidden"
   const iconButtonClassName = isV2Mode
-    ? "h-8 w-8 text-[#667085] hover:text-[#111827] hover:bg-white/70"
+    ? "h-8 w-8 text-[#667085] hover:text-[#111827] hover:bg-white/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10"
     : "h-8 w-8 text-[#535862] hover:text-[#1d4ed8] hover:bg-[#f5f5f5]"
   const sidebarButtonClassName = isV2Mode
-    ? "w-full justify-start text-[#667085] hover:bg-white/70 hover:text-[#111827]"
+    ? "w-full justify-start text-[#667085] hover:bg-white/70 hover:text-[#111827] dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
     : "w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
   const activeItemClassName = isV2Mode
-    ? "text-[#111827] bg-white/80 shadow-sm ring-1 ring-black/5"
+    ? "text-[#111827] bg-white/80 shadow-sm ring-1 ring-black/5 dark:text-white dark:bg-white/10 dark:ring-white/15"
     : "text-[#063def] bg-[#dbeafe]"
   const enabledItemClassName = isV2Mode
-    ? "text-[#667085] hover:text-[#111827] hover:bg-white/70"
+    ? "text-[#667085] hover:text-[#111827] hover:bg-white/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
     : "text-[#535862] hover:text-[#063def] hover:bg-[#dbeafe]"
   const disabledItemClassName = isV2Mode
-    ? "text-[#a0a5b1] hover:text-[#667085] hover:bg-white/55"
+    ? "text-[#a0a5b1] hover:text-[#667085] hover:bg-white/55 dark:text-slate-600 dark:hover:text-slate-400 dark:hover:bg-white/5"
     : "text-[#a0a5b1] hover:text-[#8e8e93] hover:bg-[#f5f5f5]"
   const inputClassName = isV2Mode
-    ? "mb-4 h-9 text-sm border-black/10 bg-white shadow-sm focus-visible:ring-0 focus-visible:border-[#111827]"
+    ? "mb-4 h-9 text-sm border-black/10 bg-white shadow-sm focus-visible:ring-0 focus-visible:border-[#111827] dark:bg-white/5 dark:border-white/10 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus-visible:border-white/40"
     : "mb-4 h-9 text-sm border-[#e4e7ec] focus-visible:ring-0 focus-visible:border-[#1d4ed8]"
   const selectTriggerClassName = isV2Mode
-    ? "w-full h-8 text-xs bg-white border-black/10 hover:border-[#111827] focus:border-[#111827]"
+    ? "w-full h-8 text-xs bg-white border-black/10 hover:border-[#111827] focus:border-[#111827] dark:bg-white/5 dark:border-white/10 dark:text-slate-200 dark:hover:border-white/40"
     : "w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]"
 
   return (
@@ -329,7 +329,7 @@ export function MainSidebar({
               <Home className="h-4 w-4" />
               <span className="sr-only">กลับหน้าหลัก</span>
             </Button>
-            <h1 className="text-lg font-semibold text-[#000000]">Creative Compass</h1>
+            <h1 className="text-lg font-semibold text-[#000000] dark:text-white">Creative Compass</h1>
           </div>
           <nav className="space-y-2">
             <Button
@@ -449,7 +449,7 @@ export function MainSidebar({
               </CollapsibleContent>
             </Collapsible>
           </nav>
-          <div className={`my-4 border-t ${isV2Mode ? "border-white/70" : "border-[#e4e7ec]"}`} />
+          <div className={`my-4 border-t ${isV2Mode ? "border-white/70 dark:border-white/10" : "border-[#e4e7ec]"}`} />
           <nav className="space-y-2 pb-2">
             {showSecondaryNav && (
               <>
@@ -495,7 +495,7 @@ export function MainSidebar({
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-1 pl-8 pt-2">
                   {isHistoryLoading ? (
-                    <div className={`flex items-center gap-2 text-[#535862] text-xs p-2 rounded-md border ${isV2Mode ? "bg-white/70 border-white/70 shadow-sm" : "bg-white/70 border-[#e4e7ec]"}`}>
+                    <div className={`flex items-center gap-2 text-[#535862] text-xs p-2 rounded-md border ${isV2Mode ? "bg-white/70 border-white/70 shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-slate-300" : "bg-white/70 border-[#e4e7ec]"}`}>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       กำลังโหลดประวัติ
                     </div>
@@ -508,7 +508,7 @@ export function MainSidebar({
                           onClick={() => handleHistorySessionClick(session)}
                           className={`w-full rounded-lg border p-2 text-left text-xs transition ${
                             isV2Mode
-                              ? "border-white/70 bg-white/70 text-[#535862] shadow-sm hover:border-black/10 hover:bg-white hover:text-[#111827]"
+                              ? "border-white/70 bg-white/70 text-[#535862] shadow-sm hover:border-black/10 hover:bg-white hover:text-[#111827] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                               : "border-[#e4e7ec] bg-white/70 text-[#535862] hover:bg-[#f5f5f5] hover:text-[#063def]"
                           }`}
                         >
@@ -526,7 +526,7 @@ export function MainSidebar({
                       ))}
                     </div>
                   ) : (
-                    <div className={`text-[#535862] text-xs p-2 rounded-md border ${isV2Mode ? "bg-white/70 border-white/70 shadow-sm" : "bg-white/70 border-[#e4e7ec]"}`}>
+                    <div className={`text-[#535862] text-xs p-2 rounded-md border ${isV2Mode ? "bg-white/70 border-white/70 shadow-sm dark:bg-white/5 dark:border-white/10 dark:text-slate-300" : "bg-white/70 border-[#e4e7ec]"}`}>
                       {activeClientName && activeClientName !== "No Client Selected"
                         ? "ยังไม่มีประวัติการสร้างไอเดีย"
                         : "เลือกลูกค้าเพื่อดูประวัติ"}
@@ -537,17 +537,17 @@ export function MainSidebar({
             )}
           </nav>
         </div>
-        <div className={`border-t mt-4 pt-4 ${isV2Mode ? "border-white/70" : "border-[#e4e7ec]"}`}>
+        <div className={`border-t mt-4 pt-4 ${isV2Mode ? "border-white/70 dark:border-white/10" : "border-[#e4e7ec]"}`}>
           <div className="flex items-center space-x-3 p-2 mb-2">
             <Avatar className="h-8 w-8 bg-[#1d4ed8] text-[#ffffff] font-bold">
               <AvatarFallback>A</AvatarFallback>
             </Avatar>
-            <span className="text-[#000000] font-medium">Admin</span>
+            <span className="text-[#000000] dark:text-slate-100 font-medium">Admin</span>
           </div>
           <Button
             onClick={handleConfigureNavigation}
             variant="ghost"
-            className={isV2Mode ? "w-full justify-start text-[#111827] hover:bg-white/70 hover:text-[#111827] mb-2" : "w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"}
+            className={isV2Mode ? "w-full justify-start text-[#111827] hover:bg-white/70 hover:text-[#111827] dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white mb-2" : "w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"}
           >
             <Settings className="mr-2 h-4 w-4" />
             ตั้งค่าและวิเคราะห์

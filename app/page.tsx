@@ -49,15 +49,7 @@ export default async function CreativeStrategistV2Page({ searchParams }: V2PageP
     ? selectedProductFocusEntry.colorPalette
     : selectedClient?.colorPalette;
   return (
-    <main
-      className="flex h-screen min-h-screen overflow-hidden text-[#1f1f1f]"
-      style={{
-        backgroundImage:
-          'linear-gradient(120deg, rgba(255,255,255,0.86), rgba(255,255,255,0.76)), url("https://cfislibqbzcquplksmqt.supabase.co/storage/v1/object/public/ads-placement/v904-nunny-012.jpg")',
-        backgroundPosition: "center",
-        backgroundSize: "cover",
-      }}
-    >
+    <main className="app-canvas flex h-screen min-h-screen overflow-hidden text-[#1f1f1f] dark:text-slate-100">
       <MainSidebar
         clients={clients}
         activeClientName={selectedClient?.clientName || "No Client Selected"}
@@ -70,7 +62,7 @@ export default async function CreativeStrategistV2Page({ searchParams }: V2PageP
       />
 
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 items-center justify-between border-b border-black/10 bg-white px-4 lg:hidden">
+        <header className="flex h-14 items-center justify-between border-b border-black/10 bg-white px-4 lg:hidden dark:border-white/10 dark:bg-[#0d1322]">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#1f1f1f] text-white">
               <ImageIcon className="h-3.5 w-3.5" />

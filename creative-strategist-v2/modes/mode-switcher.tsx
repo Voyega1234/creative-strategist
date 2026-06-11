@@ -50,14 +50,20 @@ export function ModeSwitcher({ activeMode, onModeChange, variant = "bottom" }: M
           <section
             key={group.title}
             className={[
-              "border border-black/10 bg-white p-3 shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-[opacity,box-shadow] duration-200",
-              isRail ? "rounded-[18px]" : "rounded-[24px]",
+              "border border-black/10 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition-[opacity,box-shadow] duration-200",
+              isRail ? "rounded-[18px] p-2.5" : "rounded-[24px] p-3",
               isReducedRailGroup ? "opacity-80 shadow-none" : "",
             ].join(" ")}
           >
-            <div className="mb-3 px-1">
-              <p className="text-sm font-semibold text-[#1f1f1f]">{group.title}</p>
-              {!isReducedRailGroup ? <p className="mt-0.5 text-xs leading-5 text-[#667085]">{group.description}</p> : null}
+            <div className={isRail ? "mb-2 px-1" : "mb-3 px-1"}>
+              <p className={[isRail ? "text-base" : "text-lg", "font-bold tracking-tight text-[#111827]"].join(" ")}>
+                {group.title}
+              </p>
+              {!isReducedRailGroup ? (
+                <p className={["mt-0.5 leading-5 text-[#667085]", isRail ? "text-xs" : "text-sm"].join(" ")}>
+                  {group.description}
+                </p>
+              ) : null}
             </div>
             <div className={isRail ? "grid gap-2" : "flex flex-wrap gap-2"}>
               {group.modes.map((mode) => {
@@ -74,8 +80,8 @@ export function ModeSwitcher({ activeMode, onModeChange, variant = "bottom" }: M
                     onClick={() => onModeChange(feature.id)}
                     aria-pressed={isActive}
                     className={[
-                      "group inline-flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-[background-color,border-color,color,transform,box-shadow] duration-200 active:scale-[0.98]",
-                      isRail ? "w-full justify-start" : "",
+                      "group inline-flex items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-[background-color,border-color,color,transform,box-shadow] duration-200 active:scale-[0.98]",
+                      isRail ? "h-9 w-full justify-start" : "h-10",
                       isActive
                         ? "border-[#1f1f1f] bg-[#1f1f1f] text-white shadow-[0_8px_18px_rgba(15,23,42,0.12)]"
                         : "border-black/10 bg-white text-[#3f3f3f] hover:-translate-y-0.5 hover:border-black/15 hover:bg-slate-50 hover:text-[#1f1f1f] hover:shadow-[0_8px_18px_rgba(15,23,42,0.08)]",

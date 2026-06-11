@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthGuard } from '@/components/auth-guard'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export const metadata: Metadata = {
   title: 'Creative Compass',
@@ -40,6 +41,12 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("cc-theme")==="dark")document.documentElement.classList.add("dark")}catch(e){}`,
+          }}
+        />
+        <ThemeToggle />
         <AuthGuard>{children}</AuthGuard>
       </body>
     </html>
