@@ -25,8 +25,8 @@ const MODE_GROUPS: Array<{
     modes: ["edit-image", "enhance", "upscale"],
   },
   {
-    title: "Assets & Scenes",
-    description: "Build scenes from materials and browse brand imagery.",
+    title: "Brand Library",
+    description: "Create product photostock and manage brand references.",
     modes: ["material-to-scene", "image-assets"],
   },
 ];

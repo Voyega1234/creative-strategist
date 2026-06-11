@@ -145,7 +145,7 @@ export function ImageAssetsMode({ clientId, clientName, onUseImage }: ImageAsset
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#667085]">
             Brand Library
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-[#1f1f1f]">Image Assets</h2>
+          <h2 className="mt-1 text-xl font-semibold text-[#1f1f1f]">Reference Folder</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[#667085]">
             คลังภาพ Reference ที่ทีมเคยเก็บไว้สำหรับ {clientName || "แบรนด์นี้"}
           </p>

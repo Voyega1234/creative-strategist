@@ -23,6 +23,45 @@ import { UpscaleMode } from "./modes/upscale-mode";
 import type { ClientWithProductFocus } from "@/lib/client-options";
 import type { IdeaRecommendation } from "@/lib/ideas/types";
 
+const ROLE_IMAGES = {
+  strategist:
+    "https://canufwodqxjmmkniktgb.supabase.co/storage/v1/object/public/image_documents/edited-image%20(1).png",
+  designer:
+    "https://canufwodqxjmmkniktgb.supabase.co/storage/v1/object/public/image_documents/ChatGPT%20Image%20Jun%2011,%202026,%2004_06_05%20PM.png",
+  materials:
+    "https://canufwodqxjmmkniktgb.supabase.co/storage/v1/object/public/image_documents/edited-image%20(2)%20(1).png",
+} as const;
+
+const LANDING_GROUPS: Array<{
+  title: string;
+  description: string;
+  image: string;
+  tint: string;
+  modes: WorkspaceMode[];
+}> = [
+  {
+    title: "Create Creative",
+    description: "เริ่มงานใหม่ — คิดคอนเซ็ปต์ไอเดีย เจนภาพโฆษณาจาก brief หรือทำ SEO Banner",
+    image: ROLE_IMAGES.strategist,
+    tint: "bg-gradient-to-b from-[#F4F1FE] to-white",
+    modes: ["concept", "text-to-image", "seo-banner"],
+  },
+  {
+    title: "Revise Creative",
+    description: "ปรับงานเดิม — แก้รูปด้วยแชท ตรวจและเพิ่มคุณภาพ หรือขยายความละเอียด",
+    image: ROLE_IMAGES.designer,
+    tint: "bg-gradient-to-b from-[#EEF6FF] to-white",
+    modes: ["edit-image", "enhance", "upscale"],
+  },
+  {
+    title: "Brand Library",
+    description: "คลังภาพของแบรนด์ — สร้างภาพสต็อกสินค้า และจัดการรูป reference ที่เคยอัปไว้",
+    image: ROLE_IMAGES.materials,
+    tint: "bg-gradient-to-b from-[#FFF9E8] to-white",
+    modes: ["material-to-scene", "image-assets"],
+  },
+];
+
 type V2WorkspaceProps = {
   clientId?: string | null;
   clientName?: string;
@@ -93,6 +132,13 @@ export function V2Workspace({
       setHasChosenMode(true);
     }
   }, [ideaSessionId, startNewSession]);
+
+  // The sidebar home button returns the workspace to the landing (mode picker).
+  useEffect(() => {
+    const showLanding = () => setHasChosenMode(false);
+    window.addEventListener("workspace-show-landing", showLanding);
+    return () => window.removeEventListener("workspace-show-landing", showLanding);
+  }, []);
 
   const handleUseIdeaForImage = (
     idea: IdeaRecommendation,
@@ -175,53 +221,63 @@ export function V2Workspace({
 
   if (!hasChosenMode) {
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center">
-        <div className="mb-8 shrink-0 text-center">
+      <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-1">
+        <div className="mb-12 shrink-0 text-center">
           <p className="mb-3 text-sm font-medium text-[#667085]">
             {clientName ? `${clientName}${productFocus ? ` / ${productFocus}` : ""}` : "Creative workspace"}
           </p>
-          <h1 className="text-4xl font-semibold tracking-normal text-[#1f1f1f] sm:text-5xl">Creative Compass</h1>
+          <h1 className="text-4xl font-semibold tracking-tight text-[#1f1f1f] sm:text-5xl">Creative Compass</h1>
           <p className="mt-4 text-base font-medium tracking-normal text-[#555] sm:text-lg">
             เลือกโหมดที่ตรงกับงานของคุณเพื่อเริ่มต้น
           </p>
         </div>
 
-        <div className="mx-auto mb-6 w-full max-w-4xl rounded-[24px] border border-black/10 bg-white/95 p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
-          <div className="mb-4 flex items-center justify-center gap-3">
-            <div className="relative h-12 w-10 shrink-0">
-              <Image
-                src="/SCR-20250730-myam-Photoroom.png"
-                alt="Creative Compass mascot"
-                fill
-                sizes="40px"
-                className="object-contain"
-              />
-            </div>
-            <p className="text-sm font-semibold text-[#111827]">เริ่มตรงไหนดี? แต่ละกล่องใช้แบบนี้</p>
-          </div>
-          <div className="grid gap-4 text-left sm:grid-cols-3">
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-[#111827]">Create Creative</p>
-              <p className="mt-1 text-xs leading-5 text-[#667085]">
-                เริ่มงานใหม่ — คิดคอนเซ็ปต์ไอเดีย เจนภาพโฆษณาจาก brief หรือทำ SEO Banner
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-[#111827]">Revise Creative</p>
-              <p className="mt-1 text-xs leading-5 text-[#667085]">
-                ปรับงานเดิม — แก้รูปด้วยแชท ตรวจและเพิ่มคุณภาพภาพ หรือขยายความละเอียด
-              </p>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-[#111827]">Assets &amp; Scenes</p>
-              <p className="mt-1 text-xs leading-5 text-[#667085]">
-                คลังของแบรนด์ — สร้างฉากสินค้าจากวัสดุ และหยิบรูปจากแกลเลอรีไปใช้ต่อ
-              </p>
-            </div>
-          </div>
+        <div className="grid gap-5 lg:grid-cols-3">
+          {LANDING_GROUPS.map((group, index) => (
+            <motion.div
+              key={group.title}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: index * 0.09, ease: [0.32, 0.72, 0, 1] }}
+              className="rounded-[2rem] bg-black/[0.04] p-1.5 ring-1 ring-black/5 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-1"
+            >
+              <section
+                className={`flex h-full flex-col rounded-[calc(2rem-0.375rem)] ${group.tint} p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_18px_44px_rgba(15,23,42,0.06)]`}
+              >
+                <div className="relative mx-auto h-36 w-full">
+                  <Image
+                    src={group.image}
+                    alt={group.title}
+                    fill
+                    sizes="(max-width: 1024px) 80vw, 320px"
+                    className="object-contain"
+                  />
+                </div>
+                <h2 className="mt-5 text-center text-2xl font-semibold tracking-tight text-[#111827]">
+                  {group.title}
+                </h2>
+                <p className="mt-2 text-center text-sm leading-6 text-[#667085]">{group.description}</p>
+                <div className="mt-auto flex flex-wrap justify-center gap-2 pt-7">
+                  {group.modes.map((mode) => {
+                    const feature = getWorkspaceFeature(mode);
+                    const Icon = feature.icon;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => handleModeChange(mode)}
+                        className="group inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-[#3f3f3f] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-black/20 hover:bg-slate-50 hover:text-[#111827] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                      >
+                        <Icon className="h-4 w-4 text-[#98a2b3] transition-colors duration-300 group-hover:text-[#111827]" />
+                        {feature.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </motion.div>
+          ))}
         </div>
-
-        <ModeSwitcher activeMode={null} onModeChange={handleModeChange} />
       </div>
     );
   }
@@ -295,42 +351,42 @@ export function V2Workspace({
           <aside className="hidden min-h-0 lg:block">
             <ModeSwitcher activeMode={activeMode} onModeChange={handleModeChange} variant="rail" />
             {activeMode === "concept" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.strategist}>
                 ชอบไอเดียไหนให้คลิกการ์ดเพื่อเปิด popup แล้วเจนรูปต่อได้ หรือกดเซฟมุมขวาบนเพื่อเก็บไว้ใช้กับ Text to Image
               </WorkspaceMascotHint>
             )}
             {activeMode === "seo-banner" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.strategist}>
                 เลือก Client ก่อน แล้วตรวจสอบ Logo และสีของแบรนด์ หรือใส่ Website URL แล้วกด Extract เพื่อดึงข้อมูลอัตโนมัติ
               </WorkspaceMascotHint>
             )}
             {activeMode === "text-to-image" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.strategist}>
                 เริ่มจากเขียน brief หรือเลือก Saved idea แล้วค่อยกำหนด format, ratio, style และแนบภาพประกอบก่อนกด Generate Image
               </WorkspaceMascotHint>
             )}
             {activeMode === "edit-image" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.designer}>
                 เลือก Source Image ที่ต้องการแก้ก่อน จากนั้นพิมพ์คำสั่งแก้ไข ใช้ Brush ระบุพื้นที่ หรือแนบ Reference และ Materials เพิ่มได้
               </WorkspaceMascotHint>
             )}
             {activeMode === "upscale" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.designer}>
                 อัปโหลดภาพ เลือกความละเอียด 1K, 2K หรือ 4K แล้วตรวจ Preview ก่อนดาวน์โหลดไฟล์ที่ขยายเสร็จ
               </WorkspaceMascotHint>
             )}
             {activeMode === "enhance" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.designer}>
                 อัปโหลดรูปแล้วกด Run AI Check ก่อน จากนั้นปรับคำแนะนำหรือเลือก Preserve/Reimagine เพื่อสร้างภาพเวอร์ชันที่ดีขึ้น
               </WorkspaceMascotHint>
             )}
             {activeMode === "material-to-scene" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.materials}>
                 อัปโหลดภาพสินค้าหรือวัสดุ เขียนฉากที่ต้องการ แล้วเลือกอัตราส่วนกับสไตล์ภาพก่อนกดสร้าง 4 scenes
               </WorkspaceMascotHint>
             )}
             {activeMode === "image-assets" && (
-              <WorkspaceMascotHint>
+              <WorkspaceMascotHint image={ROLE_IMAGES.materials}>
                 เลือก “แบรนด์นี้” เพื่อดูรูปเฉพาะแบรนด์ หรือ “ทั้งหมด” เพื่อดูคลังรวมของทีม กดที่รูปเพื่อพรีวิวแล้วส่งไปใช้ต่อใน Text to Image ได้เลย
               </WorkspaceMascotHint>
             )}
@@ -362,7 +418,7 @@ export function V2Workspace({
   );
 }
 
-function WorkspaceMascotHint({ children }: { children: ReactNode }) {
+function WorkspaceMascotHint({ children, image }: { children: ReactNode; image: string }) {
   return (
     <motion.div
       className="mt-4 flex items-end justify-end gap-3"
@@ -379,7 +435,7 @@ function WorkspaceMascotHint({ children }: { children: ReactNode }) {
       </div>
       <div className="relative h-24 w-20 shrink-0">
         <Image
-          src="/SCR-20250730-myam-Photoroom.png"
+          src={image}
           alt="Creative Compass mascot"
           fill
           sizes="80px"

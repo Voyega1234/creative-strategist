@@ -175,6 +175,8 @@ export function MainSidebar({
       if (activeClientId) params.set("clientId", activeClientId)
       if (activeClientName && activeClientName !== "No Client Selected") params.set("clientName", activeClientName)
       if (activeProductFocus) params.set("productFocus", activeProductFocus)
+      // Tell the workspace to show the landing (mode picker) again.
+      window.dispatchEvent(new Event("workspace-show-landing"))
       router.push(`/${params.toString() ? `?${params.toString()}` : ""}`)
       return
     }

@@ -59,7 +59,7 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [
   },
   {
     id: "image-assets",
-    label: "Image Assets",
+    label: "Reference Folder",
     description: "Browse and manage reusable brand imagery.",
     icon: ImageIcon,
     kind: "tool",
@@ -80,7 +80,7 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [
   },
   {
     id: "material-to-scene",
-    label: "Product Scene Builder",
+    label: "Photostock",
     description: "Turn product materials into usable scene visuals.",
     icon: Layers3,
     kind: "tool",

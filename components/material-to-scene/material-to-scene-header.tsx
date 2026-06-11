@@ -11,7 +11,7 @@ export function MaterialToSceneHeader({ aspectRatio }: MaterialToSceneHeaderProp
     <Card className="rounded-[20px] border-slate-200/80 bg-[linear-gradient(180deg,_rgba(255,255,255,0.98)_0%,_rgba(248,250,252,0.94)_100%)] px-4 py-4 shadow-[0_12px_28px_rgba(15,23,42,0.04)] sm:rounded-[24px] sm:px-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 max-w-2xl">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Product Scene Builder</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Photostock</p>
           <h2 className="mt-2 text-lg font-semibold text-slate-950 sm:text-xl">
             Build campaign-ready scenes from product assets
           </h2>
