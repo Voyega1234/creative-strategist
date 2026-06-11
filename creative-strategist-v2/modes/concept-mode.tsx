@@ -203,22 +203,6 @@ export function ConceptMode({
     }
   }, [activeClientName, activeProductFocus]);
 
-  const fetchRecentSessions = useCallback(async (limit: number) => {
-    const params = new URLSearchParams({
-      clientName: activeClientName,
-      limit: String(limit),
-      offset: "0",
-      _ts: String(Date.now()),
-    });
-    const response = await fetch(`/api/session-history?${params.toString()}`, {
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      throw new Error("Failed to fetch session history");
-    }
-    return response.json();
-  }, [activeClientName]);
-
   const loadSessionIdeas = useCallback((session: SessionHistoryRecord) => {
     const sourceIdeas = Array.isArray(session?.n8nResponse?.ideas)
       ? session.n8nResponse.ideas
@@ -252,28 +236,6 @@ export function ConceptMode({
     const session = result?.success && Array.isArray(result.sessions) ? result.sessions[0] : null;
     return session ? loadSessionIdeas(session) : false;
   }, [loadSessionIdeas, selectedSessionId]);
-
-  const loadLatestSessionIdeas = useCallback(async () => {
-    if (!activeClientName || activeClientName === "No Client Selected") {
-      return;
-    }
-
-    try {
-      const result = await fetchRecentSessions(1);
-      const latestSession = result?.success && Array.isArray(result.sessions) ? result.sessions[0] : null;
-      if (!latestSession) {
-        setIdeas([]);
-        ideasRef.current = [];
-        setLastInstructions("");
-        return;
-      }
-      loadSessionIdeas(latestSession);
-    } catch {
-      setIdeas([]);
-      ideasRef.current = [];
-      setLastInstructions("");
-    }
-  }, [activeClientName, fetchRecentSessions, loadSessionIdeas]);
 
   const processTaskResult = useCallback(
     (result: TaskResultPayload, context: TaskContext) => {
@@ -344,19 +306,15 @@ export function ConceptMode({
     setIsGenerating(false);
     setIsLoadingMore(false);
     void fetchSavedTitles();
-    if (startNewSession) {
-      return;
-    }
-    if (selectedSessionId) {
+    // Default view is the generate-ideas chat. Past ideas only load when the user explicitly
+    // opens a session from the history sidebar (ideaSessionId in the URL).
+    if (selectedSessionId && !startNewSession) {
       void loadSelectedSessionIdeas();
-    } else {
-      void loadLatestSessionIdeas();
     }
   }, [
     activeClientName,
     activeProductFocus,
     fetchSavedTitles,
-    loadLatestSessionIdeas,
     loadSelectedSessionIdeas,
     selectedSessionId,
     startNewSession,
