@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ArrowUp } from "lucide-react";
 import { ConceptMode } from "./modes/concept-mode";
@@ -45,6 +45,9 @@ export function V2Workspace({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeMode, setActiveMode] = useState<WorkspaceMode>(DEFAULT_WORKSPACE_MODE);
+  // Landing view: show the three mode groups with a guide until the user picks a mode.
+  // Deep links (history session / new session) skip straight into concept mode.
+  const [hasChosenMode, setHasChosenMode] = useState(Boolean(ideaSessionId) || startNewSession);
   const [mountedModes, setMountedModes] = useState<WorkspaceMode[]>([DEFAULT_WORKSPACE_MODE]);
   const [conceptHasIdeas, setConceptHasIdeas] = useState(false);
   const [textToImageNeedsScroll, setTextToImageNeedsScroll] = useState(false);
@@ -81,7 +84,15 @@ export function V2Workspace({
   const handleModeChange = (mode: WorkspaceMode) => {
     setMountedModes((current) => (current.includes(mode) ? current : [...current, mode]));
     setActiveMode(mode);
+    setHasChosenMode(true);
   };
+
+  // Clicking a history session (or New Session) while on the landing view jumps into concept mode.
+  useEffect(() => {
+    if (ideaSessionId || startNewSession) {
+      setHasChosenMode(true);
+    }
+  }, [ideaSessionId, startNewSession]);
 
   const handleUseIdeaForImage = (
     idea: IdeaRecommendation,
@@ -161,6 +172,59 @@ export function V2Workspace({
 
     return null;
   };
+
+  if (!hasChosenMode) {
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center">
+        <div className="mb-8 shrink-0 text-center">
+          <p className="mb-3 text-sm font-medium text-[#667085]">
+            {clientName ? `${clientName}${productFocus ? ` / ${productFocus}` : ""}` : "Creative workspace"}
+          </p>
+          <h1 className="text-4xl font-semibold tracking-normal text-[#1f1f1f] sm:text-5xl">Creative Compass</h1>
+          <p className="mt-4 text-base font-medium tracking-normal text-[#555] sm:text-lg">
+            เลือกโหมดที่ตรงกับงานของคุณเพื่อเริ่มต้น
+          </p>
+        </div>
+
+        <div className="mx-auto mb-6 w-full max-w-4xl rounded-[24px] border border-black/10 bg-white/95 p-5 shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+          <div className="mb-4 flex items-center justify-center gap-3">
+            <div className="relative h-12 w-10 shrink-0">
+              <Image
+                src="/SCR-20250730-myam-Photoroom.png"
+                alt="Creative Compass mascot"
+                fill
+                sizes="40px"
+                className="object-contain"
+              />
+            </div>
+            <p className="text-sm font-semibold text-[#111827]">เริ่มตรงไหนดี? แต่ละกล่องใช้แบบนี้</p>
+          </div>
+          <div className="grid gap-4 text-left sm:grid-cols-3">
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-[#111827]">Create Creative</p>
+              <p className="mt-1 text-xs leading-5 text-[#667085]">
+                เริ่มงานใหม่ — คิดคอนเซ็ปต์ไอเดีย เจนภาพโฆษณาจาก brief หรือทำ SEO Banner
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-[#111827]">Revise Creative</p>
+              <p className="mt-1 text-xs leading-5 text-[#667085]">
+                ปรับงานเดิม — แก้รูปด้วยแชท ตรวจและเพิ่มคุณภาพภาพ หรือขยายความละเอียด
+              </p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-[#111827]">Assets &amp; Scenes</p>
+              <p className="mt-1 text-xs leading-5 text-[#667085]">
+                คลังของแบรนด์ — สร้างฉากสินค้าจากวัสดุ และหยิบรูปจากแกลเลอรีไปใช้ต่อ
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <ModeSwitcher activeMode={null} onModeChange={handleModeChange} />
+      </div>
+    );
+  }
 
   return (
     <div

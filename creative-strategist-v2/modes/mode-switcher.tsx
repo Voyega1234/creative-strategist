@@ -4,7 +4,7 @@ import { WORKSPACE_FEATURES } from "./mode-registry";
 import type { WorkspaceMode } from "./types";
 
 type ModeSwitcherProps = {
-  activeMode: WorkspaceMode;
+  activeMode: WorkspaceMode | null;
   onModeChange: (mode: WorkspaceMode) => void;
   variant?: "bottom" | "rail";
 };
@@ -43,7 +43,7 @@ export function ModeSwitcher({ activeMode, onModeChange, variant = "bottom" }: M
       aria-label="Creative tools"
     >
       {MODE_GROUPS.map((group) => {
-        const isActiveGroup = group.modes.includes(activeMode);
+        const isActiveGroup = activeMode !== null && group.modes.includes(activeMode);
         const isReducedRailGroup = isRail && !isActiveGroup;
 
         return (
