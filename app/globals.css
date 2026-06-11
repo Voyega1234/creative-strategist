@@ -42,8 +42,10 @@ body {
 }
 
 html {
-  --app-density-scale: 0.75;
-  font-size: calc(16px * var(--app-density-scale));
+  /* UI was authored at a 12px root (compact density). Scale the root fluidly with viewport
+     width so the whole interface grows proportionally on large monitors instead of looking
+     tiny; never shrinks below the authored size on laptops. */
+  font-size: clamp(13px, 9.1px + 0.27vw, 16px);
 }
 
 body {

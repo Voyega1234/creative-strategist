@@ -21,14 +21,7 @@ export async function runTextToImageWorkflow(body, options = {}) {
       })
     : null
 
-  const market = client?.clientName
-    ? await selectFirst("research_market", { client_name: client.clientName }).catch((error) => {
-        console.warn(error.message)
-        return null
-      })
-    : null
-
-  const visualThinking = await createVisualThinking(body, { client, market })
+  const visualThinking = await createVisualThinking(body, { client })
   const imageInputs = normalizeImageUrls(body)
   const downloadedImages = await Promise.all(imageInputs.map(downloadImage))
   const prompt = buildFinalPrompt(visualThinking, body, downloadedImages)

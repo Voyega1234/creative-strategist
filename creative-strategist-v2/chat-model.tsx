@@ -446,6 +446,8 @@ interface PromptInputBoxProps {
   primaryActionLabel?: string;
   allowEmptySubmit?: boolean;
   primaryActionEnabled?: boolean;
+  /** Keep the typed text in the box after sending (e.g. briefs the user may tweak and re-run). */
+  preserveInputOnSend?: boolean;
 }
 export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref: React.Ref<HTMLDivElement>) => {
   const {
@@ -459,6 +461,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
     primaryActionLabel,
     allowEmptySubmit = false,
     primaryActionEnabled = false,
+    preserveInputOnSend = false,
   } = props;
   const [input, setInput] = React.useState("");
   const [files, setFiles] = React.useState<File[]>([]);
@@ -554,7 +557,9 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
       else if (showCanvas) messagePrefix = "[Canvas: ";
       const formattedInput = messagePrefix ? `${messagePrefix}${input}]` : input;
       onSend(formattedInput, files);
-      setInput("");
+      if (!preserveInputOnSend) {
+        setInput("");
+      }
       setFiles([]);
       setFilePreviews({});
     }

@@ -824,6 +824,7 @@ export function TextToImageMode({
 
           <PromptInputBox
             isLoading={isGenerating}
+            preserveInputOnSend
             onSend={(message, files) => void generateImages(message, files)}
             onUploadClick={() => setIsImageDialogOpen(true)}
             placeholder={

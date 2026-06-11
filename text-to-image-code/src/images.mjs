@@ -69,13 +69,24 @@ export function buildFinalPrompt(visualThinkingText, body, images) {
     return `[IMAGE ${index + 1}: ${image.type.toUpperCase()}] Use this image as supporting visual context.`
   })
 
+  const copy = body.copywriting || {}
+  const copyLines = [
+    copy.headline && `Headline: "${copy.headline}"`,
+    (copy.sub_headline_1 || copy.sub_headline_2) &&
+      `Sub-headline: "${copy.sub_headline_1 || copy.sub_headline_2}"`,
+    copy.cta && `CTA: "${copy.cta}"`,
+  ].filter(Boolean)
+  const onImageTextSection = copyLines.length
+    ? `On-image text — the creative direction may use some or all of these lines; any text that appears must match EXACTLY, spelled correctly and fully legible (Thai must be accurate). Do not translate, paraphrase, add, or invent any other text:\n${copyLines.join("\n")}`
+    : `On-image text — only render copy that is explicitly defined in the brief. Do not invent headlines, labels, prices, or claims.`
+
   return `
-Create a high-quality promotional advertising image.
+Create a polished, production-ready commercial advertising key visual. The result must look like premium agency/brand campaign work — intentionally art-directed and rendered to a professional commercial standard, not an AI generation.
 
-ภาพโปรโมทโฆษณา , พร้อมรายละเอียดอ่านง่าย ไม่รกดูแล้วสบายตา ไม่ดูแน่นไปหมด มีความ Cretive มีการใช้เทคนิคด้านกราฟิกให้เหมาะสม ให้เหมาะกับประเภทของธุรกิจ ดูเป็นงานที่ดูผ่านการคัดสรรมาอย่างดี, สไตล์ภาพเหมาะกับสมัยปัจจุบัน ไม่ cyberpunk, scifi ไม่ดู AI ดูสบายตาหยุดคนดูได้
-
-Main brief:
+Main creative direction (authoritative — follow this concept):
 ${visualThinkingText}
+
+${onImageTextSection}
 
 Brand color palette:
 ${Array.isArray(colorPalette) ? colorPalette.join(", ") : colorPalette || "Use colors that fit the brand and brief."}
@@ -83,16 +94,19 @@ ${Array.isArray(colorPalette) ? colorPalette.join(", ") : colorPalette || "Use c
 Reference image instructions:
 ${imageNotes.length ? imageNotes.join("\n") : "No reference images provided. Create from the brief only."}
 
-Creative direction:
-- Make the design clean, readable, and not overcrowded.
-- Use strong visual hierarchy.
-- Make it suitable for a youth-oriented audience.
-- Use graphic techniques that fit the business category.
-- Avoid messy layouts, excessive text, and generic AI-looking visuals.
-- Preserve product/brand identity from material images.
-- Use style references only for mood, composition, and art direction.
-- Output aspect ratio target:
-${aspectRatio}
+Commercial quality bar:
+- Professional commercial photography or high-end 3D/graphic art direction with believable, consistent single-source lighting, real material texture, accurate perspective, scale, and shadows.
+- Clean, uncluttered layout with strong visual hierarchy and intentional negative space; the main message must read in one second.
+- Typography integrated as a designed element with correct kerning and leading, fully legible at a glance.
+- Preserve product, brand, and logo identity exactly from material images; use style references only for mood, composition, and art direction.
+- Modern, on-trend look that fits the business category and brand. No cyberpunk, sci-fi, neon-futuristic, or vaporwave unless the brief explicitly requires it.
+
+Avoid:
+- Anything a real production crew could not physically BUILD (structures missing their real supports and mechanics), STAGE (weightless props without contact shadows), RIG (sourceless glow, sparkle-dust fields), PRINT (pseudo-letter mush on dials, labels, keyboards, fine print), or SHOOT (broken perspective, waxy skin, melted shapes, over-smooth render sheen).
+- Misspelled, garbled, or duplicated text; do not add extra copy, fake badges, buttons, prices, icons, or watermarks beyond the specified on-image text.
+- Cluttered, generic stock-photo layouts.
+
+Output aspect ratio target: ${aspectRatio}
 `.trim()
 }
 

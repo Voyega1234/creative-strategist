@@ -7,6 +7,33 @@ const PROMPT_ENGINEER_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../prompts/prompt-engineer.md",
 )
+const DESIGN_EXAMPLES_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../prompts/design-examples.md",
+)
+const DESIGN_EXAMPLES_PER_CALL = 3
+
+// Few-shot corpus: prompts reverse-engineered from the team's real ads (AW-Boon).
+// We sample a few per call so the model sees concrete examples of the expected design
+// thinking without converging on a single style.
+async function loadSampledDesignExamples(count = DESIGN_EXAMPLES_PER_CALL) {
+  try {
+    const raw = await readFile(DESIGN_EXAMPLES_PATH, "utf8")
+    const blocks = raw
+      .split(/\n---\n/)
+      .map((block) => block.trim())
+      .filter(Boolean)
+      .slice(1) // drop the intro header before the first separator
+    for (let i = blocks.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[blocks[i], blocks[j]] = [blocks[j], blocks[i]]
+    }
+    return blocks.slice(0, count)
+  } catch (error) {
+    console.warn("[visual-thinking] No design examples loaded:", error.message)
+    return []
+  }
+}
 
 // Source of truth for the concept system prompt is prompts/prompt-engineer.md (editable).
 // The inline string below is only a fallback if that file can't be read at runtime.
@@ -99,9 +126,21 @@ function formatChosenVisualRoute(route) {
 
 export function buildVisualThinkingUserPrompt(body, context = {}) {
   const chosenVisualRoute = formatChosenVisualRoute(body.selected_visual_route || body.selectedVisualRoute)
+  const copy = body.copywriting || {}
+  const onImageCopy = [
+    copy.headline && `Headline: "${copy.headline}"`,
+    (copy.sub_headline_1 || copy.sub_headline_2) &&
+      `Sub-headline: "${copy.sub_headline_1 || copy.sub_headline_2}"`,
+    copy.cta && `CTA: "${copy.cta}"`,
+  ]
+    .filter(Boolean)
+    .join("\n")
 
   return `User brief:
 ${body.prompt || ""}
+
+On-image copy (use these EXACT texts verbatim as the only on-image text — do not rewrite them):
+${onImageCopy || "No fixed copy provided — keep on-image text minimal and derived from the brief."}
 
 Style:
 ${body.userBrief || ""}
@@ -111,9 +150,6 @@ ${body.client || ""}
 
 Category Lens:
 ${context.client?.productFocus || ""}
-
-Market research:
-${context.market ? JSON.stringify(context.market, null, 2) : ""}
 
 Brand identity:
 Color palette / mood / tone:
@@ -151,7 +187,18 @@ ${buildVisualThinkingUserPrompt(body, context)}`
   }
 
   const model = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.6"
-  const systemPrompt = await loadVisualThinkingSystemPrompt()
+  const baseSystemPrompt = await loadVisualThinkingSystemPrompt()
+  const designExamples = await loadSampledDesignExamples()
+  const systemPrompt = designExamples.length
+    ? `${baseSystemPrompt}
+
+# REFERENCE EXAMPLES — finished prompts at the expected level (reverse-engineered from this team's real award-level ads)
+Study how each one constructs the frame: the headline lockup with per-word treatments, the one-hue color
+system with a single accent, the staging/depth layers, named effects, and calm spacing. Learn the DESIGN
+THINKING — do NOT copy their subjects, metaphors, or styles.
+
+${designExamples.join("\n\n---\n\n")}`
+    : baseSystemPrompt
 
   const userText = buildVisualThinkingUserPrompt(body, context)
   const materialImageUrls = collectMaterialImageUrls(body)
