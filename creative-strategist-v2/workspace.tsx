@@ -3,12 +3,12 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { ArrowUp } from "lucide-react";
+import { ArrowLeft, ArrowUp } from "lucide-react";
 import { ConceptMode } from "./modes/concept-mode";
 import { EditImageMode } from "./modes/edit-image-mode";
 import { EnhanceMode } from "./modes/enhance-mode";
 import { ImageAssetsMode } from "./modes/image-assets-mode";
-import { DEFAULT_WORKSPACE_MODE, getWorkspaceFeature } from "./modes/mode-registry";
+import { DEFAULT_WORKSPACE_MODE, getWorkspaceFeature, modeRequiresClient } from "./modes/mode-registry";
 import { ModeSwitcher } from "./modes/mode-switcher";
 import { PendingMode } from "./modes/pending-mode";
 import { ProductSceneMode } from "./modes/product-scene-mode";
@@ -84,9 +84,13 @@ export function V2Workspace({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [activeMode, setActiveMode] = useState<WorkspaceMode>(DEFAULT_WORKSPACE_MODE);
+  // Every feature requires a client; until one is picked the landing stays locked.
+  const hasClient = Boolean(clientName);
   // Landing view: show the three mode groups with a guide until the user picks a mode.
   // Deep links (history session / new session) skip straight into concept mode.
-  const [hasChosenMode, setHasChosenMode] = useState(Boolean(ideaSessionId) || startNewSession);
+  const [hasChosenMode, setHasChosenMode] = useState(
+    hasClient && (Boolean(ideaSessionId) || startNewSession),
+  );
   const [mountedModes, setMountedModes] = useState<WorkspaceMode[]>([DEFAULT_WORKSPACE_MODE]);
   const [conceptHasIdeas, setConceptHasIdeas] = useState(false);
   const [textToImageNeedsScroll, setTextToImageNeedsScroll] = useState(false);
@@ -121,6 +125,7 @@ export function V2Workspace({
     activeMode === "image-assets";
 
   const handleModeChange = (mode: WorkspaceMode) => {
+    if (!hasClient && modeRequiresClient(mode)) return;
     setMountedModes((current) => (current.includes(mode) ? current : [...current, mode]));
     setActiveMode(mode);
     setHasChosenMode(true);
@@ -128,10 +133,10 @@ export function V2Workspace({
 
   // Clicking a history session (or New Session) while on the landing view jumps into concept mode.
   useEffect(() => {
-    if (ideaSessionId || startNewSession) {
+    if (hasClient && (ideaSessionId || startNewSession)) {
       setHasChosenMode(true);
     }
-  }, [ideaSessionId, startNewSession]);
+  }, [hasClient, ideaSessionId, startNewSession]);
 
   // The sidebar home button returns the workspace to the landing (mode picker).
   useEffect(() => {
@@ -222,7 +227,7 @@ export function V2Workspace({
   if (!hasChosenMode) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-1">
-        <div className="mb-12 shrink-0 text-center">
+        <div className={["shrink-0 text-center", hasClient ? "mb-12" : "mb-8"].join(" ")}>
           <p className="mb-3 flex items-center justify-center gap-2 text-sm font-medium text-[#667085] dark:text-slate-400">
             {clientName ? (
               <>
@@ -237,8 +242,27 @@ export function V2Workspace({
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-[#1f1f1f] dark:text-white sm:text-5xl">Creative Compass</h1>
           <p className="mt-4 text-base font-medium tracking-normal text-[#555] dark:text-slate-300 sm:text-lg">
-            เลือกโหมดที่ตรงกับงานของคุณเพื่อเริ่มต้น
+            {hasClient
+              ? "เลือกโหมดที่ตรงกับงานของคุณเพื่อเริ่มต้น"
+              : "เครื่องมือแก้ไขรูปใช้ได้เลย — เลือกลูกค้าเพื่อปลดล็อกทุกฟีเจอร์"}
           </p>
+          {!hasClient && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3, ease: [0.32, 0.72, 0, 1] }}
+              className="mt-5 inline-flex items-center gap-2.5 rounded-full border border-amber-200 bg-amber-50 py-2 pl-3.5 pr-4 text-sm font-medium text-amber-800 shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200"
+            >
+              <motion.span
+                animate={{ x: [0, -5, 0] }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                className="flex"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </motion.span>
+              เลือกลูกค้าจากเมนู “แบรนด์” ด้านซ้ายก่อนเริ่มงาน
+            </motion.div>
+          )}
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
@@ -270,14 +294,27 @@ export function V2Workspace({
                   {group.modes.map((mode) => {
                     const feature = getWorkspaceFeature(mode);
                     const Icon = feature.icon;
+                    const isLocked = !hasClient && modeRequiresClient(mode);
                     return (
                       <button
                         key={mode}
                         type="button"
+                        disabled={isLocked}
                         onClick={() => handleModeChange(mode)}
-                        className="group inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-[#3f3f3f] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-black/20 hover:bg-slate-50 hover:text-[#111827] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                        title={isLocked ? "เลือกลูกค้าก่อนเพื่อใช้ฟีเจอร์นี้" : undefined}
+                        className={
+                          isLocked
+                            ? "inline-flex h-10 cursor-not-allowed items-center gap-2 rounded-full border border-black/5 bg-slate-100/80 px-4 text-sm font-medium text-[#b6bcc6]"
+                            : "group inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-[#3f3f3f] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-black/20 hover:bg-slate-50 hover:text-[#111827] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                        }
                       >
-                        <Icon className="h-4 w-4 text-[#98a2b3] transition-colors duration-300 group-hover:text-[#111827]" />
+                        <Icon
+                          className={
+                            isLocked
+                              ? "h-4 w-4 text-[#c8cdd5]"
+                              : "h-4 w-4 text-[#98a2b3] transition-colors duration-300 group-hover:text-[#111827]"
+                          }
+                        />
                         {feature.label}
                       </button>
                     );
@@ -365,7 +402,12 @@ export function V2Workspace({
 
         {showModeRail && (
           <aside className="hidden min-h-0 lg:block">
-            <ModeSwitcher activeMode={activeMode} onModeChange={handleModeChange} variant="rail" />
+            <ModeSwitcher
+              activeMode={activeMode}
+              onModeChange={handleModeChange}
+              variant="rail"
+              disableClientModes={!hasClient}
+            />
             {activeMode === "concept" && (
               <WorkspaceMascotHint image={ROLE_IMAGES.strategist}>
                 ชอบไอเดียไหนให้คลิกการ์ดเพื่อเปิด popup แล้วเจนรูปต่อได้ หรือกดเซฟมุมขวาบนเพื่อเก็บไว้ใช้กับ Text to Image
@@ -417,7 +459,11 @@ export function V2Workspace({
           showModeRail ? "lg:hidden" : "",
         ].join(" ")}
       >
-        <ModeSwitcher activeMode={activeMode} onModeChange={handleModeChange} />
+        <ModeSwitcher
+          activeMode={activeMode}
+          onModeChange={handleModeChange}
+          disableClientModes={!hasClient}
+        />
       </div>
 
       {isScrollableMode && showScrollTop && (

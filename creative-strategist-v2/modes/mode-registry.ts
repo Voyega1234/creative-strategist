@@ -94,6 +94,19 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [
   },
 ];
 
+// Modes that work purely on uploaded files, so they are usable before a client is selected.
+export const CLIENT_FREE_MODES: WorkspaceMode[] = [
+  "edit-image",
+  "enhance",
+  "upscale",
+  "material-to-scene",
+  "image-assets",
+];
+
+export function modeRequiresClient(mode: WorkspaceMode) {
+  return !CLIENT_FREE_MODES.includes(mode);
+}
+
 export function getWorkspaceFeature(mode: WorkspaceMode) {
   return WORKSPACE_FEATURES.find((feature) => feature.id === mode) ?? WORKSPACE_FEATURES[0];
 }

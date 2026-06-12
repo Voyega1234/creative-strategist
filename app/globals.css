@@ -280,3 +280,21 @@ body {
 .dark .bg-gray-50 { background-color: #1b2130; }
 .dark .bg-gray-500 { background-color: #3a4356; }
 .dark .text-gray-400 { color: #6f7a8c; }
+.dark .border-gray-100 { border-color: rgba(255, 255, 255, 0.09); }
+
+/* Idea cards (concept mode) */
+.dark .bg-\[\#f9fbff\],
+.dark .bg-\[\#fbfcfe\] { background-color: #1b2130; }
+.dark .text-\[\#0f172a\] { color: #f1f5f9; }
+.dark .hover\:text-\[\#0f172a\]:hover { color: #ffffff; }
+.dark .text-\[\#525d7a\],
+.dark .text-\[\#475569\] { color: #c3cbd8; }
+.dark .text-\[\#64748b\] { color: #94a0b3; }
+.dark .bg-\[\#0f172a\] { background-color: #e2e8f0; }
+.dark .bg-\[\#d0d5dd\] { background-color: #3a4356; }
+.dark .shadow-\[inset_0_0_0_1px_rgba\(228\,231\,236\,0\.85\)\] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09); }
+
+/* Locked feature buttons while no client is selected */
+.dark .bg-slate-100\/80 { background-color: rgba(255, 255, 255, 0.04); }
+.dark .text-\[\#b6bcc6\] { color: #4d586e; }
+.dark .text-\[\#c8cdd5\] { color: #424c61; }

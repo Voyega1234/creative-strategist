@@ -1,12 +1,14 @@
 "use client";
 
-import { WORKSPACE_FEATURES } from "./mode-registry";
+import { WORKSPACE_FEATURES, modeRequiresClient } from "./mode-registry";
 import type { WorkspaceMode } from "./types";
 
 type ModeSwitcherProps = {
   activeMode: WorkspaceMode | null;
   onModeChange: (mode: WorkspaceMode) => void;
   variant?: "bottom" | "rail";
+  /** No client selected yet: client-dependent modes render gray and unclickable. */
+  disableClientModes?: boolean;
 };
 
 const MODE_GROUPS: Array<{
@@ -31,7 +33,12 @@ const MODE_GROUPS: Array<{
   },
 ];
 
-export function ModeSwitcher({ activeMode, onModeChange, variant = "bottom" }: ModeSwitcherProps) {
+export function ModeSwitcher({
+  activeMode,
+  onModeChange,
+  variant = "bottom",
+  disableClientModes = false,
+}: ModeSwitcherProps) {
   const isRail = variant === "rail";
 
   return (
@@ -72,25 +79,34 @@ export function ModeSwitcher({ activeMode, onModeChange, variant = "bottom" }: M
 
                 const Icon = feature.icon;
                 const isActive = feature.id === activeMode;
+                const isLocked = disableClientModes && modeRequiresClient(feature.id);
 
                 return (
                   <button
                     key={feature.id}
                     type="button"
+                    disabled={isLocked}
                     onClick={() => onModeChange(feature.id)}
                     aria-pressed={isActive}
+                    title={isLocked ? "เลือกลูกค้าก่อนเพื่อใช้ฟีเจอร์นี้" : undefined}
                     className={[
-                      "group inline-flex items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-[background-color,border-color,color,transform,box-shadow] duration-200 active:scale-[0.98]",
+                      "group inline-flex items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-[background-color,border-color,color,transform,box-shadow] duration-200",
                       isRail ? "h-9 w-full justify-start" : "h-10",
-                      isActive
-                        ? "border-[#1f1f1f] bg-[#1f1f1f] text-white shadow-[0_8px_18px_rgba(15,23,42,0.12)]"
-                        : "border-black/10 bg-white text-[#3f3f3f] hover:-translate-y-0.5 hover:border-black/15 hover:bg-slate-50 hover:text-[#1f1f1f] hover:shadow-[0_8px_18px_rgba(15,23,42,0.08)]",
+                      isLocked
+                        ? "cursor-not-allowed border-black/5 bg-slate-100/80 text-[#b6bcc6]"
+                        : isActive
+                          ? "border-[#1f1f1f] bg-[#1f1f1f] text-white shadow-[0_8px_18px_rgba(15,23,42,0.12)] active:scale-[0.98]"
+                          : "border-black/10 bg-white text-[#3f3f3f] hover:-translate-y-0.5 hover:border-black/15 hover:bg-slate-50 hover:text-[#1f1f1f] hover:shadow-[0_8px_18px_rgba(15,23,42,0.08)] active:scale-[0.98]",
                     ].join(" ")}
                   >
                     <Icon
                       className={[
                         "h-3.5 w-3.5 transition",
-                        isActive ? "text-white" : "text-[#777] group-hover:text-[#1f1f1f]",
+                        isLocked
+                          ? "text-[#c8cdd5]"
+                          : isActive
+                            ? "text-white"
+                            : "text-[#777] group-hover:text-[#1f1f1f]",
                       ].join(" ")}
                     />
                     <span className="whitespace-nowrap">{feature.label}</span>

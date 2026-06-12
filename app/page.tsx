@@ -7,9 +7,6 @@ type V2PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const DEFAULT_V2_CLIENT_NAME = "M Factors";
-const DEFAULT_V2_PRODUCT_FOCUS = "กำจัดปลวก";
-
 function getParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -21,30 +18,20 @@ export default async function CreativeStrategistV2Page({ searchParams }: V2PageP
   const selectedProductFocusParam = getParamValue(params?.productFocus);
   const selectedIdeaSessionId = getParamValue(params?.ideaSessionId) || null;
   const isNewSession = getParamValue(params?.newSession) === "1";
-  const defaultClient = clients.find((client) => client.clientName === DEFAULT_V2_CLIENT_NAME);
-  const selectedClient =
-    (selectedClientName ? clients.find((client) => client.clientName === selectedClientName) : null) ||
-    defaultClient ||
-    clients.find((client) => client.productFocuses.length > 0) ||
-    clients[0];
-  const defaultProductFocus =
-    selectedClient?.clientName === DEFAULT_V2_CLIENT_NAME
-      ? selectedClient.productFocuses.find((focus) => focus.productFocus === DEFAULT_V2_PRODUCT_FOCUS)
-          ?.productFocus
-      : null;
+  // No default client: the workspace stays locked until the user explicitly picks one.
+  const selectedClient = selectedClientName
+    ? clients.find((client) => client.clientName === selectedClientName) || null
+    : null;
   const selectedProductFocus =
     selectedProductFocusParam ||
-    defaultProductFocus ||
     selectedClient?.productFocuses?.[0]?.productFocus ||
     null;
   const selectedProductFocusEntry =
     selectedClient?.productFocuses.find((focus) => focus.productFocus === selectedProductFocus) ||
     selectedClient?.productFocuses[0];
-  const activeClientId =
-    getParamValue(params?.clientId) ||
-    selectedProductFocusEntry?.id ||
-    selectedClient?.id ||
-    null;
+  const activeClientId = selectedClient
+    ? getParamValue(params?.clientId) || selectedProductFocusEntry?.id || selectedClient.id
+    : null;
   const activeColorPalette = selectedProductFocusEntry?.colorPalette?.length
     ? selectedProductFocusEntry.colorPalette
     : selectedClient?.colorPalette;

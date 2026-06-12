@@ -371,7 +371,35 @@ export function ConceptMode({
     [processTaskResult, stopTaskPolling],
   );
 
-  const requestIdeaGeneration = async (instructions: string, mode: "initial" | "append") => {
+  // The idea-generation webhook is text-only, so an attached image goes through a
+  // vision model first and its description is merged into the user brief.
+  const describeAttachedImage = async (file: File) => {
+    const imageDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("อ่านไฟล์รูปไม่สำเร็จ"));
+      reader.readAsDataURL(file);
+    });
+
+    const response = await fetch("/api/describe-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageDataUrl }),
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.success || !data.description) {
+      throw new Error(data.error || "ไม่สามารถวิเคราะห์รูปที่แนบได้");
+    }
+
+    return data.description as string;
+  };
+
+  const requestIdeaGeneration = async (
+    instructions: string,
+    mode: "initial" | "append",
+    files?: File[],
+  ) => {
     if (!activeClientName || activeClientName === "No Client Selected") {
       alert("กรุณาเลือกลูกค้าก่อน");
       return;
@@ -381,13 +409,32 @@ export function ConceptMode({
       return;
     }
 
-    const finalInstructions = instructions.trim() || " ";
-    const existingConceptIdeas =
-      mode === "append" ? ideas.map((idea) => idea.concept_idea).filter(Boolean) : undefined;
-
     setIsGenerating(mode === "initial");
     setIsLoadingMore(true);
     stopTaskPolling();
+
+    let finalInstructions = instructions.trim() || " ";
+    const attachedImage = files?.find((file) => file.type.startsWith("image/"));
+    if (attachedImage) {
+      try {
+        const imageDescription = await describeAttachedImage(attachedImage);
+        finalInstructions = [
+          instructions.trim(),
+          `[คำอธิบายรูปภาพที่ผู้ใช้แนบมา — ใช้เป็นบริบทอ้างอิงประกอบ brief]\n${imageDescription}`,
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+      } catch (error) {
+        console.error("[ConceptMode] Failed to describe attached image:", error);
+        alert(error instanceof Error ? error.message : "ไม่สามารถวิเคราะห์รูปที่แนบได้ กรุณาลองใหม่");
+        setIsGenerating(false);
+        setIsLoadingMore(false);
+        return;
+      }
+    }
+
+    const existingConceptIdeas =
+      mode === "append" ? ideas.map((idea) => idea.concept_idea).filter(Boolean) : undefined;
 
     try {
       const response = await fetch("/api/generate-ideas", {
@@ -554,7 +601,7 @@ export function ConceptMode({
         <div className="mx-auto w-full max-w-5xl">
           <PromptInputBox
             isLoading={isGenerating || isLoadingMore}
-            onSend={(message) => void requestIdeaGeneration(message, "initial")}
+            onSend={(message, files) => void requestIdeaGeneration(message, "initial", files)}
             placeholder="พิมพ์โจทย์หรือ direction สำหรับ generate concept ideas..."
             showUtilityControls={false}
             primaryActionLabel="Generate Ideas"
@@ -567,7 +614,7 @@ export function ConceptMode({
       {(isGenerating || isLoadingMore || currentTaskId) && (
         <div className="mx-auto flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm text-[#667085] shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
-          กำลังสร้างไอเดียจาก n8n...
+          AI กำลังคิดและสร้างไอเดียให้คุณ อาจใช้เวลาสักครู่...
         </div>
       )}
 
