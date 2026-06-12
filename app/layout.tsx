@@ -15,7 +15,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning: the no-FOUC theme script adds `class="dark"` before hydration.
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Preload critical fonts */}
         <link

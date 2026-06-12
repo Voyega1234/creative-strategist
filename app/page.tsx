@@ -7,8 +7,8 @@ type V2PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const DEFAULT_V2_CLIENT_NAME = "Convert Cake Ads";
-const DEFAULT_V2_PRODUCT_FOCUS = "Digital Marketing Agencie";
+const DEFAULT_V2_CLIENT_NAME = "M Factors";
+const DEFAULT_V2_PRODUCT_FOCUS = "กำจัดปลวก";
 
 function getParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;

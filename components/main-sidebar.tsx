@@ -72,11 +72,16 @@ export function MainSidebar({
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const normalizedQuery = clientSearch.trim().toLowerCase()
   const filteredClients = useMemo(() => {
-    if (!normalizedQuery) {
-      return clients.filter(clientExistsInSystem)
-    }
-    return clients.filter((client) => client.clientName.toLowerCase().includes(normalizedQuery))
-  }, [clients, normalizedQuery])
+    const list = normalizedQuery
+      ? clients.filter((client) => client.clientName.toLowerCase().includes(normalizedQuery))
+      : clients.filter(clientExistsInSystem)
+    // Keep the active client pinned to the top of the list.
+    return [...list].sort((a, b) => {
+      if (a.clientName === activeClientName) return -1
+      if (b.clientName === activeClientName) return 1
+      return 0
+    })
+  }, [clients, normalizedQuery, activeClientName])
   const hasClientResults = filteredClients.length > 0
 
   const loadHistorySessions = useCallback(async () => {

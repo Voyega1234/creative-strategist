@@ -136,6 +136,10 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
   const [promptGuideIndex, setPromptGuideIndex] = useState<number | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isRemovingBg, setIsRemovingBg] = useState(false)
+  // Per-image AI edit: prompt applies to the currently selected output only;
+  // the result is appended as a new image, never overwriting the original.
+  const [sceneEditPrompt, setSceneEditPrompt] = useState("")
+  const [isEditingScene, setIsEditingScene] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [selectedHistorySessionId, setSelectedHistorySessionId] = useState<string | null>(null)
@@ -167,17 +171,62 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
 
   const currentImageUrl = generatedImageUrls[selectedImageIndex] || ""
   const hasOutput = generatedImageUrls.length > 0
+
+  // Edit only the selected image with Gemini; append the result as a NEW image.
+  const handleEditCurrentScene = async () => {
+    const instruction = sceneEditPrompt.trim()
+    if (!currentImageUrl || !instruction || isEditingScene) return
+
+    setIsEditingScene(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/edit-image-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: currentImageUrl, instruction }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.success || !result.image_data_url) {
+        throw new Error(result?.error || "แก้ไขรูปไม่สำเร็จ กรุณาลองใหม่")
+      }
+
+      const { publicUrl } = await uploadDataUrlToImageStorage(
+        result.image_data_url,
+        "generated/material-to-scene-edits",
+      )
+
+      setGeneratedImageUrls((current) => {
+        const next = [...current, publicUrl]
+        setSelectedImageIndex(next.length - 1)
+        return next
+      })
+      setSceneEditPrompt("")
+      void saveGenerationSession({
+        outputUrls: [publicUrl],
+        inputUrls: [currentImageUrl],
+        model: result.model || "gemini-3.1-flash-image-preview",
+        promptOverride: `แก้ไข: ${instruction}`,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "แก้ไขรูปไม่สำเร็จ กรุณาลองใหม่")
+    } finally {
+      setIsEditingScene(false)
+    }
+  }
   const canGenerate = Boolean(file && prompt.trim())
 
   const saveGenerationSession = async ({
     outputUrls,
     inputUrls,
     model,
+    promptOverride,
   }: {
     outputUrls: string[]
     inputUrls: string[]
     model: string
+    promptOverride?: string
   }) => {
+    const sessionPrompt = (promptOverride ?? prompt).trim()
     try {
       const response = await fetch("/api/image-sessions", {
         method: "POST",
@@ -186,8 +235,8 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
           featureType: "product-scene",
           clientName,
           productFocus,
-          title: prompt.trim().slice(0, 100),
-          prompt: prompt.trim(),
+          title: sessionPrompt.slice(0, 100),
+          prompt: sessionPrompt,
           model,
           outputUrls,
           inputUrls,
@@ -901,6 +950,50 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                       <Download className="mr-1.5 h-3.5 w-3.5" />
                       Download image {selectedImageIndex + 1}
                     </Button>
+                  </div>
+
+                  <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50/70 p-3.5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <Sparkles className="h-4 w-4 text-slate-700" />
+                      แก้ไขรูปนี้ด้วย AI
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      สั่งแก้เฉพาะรูปที่เลือกอยู่ — ผลลัพธ์จะถูกเพิ่มเป็นรูปใหม่ ไม่ทับรูปเดิม
+                    </p>
+                    <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        value={sceneEditPrompt}
+                        onChange={(event) => setSceneEditPrompt(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault()
+                            void handleEditCurrentScene()
+                          }
+                        }}
+                        placeholder="เช่น เปลี่ยนพื้นหลังเป็นโทนครีม, เพิ่มเงาให้นุ่มลง, เอาของด้านหลังออก..."
+                        disabled={isEditingScene}
+                        className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-slate-950 disabled:opacity-60"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => void handleEditCurrentScene()}
+                        disabled={isEditingScene || !sceneEditPrompt.trim() || !currentImageUrl}
+                        className="h-10 shrink-0 rounded-xl bg-slate-950 px-4 text-white hover:bg-slate-800"
+                      >
+                        {isEditingScene ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                            กำลังแก้ไข...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-1.5 h-4 w-4" />
+                            แก้ไขรูปนี้
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

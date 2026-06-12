@@ -223,8 +223,17 @@ export function V2Workspace({
     return (
       <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-1">
         <div className="mb-12 shrink-0 text-center">
-          <p className="mb-3 text-sm font-medium text-[#667085] dark:text-slate-400">
-            {clientName ? `${clientName}${productFocus ? ` / ${productFocus}` : ""}` : "Creative workspace"}
+          <p className="mb-3 flex items-center justify-center gap-2 text-sm font-medium text-[#667085] dark:text-slate-400">
+            {clientName ? (
+              <>
+                <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-2.5 py-0.5 text-sm font-semibold text-[#111827] shadow-sm">
+                  {clientName}
+                </span>
+                {productFocus ? <span>/ {productFocus}</span> : null}
+              </>
+            ) : (
+              "Creative workspace"
+            )}
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-[#1f1f1f] dark:text-white sm:text-5xl">Creative Compass</h1>
           <p className="mt-4 text-base font-medium tracking-normal text-[#555] dark:text-slate-300 sm:text-lg">
@@ -292,10 +301,19 @@ export function V2Workspace({
     >
       {/* In-mode header is compact: the big hero (and its "choose a mode" line) belongs to the landing. */}
       <div className={["shrink-0 text-center", usesFullHeight ? "mb-3" : "mb-8"].join(" ")}>
-        <p className="mb-1.5 text-sm font-medium text-[#667085] dark:text-slate-400">
-          {clientName ? `${clientName}${productFocus ? ` / ${productFocus}` : ""}` : "Creative workspace"}
+        <p className="mb-2 flex items-center justify-center gap-2 text-sm font-medium text-[#667085] dark:text-slate-400">
+          {clientName ? (
+            <>
+              <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-2.5 py-0.5 text-sm font-semibold text-[#111827] shadow-sm">
+                {clientName}
+              </span>
+              {productFocus ? <span>/ {productFocus}</span> : null}
+            </>
+          ) : (
+            "Creative workspace"
+          )}
         </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-[#1f1f1f] dark:text-white">Creative Compass</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-[#1f1f1f] dark:text-white">Creative Compass</h1>
       </div>
 
       <div
