@@ -45,6 +45,7 @@ import {
 import { getGoogleDriveFileId, normalizeExternalImageUrl } from "@/lib/images/external-url"
 import {
   loadClientReferenceImages,
+  uploadClientMaterialFiles,
   uploadClientReferenceFiles,
 } from "@/lib/images/reference-library"
 import { getStorageClient } from "@/lib/supabase/client"
@@ -92,6 +93,15 @@ type StoredImageAsset = {
   name: string
   url: string
   createdAt: string
+}
+
+// Multi-turn editing context replayed to Gemini: user turns are instruction text,
+// model turns are the generated image plus its thoughtSignature.
+type ConversationTurn = {
+  role: "user" | "model"
+  text?: string
+  imageUrl?: string
+  thoughtSignature?: string
 }
 
 type BatchResult = {
@@ -172,6 +182,8 @@ export function ImageEditChatPanel({
   const [materialLibrary, setMaterialLibrary] = useState<StoredImageAsset[]>([])
   const [isLoadingReferences, setIsLoadingReferences] = useState(false)
   const [isUploadingReferences, setIsUploadingReferences] = useState(false)
+  const [isUploadingMaterials, setIsUploadingMaterials] = useState(false)
+  const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>([])
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false)
   const [isMaterialClientPopoverOpen, setIsMaterialClientPopoverOpen] = useState(false)
   const [referenceVisibleCount, setReferenceVisibleCount] = useState(10)
@@ -439,6 +451,47 @@ export function ImageEditChatPanel({
     }
   }, [])
 
+  // Uploaded materials persist into the client's library (materials/{clientId}) when a
+  // client is chosen; without one they stay session-only like before.
+  const uploadMaterialAssets = useCallback(
+    async (files: FileList | null) => {
+      if (!files?.length) return
+
+      const targetClientId =
+        selectedMaterialClientId !== "general" ? selectedMaterialClientId : activeClientId || ""
+      if (!targetClientId) {
+        addAssets(files, "material")
+        return
+      }
+
+      setIsUploadingMaterials(true)
+      try {
+        const uploaded = await uploadClientMaterialFiles(targetClientId, Array.from(files))
+        const nextAssets = uploaded.map((image) => ({
+          id: createId(),
+          name: image.name,
+          url: image.url,
+          previewUrl: image.url,
+        }))
+
+        setMaterialAssets((previous) => {
+          const unique = nextAssets.filter(
+            (image) => !previous.some((existing) => existing.url === image.url),
+          )
+          return [...previous, ...unique].slice(0, 6)
+        })
+        await loadMaterialLibrary(targetClientId)
+      } catch (error) {
+        console.error("Failed to upload material images:", error)
+        alert("เกิดข้อผิดพลาดในการอัปโหลดรูป Material")
+      } finally {
+        setIsUploadingMaterials(false)
+        if (materialInputRef.current) materialInputRef.current.value = ""
+      }
+    },
+    [activeClientId, selectedMaterialClientId, loadMaterialLibrary],
+  )
+
   useEffect(() => {
     if (!assetDialogOpen) return
     setReferenceVisibleCount(10)
@@ -466,6 +519,7 @@ export function ImageEditChatPanel({
         imageUrl: publicUrl,
       },
     ])
+    return publicUrl
   }
 
   const uploadOutputImage = async (imageDataUrl: string, filenameSuffix: string) => {
@@ -648,6 +702,15 @@ export function ImageEditChatPanel({
             reference_image_urls: referenceUrls,
             material_image_urls: materialUrls,
             product_focus: activeProductFocus,
+            // PMax variants are one-off side outputs and stay out of the conversation.
+            history: aspectRatio
+              ? undefined
+              : conversationTurns.slice(-6).map((turn) => ({
+                  role: turn.role,
+                  text: turn.text,
+                  image_url: turn.imageUrl,
+                  thought_signature: turn.thoughtSignature,
+                })),
           }),
         })
         const payload = await response.json()
@@ -699,7 +762,21 @@ export function ImageEditChatPanel({
 
       } else {
         const payload = await requestEdit()
-        await applyOutputImage(payload.image_data_url, "Edited image", "edited")
+        const outputPublicUrl = await applyOutputImage(payload.image_data_url, "Edited image", "edited")
+        setConversationTurns((prev) =>
+          [
+            ...prev,
+            { role: "user" as const, text: message.trim() },
+            {
+              role: "model" as const,
+              imageUrl: outputPublicUrl,
+              thoughtSignature:
+                typeof payload.thought_signature === "string" && payload.thought_signature
+                  ? payload.thought_signature
+                  : undefined,
+            },
+          ].slice(-12),
+        )
       }
     } catch (err) {
       console.error("Edit image chat failed:", err)
@@ -724,6 +801,7 @@ export function ImageEditChatPanel({
       const publicUrl = await uploadFileToImageStorage(file, "generated/edit-image-chat-inputs")
       setCurrentImageUrl(publicUrl)
       setCurrentImageBlob(file)
+      setConversationTurns([])
       setSourceDialogOpen(false)
       setMessages((prev) => [
         ...prev,
@@ -776,6 +854,7 @@ export function ImageEditChatPanel({
 
       setCurrentImageUrl(resolvedImageUrl)
       setCurrentImageBlob(resolvedImageBlob)
+      setConversationTurns([])
       setSourceImageLink("")
       setMessages((prev) => [
         ...prev,
@@ -799,6 +878,7 @@ export function ImageEditChatPanel({
     setCurrentImageUrl("")
     setCurrentImageBlob(null)
     setMessages([])
+    setConversationTurns([])
     setBatchResults([])
     retryBatchRatioRef.current = null
     setError("")
@@ -1343,8 +1423,7 @@ export function ImageEditChatPanel({
             multiple
             className="hidden"
             onChange={(event) => {
-              addAssets(event.target.files, "material")
-              event.target.value = ""
+              void uploadMaterialAssets(event.target.files)
             }}
           />
 
@@ -1368,9 +1447,14 @@ export function ImageEditChatPanel({
                 variant="outline"
                 className="w-full rounded-2xl"
                 onClick={() => materialInputRef.current?.click()}
+                disabled={isUploadingMaterials}
               >
-                <FileImage className="mr-2 h-4 w-4" />
-                Upload material
+                {isUploadingMaterials ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileImage className="mr-2 h-4 w-4" />
+                )}
+                {isUploadingMaterials ? "Uploading..." : "Upload material"}
               </Button>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-3">

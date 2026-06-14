@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
@@ -9,7 +11,6 @@ const GEMINI_IMAGE_MODEL =
   process.env.SEO_BLOG_BANNER_IMAGE_MODEL ||
   "gemini-3.1-flash-image-preview"
 const GEMINI_IMAGE_SIZE = process.env.SEO_BLOG_BANNER_RESIZE_IMAGE_SIZE || "2K"
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 
 const TARGET_SIZES = {
   blog_card: {
@@ -115,42 +116,28 @@ async function callGeminiResize({
   image: { base64: string; mimeType: string }
   aspectRatio: string
 }) {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured")
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": GEMINI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
+  const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
+    contents: [
+      {
+        parts: [
+          { text: prompt },
           {
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  data: image.base64,
-                  mimeType: image.mimeType,
-                },
-              },
-            ],
+            inlineData: {
+              data: image.base64,
+              mimeType: image.mimeType,
+            },
           },
         ],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: {
-            aspectRatio,
-            imageSize: GEMINI_IMAGE_SIZE,
-          },
-        },
-      }),
+      },
+    ],
+    generationConfig: {
+      responseModalities: ["TEXT", "IMAGE"],
+      imageConfig: {
+        aspectRatio,
+        imageSize: GEMINI_IMAGE_SIZE,
+      },
     },
-  )
+  })
 
   const responseText = await response.text()
   let payload: any = null
@@ -179,10 +166,6 @@ export async function POST(request: Request) {
 
     if (!imageUrl && !imageDataUrl) {
       return NextResponse.json({ success: false, error: "master image is required" }, { status: 400 })
-    }
-
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
     }
 
     const parsedDataUrl = imageDataUrl ? parseDataUrl(imageDataUrl) : null

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { normalizeExternalImageUrl } from "@/lib/images/external-url"
+import { vertexGenerateContent } from "@/lib/google/vertex-ai"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
@@ -10,7 +11,6 @@ const GEMINI_IMAGE_MODEL =
   process.env.SEO_BLOG_BANNER_GEMINI_MODEL ||
   process.env.SEO_BLOG_BANNER_IMAGE_MODEL ||
   "gemini-3.1-flash-image-preview"
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 
 type EditImageChatRequest = {
   image_url?: string
@@ -28,6 +28,19 @@ type EditImageChatRequest = {
   product_focus?: string | null
   output_aspect_ratio?: string
   output_image_size?: string
+  history?: Array<{
+    role?: "user" | "model"
+    text?: string
+    image_url?: string
+    thought_signature?: string
+  }>
+}
+
+type HistoryTurn = {
+  role: "user" | "model"
+  text?: string
+  imageUrl?: string
+  thoughtSignature?: string
 }
 
 type FetchedImage = {
@@ -38,6 +51,7 @@ type FetchedImage = {
 type GeminiInlineImage = {
   data: string
   mimeType?: string
+  thoughtSignature?: string
 }
 
 const GEMINI_ASPECT_RATIOS = [
@@ -138,6 +152,7 @@ function getGeminiImages(payload: any): GeminiInlineImage[] {
     .map((part: any) => ({
       data: part?.inlineData?.data || part?.inline_data?.data || "",
       mimeType: part?.inlineData?.mimeType || part?.inline_data?.mime_type || "image/png",
+      thoughtSignature: part?.thoughtSignature || part?.thought_signature || "",
     }))
     .filter((part: GeminiInlineImage) => Boolean(part.data))
 }
@@ -167,6 +182,59 @@ function normalizeUrlList(value: unknown) {
   return value.map((item) => normalizeUrl(item)).filter(Boolean).slice(0, 6)
 }
 
+// Multi-turn editing: prior turns are replayed to Gemini as conversation history.
+// Model turns carry the previously generated image plus its thoughtSignature,
+// which Gemini 3 image models require back exactly as received.
+function normalizeHistory(value: unknown): HistoryTurn[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item: any): HistoryTurn | null => {
+      const role = item?.role === "model" ? "model" : item?.role === "user" ? "user" : null
+      if (!role) return null
+      const text = typeof item?.text === "string" ? item.text.trim() : ""
+      const imageUrl = normalizeUrl(item?.image_url)
+      const thoughtSignature = typeof item?.thought_signature === "string" ? item.thought_signature : ""
+      if (!text && !imageUrl) return null
+      return {
+        role,
+        text: text || undefined,
+        imageUrl: imageUrl || undefined,
+        thoughtSignature: thoughtSignature || undefined,
+      }
+    })
+    .filter((turn): turn is HistoryTurn => Boolean(turn))
+    .slice(-6)
+}
+
+async function buildHistoryContents(history: HistoryTurn[]) {
+  return Promise.all(
+    history.map(async (turn) => {
+      if (turn.role === "user") {
+        return { role: "user", parts: [{ text: turn.text || "" }] }
+      }
+
+      if (turn.imageUrl) {
+        try {
+          const image = await fetchImageAsBase64(turn.imageUrl)
+          return {
+            role: "model",
+            parts: [
+              {
+                inlineData: { data: image.base64, mimeType: image.mimeType },
+                ...(turn.thoughtSignature ? { thoughtSignature: turn.thoughtSignature } : {}),
+              },
+            ],
+          }
+        } catch (error) {
+          console.warn("[edit-image-chat] Skipped history image", { url: turn.imageUrl, error })
+        }
+      }
+
+      return { role: "model", parts: [{ text: turn.text || "[earlier edited image unavailable]" }] }
+    }),
+  )
+}
+
 async function fetchOptionalImages(urls: string[]) {
   const results = await Promise.allSettled(urls.map((url) => fetchImageAsBase64(url)))
   return results.flatMap((result, index) => {
@@ -187,6 +255,7 @@ function buildEditPrompt({
   outputAspectRatio,
   requestedAspectRatio,
   outputImageSize,
+  continueFromHistory,
 }: {
   instruction: string
   maskBounds: NonNullable<EditImageChatRequest["mask_bounds"]> | null
@@ -198,6 +267,7 @@ function buildEditPrompt({
   outputAspectRatio: string
   requestedAspectRatio: string
   outputImageSize: string
+  continueFromHistory: boolean
 }) {
   if (operation === "resize") {
     const userInstruction = instruction || "N/A"
@@ -264,7 +334,9 @@ function buildEditPrompt({
     "You are a professional image editing assistant.",
     operation === "resize"
       ? "Resize and recompose the provided image to the requested output format."
-      : "Edit the provided image according to the user's instruction.",
+      : continueFromHistory
+        ? "This is an ongoing editing conversation. Continue from the most recent image you generated in this conversation and apply the user's new instruction to it. Earlier turns are provided as context for references like \"the previous edit\" or \"undo that change\"."
+        : "Edit the provided image according to the user's instruction.",
     `Requested output: aspect ratio ${outputAspectRatio}, image size ${outputImageSize}.`,
     clientName ? `Client context: ${clientName}${productFocus ? ` / ${productFocus}` : ""}.` : "Client context: default freestyle mode.",
     referenceCount > 0
@@ -324,10 +396,6 @@ export async function POST(request: Request) {
         : ""
     const outputImageSize = normalizeChoice(body.output_image_size, GEMINI_IMAGE_SIZES, "2K")
 
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
-    }
-
     if (!imageUrl) {
       return NextResponse.json({ success: false, error: "image_url is required" }, { status: 400 })
     }
@@ -336,8 +404,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "instruction is required" }, { status: 400 })
     }
 
-    const image = await fetchImageAsBase64(imageUrl)
-    const [referenceImages, materialImages] = await Promise.all([
+    const history = normalizeHistory(body.history)
+    const lastModelTurn = [...history].reverse().find((turn) => turn.role === "model" && turn.imageUrl)
+    // When the current source image is the one from the model's last turn, the replayed
+    // history already contains it — skip re-attaching and let the model continue the chat.
+    const continueFromHistory =
+      operation !== "resize" && history.length > 0 && lastModelTurn?.imageUrl === imageUrl
+
+    const [image, historyContents, referenceImages, materialImages] = await Promise.all([
+      continueFromHistory ? Promise.resolve(null) : fetchImageAsBase64(imageUrl),
+      buildHistoryContents(history),
       fetchOptionalImages(referenceUrls),
       fetchOptionalImages(materialUrls),
     ])
@@ -352,14 +428,17 @@ export async function POST(request: Request) {
       outputAspectRatio,
       requestedAspectRatio,
       outputImageSize,
+      continueFromHistory,
     })
 
     console.log("[edit-image-chat] Editing image", {
       model: GEMINI_IMAGE_MODEL,
       source: imageUrl,
-      mimeType: image.mimeType,
+      mimeType: image?.mimeType,
       hasMaskBounds: Boolean(maskBounds),
       operation,
+      historyTurns: history.length,
+      continueFromHistory,
       referenceCount: referenceImages.length,
       materialCount: materialImages.length,
       outputAspectRatio,
@@ -368,60 +447,56 @@ export async function POST(request: Request) {
       instructionLength: instruction.length,
     })
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "x-goog-api-key": GEMINI_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    data: image.base64,
-                    mimeType: image.mimeType,
+    const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
+      contents: [
+        ...historyContents,
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            ...(image
+              ? [
+                  {
+                    inlineData: {
+                      data: image.base64,
+                      mimeType: image.mimeType,
+                    },
                   },
-                },
-                ...(referenceImages.length > 0
-                  ? [
-                      { text: "Reference images for style, layout, mood, and visual DNA:" },
-                      ...referenceImages.map((referenceImage) => ({
-                        inlineData: {
-                          data: referenceImage.base64,
-                          mimeType: referenceImage.mimeType,
-                        },
-                      })),
-                    ]
-                  : []),
-                ...(materialImages.length > 0
-                  ? [
-                      { text: "Material images to optionally integrate when requested:" },
-                      ...materialImages.map((materialImage) => ({
-                        inlineData: {
-                          data: materialImage.base64,
-                          mimeType: materialImage.mimeType,
-                        },
-                      })),
-                    ]
-                  : []),
-              ],
-            },
+                ]
+              : []),
+            ...(referenceImages.length > 0
+              ? [
+                  { text: "Reference images for style, layout, mood, and visual DNA:" },
+                  ...referenceImages.map((referenceImage) => ({
+                    inlineData: {
+                      data: referenceImage.base64,
+                      mimeType: referenceImage.mimeType,
+                    },
+                  })),
+                ]
+              : []),
+            ...(materialImages.length > 0
+              ? [
+                  { text: "Material images to optionally integrate when requested:" },
+                  ...materialImages.map((materialImage) => ({
+                    inlineData: {
+                      data: materialImage.base64,
+                      mimeType: materialImage.mimeType,
+                    },
+                  })),
+                ]
+              : []),
           ],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
-            imageConfig: {
-              ...(operation === "resize" ? { aspectRatio: outputAspectRatio } : {}),
-              imageSize: outputImageSize,
-            },
-          },
-        }),
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+        imageConfig: {
+          ...(operation === "resize" ? { aspectRatio: outputAspectRatio } : {}),
+          imageSize: outputImageSize,
+        },
       },
-    )
+    })
 
     const rawText = await response.text()
     let payload: any = null
@@ -451,6 +526,7 @@ export async function POST(request: Request) {
       image_base64: imageBase64,
       image_data_url: `data:${mimeType};base64,${imageBase64}`,
       mime_type: mimeType,
+      thought_signature: images[0]?.thoughtSignature || null,
       model: GEMINI_IMAGE_MODEL,
       image_config: {
         ...(operation === "resize" ? { aspectRatio: outputAspectRatio } : {}),

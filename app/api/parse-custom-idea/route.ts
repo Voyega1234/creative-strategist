@@ -3,15 +3,11 @@ import {
   buildCustomIdeaFallback,
   cleanAndParseCustomIdeaResponse,
 } from "@/lib/custom-idea-parser"
+import { vertexGenerateContent } from "@/lib/google/vertex-ai"
 
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 
 async function callGeminiParser(inputText: string, clientName?: string, productFocus?: string) {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured")
-  }
-
   const prompt = `
 You convert a user's freeform ad idea note into a structured JSON object for an internal creative workflow.
 
@@ -51,23 +47,16 @@ User input:
 ${inputText}
 `.trim()
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        response_mime_type: "application/json",
-        temperature: 0.2,
+  const response = await vertexGenerateContent(GEMINI_MODEL, {
+    contents: [
+      {
+        parts: [{ text: prompt }],
       },
-    }),
+    ],
+    generationConfig: {
+      response_mime_type: "application/json",
+      temperature: 0.2,
+    },
   })
 
   if (!response.ok) {
@@ -92,14 +81,6 @@ export async function POST(request: NextRequest) {
     }
 
     const fallbackIdea = buildCustomIdeaFallback(inputText)
-
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json({
-        idea: fallbackIdea,
-        source: "fallback",
-        warning: "Gemini API key not configured",
-      })
-    }
 
     try {
       const idea = await callGeminiParser(inputText, clientName, productFocus)

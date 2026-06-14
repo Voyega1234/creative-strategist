@@ -1,5 +1,7 @@
-// Utility for matching company names using Gemini 2.0 Flash as fallback
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+// Utility for matching company names using Gemini Flash as fallback
+import { vertexGenerateContent } from "@/lib/google/vertex-ai";
+
+const NAME_MATCH_MODEL = "gemini-2.0-flash-exp";
 
 interface NameMatchResult {
   matchedName: string | null;
@@ -7,39 +9,29 @@ interface NameMatchResult {
   error?: string;
 }
 
-// Helper function to call Gemini 2.0 Flash API
+// Helper function to call Gemini Flash API
 async function callGeminiAPI(prompt: string): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Missing GEMINI_API_KEY environment variable");
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
-  
   const body = {
     contents: [
-      {   
+      {
         parts: [
           { text: prompt }
         ]
       }
     ],
-    generationConfig: { 
+    generationConfig: {
       temperature: 0.1, // Low temperature for consistent results
       maxOutputTokens: 50 // Short response expected
     }
   };
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  
+
+  const response = await vertexGenerateContent(NAME_MATCH_MODEL, body);
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`Gemini API error: ${response.status} ${errorText}`);
   }
-  
+
   const result = await response.json();
   const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
   return text.trim();

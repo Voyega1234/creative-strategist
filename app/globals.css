@@ -294,6 +294,19 @@ body {
 .dark .bg-\[\#d0d5dd\] { background-color: #3a4356; }
 .dark .shadow-\[inset_0_0_0_1px_rgba\(228\,231\,236\,0\.85\)\] { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09); }
 
+/* Accent surfaces (Edit Image chat bubbles, multi-size results, error banners) */
+.dark .bg-emerald-50 { background-color: #13231d; }
+.dark .border-emerald-100 { border-color: rgba(52, 211, 153, 0.22); }
+.dark .bg-indigo-50\/70 { background-color: rgba(36, 41, 73, 0.6); }
+.dark .border-indigo-200 { border-color: rgba(129, 140, 248, 0.3); }
+.dark .border-indigo-100 { border-color: rgba(129, 140, 248, 0.18); }
+.dark .text-indigo-950 { color: #c7d2fe; }
+.dark .text-indigo-700 { color: #a5b4fc; }
+.dark .bg-red-50 { background-color: #2a1518; }
+.dark .border-red-200 { border-color: rgba(248, 113, 113, 0.3); }
+.dark .text-red-700,
+.dark .text-red-600 { color: #fca5a5; }
+
 /* Locked feature buttons while no client is selected */
 .dark .bg-slate-100\/80 { background-color: rgba(255, 255, 255, 0.04); }
 .dark .text-\[\#b6bcc6\] { color: #4d586e; }

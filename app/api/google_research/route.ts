@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server'; // Import Supabase client
-
-// --- Environment Variables ---
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+import { vertexGenerateContent } from '@/lib/google/vertex-ai';
 
 // Define a basic Competitor type matching Supabase table structure
 interface Competitor {
@@ -22,12 +20,10 @@ interface Competitor {
 }
 
 // Helper function to call Gemini API via HTTP POST
-async function callGeminiAPI(prompt: string, apiKey: string, model: string = "gemini-2.5-flash", useGrounding: boolean = true) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    
+async function callGeminiAPI(prompt: string, model: string = "gemini-2.5-flash", useGrounding: boolean = true) {
     let body: any = {
         contents: [
-            {   
+            {
                 parts: [
                     { text: prompt }
                 ]
@@ -35,23 +31,19 @@ async function callGeminiAPI(prompt: string, apiKey: string, model: string = "ge
         ],
         generationConfig: { temperature: 1.0 }
     };
-    
-    // Add Google Search grounding if requested
+
+    // Add Google Search grounding if requested (Vertex AI uses `googleSearch`)
     if (useGrounding) {
         body.tools = [
             {
-                google_search: {}
+                googleSearch: {}
             }
         ];
         console.log("Using Google grounding search for Gemini API call");
     }
-    
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    });
-    
+
+    const response = await vertexGenerateContent(model, body);
+
     if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Gemini API error: ${response.status} ${errorText}`);
@@ -106,9 +98,6 @@ function tryParseJSON(text: string): any {
 
 // Function to fetch market trends and news using Google Grounding Search
 async function fetchMarketTrendsWithGrounding(clientName: string, competitors: Competitor[] = [], productFocus?: string): Promise<any> {
-    if (!GEMINI_API_KEY) {
-        throw new Error("Missing GEMINI_API_KEY environment variable");
-    }
     
     // If no competitors provided, query the database directly for any competitors related to this client
     let competitorInfo = 'ไม่มีข้อมูลคู่แข่งที่ชัดเจน';
@@ -179,7 +168,7 @@ async function fetchMarketTrendsWithGrounding(clientName: string, competitors: C
     try {
         // 1. Market Trends
         console.log(`[API /competitor-analysis] Calling Gemini with Google Grounding Search for ${clientName} market trends...`);
-        const trendsResult = await callGeminiAPI(prompt, GEMINI_API_KEY, "gemini-2.5-flash", true);
+        const trendsResult = await callGeminiAPI(prompt, "gemini-2.5-flash", true);
         let cleanedTrends = trendsResult.text ? cleanGeminiResponse(trendsResult.text) : '';
         let trendsGroundingMetadata = { groundingChunks: trendsResult.groundingChunks };
         let trendsRawGemini = trendsResult;
@@ -193,7 +182,7 @@ async function fetchMarketTrendsWithGrounding(clientName: string, competitors: C
 
         // 2. News Insights
         console.log(`[API /competitor-analysis] Calling Gemini for news insights for ${clientName}...`);
-        const newsResult = await callGeminiAPI(newsPrompt, GEMINI_API_KEY, "gemini-2.5-flash", true);
+        const newsResult = await callGeminiAPI(newsPrompt, "gemini-2.5-flash", true);
         let cleanedNews = newsResult.text ? cleanGeminiResponse(newsResult.text) : '';
         let newsGroundingMetadata = { groundingChunks: newsResult.groundingChunks };
         let newsRawGemini = newsResult;
@@ -231,10 +220,6 @@ async function fetchMarketTrendsWithGrounding(clientName: string, competitors: C
 async function analyzeCompetitorsWithGemini(competitors: Competitor[], clientName: string): Promise<any> {
     if (!competitors || competitors.length === 0) {
         return { error: "No competitor data available." };
-    }
-
-    if (!GEMINI_API_KEY) {
-        throw new Error("Missing GEMINI_API_KEY environment variable");
     }
 
     // Format competitor data for Gemini
@@ -287,7 +272,7 @@ ${JSON.stringify(competitorData, null, 2)}
 
     try {
         console.log("[API /competitor-analysis] Calling Gemini for competitor analysis via HTTP API...");
-        const geminiResult = await callGeminiAPI(prompt, GEMINI_API_KEY, "gemini-2.5-flash");
+        const geminiResult = await callGeminiAPI(prompt, "gemini-2.5-flash");
         // Use new return shape: { text, groundingChunks }
         let cleanedText = geminiResult.text ? cleanGeminiResponse(geminiResult.text) : '';
         let groundingMetadata = { groundingChunks: geminiResult.groundingChunks };
@@ -445,7 +430,6 @@ async function saveAnalysisToDatabase(clientName: string, productFocus: string, 
 
 // --- Helper: Direct Gemini Analysis Fallback ---
 async function directGeminiAnalysis(clientName: string, productFocus: string) {
-    if (!GEMINI_API_KEY) throw new Error("Missing GEMINI_API_KEY environment variable");
     const directAnalysisPrompt = `
 As an expert marketing analyst, I need a detailed analysis of competitors for ${clientName} in the ${productFocus} space.
 
@@ -462,7 +446,7 @@ Return ONLY the following JSON structure with no markdown formatting, no code bl
 }
 
 IMPORTANT: Your response must be valid, parseable JSON. Do not include any text outside the JSON object. Do not wrap the JSON in code blocks or backticks. Please give me the right json syntax am begging you`;
-    const analysisText = await callGeminiAPI(directAnalysisPrompt, GEMINI_API_KEY, "gemini-2.5-flash");
+    const analysisText = await callGeminiAPI(directAnalysisPrompt, "gemini-2.5-flash");
     const cleanedText = cleanGeminiResponse(typeof analysisText === 'object' && analysisText !== null && 'text' in analysisText ? analysisText.text : analysisText);
     try {
         const analysis = tryParseJSON(cleanedText);

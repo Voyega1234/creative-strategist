@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
 
+import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
 const GEMINI_IMAGE_MODEL = process.env.SEO_BLOG_BANNER_GEMINI_MODEL || process.env.SEO_BLOG_BANNER_IMAGE_MODEL || "gemini-3.1-flash-image-preview"
 const GEMINI_IMAGE_SIZE = process.env.SEO_BLOG_BANNER_IMAGE_SIZE || "2K"
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const OPENAI_IMAGE_MODEL = process.env.SEO_BLOG_BANNER_OPENAI_MODEL || "gpt-image-2"
 const OPENAI_GENERATIONS_ENDPOINT = "https://api.openai.com/v1/images/generations"
 const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
@@ -181,34 +182,20 @@ function getGeminiImages(payload: any): GeminiInlineImage[] {
 }
 
 async function callGeminiImage(parts: Array<Record<string, unknown>>) {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured")
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": GEMINI_API_KEY,
-        "Content-Type": "application/json",
+  const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
+    contents: [
+      {
+        parts,
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts,
-          },
-        ],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: {
-            aspectRatio: "16:9",
-            imageSize: GEMINI_IMAGE_SIZE,
-          },
-        },
-      }),
+    ],
+    generationConfig: {
+      responseModalities: ["TEXT", "IMAGE"],
+      imageConfig: {
+        aspectRatio: "16:9",
+        imageSize: GEMINI_IMAGE_SIZE,
+      },
     },
-  )
+  })
 
   const responseText = await response.text()
   let payload: any = null
@@ -522,19 +509,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "headline is required" }, { status: 400 })
     }
 
-    if (modelProvider === "gemini" && !GEMINI_API_KEY) {
-      return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
-    }
-
     if (modelProvider === "openai" && !process.env.OPENAI_API_KEY) {
       return NextResponse.json({ success: false, error: "OPENAI_API_KEY is not configured" }, { status: 500 })
-    }
-
-    if (modelProvider === "openai" && !GEMINI_API_KEY) {
-      return NextResponse.json(
-        { success: false, error: "Gemini API key not configured for GPT Image master resize" },
-        { status: 500 },
-      )
     }
 
     const websiteContext = await fetchWebsiteContext(website)

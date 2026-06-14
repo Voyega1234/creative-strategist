@@ -118,6 +118,39 @@ export async function uploadSharedReferenceFiles(files: File[]) {
   )
 }
 
+// Save uploads into the client's material library (materials/{clientId}) so they
+// persist for reuse instead of living only in the current edit session.
+export async function uploadClientMaterialFiles(clientId: string, files: File[]) {
+  if (!clientId || clientId === "general") {
+    throw new Error("Select a client before uploading material images")
+  }
+
+  const storage = getStorageClient()
+  if (!storage) {
+    throw new Error("Storage client not available")
+  }
+
+  return Promise.all(
+    files
+      .filter((file) => file.type.startsWith("image/"))
+      .map(async (file) => {
+        const extension = file.name.split(".").pop() || "png"
+        const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`
+        const path = `materials/${clientId}/${filename}`
+        const { error } = await storage.from(IMAGE_BUCKET).upload(path, file)
+        if (error) throw error
+
+        const { data } = storage.from(IMAGE_BUCKET).getPublicUrl(path)
+        return {
+          name: filename,
+          url: data.publicUrl,
+          size: file.size,
+          createdAt: new Date().toISOString(),
+        } satisfies StoredReferenceImage
+      }),
+  )
+}
+
 export async function uploadClientReferenceFiles(clientId: string, files: File[]) {
   if (!clientId || clientId === "general") {
     throw new Error("Select a client before uploading reference images")

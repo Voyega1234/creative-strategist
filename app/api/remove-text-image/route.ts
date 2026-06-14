@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
 
+import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
 const GEMINI_MODEL = "gemini-3.1-flash-image-preview"
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const SUPPORTED_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
 const SUPPORTED_IMAGE_SIZES = ["1K", "2K", "4K"] as const
 
@@ -133,10 +134,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "image_url is required" }, { status: 400 })
     }
 
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
-    }
-
     const sourceResponse = await fetch(imageUrl)
     if (!sourceResponse.ok) {
       return NextResponse.json(
@@ -152,40 +149,30 @@ export async function POST(request: Request) {
     const inferredAspectRatio = parsedDimensions ? getClosestAspectRatio(parsedDimensions.width, parsedDimensions.height) : null
     const aspectRatio = sourceAspectRatio || inferredAspectRatio || "1:1"
 
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "x-goog-api-key": GEMINI_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
+    const geminiResponse = await vertexGenerateContent(GEMINI_MODEL, {
+      contents: [
+        {
+          parts: [
             {
-              parts: [
-                {
-                  text: getRemoveTextPrompt(),
-                },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: Buffer.from(imageBuffer).toString("base64"),
-                  },
-                },
-              ],
+              text: getRemoveTextPrompt(),
+            },
+            {
+              inlineData: {
+                mimeType,
+                data: Buffer.from(imageBuffer).toString("base64"),
+              },
             },
           ],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
-            imageConfig: {
-              aspectRatio,
-              imageSize: targetSize,
-            },
-          },
-        }),
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["TEXT", "IMAGE"],
+        imageConfig: {
+          aspectRatio,
+          imageSize: targetSize,
+        },
       },
-    )
+    })
 
     const responseText = await geminiResponse.text()
     let geminiPayload: any = null

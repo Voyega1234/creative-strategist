@@ -1,34 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
-
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
+import { vertexGenerateContent } from '@/lib/google/vertex-ai'
 
 // Helper function to call Gemini API with Google Grounding Search
-async function callGeminiWithGrounding(prompt: string, apiKey: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }],
-      tools: [{
-        google_search: {}
-      }],
-      generationConfig: { 
-        response_mime_type: "application/json",
-        temperature: 0.7 
-      }
-    })
+async function callGeminiWithGrounding(prompt: string) {
+  const response = await vertexGenerateContent('gemini-2.5-flash', {
+    contents: [{
+      parts: [{ text: prompt }]
+    }],
+    tools: [{
+      googleSearch: {}
+    }],
+    generationConfig: {
+      response_mime_type: "application/json",
+      temperature: 0.7
+    }
   })
-  
+
   if (!response.ok) {
     throw new Error(`Gemini API error: ${response.status}`)
   }
-  
+
   const result = await response.json()
   return result.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
@@ -72,10 +65,6 @@ export async function POST(request: NextRequest) {
     
     if (!clientId || !competitorName) {
       return NextResponse.json({ error: 'Client ID and competitor name are required' }, { status: 400 })
-    }
-
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 })
     }
 
     // Send to N8N webhook and process response
@@ -209,7 +198,7 @@ IMPORTANT:
 
     // Call Gemini with Google Grounding Search
     console.log(`[add-competitor] Researching ${competitorName} using Gemini with Google Grounding...`)
-    const geminiResponse = await callGeminiWithGrounding(researchPrompt, GEMINI_API_KEY)
+    const geminiResponse = await callGeminiWithGrounding(researchPrompt)
     
     if (!geminiResponse || typeof geminiResponse !== 'string') {
       console.error('[add-competitor] Invalid Gemini response:', geminiResponse)

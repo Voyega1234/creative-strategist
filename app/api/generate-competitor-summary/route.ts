@@ -1,28 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCompetitors } from '@/lib/data/competitors'
 import { getSupabase } from '@/lib/supabase/server'
-
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
+import { vertexGenerateContent } from '@/lib/google/vertex-ai'
 
 // Helper function to call Gemini API
-async function callGeminiAPI(prompt: string, apiKey: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }],
-      generationConfig: { temperature: 0.7 }
-    })
+async function callGeminiAPI(prompt: string) {
+  const response = await vertexGenerateContent('gemini-2.5-flash', {
+    contents: [{
+      parts: [{ text: prompt }]
+    }],
+    generationConfig: { temperature: 0.7 }
   })
-  
+
   if (!response.ok) {
     throw new Error(`Gemini API error: ${response.status}`)
   }
-  
+
   const result = await response.json()
   return result.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
@@ -33,10 +26,6 @@ export async function POST(request: NextRequest) {
     
     if (!clientId) {
       return NextResponse.json({ error: 'Client ID is required' }, { status: 400 })
-    }
-
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 })
     }
 
     // Get competitor data
@@ -77,7 +66,7 @@ ${competitorSummary}
 `
 
     // Call Gemini API
-    const summary = await callGeminiAPI(prompt, GEMINI_API_KEY)
+    const summary = await callGeminiAPI(prompt)
     
     // Save summary to Clients table
     try {

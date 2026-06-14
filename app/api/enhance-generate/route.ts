@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 
+import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
 const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
 const OPENAI_IMAGE_MODEL = "gpt-image-2"
 const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview"
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const DEFAULT_FINAL_IMAGE_SIZE = "4K"
 type OpenAiImageSize = "1024x1024" | "1536x1024" | "1024x1536"
 
@@ -207,44 +208,30 @@ async function resizeWithGemini({
   mimeType: string
   aspectRatio: string
 }) {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured")
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": GEMINI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
+  const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
+    contents: [
+      {
+        parts: [
           {
-            parts: [
-              {
-                text: "Resize/upscale this exact image only. Preserve the image content, composition, layout, typography, products, colors, mood, tone, and visual design. Do not redesign, crop, add, remove, or change anything except final resolution and canvas aspect ratio.",
-              },
-              {
-                inlineData: {
-                  mimeType,
-                  data: imageBase64,
-                },
-              },
-            ],
+            text: "Resize/upscale this exact image only. Preserve the image content, composition, layout, typography, products, colors, mood, tone, and visual design. Do not redesign, crop, add, remove, or change anything except final resolution and canvas aspect ratio.",
+          },
+          {
+            inlineData: {
+              mimeType,
+              data: imageBase64,
+            },
           },
         ],
-        generationConfig: {
-          responseModalities: ["TEXT", "IMAGE"],
-          imageConfig: {
-            aspectRatio,
-            imageSize: DEFAULT_FINAL_IMAGE_SIZE,
-          },
-        },
-      }),
+      },
+    ],
+    generationConfig: {
+      responseModalities: ["TEXT", "IMAGE"],
+      imageConfig: {
+        aspectRatio,
+        imageSize: DEFAULT_FINAL_IMAGE_SIZE,
+      },
     },
-  )
+  })
 
   const rawText = await response.text()
   let payload: any = null
@@ -376,10 +363,6 @@ export async function POST(request: Request) {
     const requestedOpenAiSize = expectedAspectRatio
       ? OPENAI_EXACT_SIZE_BY_RATIO[expectedAspectRatio] || getClosestOpenAiSizeForRatio(expectedAspectRatio)
       : "auto"
-
-    if (needsFinalGeminiResize && !GEMINI_API_KEY) {
-      return NextResponse.json({ success: false, error: "Gemini API key not configured" }, { status: 500 })
-    }
 
     const endpoint = OPENAI_EDITS_ENDPOINT
     const bodyPayload = {

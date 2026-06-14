@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { createHash } from "node:crypto"
 import { getSupabase } from "@/lib/supabase/server"
+import { vertexGenerateContent } from "@/lib/google/vertex-ai"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
-const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
 const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
 const IMAGE_MODEL = "gemini-3.1-flash-image-preview"
 const STORAGE_BUCKET = "ads-creative-image"
@@ -221,21 +221,7 @@ function getGeminiImages(payload: any): GeminiInlineImage[] {
 }
 
 async function callGemini(body: unknown) {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured")
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": GEMINI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    },
-  )
+  const response = await vertexGenerateContent(IMAGE_MODEL, body)
 
   const text = await response.text()
   let payload: any = null
@@ -255,38 +241,24 @@ async function callGemini(body: unknown) {
 }
 
 async function analyzeMaterial(referenceImageBase64: string, mimeType: string) {
-  if (!GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured")
-  }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": GEMINI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
+  const response = await vertexGenerateContent(ANALYSIS_MODEL, {
+    contents: [
+      {
+        parts: [
           {
-            parts: [
-              {
-                inlineData: {
-                  data: referenceImageBase64,
-                  mimeType,
-                },
-              },
-              {
-                text:
-                  "Analyze this reference material or product photo. Describe its texture, color, surface properties, and overall material characteristics in detail. This description will be used to generate a new scene featuring this material.",
-              },
-            ],
+            inlineData: {
+              data: referenceImageBase64,
+              mimeType,
+            },
+          },
+          {
+            text:
+              "Analyze this reference material or product photo. Describe its texture, color, surface properties, and overall material characteristics in detail. This description will be used to generate a new scene featuring this material.",
           },
         ],
-      }),
-    },
-  )
+      },
+    ],
+  })
 
   const text = await response.text()
   let payload: any = null
