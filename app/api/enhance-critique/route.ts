@@ -7,7 +7,12 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
 const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
-const ANALYSIS_PROMPT_VERSION = "2026-04-28-art-direction-prescription-v1"
+// Spell check runs on Claude (Sonnet 4.6) via OpenRouter, separate from the Gemini critique.
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
+const OPENROUTER_SPELL_CHECK_MODEL =
+  process.env.OPENROUTER_SPELL_CHECK_MODEL || "anthropic/claude-sonnet-4.6"
+const OPENROUTER_CHAT_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+const ANALYSIS_PROMPT_VERSION = "2026-06-15-claude-spellcheck-v1"
 const ANALYSIS_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 const analysisCache = new Map<string, { expiresAt: number; critique: any; model: string }>()
 const SCORE_BREAKDOWN_FIELDS = [
@@ -149,90 +154,122 @@ function setCachedAnalysis(cacheKey: string, critique: any, model: string) {
   })
 }
 
-function buildSpellCheckPrompt() {
+function buildClaudeSpellCheckPrompt() {
   return `
-English and Thai Spell Checker
+Analyze and proofread the actual text elements visible in this image for a medical clinic advertisement.
 
-You are a highly proficient and accurate English and Thai spell checker.
-Your task is to read visible text from the uploaded image, identify spelling errors in either language, and provide correct spelling.
-This spell check task is separate from creative critique. Do not critique design, layout, marketing idea, composition, hierarchy, branding, or conversion quality here.
+Your main task is to inspect the text exactly as it appears in the artwork. Do not assume what the text is intended to say. Do not auto-correct the text during transcription.
+Please review the image in 2 steps:
+Step 1: Exact visual transcription
 
-Common Thai Misspellings to Check First (INCORRECT -> CORRECT):
-- นะค่ะ -> นะคะ
-- กูเกิ้ล -> กูเกิล
-- เฟสบุ๊ค -> เฟซบุ๊ก
-- กดไลค์ -> กดไลก์
-- อัพเดท -> อัปเดต
-- อัพโหลด -> อัปโหลด
-- ดาวโหลด -> ดาวน์โหลด
-- คลิ๊ก -> คลิก
-- คอนเท้นต์ -> คอนเทนต์
-- อีเมล์ -> อีเมล
-- แอพพลิเคชั่น -> แอปพลิเคชัน
-- เว็ปไซต์ -> เว็บไซต์
-- อีบุ๊ค -> อีบุ๊ก
-- ดิจิตอล -> ดิจิทัล
-- ไตรมาตร -> ไตรมาส
-- กราฟิค/กราฟฟิก -> กราฟิก
-- วีดิโอ -> วิดีโอ
-- ลิงค์ -> ลิงก์
-- บล็อค -> บล็อก
-- โปรโมชั่น -> โปรโมชัน
-- พิม -> พิมพ์
-- กลยุทธิ์/กลยุทธ -> กลยุทธ์
-- คำนวน -> คำนวณ
-- เซ็นต์ชื่อ -> เซ็นชื่อ
-- เวิร์คช็อป -> เวิร์กชอป
-- สังเขบ -> สังเขป
-- สังเกตุ -> สังเกต
-- สัมภาสน์/สัมภาษ -> สัมภาษณ์
-- อนุญาติ -> อนุญาต
-- กฏหมาย -> กฎหมาย
-- ซีรีย์ -> ซีรีส์
-- ก้อ -> ก็
-- ล็อคอิน -> ล็อกอิน
-- แพลทฟอร์ม -> แพลตฟอร์ม
-- แฮชแท็ค -> แฮชแท็ก
-- เวอร์ชั่น -> เวอร์ชัน
-- บุ๊คกิ้ง -> บุกกิง
-- อินเตอร์เน็ต -> อินเทอร์เน็ต
-- แพ็คเกจ -> แพ็กเกจ
-- ก็อปปี้ -> ก๊อปปี้
-- โปรเจค -> โพรเจกต์
-- โปรไฟล์ -> โพร์ไฟล์
-- เซิร์ช -> เสิร์ช
-- สคริปท์ -> สคริปต์
-- แบล็คลิสต์ -> แบล็กลิสต์
-- เกมส์ -> เกม
-- อัลกอรึทึ่ม -> อัลกอรึทึม
-- อาร์ทเวิร์ค -> อาร์ตเวิร์ก
-- ลิขสิทธ์/ลิขสิทธิ -> ลิขสิทธิ์
-- แผนการณ์ -> แผนการ
+Transcribe every visible text element exactly as shown in the image, character by character.
 
-Common Thai Typing Errors:
-- เลา -> เรา
-- ขื้น -> ขึ้น
-- ขึ่น -> ขึ้น
-- เค้า -> เขา
-- ค้าบ -> ครับ
+Important rules:
 
-Spell Check Responsibilities:
-1. First compare every visible Thai word against the common misspellings list above.
-2. Carefully read visible English and Thai text from the image only.
-3. Identify spelling mistakes, typos, or incorrect word choices.
-4. Handle mixed-language text within the same sentence or layout.
-5. Only report words that are actually misspelled. Do not correct words that are already correct.
-6. Do not infer hidden text, filename text, metadata, or brand details that are not visible.
-7. If text is unclear, include that limitation in confidence_note instead of guessing aggressively.
-8. If no errors are found, return an empty issues array and set confidence_note to "No spelling errors found."
+Preserve the exact Thai letters, English letters, numbers, vowels, tone marks, punctuation, symbols, spacing, and line breaks as much as possible.
+Do not silently correct spelling or wording.
+Do not rewrite text based on what sounds more natural.
+If a word looks wrong, transcribe the visible version first.
+If any character or word is difficult to read, mark it as "unclear / needs visual confirmation" and explain which part is unclear.
+Review all text areas, including headline, subhead, labels, service details, promotion box, CTA, logo text, English terms, numbers, dates, prices, and fine print.
+Do not skip small text.
 
-For each spelling issue, provide:
-- original_text: the misspelled word or phrase exactly as seen
-- suggested_text: the corrected spelling
-- language: th, en, mixed, or unknown
-- issue: short issue type
-- rationale: short Thai reason
-  `.trim()
+Step 2: Critical issues only
+
+From the transcribed text, report ONLY issues that meet at least one of these criteria:
+
+Spelling mistake that changes the meaning of the word
+Wrong character choice that makes the word unrecognizable or meaningless
+Missing or extra characters that break the word entirely
+Factually incorrect medical or brand terminology
+Legal or compliance risk (e.g. wrong insurance term, wrong price, misleading medical claim)
+
+Do NOT report:
+
+Minor stylistic preferences
+Informal vs formal word choice unless meaning is lost
+Punctuation style
+Anything that is subjective or debatable
+
+Output format (STRICT):
+Return ONLY a valid JSON object, no prose, no markdown fences, mapping the analysis above to this exact schema:
+{
+  "detected_text": string[],            // Step 1: every visible text element, transcribed exactly as seen (one entry per block/line)
+  "issues": [
+    {
+      "original_text": string,          // "Text found in image" (the exact visible version)
+      "suggested_text": string,         // "Suggested correction"
+      "language": "th" | "en" | "mixed" | "unknown",
+      "issue": string,                  // short label for the "Issue"
+      "rationale": string               // the "Reason", written in Thai
+    }
+  ],
+  "corrected_text_recommendation": string, // optional full corrected copy; "" if not applicable
+  "confidence_note": string             // note any "unclear / needs visual confirmation" parts in Thai; if Step 2 finds nothing, set this to "No critical issues detected."
+}
+
+Rules:
+- Only include entries in "issues" that meet the Step 2 critical criteria. If none, return "issues": [] and set "confidence_note" to "No critical issues detected."
+- "rationale" and "confidence_note" must be in Thai.
+- Do not wrap the JSON in markdown or add any text before or after it.
+`.trim()
+}
+
+async function runClaudeSpellCheck(base64: string, mimeType: string) {
+  const emptySpellCheck = {
+    detected_text: [] as string[],
+    issues: [] as unknown[],
+    corrected_text_recommendation: "",
+    confidence_note: "",
+  }
+
+  if (!OPENROUTER_API_KEY) {
+    console.error("[enhance-critique] OPENROUTER_API_KEY not configured; skipping spell check")
+    return normalizeSpellCheck({ ...emptySpellCheck, confidence_note: "Spell check unavailable: OPENROUTER_API_KEY not configured" })
+  }
+
+  try {
+    const response = await fetch(OPENROUTER_CHAT_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_SPELL_CHECK_MODEL,
+        temperature: 0,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: buildClaudeSpellCheckPrompt() },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+            ],
+          },
+        ],
+      }),
+    })
+
+    const rawText = await response.text()
+    if (!response.ok) {
+      console.error("[enhance-critique] OpenRouter spell check failed:", response.status, rawText.slice(0, 500))
+      return normalizeSpellCheck({ ...emptySpellCheck, confidence_note: "Spell check failed" })
+    }
+
+    const payload = JSON.parse(rawText)
+    const content = payload?.choices?.[0]?.message?.content
+    const contentText = Array.isArray(content)
+      ? content.map((part: any) => (typeof part?.text === "string" ? part.text : "")).join("\n")
+      : typeof content === "string"
+        ? content
+        : ""
+
+    const parsed = extractJsonObject(contentText)
+    return normalizeSpellCheck(parsed)
+  } catch (error) {
+    console.error("[enhance-critique] OpenRouter spell check error:", error)
+    return normalizeSpellCheck({ ...emptySpellCheck, confidence_note: "Spell check failed" })
+  }
 }
 
 function buildLegacyCreativeCritiquePrompt() {
@@ -303,8 +340,6 @@ function buildCritiquePrompt() {
   return `
 ${buildCreativeCritiquePrompt()}
 
-${buildSpellCheckPrompt()}
-
 Return valid JSON only with this schema:
 {
   "overall_score": number,
@@ -316,30 +351,13 @@ Return valid JSON only with this schema:
   "recommended_mode": "preserve" | "reimagine",
   "rationale": string,
   "preserve_focus": string[],
-  "reimagine_brief": string,
-  "spell_check": {
-    "detected_text": string[],
-    "issues": [
-      {
-        "original_text": string,
-        "suggested_text": string,
-        "language": "th" | "en" | "mixed" | "unknown",
-        "issue": string,
-        "rationale": string
-      }
-    ],
-    "corrected_text_recommendation": string,
-    "confidence_note": string
-  }
+  "reimagine_brief": string
 }
 
 Rules:
 - All text must be in Thai
 - overall_score must be on a 0 to 10 scale only
 - use decimals when needed, for example 6.8
-- Creative fields must contain creative critique only
-- spell_check must contain spelling/copy QA only
-- Do not duplicate spell-check issues inside what_hurts_performance or priority_fixes unless the typo is a major ad-performance issue
 - Keep each item concise but specific
 - Give 2 to 4 bullets for each array
 - priority_fixes must be practical visual edit instructions, not just observations
@@ -371,6 +389,9 @@ export async function POST(request: Request) {
         cached: true,
       })
     }
+
+    // Spell check (Claude via OpenRouter) runs in parallel with the Gemini creative critique.
+    const spellCheckPromise = runClaudeSpellCheck(base64, mimeType)
 
     const response = await vertexGenerateContent(ANALYSIS_MODEL, {
       contents: [
@@ -413,7 +434,7 @@ export async function POST(request: Request) {
     const modelText = extractTextFromGemini(payload)
     const critique = extractJsonObject(modelText)
     critique.overall_score = normalizeScore(critique?.overall_score)
-    critique.spell_check = normalizeSpellCheck(critique?.spell_check)
+    critique.spell_check = await spellCheckPromise
     setCachedAnalysis(cacheKey, critique, ANALYSIS_MODEL)
 
     return NextResponse.json({
