@@ -71,17 +71,32 @@ export function MainSidebar({
   const [historySessions, setHistorySessions] = useState<SidebarSession[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const normalizedQuery = clientSearch.trim().toLowerCase()
+  const hasActiveClient = Boolean(activeClientName && activeClientName !== "No Client Selected")
   const filteredClients = useMemo(() => {
-    const list = normalizedQuery
-      ? clients.filter((client) => client.clientName.toLowerCase().includes(normalizedQuery))
-      : clients.filter(clientExistsInSystem)
+    if (normalizedQuery) {
+      return clients
+        .filter((client) => client.clientName.toLowerCase().includes(normalizedQuery))
+        .sort((a, b) => {
+          if (a.clientName === activeClientName) return -1
+          if (b.clientName === activeClientName) return 1
+          return 0
+        })
+    }
+
+    if (hasActiveClient) {
+      return clients.filter(
+        (client) => clientExistsInSystem(client) && client.clientName === activeClientName,
+      )
+    }
+
+    const list = clients.filter(clientExistsInSystem)
     // Keep the active client pinned to the top of the list.
     return [...list].sort((a, b) => {
       if (a.clientName === activeClientName) return -1
       if (b.clientName === activeClientName) return 1
       return 0
     })
-  }, [clients, normalizedQuery, activeClientName])
+  }, [clients, normalizedQuery, hasActiveClient, activeClientName])
   const hasClientResults = filteredClients.length > 0
 
   const loadHistorySessions = useCallback(async () => {
@@ -301,7 +316,7 @@ export function MainSidebar({
     ? "w-full justify-start text-[#667085] hover:bg-white/70 hover:text-[#111827] dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
     : "w-full justify-start text-[#535862] hover:bg-[#f5f5f5] hover:text-[#1d4ed8]"
   const activeItemClassName = isV2Mode
-    ? "text-[#111827] bg-white/80 shadow-sm ring-1 ring-black/5 dark:text-white dark:bg-white/10 dark:ring-white/15"
+    ? "text-[#111827] bg-transparent shadow-none ring-0 dark:text-white dark:bg-transparent"
     : "text-[#063def] bg-[#dbeafe]"
   const enabledItemClassName = isV2Mode
     ? "text-[#667085] hover:text-[#111827] hover:bg-white/70 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
