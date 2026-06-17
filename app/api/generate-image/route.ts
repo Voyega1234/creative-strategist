@@ -54,7 +54,7 @@ async function runCodeImageGenerator(payload: Record<string, any>) {
 async function runN8NImageGenerator(payload: Record<string, any>) {
   const n8nWebhookUrl =
     process.env.TEXT_TO_IMAGE_N8N_WEBHOOK_URL ||
-    "https://n8n.srv934175.hstgr.cloud/webhook/07ee5ce9-09ee-43c3-b06a-456ba66e1193"
+    "https://n8n.srv934175.hstgr.cloud/webhook/631578fd-816a-4670-aea4-f9ae0f0253d7"
 
   const webhookResponse = await fetch(n8nWebhookUrl, {
     method: 'POST',

@@ -192,19 +192,15 @@ export function MainSidebar({
     router.push(mainUrl)
   }
 
-  const handleConfigureNavigation = () => {
-    if (mode === "v2") {
-      const params = new URLSearchParams()
-      if (activeClientId) params.set("clientId", activeClientId)
-      if (activeClientName && activeClientName !== "No Client Selected") params.set("clientName", activeClientName)
-      if (activeProductFocus) params.set("productFocus", activeProductFocus)
-      router.push(`/${params.toString() ? `?${params.toString()}` : ""}`)
-      return
+  const configureHref = useMemo(() => {
+    const params = new URLSearchParams()
+    if (activeClientId) params.set("clientId", activeClientId)
+    if (activeClientName && activeClientName !== "No Client Selected") {
+      params.set("clientName", activeClientName)
     }
-
-    const configureUrl = `/configure${activeClientId ? `?clientId=${encodeURIComponent(activeClientId)}${activeClientName ? `&clientName=${encodeURIComponent(activeClientName)}` : ''}${activeProductFocus ? `&productFocus=${encodeURIComponent(activeProductFocus)}` : ''}` : ''}`
-    router.push(configureUrl)
-  }
+    if (activeProductFocus) params.set("productFocus", activeProductFocus)
+    return `/configure${params.toString() ? `?${params.toString()}` : ""}`
+  }, [activeClientId, activeClientName, activeProductFocus])
 
   const buildClientUrl = (client: ClientWithProductFocus) => {
     if (!clientExistsInSystem(client)) {
@@ -550,12 +546,15 @@ export function MainSidebar({
             <span className="text-[#000000] dark:text-slate-100 font-medium">Admin</span>
           </div>
           <Button
-            onClick={handleConfigureNavigation}
+            asChild
             variant="ghost"
             className={isV2Mode ? "w-full justify-start text-[#111827] hover:bg-white/70 hover:text-[#111827] dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white mb-2" : "w-full justify-start text-[#063def] hover:bg-[#f5f5f5] hover:text-[#1d4ed8] mb-2"}
           >
-            <Settings className="mr-2 h-4 w-4" />
-            ตั้งค่าและวิเคราะห์
+            <Link href={configureHref}>
+              <Settings className="mr-2 h-4 w-4" />
+              ตั้งค่าและวิเคราะห์
+              <LinkPendingSpinner />
+            </Link>
           </Button>
           <Button
             onClick={handleLogout}

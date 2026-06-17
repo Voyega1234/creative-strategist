@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server'; // Import Supabase client
 import { vertexGenerateContent } from '@/lib/google/vertex-ai';
+import { invalidateCache } from '@/lib/utils/server-cache';
 
 // Define a basic Competitor type matching Supabase table structure
 interface Competitor {
@@ -217,7 +218,12 @@ async function fetchMarketTrendsWithGrounding(clientName: string, competitors: C
 }
 
 // Function to generate detailed analysis of competitors and their marketing strategies
-async function analyzeCompetitorsWithGemini(competitors: Competitor[], clientName: string): Promise<any> {
+async function analyzeCompetitorsWithGemini(
+    competitors: Competitor[],
+    clientName: string,
+    productFocus: string = 'N/A',
+    runId?: string
+): Promise<any> {
     if (!competitors || competitors.length === 0) {
         return { error: "No competitor data available." };
     }
@@ -272,7 +278,7 @@ ${JSON.stringify(competitorData, null, 2)}
 
     try {
         console.log("[API /competitor-analysis] Calling Gemini for competitor analysis via HTTP API...");
-        const geminiResult = await callGeminiAPI(prompt, "gemini-2.5-flash");
+        const geminiResult = await callGeminiAPI(prompt, "gemini-2.5-flash", false);
         // Use new return shape: { text, groundingChunks }
         let cleanedText = geminiResult.text ? cleanGeminiResponse(geminiResult.text) : '';
         let groundingMetadata = { groundingChunks: geminiResult.groundingChunks };
@@ -282,7 +288,7 @@ ${JSON.stringify(competitorData, null, 2)}
         // Try to parse JSON
         try {
             // Get market trends with grounding search in parallel
-            const marketTrends = await fetchMarketTrendsWithGrounding(clientName, competitors);
+            const marketTrends = await fetchMarketTrendsWithGrounding(clientName, competitors, productFocus);
             
             // Parse the competitor analysis from Gemini
             const competitorAnalysis = tryParseJSON(cleanedText);
@@ -298,22 +304,7 @@ ${JSON.stringify(competitorData, null, 2)}
                 news_insights: marketTrends.news_insights,
             };
 
-            // Auto-save the analysis data to research_market table
-            // We need to get productFocus from the request or analysis run
-            let productFocus = 'N/A';
-            try {
-                const { data: analysisRun } = await getSupabase()
-                    .from('Clients')
-                    .select('productFocus')
-                    .eq('clientName', clientName)
-                    .limit(1)
-                    .single();
-                productFocus = analysisRun?.productFocus || 'N/A';
-            } catch (e) {
-                console.log('[analyzeCompetitorsWithGemini] Could not get productFocus from Clients');
-            }
-            
-            await saveAnalysisToDatabase(clientName, productFocus, combinedResults);
+            await saveAnalysisToDatabase(clientName, productFocus, combinedResults, runId);
             
             return combinedResults;
         } catch (e) {
@@ -380,7 +371,7 @@ async function findCompetitors(clientName: string, productFocus?: string, runId?
 }
 
 // --- Helper: Save Analysis to Database ---
-async function saveAnalysisToDatabase(clientName: string, productFocus: string, analysisData: any) {
+async function saveAnalysisToDatabase(clientName: string, productFocus: string, analysisData: any, runId?: string) {
     try {
         const supabase = getSupabase();
         
@@ -422,6 +413,8 @@ async function saveAnalysisToDatabase(clientName: string, productFocus: string, 
             console.error('[saveAnalysisToDatabase] Error saving to database:', error);
         } else {
             console.log(`[saveAnalysisToDatabase] Successfully saved analysis for ${clientName} - ${productFocus}`);
+            invalidateCache(`research-market:${clientName}:${productFocus}`);
+            if (runId) invalidateCache(`research-market:run:${runId}`);
         }
     } catch (error) {
         console.error('[saveAnalysisToDatabase] Error:', error);
@@ -446,7 +439,7 @@ Return ONLY the following JSON structure with no markdown formatting, no code bl
 }
 
 IMPORTANT: Your response must be valid, parseable JSON. Do not include any text outside the JSON object. Do not wrap the JSON in code blocks or backticks. Please give me the right json syntax am begging you`;
-    const analysisText = await callGeminiAPI(directAnalysisPrompt, "gemini-2.5-flash");
+    const analysisText = await callGeminiAPI(directAnalysisPrompt, "gemini-2.5-flash", false);
     const cleanedText = cleanGeminiResponse(typeof analysisText === 'object' && analysisText !== null && 'text' in analysisText ? analysisText.text : analysisText);
     try {
         const analysis = tryParseJSON(cleanedText);
@@ -497,7 +490,7 @@ export async function GET(request: NextRequest) {
     try {
         const { competitorsData } = await findCompetitors(clientName, productFocus);
         if (competitorsData && competitorsData.length > 0) {
-            const analysis = await analyzeCompetitorsWithGemini(competitorsData, clientName);
+            const analysis = await analyzeCompetitorsWithGemini(competitorsData, clientName, productFocus);
             return NextResponse.json({ analysis, competitors: competitorsData, isJson: !analysis.error });
         } else {
             const analysis = await directGeminiAnalysis(clientName, productFocus);
@@ -521,7 +514,7 @@ export async function POST(request: NextRequest) {
         }
         const { competitorsData } = await findCompetitors(clientName, productFocus, runId);
         if (competitorsData && competitorsData.length > 0) {
-            const analysis = await analyzeCompetitorsWithGemini(competitorsData, clientName);
+            const analysis = await analyzeCompetitorsWithGemini(competitorsData, clientName, productFocus, runId);
             return NextResponse.json({ ...analysis, isJson: !analysis.error });
         } else {
             const analysis = await directGeminiAnalysis(clientName, productFocus);

@@ -78,6 +78,18 @@ function ensureAbsoluteUrl(url: string | null | undefined): string | null {
   return `https://${url}`;
 }
 
+function getInternalBaseUrl(request: Request) {
+  const host = request.headers.get('host');
+  if (!host) return process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+  const forwardedProtocol = request.headers.get('x-forwarded-proto');
+  const protocol =
+    forwardedProtocol ||
+    (host.includes('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https');
+
+  return `${protocol}://${host}`;
+}
+
 export async function POST(request: Request) {
   try {
     const N8N_WEBHOOK_URL = 'https://n8n.srv934175.hstgr.cloud/webhook/6c2ebd81-8085-43d3-b315-e221f7339194';
@@ -356,9 +368,7 @@ export async function POST(request: Request) {
       try {
         console.log('[competitor-research] Generating strategic insights using Gemini API...');
         
-        const host = request.headers.get('host');
-        const protocol = request.headers.get('x-forwarded-proto') || 'https';
-        const baseUrl = host ? `${protocol}://${host}` : (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001');
+        const baseUrl = getInternalBaseUrl(request);
         console.log('[competitor-research] Detected baseUrl:', baseUrl);
         
         const googleResearchUrl = `${baseUrl}/api/google_research`;

@@ -204,17 +204,18 @@ export function useGeneratedAdAssets({
   const uploadMaterials = async (files: FileList | null) => {
     if (!files || !selectedClientId) {
       alert("กรุณาเลือกลูกค้าก่อนอัปโหลดวัสดุ")
-      return
+      return []
     }
 
     const storageClient = getStorageClient()
     if (!storageClient) {
       alert("ไม่สามารถเชื่อมต่อที่จัดเก็บไฟล์ได้")
-      return
+      return []
     }
 
     setIsUploadingMaterials(true)
     try {
+      const uploadedUrls: string[] = []
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) continue
         const fileExt = file.name.split(".").pop()
@@ -225,13 +226,25 @@ export function useGeneratedAdAssets({
           console.error("Material upload error:", error)
           throw error
         }
+        const { data } = storageClient.from("ads-creative-image").getPublicUrl(fullPath)
+        if (data.publicUrl) {
+          uploadedUrls.push(data.publicUrl)
+        }
       }
 
       await loadMaterialImages(selectedClientId)
-      alert("อัปโหลดวัสดุเรียบร้อยแล้ว")
+      if (uploadedUrls.length > 0) {
+        setSelectedMaterials((current) => [
+          ...current,
+          ...uploadedUrls.filter((url) => !current.includes(url)),
+        ])
+        alert("อัปโหลดวัสดุเรียบร้อยแล้ว")
+      }
+      return uploadedUrls
     } catch (error) {
       console.error("Failed to upload materials:", error)
       alert("เกิดข้อผิดพลาดในการอัปโหลดวัสดุ")
+      return []
     } finally {
       setIsUploadingMaterials(false)
       if (materialInputRef.current) {
