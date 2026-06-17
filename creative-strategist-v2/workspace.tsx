@@ -244,7 +244,7 @@ export function V2Workspace({
           <p className="mt-4 text-base font-medium tracking-normal text-[#555] dark:text-slate-300 sm:text-lg">
             {hasClient
               ? "เลือกโหมดที่ตรงกับงานของคุณเพื่อเริ่มต้น"
-              : "เครื่องมือแก้ไขรูปใช้ได้เลย — เลือกลูกค้าเพื่อปลดล็อกทุกฟีเจอร์"}
+              : "เลือกลูกค้าก่อนเพื่อเริ่มใช้งานทุกฟีเจอร์"}
           </p>
           {!hasClient && (
             <motion.div
