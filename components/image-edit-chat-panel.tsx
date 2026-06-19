@@ -118,6 +118,30 @@ const PMAX_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:
 const DEFAULT_PMAX_ASPECT_RATIOS = ["1:1", "4:5", "16:9", "9:16"] as const
 type PmaxAspectRatio = (typeof PMAX_ASPECT_RATIOS)[number]
 
+async function readJsonResponse<T = any>(response: Response): Promise<T> {
+  const rawText = await response.text()
+  const contentType = response.headers.get("content-type") || ""
+
+  if (!rawText) {
+    return {} as T
+  }
+
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(rawText) as T
+    } catch {
+      throw new Error("Server returned invalid JSON.")
+    }
+  }
+
+  try {
+    return JSON.parse(rawText) as T
+  } catch {
+    const readableText = rawText.replace(/\s+/g, " ").trim()
+    throw new Error(readableText || `Request failed (${response.status})`)
+  }
+}
+
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
@@ -713,7 +737,7 @@ export function ImageEditChatPanel({
                 })),
           }),
         })
-        const payload = await response.json()
+        const payload = await readJsonResponse(response)
 
         if (!response.ok || !payload.success) {
           throw new Error(payload?.error || `Cannot generate ${aspectRatio || "edited image"}`)
