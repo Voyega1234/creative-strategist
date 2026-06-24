@@ -156,7 +156,9 @@ export function TextToImageMode({
   const {
     materialImages,
     selectedMaterials,
+    isUploadingMaterials,
     loadingMaterialImages,
+    materialInputRef,
     referenceImages,
     selectedReferenceImages,
     loadingReferenceImages,
@@ -171,6 +173,7 @@ export function TextToImageMode({
     selectReference,
     toggleReference,
     uploadReferences,
+    uploadMaterials,
     isUploadingReferences,
     loadMaterialImages,
     addColor,
@@ -413,10 +416,7 @@ export function TextToImageMode({
         colorPalette,
         materialImageUrls: selectedMaterials,
         adStyleLabel: selectedAdStyleOption?.label || null,
-        userBrief: [
-          `Creative format: ${selectedCreativeFormat.label}. ${selectedCreativeFormat.instruction}`,
-          selectedAdStyleOption?.userBrief || "",
-        ].filter(Boolean).join("\n"),
+        userBrief: selectedAdStyleOption?.userBrief || "",
         creativeFormat: selectedCreativeFormat.value,
         creativeFormatLabel: selectedCreativeFormat.label,
         aspectRatio,
@@ -649,6 +649,14 @@ export function TextToImageMode({
                   {visibleIdeas.map((idea) => {
                     const isSelected = selectedTopic === idea.title;
                     const ideaVisualRoutes = isSelected ? availableVisualRoutes : idea.visual_routes;
+                    const previewVisualRoute =
+                      ideaVisualRoutes?.[
+                        isSelected && selectedVisualRouteIndex !== null ? selectedVisualRouteIndex : 0
+                      ];
+                    const previewVisualDirection =
+                      previewVisualRoute?.visual_idea ||
+                      previewVisualRoute?.why_it_fits ||
+                      "";
 
                     return (
                       <div
@@ -696,6 +704,29 @@ export function TextToImageMode({
                               {idea.concept_idea || idea.description}
                             </p>
                           </div>
+
+                          {(idea.copywriting?.cta || previewVisualDirection) && (
+                            <div className="mt-3 grid gap-2 border-t border-black/5 pt-2.5">
+                              {previewVisualDirection && (
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                                    Visual direction
+                                  </p>
+                                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#475467]">
+                                    {previewVisualDirection}
+                                  </p>
+                                </div>
+                              )}
+                              {idea.copywriting?.cta && (
+                                <div>
+                                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#667085]">CTA</p>
+                                  <p className="mt-1 line-clamp-1 text-xs font-medium leading-5 text-[#1f1f1f]">
+                                    {idea.copywriting.cta}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </button>
 
                         <button
@@ -1295,6 +1326,18 @@ export function TextToImageMode({
           </DialogHeader>
 
           <input
+            ref={materialInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              void uploadMaterials(event.target.files);
+              event.target.value = "";
+            }}
+          />
+
+          <input
             ref={referenceUploadInputRef}
             type="file"
             accept="image/*"
@@ -1311,6 +1354,20 @@ export function TextToImageMode({
               <Button
                 type="button"
                 className="w-full rounded-2xl bg-[#1f1f1f] text-white hover:bg-black"
+                onClick={() => materialInputRef.current?.click()}
+                disabled={isUploadingMaterials || !selectedClientId}
+              >
+                {isUploadingMaterials ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-4 w-4" />
+                )}
+                {isUploadingMaterials ? "Uploading..." : "Upload product asset"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-2xl border-black/10 bg-white text-[#1f1f1f]"
                 onClick={() => referenceUploadInputRef.current?.click()}
                 disabled={isUploadingReferences || !selectedClientId}
               >

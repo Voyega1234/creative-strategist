@@ -644,7 +644,6 @@ export function ConceptMode({
                 topic={idea}
                 index={index}
                 isSaved={savedTitles.includes(idea.title)}
-                showVisualRoutePreview={false}
                 onDetailClick={setDetailIdea}
                 onSaveClick={handleSaveIdea}
                 onFeedback={handleFeedback}

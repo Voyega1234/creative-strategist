@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { normalizeExternalImageUrl } from "@/lib/images/external-url"
 import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { getSupabase } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
@@ -54,6 +55,15 @@ type GeminiInlineImage = {
   thoughtSignature?: string
 }
 
+const STORAGE_BUCKET = "ads-creative-image"
+const OUTPUT_PREFIX = "generated/edit-image-chat-outputs"
+const EXTENSION_BY_MIME_TYPE: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp",
+}
+
 const GEMINI_ASPECT_RATIOS = [
   "1:1",
   "2:3",
@@ -68,6 +78,8 @@ const GEMINI_ASPECT_RATIOS = [
 ] as const
 
 const GEMINI_IMAGE_SIZES = ["1K", "2K", "4K"] as const
+const MAX_HISTORY_TURNS = 2
+const MAX_THOUGHT_SIGNATURE_CHARS = 2048
 
 function ratioToNumber(value: string) {
   const match = value.match(/(\d+(?:\.\d+)?)\s*[:x×/]\s*(\d+(?:\.\d+)?)/i)
@@ -114,6 +126,30 @@ function detectResizeIntent(instruction: string) {
 function normalizeUrl(value: unknown) {
   if (typeof value !== "string") return ""
   return normalizeExternalImageUrl(value)
+}
+
+function getImageExtension(mimeType: string) {
+  return EXTENSION_BY_MIME_TYPE[mimeType.toLowerCase()] || "png"
+}
+
+async function saveEditedImageToStorage(imageBase64: string, mimeType: string, metadata: Record<string, unknown>) {
+  const extension = getImageExtension(mimeType)
+  const path = `${OUTPUT_PREFIX}/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 9)}.${extension}`
+
+  const supabase = getSupabase()
+  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, Buffer.from(imageBase64, "base64"), {
+    contentType: mimeType,
+    metadata: Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)])),
+  })
+
+  if (error) {
+    throw new Error(`Failed to save edited image: ${error.message}`)
+  }
+
+  const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path)
+  return { url: data.publicUrl, storagePath: path }
 }
 
 async function fetchImageAsBase64(url: string): Promise<FetchedImage> {
@@ -193,7 +229,9 @@ function normalizeHistory(value: unknown): HistoryTurn[] {
       if (!role) return null
       const text = typeof item?.text === "string" ? item.text.trim() : ""
       const imageUrl = normalizeUrl(item?.image_url)
-      const thoughtSignature = typeof item?.thought_signature === "string" ? item.thought_signature : ""
+      const rawThoughtSignature = typeof item?.thought_signature === "string" ? item.thought_signature : ""
+      const thoughtSignature =
+        rawThoughtSignature.length <= MAX_THOUGHT_SIGNATURE_CHARS ? rawThoughtSignature : ""
       if (!text && !imageUrl) return null
       return {
         role,
@@ -203,7 +241,7 @@ function normalizeHistory(value: unknown): HistoryTurn[] {
       }
     })
     .filter((turn): turn is HistoryTurn => Boolean(turn))
-    .slice(-6)
+    .slice(-MAX_HISTORY_TURNS)
 }
 
 async function buildHistoryContents(history: HistoryTurn[]) {
@@ -521,10 +559,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Gemini did not return an image" }, { status: 500 })
     }
 
+    const storedImage = await saveEditedImageToStorage(imageBase64, mimeType, {
+      model: GEMINI_IMAGE_MODEL,
+      operation,
+      outputAspectRatio: outputAspectRatio || "",
+      requestedAspectRatio: requestedAspectRatio || "",
+      outputImageSize,
+    })
+
     return NextResponse.json({
       success: true,
-      image_base64: imageBase64,
-      image_data_url: `data:${mimeType};base64,${imageBase64}`,
+      image_url: storedImage.url,
+      storage_path: storedImage.storagePath,
       mime_type: mimeType,
       thought_signature: images[0]?.thoughtSignature || null,
       model: GEMINI_IMAGE_MODEL,

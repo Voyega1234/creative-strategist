@@ -116,6 +116,8 @@ type BatchResult = {
 
 const PMAX_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
 const DEFAULT_PMAX_ASPECT_RATIOS = ["1:1", "4:5", "16:9", "9:16"] as const
+const MAX_HISTORY_TURNS_FOR_EDIT = 2
+const MAX_THOUGHT_SIGNATURE_CHARS = 2048
 type PmaxAspectRatio = (typeof PMAX_ASPECT_RATIOS)[number]
 
 async function readJsonResponse<T = any>(response: Response): Promise<T> {
@@ -140,6 +142,38 @@ async function readJsonResponse<T = any>(response: Response): Promise<T> {
     const readableText = rawText.replace(/\s+/g, " ").trim()
     throw new Error(readableText || `Request failed (${response.status})`)
   }
+}
+
+async function imagePayloadToBlob(payload: any) {
+  if (typeof payload?.image_data_url === "string" && payload.image_data_url) {
+    return dataUrlToBlob(payload.image_data_url)
+  }
+
+  if (typeof payload?.image_url === "string" && payload.image_url) {
+    const response = await fetch(payload.image_url)
+    if (!response.ok) {
+      throw new Error(`Cannot download edited image (${response.status})`)
+    }
+    return response.blob()
+  }
+
+  throw new Error("Edited image response did not include an image URL.")
+}
+
+function getPayloadImageUrl(payload: any) {
+  return typeof payload?.image_url === "string" && payload.image_url ? payload.image_url : ""
+}
+
+function buildCompactEditHistory(turns: ConversationTurn[]) {
+  return turns.slice(-MAX_HISTORY_TURNS_FOR_EDIT).map((turn) => ({
+    role: turn.role,
+    text: turn.text,
+    image_url: turn.imageUrl,
+    thought_signature:
+      typeof turn.thoughtSignature === "string" && turn.thoughtSignature.length <= MAX_THOUGHT_SIGNATURE_CHARS
+        ? turn.thoughtSignature
+        : undefined,
+  }))
 }
 
 function createId() {
@@ -527,9 +561,9 @@ export function ImageEditChatPanel({
     void loadMaterialLibrary(selectedMaterialClientId)
   }, [assetDialogOpen, selectedMaterialClientId, loadMaterialLibrary])
 
-  const applyOutputImage = async (imageDataUrl: string, messageText: string, filenameSuffix: string) => {
-    const outputBlob = dataUrlToBlob(imageDataUrl)
-    const publicUrl = await uploadGeneratedImageBlob(outputBlob, "generated/edit-image-chat-outputs", filenameSuffix)
+  const applyOutputImage = async (payload: any, messageText: string, filenameSuffix: string) => {
+    const outputBlob = await imagePayloadToBlob(payload)
+    const publicUrl = getPayloadImageUrl(payload) || await uploadGeneratedImageBlob(outputBlob, "generated/edit-image-chat-outputs", filenameSuffix)
 
     setCurrentImageUrl(publicUrl)
     setCurrentImageBlob(outputBlob)
@@ -544,12 +578,6 @@ export function ImageEditChatPanel({
       },
     ])
     return publicUrl
-  }
-
-  const uploadOutputImage = async (imageDataUrl: string, filenameSuffix: string) => {
-    const outputBlob = dataUrlToBlob(imageDataUrl)
-    const publicUrl = await uploadGeneratedImageBlob(outputBlob, "generated/edit-image-chat-outputs", filenameSuffix)
-    return { outputBlob, publicUrl }
   }
 
   const updateBatchResult = (aspectRatio: PmaxAspectRatio, patch: Partial<BatchResult>) => {
@@ -729,12 +757,7 @@ export function ImageEditChatPanel({
             // PMax variants are one-off side outputs and stay out of the conversation.
             history: aspectRatio
               ? undefined
-              : conversationTurns.slice(-6).map((turn) => ({
-                  role: turn.role,
-                  text: turn.text,
-                  image_url: turn.imageUrl,
-                  thought_signature: turn.thoughtSignature,
-                })),
+              : buildCompactEditHistory(conversationTurns),
           }),
         })
         const payload = await readJsonResponse(response)
@@ -760,12 +783,12 @@ export function ImageEditChatPanel({
             })
             try {
               const payload = await requestEdit(aspectRatio)
-              const outputBlob = dataUrlToBlob(payload.image_data_url)
+              const outputBlob = await imagePayloadToBlob(payload)
               const dimensions = await getBlobDimensions(outputBlob)
               if (!matchesAspectRatio(dimensions, aspectRatio)) {
                 throw new Error(`Output ratio ${dimensions.width}:${dimensions.height} does not match ${aspectRatio}`)
               }
-              const publicUrl = await uploadGeneratedImageBlob(
+              const publicUrl = getPayloadImageUrl(payload) || await uploadGeneratedImageBlob(
                 outputBlob,
                 "generated/edit-image-chat-outputs",
                 `pmax-${aspectRatio.replace(":", "x")}`,
@@ -786,7 +809,7 @@ export function ImageEditChatPanel({
 
       } else {
         const payload = await requestEdit()
-        const outputPublicUrl = await applyOutputImage(payload.image_data_url, "Edited image", "edited")
+        const outputPublicUrl = await applyOutputImage(payload, "Edited image", "edited")
         setConversationTurns((prev) =>
           [
             ...prev,

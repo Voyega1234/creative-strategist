@@ -186,14 +186,20 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
         body: JSON.stringify({ image_url: currentImageUrl, instruction }),
       })
       const result = await response.json()
-      if (!response.ok || !result.success || !result.image_data_url) {
+      const editedImageUrl =
+        typeof result?.image_url === "string" && result.image_url
+          ? result.image_url
+          : typeof result?.image_data_url === "string" && result.image_data_url
+            ? result.image_data_url
+            : ""
+
+      if (!response.ok || !result.success || !editedImageUrl) {
         throw new Error(result?.error || "แก้ไขรูปไม่สำเร็จ กรุณาลองใหม่")
       }
 
-      const { publicUrl } = await uploadDataUrlToImageStorage(
-        result.image_data_url,
-        "generated/material-to-scene-edits",
-      )
+      const publicUrl = editedImageUrl.startsWith("data:")
+        ? (await uploadDataUrlToImageStorage(editedImageUrl, "generated/material-to-scene-edits")).publicUrl
+        : editedImageUrl
 
       setGeneratedImageUrls((current) => {
         const next = [...current, publicUrl]
