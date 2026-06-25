@@ -727,7 +727,7 @@ export function ConceptMode({
 
       {/* Off-screen print-only cards captured by the Export buttons. */}
       {hasIdeas && (
-        <div aria-hidden style={{ position: "absolute", left: -99999, top: 0, pointerEvents: "none" }}>
+        <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none" }}>
           {ideas.map((idea, index) => (
             <div key={`export-${idea.title}-${index}`} ref={(el) => { exportCardRefs.current[index] = el; }}>
               <IdeaExportCard topic={idea} index={index} />
