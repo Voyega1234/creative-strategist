@@ -1,8 +1,23 @@
 import html2canvas from "html2canvas"
-import jsPDF from "jspdf"
+import jsPDF, { AcroFormCheckBox } from "jspdf"
 
 const MAX_IDEAS = 10
 const SCALE = 2
+// The selection row lives INSIDE each card: capture reserves this much empty space at the
+// bottom of the card so the checkbox never overlaps the CTA or other text. All selection
+// sizes are in the card's own CSS px (490px wide) so they scale with the card content.
+const SELECTION_STRIP_CSS_PX = 64
+const CHECKBOX_SIZE_CSS_PX = 28
+const CHECKBOX_LABEL_GAP_CSS_PX = 12
+const SELECTION_LEFT_INSET_CSS_PX = 16
+const SELECTION_LABEL_FONT_CSS_PX = 20
+// Brand blue (#2563eb) used for the checkbox fill/border, as a PDF rgb triple.
+const CHECKBOX_BLUE_RGB = "0.145 0.388 0.922"
+// Visual proportions of the box, expressed as fractions of its side so they scale with layout.
+const CHECKBOX_RADIUS_FRACTION = 0.24
+const CHECKBOX_BORDER_FRACTION = 0.1
+const CHECKBOX_CHECK_FRACTION = 0.14
+const ROW_HEIGHT_SAFETY_CSS_PX = 2
 
 type ExportOptions = {
   columns: number
@@ -16,19 +31,34 @@ type ExportOptions = {
   captureWidthPx?: number
 }
 
-// Capture a single card. `uniformHeightCssPx`, when set, forces the card box to that
-// height so every card comes out the same length (border stretches, content stays top-aligned).
-async function captureCard(card: HTMLElement, uniformHeightCssPx: number | undefined, options: ExportOptions) {
+// jsPDF builds checkbox appearance lazily: appearanceStreamContent is { N: { On, Off }, ... }
+// where each state is a factory (formObject) => AcroFormXObject, called at output time.
+type AppearanceXObject = { BBox: number[]; stream: string }
+type AppearanceFactory = (this: unknown, formObject: unknown) => AppearanceXObject
+type CheckboxWithAppearance = AcroFormCheckBox & {
+  appearanceStreamContent?: { N?: Record<string, AppearanceFactory>; [k: string]: unknown }
+}
+
+function getExportCardBox(element: HTMLElement) {
+  return element.firstElementChild instanceof HTMLElement ? element.firstElementChild : element
+}
+
+// Capture a single card. `targetHeightCssPx`, when set, forces the card box to that
+// exact height so every card in the same row captures to the same canvas height.
+async function captureCard(card: HTMLElement, targetHeightCssPx: number | undefined, options: ExportOptions) {
   const captureWidth = options.captureWidthPx
   return html2canvas(card, {
     scale: SCALE,
     backgroundColor: "#ffffff",
+    height: targetHeightCssPx,
     width: captureWidth,
     windowWidth: captureWidth,
     onclone: (_doc, clonedCard) => {
+      const clonedCardBox = getExportCardBox(clonedCard)
       // A fixed, narrower width makes everything bigger once scaled to the PDF column.
       if (captureWidth) {
         clonedCard.style.width = `${captureWidth}px`
+        clonedCardBox.style.width = `${captureWidth}px`
       }
       // Show the full text instead of the on-screen 2-line clamp.
       clonedCard.querySelectorAll<HTMLElement>('[class*="line-clamp"]').forEach((el) => {
@@ -47,8 +77,19 @@ async function captureCard(card: HTMLElement, uniformHeightCssPx: number | undef
           el.style.fontSize = "1.7rem"
         })
       }
-      if (uniformHeightCssPx) {
-        clonedCard.style.minHeight = `${uniformHeightCssPx}px`
+      clonedCard.style.boxSizing = "border-box"
+      clonedCardBox.style.boxSizing = "border-box"
+      // Reserve empty space at the bottom of the card for the selection checkbox so it sits
+      // inside the card border without overlapping the content above it.
+      clonedCardBox.style.paddingBottom = `${SELECTION_STRIP_CSS_PX}px`
+      if (targetHeightCssPx) {
+        const height = `${targetHeightCssPx}px`
+        clonedCard.style.height = height
+        clonedCard.style.minHeight = height
+        clonedCard.style.maxHeight = height
+        clonedCardBox.style.height = height
+        clonedCardBox.style.minHeight = height
+        clonedCardBox.style.maxHeight = height
       }
     },
   })
@@ -73,6 +114,7 @@ async function buildPdf(allCardElements: HTMLElement[], filename: string, option
   // Pass 1: capture every card at natural height to measure each one.
   const firstPass = await Promise.all(cardElements.map((card) => captureCard(card, undefined, options)))
   const canvasWidthPx = firstPass[0].width
+  const cardCssWidthPx = canvasWidthPx / SCALE
   const naturalHeightsPx = firstPass.map((canvas) => canvas.height)
 
   // Each row's height = the tallest card in that row.
@@ -82,17 +124,20 @@ async function buildPdf(allCardElements: HTMLElement[], filename: string, option
     const slice = naturalHeightsPx.slice(row * columns, row * columns + columns)
     rowMaxPx[row] = Math.max(...slice)
   }
-  const rowHeightMm = rowMaxPx.map((px) => (px * colWidthMm) / canvasWidthPx)
+  const rowTargetHeightCssPx = rowMaxPx.map((px) => Math.ceil(px / SCALE) + ROW_HEIGHT_SAFETY_CSS_PX)
+  const rowHeightMm = rowTargetHeightCssPx.map((px) => (px * colWidthMm) / cardCssWidthPx)
 
   // Pass 2: stretch every card up to its own row's height so each row aligns.
   const images = await Promise.all(
     cardElements.map(async (card, index) => {
       const row = Math.floor(index / columns)
-      const canvas = await captureCard(card, rowMaxPx[row] / SCALE, options)
+      const canvas = await captureCard(card, rowTargetHeightCssPx[row], options)
       return canvas.toDataURL("image/jpeg", 0.9)
     }),
   )
 
+  // The selection strip is part of each card image now (reserved via paddingBottom), so the
+  // grid height is just the rows plus the gaps between them.
   const totalHeight = rowHeightMm.reduce((sum, h) => sum + h, 0) + options.gapMm * (rowCount - 1)
 
   // Scale the whole grid down so it fits the page height (width already fits at scale 1).
@@ -102,6 +147,11 @@ async function buildPdf(allCardElements: HTMLElement[], filename: string, option
   const gridWidth = scaledColWidth * columns + scaledGap * (columns - 1)
   const gridHeight = totalHeight * scale
 
+  // Convert a card CSS px measurement to mm on the page. The drawn card is `scaledColWidth`
+  // mm wide and represents a card that is `cardCssWidthPx` CSS px wide, so the two scale
+  // together — selection sizes stay proportional to the card content at any layout scale.
+  const cssToMm = (cssPx: number) => (cssPx * scaledColWidth) / cardCssWidthPx
+
   // Center the grid on the page.
   const offsetX = (pageWidthMm - gridWidth) / 2
   let cursorY = (pageHeightMm - gridHeight) / 2
@@ -110,13 +160,147 @@ async function buildPdf(allCardElements: HTMLElement[], filename: string, option
     const scaledRowHeight = rowHeightMm[row] * scale
     const rowImages = images.slice(row * columns, row * columns + columns)
     rowImages.forEach((imageData, col) => {
+      const cardIndex = row * columns + col
       const x = offsetX + col * (scaledColWidth + scaledGap)
       pdf.addImage(imageData, "JPEG", x, cursorY, scaledColWidth, scaledRowHeight)
+      addCardSelectionRow(pdf, cardIndex, x, cursorY + scaledRowHeight, cssToMm)
     })
     cursorY += scaledRowHeight + scaledGap
   }
 
-  pdf.save(filename)
+  savePdf(pdf, filename)
+}
+
+// Draws the checkbox + label inside the card's reserved bottom strip. `cardBottom` is the
+// bottom edge of the drawn card; the strip occupies the last `SELECTION_STRIP_CSS_PX` of it.
+function addCardSelectionRow(
+  pdf: jsPDF,
+  cardIndex: number,
+  cardX: number,
+  cardBottom: number,
+  cssToMm: (cssPx: number) => number,
+) {
+  const strip = cssToMm(SELECTION_STRIP_CSS_PX)
+  const checkboxSize = cssToMm(CHECKBOX_SIZE_CSS_PX)
+  const x = cardX + cssToMm(SELECTION_LEFT_INSET_CSS_PX)
+  const y = cardBottom - strip + (strip - checkboxSize) / 2
+  const labelX = x + checkboxSize + cssToMm(CHECKBOX_LABEL_GAP_CSS_PX)
+  const labelBaselineY = y + checkboxSize / 2 + cssToMm(SELECTION_LABEL_FONT_CSS_PX) * 0.34
+
+  pdf.setTextColor(128, 128, 136)
+  pdf.setFont("helvetica", "normal")
+  pdf.setFontSize(Math.max(5, cssToMm(SELECTION_LABEL_FONT_CSS_PX) / 0.3528))
+  pdf.text("Select this topic", labelX, labelBaselineY)
+
+  const checkbox = new AcroFormCheckBox()
+  checkbox.fieldName = `select_idea_${cardIndex + 1}`
+  checkbox.x = x
+  checkbox.y = y
+  checkbox.width = checkboxSize
+  checkbox.height = checkboxSize
+  // Set so jsPDF's appearance factory (reused in applyCustomCheckboxAppearance) never reads an
+  // undefined color; the value is irrelevant since we overwrite the drawing operators.
+  checkbox.color = "#000000"
+  checkbox.appearanceState = "Off"
+  checkbox.value = "Off"
+  checkbox.showWhenPrinted = true
+  applyCustomCheckboxAppearance(checkbox)
+  pdf.addField(checkbox)
+}
+
+// PDF path operators for a rounded rectangle in the appearance-stream coordinate space.
+function roundedRectPath(x: number, y: number, w: number, h: number, r: number) {
+  const k = 0.5523 // circle-to-Bezier constant
+  const f = (n: number) => n.toFixed(3)
+  const x1 = x + w
+  const y1 = y + h
+  const o = r * k
+  return [
+    `${f(x + r)} ${f(y)} m`,
+    `${f(x1 - r)} ${f(y)} l`,
+    `${f(x1 - r + o)} ${f(y)} ${f(x1)} ${f(y + r - o)} ${f(x1)} ${f(y + r)} c`,
+    `${f(x1)} ${f(y1 - r)} l`,
+    `${f(x1)} ${f(y1 - r + o)} ${f(x1 - r + o)} ${f(y1)} ${f(x1 - r)} ${f(y1)} c`,
+    `${f(x + r)} ${f(y1)} l`,
+    `${f(x + r - o)} ${f(y1)} ${f(x)} ${f(y1 - r + o)} ${f(x)} ${f(y1 - r)} c`,
+    `${f(x)} ${f(y + r)} l`,
+    `${f(x)} ${f(y + r - o)} ${f(x + r - o)} ${f(y)} ${f(x + r)} ${f(y)} c`,
+    "h",
+  ].join("\n")
+}
+
+// Checked: solid blue rounded square with a white check mark.
+function buildCheckedStream(w: number, h: number) {
+  const f = (n: number) => n.toFixed(3)
+  const side = Math.min(w, h)
+  return [
+    "q",
+    `${CHECKBOX_BLUE_RGB} rg`,
+    roundedRectPath(0, 0, w, h, side * CHECKBOX_RADIUS_FRACTION),
+    "f",
+    "1 1 1 RG",
+    `${f(side * CHECKBOX_CHECK_FRACTION)} w`,
+    "1 J",
+    "1 j",
+    `${f(w * 0.26)} ${f(h * 0.5)} m`,
+    `${f(w * 0.43)} ${f(h * 0.33)} l`,
+    `${f(w * 0.75)} ${f(h * 0.71)} l`,
+    "S",
+    "Q",
+  ].join("\n")
+}
+
+// Unchecked: white rounded square with a blue border.
+function buildUncheckedStream(w: number, h: number) {
+  const f = (n: number) => n.toFixed(3)
+  const side = Math.min(w, h)
+  const border = side * CHECKBOX_BORDER_FRACTION
+  const inset = border / 2
+  const radius = side * CHECKBOX_RADIUS_FRACTION
+  return [
+    "q",
+    "1 1 1 rg",
+    roundedRectPath(0, 0, w, h, radius),
+    "f",
+    `${CHECKBOX_BLUE_RGB} RG`,
+    `${f(border)} w`,
+    roundedRectPath(inset, inset, w - border, h - border, Math.max(0.1, radius - inset)),
+    "S",
+    "Q",
+  ].join("\n")
+}
+
+// Replace jsPDF's default ZapfDingbats appearance with custom vector Off/On states so the
+// checkbox renders identically across viewers and matches the on-screen design.
+function applyCustomCheckboxAppearance(checkbox: AcroFormCheckBox) {
+  const checkboxWithAppearance = checkbox as CheckboxWithAppearance
+  // Reuse jsPDF's own factory to produce a valid AcroFormXObject (correct BBox, scope,
+  // putStream), then overwrite only its drawing operators.
+  const factory = checkboxWithAppearance.appearanceStreamContent?.N?.On
+  if (!factory) return
+  const withStream = (build: (w: number, h: number) => string): AppearanceFactory =>
+    function (this: unknown, formObject: unknown) {
+      const xobj = factory.call(this, formObject)
+      xobj.stream = build(xobj.BBox[2], xobj.BBox[3])
+      return xobj
+    }
+  checkboxWithAppearance.appearanceStreamContent = {
+    N: {
+      On: withStream(buildCheckedStream),
+      Off: withStream(buildUncheckedStream),
+    },
+  }
+}
+
+function savePdf(pdf: jsPDF, filename: string) {
+  const bytes = Uint8Array.from(pdf.output(), (char) => char.charCodeAt(0) & 0xff)
+  const blob = new Blob([bytes], { type: "application/pdf" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 // Export uses the dedicated print-only cards (IdeaExportCard): 3 columns (10 = 3,3,3,1),
