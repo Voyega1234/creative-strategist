@@ -2,13 +2,17 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bookmark, BookmarkCheck, Loader2, Plus, Sparkles } from "lucide-react";
+import { Bookmark, BookmarkCheck, Download, Loader2, Plus, Sparkles } from "lucide-react";
 
 import { FeedbackForm } from "@/components/feedback-form";
 import { IdeaCard } from "@/components/ideas/idea-card";
+import { IdeaExportCard } from "@/components/ideas/idea-export-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { PromptInputBox } from "@/creative-strategist-v2/chat-model";
 import { IDEA_GENERATION_FAILED_MESSAGE } from "@/lib/ideas/generation-response";
 import { normalizeIdea } from "@/lib/ideas/idea-normalization";
@@ -120,10 +124,15 @@ export function ConceptMode({
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [selectedDetailRouteIndex, setSelectedDetailRouteIndex] = useState(0);
   const [isSavingDetailIdea, setIsSavingDetailIdea] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState({ hook: "", subheadline: "", cta: "", concept: "", why: "" });
+  const exportCardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const activeClientName = clientName || "";
   const activeProductFocus = productFocus || "";
   const hasIdeas = ideas.length > 0;
+  const savedCount = ideas.filter((idea) => savedTitles.includes(idea.title)).length;
 
   useEffect(() => {
     ideasRef.current = ideas;
@@ -564,36 +573,75 @@ export function ConceptMode({
     setIsFeedbackOpen(true);
   }, []);
 
-  const handleShareIdea = useCallback(async (idea: IdeaRecommendation) => {
-    if (!activeClientName || !activeProductFocus) {
-      alert("กรุณาเลือกลูกค้าและ Product Focus ก่อนแชร์");
+  const handleEditIdea = useCallback((idea: IdeaRecommendation, index: number) => {
+    setEditDraft({
+      hook: idea.copywriting?.headline || idea.title || idea.concept_idea || "",
+      subheadline: idea.copywriting?.sub_headline_1 || idea.copywriting?.sub_headline_2 || "",
+      cta: idea.copywriting?.cta || "",
+      concept: idea.title || idea.concept_idea || "",
+      why: idea.competitiveGap || getIdeaDescription(idea) || "",
+    });
+    setEditingIndex(index);
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (editingIndex === null) return;
+    setIdeas((current) => {
+      // Write each field to the property the card/export reads first, so edits always show.
+      const next = current.map((idea, i) =>
+        i !== editingIndex
+          ? idea
+          : {
+              ...idea,
+              title: editDraft.concept,
+              competitiveGap: editDraft.why,
+              copywriting: {
+                ...idea.copywriting,
+                headline: editDraft.hook,
+                sub_headline_1: editDraft.subheadline,
+                cta: editDraft.cta,
+              },
+            },
+      );
+      ideasRef.current = next;
+      return next;
+    });
+    setEditingIndex(null);
+  }, [editingIndex, editDraft]);
+
+  const runPdfExport = useCallback(
+    async (elements: HTMLDivElement[], filenameSuffix: string) => {
+      if (elements.length === 0) return;
+
+      setIsExportingPdf(true);
+      try {
+        const { exportIdeaCardsToPdf } = await import("@/lib/ideas/export-ideas-pdf");
+        await exportIdeaCardsToPdf(elements, `${activeClientName || "ideas"}-${filenameSuffix}.pdf`);
+      } catch (error) {
+        console.error("[ConceptMode] Failed to export ideas to PDF:", error);
+        alert("ไม่สามารถสร้าง PDF ได้ กรุณาลองใหม่อีกครั้ง");
+      } finally {
+        setIsExportingPdf(false);
+      }
+    },
+    [activeClientName],
+  );
+
+  const handleExportIdeasToPdf = useCallback(() => {
+    const cardElements = exportCardRefs.current.filter((el): el is HTMLDivElement => el !== null);
+    void runPdfExport(cardElements, "concepts");
+  }, [runPdfExport]);
+
+  const handleExportSavedIdeasToPdf = useCallback(() => {
+    const savedElements = ideas
+      .map((idea, index) => (savedTitles.includes(idea.title) ? exportCardRefs.current[index] : null))
+      .filter((el): el is HTMLDivElement => el !== null);
+    if (savedElements.length === 0) {
+      alert("ยังไม่มีไอเดียที่บันทึกไว้ใน session นี้");
       return;
     }
-
-    try {
-      const response = await fetch("/api/share-ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ideas: [idea],
-          clientName: activeClientName,
-          productFocus: activeProductFocus,
-          instructions: `Individual idea: ${idea.title}`,
-          model: "gemini-2.5-pro",
-        }),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        alert(data.error || "เกิดข้อผิดพลาดในการสร้างลิงก์แชร์");
-        return;
-      }
-      await navigator.clipboard.writeText(data.shareUrl);
-      alert("คัดลอกลิงก์แชร์แล้ว");
-    } catch (error) {
-      console.error("[ConceptMode] Share failed:", error);
-      alert("เกิดข้อผิดพลาดในการสร้างลิงก์แชร์");
-    }
-  }, [activeClientName, activeProductFocus]);
+    void runPdfExport(savedElements, "saved");
+  }, [ideas, savedTitles, runPdfExport]);
 
   return (
     <section className="mx-auto flex w-full max-w-none flex-col gap-4 pb-2">
@@ -625,32 +673,66 @@ export function ConceptMode({
               <p className="text-sm font-semibold text-[#1f1f1f]">{ideas.length} concept ideas</p>
               {lastInstructions && <p className="mt-1 line-clamp-1 text-xs text-[#667085]">{lastInstructions}</p>}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleNewSession}
-              disabled={isGenerating || isLoadingMore}
-              className="rounded-full border-black/10 bg-white"
-            >
-              <Plus className="h-4 w-4" />
-              New Session
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleExportIdeasToPdf()}
+                disabled={isExportingPdf}
+                className="rounded-full border-black/10 bg-white"
+              >
+                <Download className="h-4 w-4" />
+                {isExportingPdf ? "Exporting..." : "Export to PDF"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleExportSavedIdeasToPdf()}
+                disabled={isExportingPdf || savedCount === 0}
+                className="rounded-full border-black/10 bg-white"
+              >
+                <Bookmark className="h-4 w-4" />
+                Export Saved ({savedCount})
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleNewSession}
+                disabled={isGenerating || isLoadingMore}
+                className="rounded-full border-black/10 bg-white"
+              >
+                <Plus className="h-4 w-4" />
+                New Session
+              </Button>
+            </div>
           </div>
 
           <div className="grid gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {ideas.map((idea, index) => (
-              <IdeaCard
-                key={`${idea.title}-${index}`}
-                topic={idea}
-                index={index}
-                isSaved={savedTitles.includes(idea.title)}
-                onDetailClick={setDetailIdea}
-                onSaveClick={handleSaveIdea}
-                onFeedback={handleFeedback}
-                onShare={handleShareIdea}
-              />
+              <div key={`${idea.title}-${index}`}>
+                <IdeaCard
+                  topic={idea}
+                  index={index}
+                  isSaved={savedTitles.includes(idea.title)}
+                  onDetailClick={setDetailIdea}
+                  onSaveClick={handleSaveIdea}
+                  onFeedback={handleFeedback}
+                  onEdit={handleEditIdea}
+                />
+              </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Off-screen print-only cards captured by the Export buttons. */}
+      {hasIdeas && (
+        <div aria-hidden style={{ position: "absolute", left: -99999, top: 0, pointerEvents: "none" }}>
+          {ideas.map((idea, index) => (
+            <div key={`export-${idea.title}-${index}`} ref={(el) => { exportCardRefs.current[index] = el; }}>
+              <IdeaExportCard topic={idea} index={index} />
+            </div>
+          ))}
         </div>
       )}
 
@@ -804,6 +886,68 @@ export function ConceptMode({
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editingIndex !== null} onOpenChange={(open) => { if (!open) setEditingIndex(null); }}>
+        <DialogContent className="max-h-[86vh] max-w-xl overflow-y-auto rounded-[24px] border-black/10 bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold text-[#111827]">แก้ไขไอเดีย</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Hook</Label>
+              <Textarea
+                value={editDraft.hook}
+                onChange={(e) => setEditDraft((d) => ({ ...d, hook: e.target.value }))}
+                rows={2}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Subheadline</Label>
+              <Textarea
+                value={editDraft.subheadline}
+                onChange={(e) => setEditDraft((d) => ({ ...d, subheadline: e.target.value }))}
+                rows={2}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">CTA</Label>
+              <Input
+                value={editDraft.cta}
+                onChange={(e) => setEditDraft((d) => ({ ...d, cta: e.target.value }))}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Concept</Label>
+              <Textarea
+                value={editDraft.concept}
+                onChange={(e) => setEditDraft((d) => ({ ...d, concept: e.target.value }))}
+                rows={2}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Why</Label>
+              <Textarea
+                value={editDraft.why}
+                onChange={(e) => setEditDraft((d) => ({ ...d, why: e.target.value }))}
+                rows={3}
+                className="border-black/10"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setEditingIndex(null)} className="rounded-full border-black/10 bg-white">
+              ยกเลิก
+            </Button>
+            <Button type="button" onClick={handleSaveEdit} className="rounded-full bg-[#1f1f1f] text-white hover:bg-black">
+              บันทึก
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

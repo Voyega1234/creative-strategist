@@ -1,7 +1,7 @@
 "use client"
 
 import { memo } from "react"
-import { Bookmark, BookmarkCheck, Share2, ThumbsDown, ThumbsUp } from "lucide-react"
+import { Bookmark, BookmarkCheck, Pencil, Share2, ThumbsDown, ThumbsUp } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,8 @@ interface IdeaCardProps {
   onDetailClick: (topic: IdeaRecommendation) => void
   onSaveClick: (topic: IdeaRecommendation, index: number) => void
   onFeedback: (topic: IdeaRecommendation, type: "good" | "bad") => void
-  onShare: (topic: IdeaRecommendation, index: number) => void
+  onShare?: (topic: IdeaRecommendation, index: number) => void
+  onEdit?: (topic: IdeaRecommendation, index: number) => void
 }
 
 function getDescriptionSummary(description: IdeaRecommendation["description"]) {
@@ -57,6 +58,7 @@ export const IdeaCard = memo(function IdeaCard({
   onSaveClick,
   onFeedback,
   onShare,
+  onEdit,
 }: IdeaCardProps) {
   const visualRoutes = topic.visual_routes || []
   const previewRouteIndex = getStableRouteIndex(
@@ -86,18 +88,33 @@ export const IdeaCard = memo(function IdeaCard({
       )}
 
       <div className="absolute top-3 right-3 flex gap-1">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0 hover:bg-purple-50 rounded-full bg-white/90 shadow-sm border border-gray-100"
-          onClick={(event) => {
-            event.stopPropagation()
-            onShare(topic, index)
-          }}
-          title="Share idea"
-        >
-          <Share2 className="h-4 w-4 text-gray-400 hover:text-purple-600" />
-        </Button>
+        {onEdit ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-blue-50 rounded-full bg-white/90 shadow-sm border border-gray-100"
+            onClick={(event) => {
+              event.stopPropagation()
+              onEdit(topic, index)
+            }}
+            title="Edit idea"
+          >
+            <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+          </Button>
+        ) : onShare ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-purple-50 rounded-full bg-white/90 shadow-sm border border-gray-100"
+            onClick={(event) => {
+              event.stopPropagation()
+              onShare(topic, index)
+            }}
+            title="Share idea"
+          >
+            <Share2 className="h-4 w-4 text-gray-400 hover:text-purple-600" />
+          </Button>
+        ) : null}
 
         <Button
           size="sm"
@@ -110,7 +127,7 @@ export const IdeaCard = memo(function IdeaCard({
           title={isSaved ? "Remove bookmark" : "Save idea"}
         >
           {isSaved ? (
-            <BookmarkCheck className="h-4 w-4 text-blue-600" />
+            <BookmarkCheck className="h-4 w-4 text-yellow-500" />
           ) : (
             <Bookmark className="h-4 w-4 text-gray-400 hover:text-blue-600" />
           )}
@@ -125,7 +142,7 @@ export const IdeaCard = memo(function IdeaCard({
           {hook && (
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#667085]">Hook</p>
-              <h4 className="mt-1 line-clamp-2 text-xl font-bold leading-tight text-[#111827]">
+              <h4 className="mt-1 text-xl font-bold leading-normal text-[#111827]">
                 {hook}
               </h4>
             </div>
@@ -149,7 +166,7 @@ export const IdeaCard = memo(function IdeaCard({
               {whyItMightWork && (
                 <p className="text-[#1f2937] text-sm leading-snug">
                   <span className="block font-semibold text-[#667085] uppercase text-[11px] tracking-[0.18em]">
-                    Why it might work
+                    Why
                   </span>
                   {whyItMightWork}
                 </p>
