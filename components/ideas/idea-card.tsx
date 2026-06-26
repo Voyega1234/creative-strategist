@@ -1,7 +1,7 @@
 "use client"
 
 import { memo } from "react"
-import { Bookmark, BookmarkCheck, Pencil, Share2, ThumbsDown, ThumbsUp } from "lucide-react"
+import { Bookmark, BookmarkCheck, Check, Pencil, Share2, ThumbsDown, ThumbsUp } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,16 @@ interface IdeaCardProps {
   onFeedback: (topic: IdeaRecommendation, type: "good" | "bad") => void
   onShare?: (topic: IdeaRecommendation, index: number) => void
   onEdit?: (topic: IdeaRecommendation, index: number) => void
+  // Clear labeled selection bar at the bottom of the card, driven by the export flow step.
+  // Omit to hide it (no selection happening).
+  selectionBar?: {
+    checked?: boolean
+    label?: string
+    disabled?: boolean
+    locked?: boolean
+    lockedLabel?: string
+    onToggle?: () => void
+  }
 }
 
 function getDescriptionSummary(description: IdeaRecommendation["description"]) {
@@ -59,6 +69,7 @@ export const IdeaCard = memo(function IdeaCard({
   onFeedback,
   onShare,
   onEdit,
+  selectionBar,
 }: IdeaCardProps) {
   const visualRoutes = topic.visual_routes || []
   const previewRouteIndex = getStableRouteIndex(
@@ -75,7 +86,7 @@ export const IdeaCard = memo(function IdeaCard({
     .join(": ") || previewRoute?.why_it_fits || ""
 
   return (
-    <Card className="bg-white border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative">
+    <Card className="bg-white border border-[#e4e7ec] rounded-xl p-6 hover:shadow-md hover:border-[#1d4ed8] transition-all duration-200 relative flex h-full flex-col">
       {topic.concept_type && (
         <div className="mb-4">
           <Badge className={`text-white text-xs px-3 py-1 rounded-full ${
@@ -124,7 +135,7 @@ export const IdeaCard = memo(function IdeaCard({
             event.stopPropagation()
             onSaveClick(topic, index)
           }}
-          title={isSaved ? "Remove bookmark" : "Save idea"}
+          title={isSaved ? "Remove bookmark" : "Save idea (Recommended)"}
         >
           {isSaved ? (
             <BookmarkCheck className="h-4 w-4 text-yellow-500" />
@@ -134,28 +145,28 @@ export const IdeaCard = memo(function IdeaCard({
         </Button>
       </div>
 
-      <div className="space-y-4 cursor-pointer" onClick={() => onDetailClick(topic)}>
+      <div className="flex-1 space-y-4 cursor-pointer" onClick={() => onDetailClick(topic)}>
         <div>
           <Badge variant="outline" className="text-xs bg-gray-50 mb-3 border-[#e4e7ec]">
             {topic.content_pillar}
           </Badge>
           {hook && (
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#667085]">Hook</p>
-              <h4 className="mt-1 text-xl font-bold leading-normal text-[#111827]">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#667085]">Hook</p>
+              <h4 className="mt-1 text-xl font-[630] leading-normal text-[#111827]">
                 {hook}
               </h4>
             </div>
           )}
           {concept && (
-            <p className="mt-2 line-clamp-2 text-sm leading-snug text-[#667085]">
+            <p className="mt-2 line-clamp-2 text-base leading-snug text-[#667085]">
               <span className="font-semibold text-[#667085]">Concept:</span>{" "}
               {typeof concept === "string" ? concept : getDescriptionSummary(concept)}
             </p>
           )}
           {subheadline && (
-            <p className="text-[#525d7a] text-sm leading-snug mt-2">
-              <span className="font-semibold text-[#1d4ed8] uppercase text-[11px] tracking-wide mr-2">
+            <p className="text-[#525d7a] text-base leading-snug mt-2">
+              <span className="font-semibold text-[#1d4ed8] uppercase text-xs tracking-wide mr-2">
                 Subheadline
               </span>
               {subheadline}
@@ -164,24 +175,24 @@ export const IdeaCard = memo(function IdeaCard({
           {(whyItMightWork || topic.copywriting?.cta || (showVisualRoutePreview && previewVisualRoute)) && (
             <div className="mt-5 space-y-2 border-t border-[#eef2f7] pt-4">
               {whyItMightWork && (
-                <p className="text-[#1f2937] text-sm leading-snug">
-                  <span className="block font-semibold text-[#667085] uppercase text-[11px] tracking-[0.18em]">
+                <p className="text-[#1f2937] text-base leading-snug">
+                  <span className="block font-semibold text-[#667085] uppercase text-xs tracking-[0.18em]">
                     Why
                   </span>
                   {whyItMightWork}
                 </p>
               )}
               {showVisualRoutePreview && previewVisualRoute && (
-                <p className="text-[#1f2937] text-sm leading-snug">
-                  <span className="block font-semibold text-[#667085] uppercase text-[11px] tracking-[0.18em]">
+                <p className="text-[#1f2937] text-base leading-snug">
+                  <span className="block font-semibold text-[#667085] uppercase text-xs tracking-[0.18em]">
                     Visual Routes
                   </span>
                   {previewVisualRoute}
                 </p>
               )}
               {topic.copywriting?.cta && (
-                <p className="text-[#1f2937] text-sm leading-snug">
-                  <span className="block font-semibold text-[#667085] uppercase text-[11px] tracking-[0.18em]">
+                <p className="text-[#1f2937] text-base leading-snug">
+                  <span className="block font-semibold text-[#667085] uppercase text-xs tracking-[0.18em]">
                     CTA
                   </span>
                   {topic.copywriting.cta}
@@ -229,6 +240,37 @@ export const IdeaCard = memo(function IdeaCard({
           </div>
         </div>
       </div>
+
+      {selectionBar &&
+        (selectionBar.locked ? (
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-[#e4e7ec] bg-[#f8fafc] px-3 py-2.5 text-sm font-medium text-[#667085]">
+            <Check className="h-4 w-4 text-[#1d4ed8]" />
+            {selectionBar.lockedLabel}
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={selectionBar.disabled}
+            onClick={(event) => {
+              event.stopPropagation()
+              selectionBar.onToggle?.()
+            }}
+            className={`mt-4 flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              selectionBar.checked
+                ? "border-[#1d4ed8] bg-[#eff4ff] font-semibold text-[#1d4ed8]"
+                : "border-[#e4e7ec] bg-white text-[#667085] hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
+            }`}
+          >
+            <span
+              className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 ${
+                selectionBar.checked ? "border-[#1d4ed8] bg-[#1d4ed8] text-white" : "border-[#cbd5e1] bg-white"
+              }`}
+            >
+              {selectionBar.checked && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+            </span>
+            {selectionBar.label}
+          </button>
+        ))}
     </Card>
   )
 })

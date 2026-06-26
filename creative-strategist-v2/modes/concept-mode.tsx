@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bookmark, BookmarkCheck, Download, Loader2, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Bookmark, BookmarkCheck, FileDown, Loader2, Plus, Sparkles } from "lucide-react";
 
 import { FeedbackForm } from "@/components/feedback-form";
 import { IdeaCard } from "@/components/ideas/idea-card";
@@ -19,6 +19,9 @@ import { normalizeIdea } from "@/lib/ideas/idea-normalization";
 import { getIdeaSelectionKey, VISUAL_ROUTES_BY_IDEA_STORAGE_KEY } from "@/lib/ideas/idea-storage";
 import type { IdeaRecommendation } from "@/lib/ideas/types";
 import { sessionManager } from "@/lib/session-manager";
+
+// "Other options" (PDF page 2) is capped so CS proposes only a few backups beyond the quota.
+const MAX_OTHER_OPTIONS = 3;
 
 // Cache the visual routes of the currently displayed concept ideas so that selecting the same idea
 // later from the "Use saved idea" list in Text to Image (which loads from a table without routes)
@@ -115,6 +118,9 @@ export function ConceptMode({
 
   const [ideas, setIdeas] = useState<IdeaRecommendation[]>([]);
   const [savedTitles, setSavedTitles] = useState<string[]>([]);
+  const [otherTitles, setOtherTitles] = useState<string[]>([]);
+  // Two-step export flow: pick Recommended first, then move on to pick Other options.
+  const [exportStep, setExportStep] = useState<"recommend" | "options">("recommend");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
@@ -133,6 +139,7 @@ export function ConceptMode({
   const activeProductFocus = productFocus || "";
   const hasIdeas = ideas.length > 0;
   const savedCount = ideas.filter((idea) => savedTitles.includes(idea.title)).length;
+  const otherCount = ideas.filter((idea) => otherTitles.includes(idea.title)).length;
 
   useEffect(() => {
     ideasRef.current = ideas;
@@ -494,6 +501,10 @@ export function ConceptMode({
         ? [...currentTitles, idea.title]
         : currentTitles.filter((title) => title !== idea.title),
     );
+    // An idea is either Recommended (saved) or an Other option, never both.
+    if (action === "save") {
+      setOtherTitles((currentTitles) => currentTitles.filter((title) => title !== idea.title));
+    }
 
     fetch("/api/save-idea", {
       method: "POST",
@@ -609,39 +620,36 @@ export function ConceptMode({
     setEditingIndex(null);
   }, [editingIndex, editDraft]);
 
-  const runPdfExport = useCallback(
-    async (elements: HTMLDivElement[], filenameSuffix: string) => {
-      if (elements.length === 0) return;
+  // Toggle an idea in/out of the "Other options" set, capped at MAX_OTHER_OPTIONS.
+  const handleToggleOther = useCallback((idea: IdeaRecommendation) => {
+    setOtherTitles((current) => {
+      if (current.includes(idea.title)) return current.filter((title) => title !== idea.title);
+      if (current.length >= MAX_OTHER_OPTIONS) return current;
+      return [...current, idea.title];
+    });
+  }, []);
 
-      setIsExportingPdf(true);
-      try {
-        const { exportIdeaCardsToPdf } = await import("@/lib/ideas/export-ideas-pdf");
-        await exportIdeaCardsToPdf(elements, `${activeClientName || "ideas"}-${filenameSuffix}.pdf`);
-      } catch (error) {
-        console.error("[ConceptMode] Failed to export ideas to PDF:", error);
-        alert("ไม่สามารถสร้าง PDF ได้ กรุณาลองใหม่อีกครั้ง");
-      } finally {
-        setIsExportingPdf(false);
-      }
-    },
-    [activeClientName],
-  );
-
-  const handleExportIdeasToPdf = useCallback(() => {
-    const cardElements = exportCardRefs.current.filter((el): el is HTMLDivElement => el !== null);
-    void runPdfExport(cardElements, "concepts");
-  }, [runPdfExport]);
-
-  const handleExportSavedIdeasToPdf = useCallback(() => {
-    const savedElements = ideas
+  // Client deliverable: one PDF with "1. Recommended topics" (saved) + "2. Other options".
+  const handleExportDeliverablePdf = useCallback(async () => {
+    const recommended = ideas
       .map((idea, index) => (savedTitles.includes(idea.title) ? exportCardRefs.current[index] : null))
       .filter((el): el is HTMLDivElement => el !== null);
-    if (savedElements.length === 0) {
-      alert("ยังไม่มีไอเดียที่บันทึกไว้ใน session นี้");
-      return;
+    const other = ideas
+      .map((idea, index) => (otherTitles.includes(idea.title) ? exportCardRefs.current[index] : null))
+      .filter((el): el is HTMLDivElement => el !== null);
+    if (recommended.length === 0) return;
+
+    setIsExportingPdf(true);
+    try {
+      const { exportIdeasWithSectionsToPdf } = await import("@/lib/ideas/export-ideas-pdf");
+      await exportIdeasWithSectionsToPdf(recommended, other, `${activeClientName || "ideas"}-deliverable.pdf`);
+    } catch (error) {
+      console.error("[ConceptMode] Failed to export deliverable PDF:", error);
+      alert("ไม่สามารถสร้าง PDF ได้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsExportingPdf(false);
     }
-    void runPdfExport(savedElements, "saved");
-  }, [ideas, savedTitles, runPdfExport]);
+  }, [ideas, savedTitles, otherTitles, activeClientName]);
 
   return (
     <section className="mx-auto flex w-full max-w-none flex-col gap-4 pb-2">
@@ -671,29 +679,49 @@ export function ConceptMode({
           <div className="sticky top-0 z-10 flex flex-col gap-3 rounded-[22px] border border-black/10 bg-white/95 p-4 shadow-[0_10px_28px_rgba(15,23,42,0.06)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-[#1f1f1f]">{ideas.length} concept ideas</p>
+              <p className="mt-1 text-xs font-medium text-[#1d4ed8]">
+                {exportStep === "recommend"
+                  ? `Step 1 — เลือก Recommended topics (กด Save) · เลือกแล้ว ${savedCount}`
+                  : `Step 2 — เลือก Other options ได้สูงสุด ${MAX_OTHER_OPTIONS} · เลือกแล้ว ${otherCount}/${MAX_OTHER_OPTIONS}`}
+              </p>
               {lastInstructions && <p className="mt-1 line-clamp-1 text-xs text-[#667085]">{lastInstructions}</p>}
             </div>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleExportIdeasToPdf()}
-                disabled={isExportingPdf}
-                className="rounded-full border-black/10 bg-white"
-              >
-                <Download className="h-4 w-4" />
-                {isExportingPdf ? "Exporting..." : "Export to PDF"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleExportSavedIdeasToPdf()}
-                disabled={isExportingPdf || savedCount === 0}
-                className="rounded-full border-black/10 bg-white"
-              >
-                <Bookmark className="h-4 w-4" />
-                Export Saved ({savedCount})
-              </Button>
+              {exportStep === "recommend" ? (
+                <Button
+                  type="button"
+                  onClick={() => setExportStep("options")}
+                  disabled={isExportingPdf || savedCount === 0}
+                  title={savedCount === 0 ? "เลือก Recommended (กด Save) อย่างน้อย 1 อันก่อน" : undefined}
+                  className="rounded-full bg-[#1d4ed8] text-white hover:bg-[#1d4ed8]/90"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Select Options
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setExportStep("recommend")}
+                    disabled={isExportingPdf}
+                    className="rounded-full border-black/10 bg-white"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => void handleExportDeliverablePdf()}
+                    disabled={isExportingPdf || savedCount === 0}
+                    title={`Recommended ${savedCount} · Other options ${otherCount}/${MAX_OTHER_OPTIONS}`}
+                    className="rounded-full bg-[#1d4ed8] text-white hover:bg-[#1d4ed8]/90"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    {isExportingPdf ? "Exporting..." : "Export PDF"}
+                  </Button>
+                </>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -707,13 +735,31 @@ export function ConceptMode({
             </div>
           </div>
 
-          <div className="grid gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid auto-rows-fr gap-4 pb-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {ideas.map((idea, index) => (
-              <div key={`${idea.title}-${index}`}>
+              <div key={`${idea.title}-${index}`} className="h-full">
                 <IdeaCard
                   topic={idea}
                   index={index}
                   isSaved={savedTitles.includes(idea.title)}
+                  selectionBar={
+                    exportStep === "recommend"
+                      ? {
+                          checked: savedTitles.includes(idea.title),
+                          label: savedTitles.includes(idea.title) ? "Recommended" : "Select as Recommended",
+                          onToggle: () => handleSaveIdea(idea, index),
+                        }
+                      : savedTitles.includes(idea.title)
+                        ? { locked: true, lockedLabel: "Recommended" }
+                        : {
+                            checked: otherTitles.includes(idea.title),
+                            label: otherTitles.includes(idea.title)
+                              ? "Added as Option"
+                              : "Add as Option",
+                            disabled: !otherTitles.includes(idea.title) && otherCount >= MAX_OTHER_OPTIONS,
+                            onToggle: () => handleToggleOther(idea),
+                          }
+                  }
                   onDetailClick={setDetailIdea}
                   onSaveClick={handleSaveIdea}
                   onFeedback={handleFeedback}

@@ -10,6 +10,8 @@ interface IdeaExportCardProps {
   topic: IdeaRecommendation
   index: number
   width?: number
+  selectionLabel?: string
+  selectionChecked?: boolean
 }
 
 function getDescriptionSummary(description: IdeaRecommendation["description"]) {
@@ -39,7 +41,7 @@ function getStableRouteIndex(seed: string, routeCount: number) {
 const labelBase: React.CSSProperties = {
   display: "block",
   fontSize: 14,
-  fontWeight: 700,
+  fontWeight: 600,
   letterSpacing: "0.1em",
   textTransform: "uppercase",
   marginBottom: 4,
@@ -59,7 +61,13 @@ const sectionStyle: React.CSSProperties = { marginTop: 12 }
 
 // 490px keeps even long-content cards within the A4 3-column cell aspect (~1.07 h/w),
 // so the grid fills the page width with no side gaps and no distortion.
-export const IdeaExportCard = memo(function IdeaExportCard({ topic, index, width = 490 }: IdeaExportCardProps) {
+export const IdeaExportCard = memo(function IdeaExportCard({
+  topic,
+  index,
+  width = 490,
+  selectionLabel,
+  selectionChecked = false,
+}: IdeaExportCardProps) {
   const visualRoutes = topic.visual_routes || []
   const previewRouteIndex = getStableRouteIndex(
     `${index}:${topic.title || ""}:${topic.concept_idea || ""}:${topic.copywriting?.headline || ""}`,
@@ -84,10 +92,11 @@ export const IdeaExportCard = memo(function IdeaExportCard({ topic, index, width
         padding: 16,
         background: "#ffffff",
         color: "#1f2937",
+        fontFamily: "'Sukhumvit Set', Arial, Helvetica, sans-serif",
       }}
     >
       {topic.content_pillar && (
-        <p style={{ ...bodyStyle, fontSize: 13, fontWeight: 700, color: "#6D9EEB", margin: 0 }}>
+        <p style={{ ...bodyStyle, fontSize: 13, fontWeight: 600, color: "#6D9EEB", margin: 0 }}>
           {topic.content_pillar}
         </p>
       )}
@@ -95,7 +104,7 @@ export const IdeaExportCard = memo(function IdeaExportCard({ topic, index, width
       {hook && (
         <div style={sectionStyle}>
           <span style={labelBlue}>Hook</span>
-          <p style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.3, color: "#111827", margin: 0 }}>{hook}</p>
+          <p style={{ fontSize: 26, fontWeight: 630, lineHeight: 1.3, color: "#111827", margin: 0 }}>{hook}</p>
         </div>
       )}
 
@@ -124,6 +133,41 @@ export const IdeaExportCard = memo(function IdeaExportCard({ topic, index, width
         <div style={sectionStyle}>
           <span style={labelGray}>Why</span>
           <p style={bodyStyle}>{whyItMightWork}</p>
+        </div>
+      )}
+
+      {selectionLabel && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 22,
+            color: "#8a8f98",
+            fontSize: 22,
+            lineHeight: 1,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 34,
+              height: 34,
+              borderRadius: 9,
+              border: "3px solid #2563eb",
+              background: selectionChecked ? "#2563eb" : "#ffffff",
+              color: "#ffffff",
+              boxSizing: "border-box",
+              fontSize: 24,
+              fontWeight: 600,
+            }}
+          >
+            {selectionChecked ? "✓" : ""}
+          </span>
+          <span>{selectionLabel}</span>
         </div>
       )}
     </div>
