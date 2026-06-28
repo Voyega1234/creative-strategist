@@ -12,11 +12,18 @@ const config: Config = {
     "*.{js,ts,jsx,tsx,mdx}"
   ],
   theme: {
-  	extend: {
-  		fontFamily: {
-  			'ibm-plex-thai': ['IBM Plex Sans Thai', 'sans-serif'],
-  			'sans': ['IBM Plex Sans Thai', 'system-ui', 'sans-serif'],
-  		},
+    extend: {
+      fontFamily: {
+        'sukhumvit': ['Sukhumvit Set', 'sans-serif'],
+        'sans': ['Sukhumvit Set', 'system-ui', 'sans-serif'],
+      },
+      fontWeight: {
+        normal: '400',
+        medium: '500',
+        semibold: '600',
+        bold: '700',
+        extrabold: '700',
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

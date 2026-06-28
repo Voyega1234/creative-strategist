@@ -71,6 +71,7 @@ type BrandColorRole = "Primary" | "Secondary" | "Accent" | "Background" | "Text"
 type SeoBlogBannerResult = {
   imageUrl: string
   sourceDataUrl: string
+  lockedLogoUrl: string
   provider: ImageModelProvider
   model: string
   prompt: string
@@ -275,13 +276,36 @@ function writeClientBrandAssetCache(cache: Record<string, CachedBrandAssets>) {
   }
 }
 
-async function normalizeToExactCanvas(dataUrl: string, targetWidth: number, targetHeight: number) {
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new window.Image()
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error("Cannot load generated banner image"))
-    img.src = dataUrl
-  })
+async function loadCanvasImage(source: string) {
+  let imageSource = source
+  let objectUrl = ""
+
+  if (/^https?:\/\//i.test(source)) {
+    const response = await fetch(source)
+    if (!response.ok) throw new Error(`Cannot load image (${response.status})`)
+    objectUrl = URL.createObjectURL(await response.blob())
+    imageSource = objectUrl
+  }
+
+  try {
+    return await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error("Cannot load image for export"))
+      img.src = imageSource
+    })
+  } finally {
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
+  }
+}
+
+async function normalizeToExactCanvas(
+  dataUrl: string,
+  targetWidth: number,
+  targetHeight: number,
+  lockedLogoSource?: string,
+) {
+  const image = await loadCanvasImage(dataUrl)
 
   const canvas = document.createElement("canvas")
   canvas.width = targetWidth
@@ -317,6 +341,29 @@ async function normalizeToExactCanvas(dataUrl: string, targetWidth: number, targ
 
   context.drawImage(image, 0, 0, image.naturalWidth, image.naturalHeight, drawX, drawY, drawWidth, drawHeight)
 
+  if (lockedLogoSource) {
+    const lockedLogo = await loadCanvasImage(lockedLogoSource)
+    const maxLogoWidth = targetWidth * 0.18
+    const maxLogoHeight = targetHeight * 0.12
+    const logoScale = Math.min(maxLogoWidth / lockedLogo.naturalWidth, maxLogoHeight / lockedLogo.naturalHeight)
+    const logoWidth = lockedLogo.naturalWidth * logoScale
+    const logoHeight = lockedLogo.naturalHeight * logoScale
+    const logoX = targetWidth * 0.04
+    const logoY = targetHeight * 0.05
+
+    context.drawImage(
+      lockedLogo,
+      0,
+      0,
+      lockedLogo.naturalWidth,
+      lockedLogo.naturalHeight,
+      logoX,
+      logoY,
+      logoWidth,
+      logoHeight,
+    )
+  }
+
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
@@ -328,8 +375,8 @@ async function normalizeToExactCanvas(dataUrl: string, targetWidth: number, targ
   })
 }
 
-async function normalizeToMasterCanvas(dataUrl: string) {
-  return normalizeToExactCanvas(dataUrl, MASTER_WIDTH, MASTER_HEIGHT)
+async function normalizeToMasterCanvas(dataUrl: string, lockedLogoSource?: string) {
+  return normalizeToExactCanvas(dataUrl, MASTER_WIDTH, MASTER_HEIGHT, lockedLogoSource)
 }
 
 function AssetUpload({
@@ -472,6 +519,10 @@ export function SeoBlogBannerPanel({
   const [isExtractingBrand, setIsExtractingBrand] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
+  const [editPrompt, setEditPrompt] = useState("")
+  const [editAsset, setEditAsset] = useState<UploadedAsset | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [brandHexInput, setBrandHexInput] = useState("")
   const [brandHexError, setBrandHexError] = useState("")
@@ -484,9 +535,11 @@ export function SeoBlogBannerPanel({
   const [selectedGallerySessionId, setSelectedGallerySessionId] = useState<string | null>(null)
   const generationInFlightRef = useRef(false)
   const resizeInFlightRef = useRef(false)
+  const editInFlightRef = useRef(false)
   const logoAssetRef = useRef<UploadedAsset | null>(null)
   const referenceAssetRef = useRef<UploadedAsset | null>(null)
   const insertAssetsRef = useRef<UploadedAsset[]>([])
+  const editAssetRef = useRef<UploadedAsset | null>(null)
   const restoringBrandCacheRef = useRef(false)
   const selectedClient = clients.find(
     (client) =>
@@ -533,10 +586,15 @@ export function SeoBlogBannerPanel({
   }, [insertAssets])
 
   useEffect(() => {
+    editAssetRef.current = editAsset
+  }, [editAsset])
+
+  useEffect(() => {
     return () => {
       revokeAsset(logoAssetRef.current)
       revokeAsset(referenceAssetRef.current)
       insertAssetsRef.current.forEach((asset) => revokeAsset(asset))
+      revokeAsset(editAssetRef.current)
     }
   }, [])
 
@@ -637,7 +695,7 @@ export function SeoBlogBannerPanel({
     writeClientBrandAssetCache(nextCache)
   }, [brandColorRoles, brandColorValues, brandName, composedBrandContext, openBrandLogoUrl, selectedClientId, website])
 
-  const canGenerate = website.trim().length > 0 && headline.trim().length > 0
+  const canGenerate = website.trim().length > 0 && headline.trim().length > 0 && Boolean(logoAsset)
   const selectedAdditionalSizeConfig = ADDITIONAL_SIZES.find((size) => size.key === selectedAdditionalSize) || ADDITIONAL_SIZES[0]
 
   const insertHint = useMemo(() => {
@@ -844,7 +902,7 @@ export function SeoBlogBannerPanel({
   const handleGenerate = async () => {
     if (generationInFlightRef.current) return
     if (!canGenerate) {
-      setError("Website and headline are required.")
+      setError("Website, headline, and a selected brand logo are required.")
       return
     }
 
@@ -891,7 +949,7 @@ export function SeoBlogBannerPanel({
         throw new Error(payload?.error || "Cannot generate SEO blog banner")
       }
 
-      const masterBlob = await normalizeToMasterCanvas(payload.image_data_url)
+      const masterBlob = await normalizeToMasterCanvas(payload.image_data_url, logoAsset?.previewUrl)
       const publicUrl = await uploadGeneratedImageBlob(masterBlob, "generated/seo-blog-banner-outputs", "master-1600x900")
 
       setResultBlob(masterBlob)
@@ -899,6 +957,7 @@ export function SeoBlogBannerPanel({
       setResult({
         imageUrl: publicUrl,
         sourceDataUrl: payload.image_data_url,
+        lockedLogoUrl: brandLogoUrl,
         provider: payload.provider || "openai",
         model: payload.model || "gpt-image-2 -> gemini-3.1-flash-image-preview",
         prompt: payload.prompt || "",
@@ -927,6 +986,7 @@ export function SeoBlogBannerPanel({
             subHeadline: subHeadline.trim(),
             targetMasterSize: payload.target_master_size || "1600x900",
             requestedSize: payload.requested_size || "2K",
+            lockedLogoUrl: brandLogoUrl,
             brandAssets: payload.brand_assets || null,
           },
         }),
@@ -958,8 +1018,8 @@ export function SeoBlogBannerPanel({
     }
   }
 
-  const handleGalleryImageSelect = (session: ImageGenerationSession) => {
-    const imageUrl = session.outputUrls[0]
+  const handleGalleryImageSelect = (session: ImageGenerationSession, imageIndex: number) => {
+    const imageUrl = session.outputUrls[imageIndex]
     if (!imageUrl) return
 
     const metadata = session.metadata
@@ -967,6 +1027,8 @@ export function SeoBlogBannerPanel({
     const savedSubHeadline = typeof metadata.subHeadline === "string" ? metadata.subHeadline : ""
     const savedWebsite = typeof metadata.website === "string" ? metadata.website : ""
     const savedBrandName = typeof metadata.brandName === "string" ? metadata.brandName : ""
+    const savedLockedLogoUrl =
+      typeof metadata.lockedLogoUrl === "string" ? metadata.lockedLogoUrl : session.inputUrls[0] || ""
 
     if (savedHeadline) setHeadline(savedHeadline)
     if (savedSubHeadline) setSubHeadline(savedSubHeadline)
@@ -978,6 +1040,7 @@ export function SeoBlogBannerPanel({
     setResult({
       imageUrl,
       sourceDataUrl: imageUrl,
+      lockedLogoUrl: savedLockedLogoUrl,
       provider: "openai",
       model: session.model || "image-generation",
       prompt: session.prompt,
@@ -989,6 +1052,8 @@ export function SeoBlogBannerPanel({
           : null,
     })
     setSelectedGallerySessionId(session.id)
+    setEditPrompt("")
+    setEditError(null)
     setError(null)
   }
 
@@ -1011,6 +1076,7 @@ export function SeoBlogBannerPanel({
         },
         body: JSON.stringify({
           image_url: result.imageUrl,
+          locked_logo_url: result.lockedLogoUrl,
           target_size: selectedAdditionalSize,
         }),
       })
@@ -1024,7 +1090,12 @@ export function SeoBlogBannerPanel({
       const targetHeight = Number(payload.target_height || selectedAdditionalSizeConfig.height)
       const targetKey = (payload.target_size || selectedAdditionalSize) as AdditionalSizeKey
       const targetLabel = payload.target_label || selectedAdditionalSizeConfig.label
-      const resizedBlob = await normalizeToExactCanvas(payload.image_data_url, targetWidth, targetHeight)
+      const resizedBlob = await normalizeToExactCanvas(
+        payload.image_data_url,
+        targetWidth,
+        targetHeight,
+        result.lockedLogoUrl,
+      )
       const publicUrl = await uploadGeneratedImageBlob(
         resizedBlob,
         "generated/seo-blog-banner-outputs",
@@ -1057,8 +1128,225 @@ export function SeoBlogBannerPanel({
     downloadBlob(output.blob, `seo-blog-banner-${output.key}-${output.width}x${output.height}.png`)
   }
 
+  const handleEditSelectedImage = async () => {
+    if (editInFlightRef.current) return
+    if (!result) {
+      setEditError("Select or generate a banner first.")
+      return
+    }
+    if (!editPrompt.trim()) {
+      setEditError("Describe the change you want to make.")
+      return
+    }
+    if (!result.lockedLogoUrl) {
+      setEditError("This banner has no locked logo reference. Select a logo and generate a new master first.")
+      return
+    }
+
+    editInFlightRef.current = true
+    setIsEditing(true)
+    setEditError(null)
+
+    const sourceImageUrl = result.imageUrl
+    const instruction = editPrompt.trim()
+
+    try {
+      const editMaterialUrl = await uploadAssetForGeneration(
+        editAsset,
+        "generated/seo-blog-banner-edit-inputs",
+      )
+      const response = await fetch("/api/edit-image-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_url: sourceImageUrl,
+          locked_logo_url: result.lockedLogoUrl,
+          seo_banner_mode: true,
+          instruction,
+          output_aspect_ratio: "16:9",
+          output_image_size: "2K",
+          material_image_urls: editMaterialUrl ? [editMaterialUrl] : [],
+          client_name: selectedClient?.clientName,
+          product_focus: selectedProductFocus,
+        }),
+      })
+      const payload = await response.json()
+
+      if (!response.ok || !payload.success || !payload.image_url) {
+        throw new Error(payload?.error || "Cannot edit SEO banner")
+      }
+
+      const editedBlob = await normalizeToMasterCanvas(payload.image_url as string, result.lockedLogoUrl)
+      const editedImageUrl = await uploadGeneratedImageBlob(
+        editedBlob,
+        "generated/seo-blog-banner-outputs",
+        "edited-master-1600x900",
+      )
+      setResult((current) =>
+        current
+          ? {
+              ...current,
+              imageUrl: editedImageUrl,
+              sourceDataUrl: editedImageUrl,
+              model: payload.model || current.model,
+              prompt: payload.prompt || instruction,
+            }
+          : current,
+      )
+      setResultBlob(editedBlob)
+      setAdditionalOutputs([])
+      setSelectedGallerySessionId(null)
+      setEditPrompt("")
+
+      void fetch("/api/image-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          featureType: "seo-banner",
+          clientName: selectedClient?.clientName,
+          productFocus: selectedProductFocus,
+          title: headline.trim() || "Edited SEO Banner",
+          prompt: instruction,
+          model: payload.model || "gemini-image-edit",
+          outputUrls: [editedImageUrl],
+          inputUrls: [sourceImageUrl, result.lockedLogoUrl, editMaterialUrl].filter(Boolean),
+          metadata: {
+            website: website.trim(),
+            brandName: brandName.trim(),
+            headline: headline.trim(),
+            subHeadline: subHeadline.trim(),
+            lockedLogoUrl: result.lockedLogoUrl,
+            parentImageUrl: sourceImageUrl,
+            editInstruction: instruction,
+            editMaterialUrl,
+            targetMasterSize: "1600x900",
+            requestedSize: "2K",
+            brandAssets: result.brandAssets,
+          },
+        }),
+      })
+        .then((saveResponse) => {
+          if (saveResponse.ok) setGalleryRefreshKey((value) => value + 1)
+        })
+        .catch((saveError) => console.error("Failed to save edited SEO Banner gallery item:", saveError))
+    } catch (err) {
+      console.error("SEO blog banner edit failed:", err)
+      setEditError(err instanceof Error ? err.message : "Cannot edit SEO banner")
+    } finally {
+      editInFlightRef.current = false
+      setIsEditing(false)
+    }
+  }
+
+  const editPanel = result ? (
+    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+      <div>
+        <p className="text-sm font-semibold text-slate-950">Edit selected banner</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          The current image stays as the source. Only the requested change is applied, and the selected logo remains locked.
+        </p>
+      </div>
+      <Label htmlFor="seo-banner-edit-prompt" className="mt-4 block">
+        Edit instruction
+      </Label>
+      <Textarea
+        id="seo-banner-edit-prompt"
+        value={editPrompt}
+        onChange={(event) => {
+          setEditPrompt(event.target.value)
+          setEditError(null)
+        }}
+        placeholder="เช่น เปลี่ยนพื้นหลังให้สว่างขึ้น และคงองค์ประกอบอื่นทั้งหมดไว้เหมือนเดิม"
+        className="mt-2 min-h-[88px] resize-y rounded-2xl bg-white"
+        disabled={isEditing}
+      />
+      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Optional image for this edit</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Upload a product, person, object, or visual reference and describe how to use it in the edit prompt.
+            </p>
+          </div>
+          {editAsset ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                revokeAsset(editAsset)
+                setEditAsset(null)
+              }}
+              disabled={isEditing}
+              className="h-8 shrink-0 rounded-full border-red-100 px-3 text-red-600 hover:bg-red-50 hover:text-red-700"
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />
+              Remove
+            </Button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => document.getElementById("seo-banner-edit-image")?.click()}
+          disabled={isEditing}
+          className="mt-3 flex min-h-[96px] w-full items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 transition hover:border-slate-400 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {editAsset ? (
+            <img
+              src={editAsset.previewUrl}
+              alt="Optional image for banner edit"
+              className="max-h-36 w-full object-contain p-2"
+            />
+          ) : (
+            <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <ImagePlus className="h-4 w-4 text-slate-500" />
+              Upload optional image
+            </span>
+          )}
+        </button>
+        <input
+          id="seo-banner-edit-image"
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) {
+              revokeAsset(editAsset)
+              setEditAsset(createAsset(file))
+              setEditError(null)
+            }
+            event.target.value = ""
+          }}
+        />
+      </div>
+      {editError ? (
+        <p className="mt-2 text-sm text-red-700" role="alert">
+          {editError}
+        </p>
+      ) : null}
+      {!result.lockedLogoUrl ? (
+        <p className="mt-2 text-sm text-amber-700" role="status">
+          This older banner has no locked logo reference. Select a logo and generate a new master before editing.
+        </p>
+      ) : null}
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500">Logo shape, color, proportions, and spelling cannot be edited.</p>
+        <Button
+          type="button"
+          onClick={handleEditSelectedImage}
+          disabled={isEditing || !editPrompt.trim() || !result.lockedLogoUrl}
+          className="shrink-0 rounded-full bg-slate-950 text-white hover:bg-slate-800"
+        >
+          {isEditing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+          {isEditing ? "Editing..." : "Edit image"}
+        </Button>
+      </div>
+    </div>
+  ) : null
+
   const isV2 = variant === "v2"
-  const v2LogoPreviewUrl = logoAsset?.previewUrl || openBrandLogoUrl
+  const v2LogoPreviewUrl = logoAsset?.previewUrl
 
   if (isV2) {
     return (
@@ -1248,6 +1536,12 @@ export function SeoBlogBannerPanel({
                     </div>
                     {brandHexError ? <p className="mt-1 text-xs text-red-600">{brandHexError}</p> : null}
                   </div>
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                  {logoAsset
+                    ? "Logo locked. Generation and edits must preserve this selected asset."
+                    : "Logo required. Upload or choose a saved logo before generating."}
                 </div>
 
                 <details className="mt-2">
@@ -1508,6 +1802,8 @@ export function SeoBlogBannerPanel({
                       />
                     </div>
                   </button>
+
+                  {editPanel}
 
                   <div className="rounded-[22px] border border-black/10 bg-white p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1778,10 +2074,9 @@ export function SeoBlogBannerPanel({
             <div className="grid gap-4 lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.2fr)] lg:items-stretch">
               <div className={cn(fieldPanelClassName, "flex h-full flex-col space-y-4")}>
                 <AssetUpload
-                  label="Brand Logo"
-                  description={openBrandLogoUrl ? "Detected from OpenBrand. Upload another logo to override." : "Upload a logo, or click Extract to detect one from the website."}
+                  label="Brand Logo *"
+                  description="Upload or choose the exact logo to lock for generation and every edit."
                   asset={logoAsset}
-                  remotePreviewUrl={openBrandLogoUrl}
                   onSelect={handleLogoSelect}
                   onRemove={() => {
                     revokeAsset(logoAsset)
@@ -2180,6 +2475,8 @@ export function SeoBlogBannerPanel({
                   </div>
                 </button>
 
+                {editPanel}
+
                 {result.brandAssets ? (
                   <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2191,7 +2488,7 @@ export function SeoBlogBannerPanel({
                         <p className="mt-1 text-xs text-slate-500">
                           {result.brandAssets.used_openbrand_logo_as_input
                             ? "Auto logo was used because no logo was uploaded."
-                            : "Colors are used as brand guidance in the prompt."}
+                            : "The selected logo asset is locked and composited unchanged on every output."}
                         </p>
                       </div>
                       {result.brandAssets.colors?.length ? (

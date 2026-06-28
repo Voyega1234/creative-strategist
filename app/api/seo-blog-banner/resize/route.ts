@@ -38,6 +38,7 @@ type TargetSizeKey = keyof typeof TARGET_SIZES
 type ResizeRequest = {
   image_url?: string
   image_data_url?: string
+  locked_logo_url?: string
   target_size?: TargetSizeKey
 }
 
@@ -97,6 +98,9 @@ function buildResizePrompt(target: (typeof TARGET_SIZES)[TargetSizeKey]) {
     `Final target export size: ${target.width} x ${target.height} px.`,
     "",
     "Use the provided master banner as the source of truth.",
+    "The second provided image is the locked brand logo and is the only permitted logo.",
+    "Keep that logo visually identical. Never redraw, regenerate, restyle, recolor, retype, crop, distort, or replace it.",
+    "Preserve its exact spelling, letterforms, symbol geometry, spacing, colors, proportions, transparency, and internal details.",
     "Do not create a new concept. Do not redesign the brand system.",
     "Preserve the same headline, sub-headline, logo, brand identity, art direction, color palette, hero visual, and overall mood.",
     "Recompose only as needed so the banner works naturally for the target size.",
@@ -110,10 +114,12 @@ function buildResizePrompt(target: (typeof TARGET_SIZES)[TargetSizeKey]) {
 async function callGeminiResize({
   prompt,
   image,
+  lockedLogo,
   aspectRatio,
 }: {
   prompt: string
   image: { base64: string; mimeType: string }
+  lockedLogo: { base64: string; mimeType: string }
   aspectRatio: string
 }) {
   const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
@@ -125,6 +131,13 @@ async function callGeminiResize({
             inlineData: {
               data: image.base64,
               mimeType: image.mimeType,
+            },
+          },
+          { text: "LOCKED BRAND LOGO REFERENCE. Preserve this exact asset without modification:" },
+          {
+            inlineData: {
+              data: lockedLogo.base64,
+              mimeType: lockedLogo.mimeType,
             },
           },
         ],
@@ -162,14 +175,22 @@ export async function POST(request: Request) {
     const targetSizeKey = body.target_size && body.target_size in TARGET_SIZES ? body.target_size : "blog_card"
     const target = TARGET_SIZES[targetSizeKey]
     const imageUrl = normalizeUrl(body.image_url)
+    const lockedLogoUrl = normalizeUrl(body.locked_logo_url)
     const imageDataUrl = typeof body.image_data_url === "string" ? body.image_data_url.trim() : ""
 
     if (!imageUrl && !imageDataUrl) {
       return NextResponse.json({ success: false, error: "master image is required" }, { status: 400 })
     }
 
+    if (!lockedLogoUrl) {
+      return NextResponse.json({ success: false, error: "locked_logo_url is required" }, { status: 400 })
+    }
+
     const parsedDataUrl = imageDataUrl ? parseDataUrl(imageDataUrl) : null
-    const sourceImage = parsedDataUrl || (await fetchImageAsBase64(imageUrl))
+    const [sourceImage, lockedLogo] = await Promise.all([
+      parsedDataUrl ? Promise.resolve(parsedDataUrl) : fetchImageAsBase64(imageUrl),
+      fetchImageAsBase64(lockedLogoUrl),
+    ])
     const prompt = buildResizePrompt(target)
 
     console.log("[seo-blog-banner-resize] Resizing approved master", {
@@ -186,6 +207,7 @@ export async function POST(request: Request) {
     const geminiPayload = await callGeminiResize({
       prompt,
       image: sourceImage,
+      lockedLogo,
       aspectRatio: target.aspectRatio,
     })
     const images = getGeminiImages(geminiPayload)

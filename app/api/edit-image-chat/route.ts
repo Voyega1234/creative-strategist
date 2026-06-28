@@ -15,6 +15,8 @@ const GEMINI_IMAGE_MODEL =
 
 type EditImageChatRequest = {
   image_url?: string
+  locked_logo_url?: string
+  seo_banner_mode?: boolean
   instruction?: string
   operation?: "edit" | "resize"
   mask_bounds?: {
@@ -294,6 +296,8 @@ function buildEditPrompt({
   requestedAspectRatio,
   outputImageSize,
   continueFromHistory,
+  seoBannerMode,
+  hasLockedLogo,
 }: {
   instruction: string
   maskBounds: NonNullable<EditImageChatRequest["mask_bounds"]> | null
@@ -306,6 +310,8 @@ function buildEditPrompt({
   requestedAspectRatio: string
   outputImageSize: string
   continueFromHistory: boolean
+  seoBannerMode: boolean
+  hasLockedLogo: boolean
 }) {
   if (operation === "resize") {
     const userInstruction = instruction || "N/A"
@@ -369,12 +375,10 @@ function buildEditPrompt({
   }
 
   return [
-    "You are a professional image editing assistant.",
-    operation === "resize"
-      ? "Resize and recompose the provided image to the requested output format."
-      : continueFromHistory
-        ? "This is an ongoing editing conversation. Continue from the most recent image you generated in this conversation and apply the user's new instruction to it. Earlier turns are provided as context for references like \"the previous edit\" or \"undo that change\"."
-        : "Edit the provided image according to the user's instruction.",
+    seoBannerMode ? "You are editing an existing SEO banner." : "You are a professional image editing assistant.",
+    continueFromHistory
+      ? "This is an ongoing editing conversation. Continue from the most recent image you generated in this conversation and apply the user's new instruction to it. Earlier turns are provided as context for references like \"the previous edit\" or \"undo that change\"."
+      : "Edit the provided image according to the user's instruction.",
     `Requested output: aspect ratio ${outputAspectRatio}, image size ${outputImageSize}.`,
     clientName ? `Client context: ${clientName}${productFocus ? ` / ${productFocus}` : ""}.` : "Client context: default freestyle mode.",
     referenceCount > 0
@@ -393,9 +397,18 @@ function buildEditPrompt({
       : "",
     "",
     "Core rules:",
+    seoBannerMode
+      ? "- Use the current SEO banner as the source of truth. Apply only the user's explicit instruction and leave every unrequested area unchanged. Do not create a new concept or redesign the banner."
+      : "",
     "- Preserve all areas, objects, typography, brand elements, composition, and identity that the user did not ask to change.",
-    operation === "resize"
-      ? "- Resize rule is strict: keep the same image content and design intent. Do not crop important content. Extend or recompose background naturally when the aspect ratio changes."
+    hasLockedLogo
+      ? "- A separate locked brand logo reference is provided after the source image. It is the only permitted logo. Ignore any instruction to modify or replace it."
+      : "",
+    hasLockedLogo
+      ? "- Preserve the locked logo exactly: spelling, letterforms, symbol geometry, spacing, colors, proportions, transparency, and internal details. Never redraw, regenerate, trace, retype, reinterpret, restyle, recolor, crop, distort, or replace it."
+      : "",
+    hasLockedLogo
+      ? "- The locked logo may only be moved or uniformly scaled as one intact object when the user's instruction explicitly requires it. Never alter its internal appearance or add another logo."
       : "",
     maskBounds
       ? "- Semantic mask rule is strict: use the coordinate region only to locate the edit area. Preserve everything outside that region as close to unchanged as possible."
@@ -414,10 +427,12 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as EditImageChatRequest
     const imageUrl = normalizeUrl(body.image_url)
+    const lockedLogoUrl = normalizeUrl(body.locked_logo_url)
+    const seoBannerMode = body.seo_banner_mode === true
     const instruction = typeof body.instruction === "string" ? body.instruction.trim() : ""
     const resizeIntent = detectResizeIntent(instruction)
     const operation = body.operation === "resize" || resizeIntent.hasResizeIntent ? "resize" : "edit"
-    const maskBounds = isValidMaskBounds(body.mask_bounds) ? body.mask_bounds : null
+    const maskBounds = isValidMaskBounds(body.mask_bounds) ? body.mask_bounds! : null
     const referenceUrls = normalizeUrlList(body.reference_image_urls)
     const materialUrls = normalizeUrlList(body.material_image_urls)
     const clientName = typeof body.client_name === "string" ? body.client_name.trim() : ""
@@ -442,6 +457,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "instruction is required" }, { status: 400 })
     }
 
+    if (seoBannerMode && !lockedLogoUrl) {
+      return NextResponse.json({ success: false, error: "locked_logo_url is required for SEO banner edits" }, { status: 400 })
+    }
+
     const history = normalizeHistory(body.history)
     const lastModelTurn = [...history].reverse().find((turn) => turn.role === "model" && turn.imageUrl)
     // When the current source image is the one from the model's last turn, the replayed
@@ -449,8 +468,9 @@ export async function POST(request: Request) {
     const continueFromHistory =
       operation !== "resize" && history.length > 0 && lastModelTurn?.imageUrl === imageUrl
 
-    const [image, historyContents, referenceImages, materialImages] = await Promise.all([
+    const [image, lockedLogo, historyContents, referenceImages, materialImages] = await Promise.all([
       continueFromHistory ? Promise.resolve(null) : fetchImageAsBase64(imageUrl),
+      lockedLogoUrl ? fetchImageAsBase64(lockedLogoUrl) : Promise.resolve(null),
       buildHistoryContents(history),
       fetchOptionalImages(referenceUrls),
       fetchOptionalImages(materialUrls),
@@ -467,6 +487,8 @@ export async function POST(request: Request) {
       requestedAspectRatio,
       outputImageSize,
       continueFromHistory,
+      seoBannerMode,
+      hasLockedLogo: Boolean(lockedLogo),
     })
 
     console.log("[edit-image-chat] Editing image", {
@@ -483,6 +505,8 @@ export async function POST(request: Request) {
       requestedAspectRatio,
       outputImageSize,
       instructionLength: instruction.length,
+      seoBannerMode,
+      hasLockedLogo: Boolean(lockedLogo),
     })
 
     const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
@@ -498,6 +522,17 @@ export async function POST(request: Request) {
                     inlineData: {
                       data: image.base64,
                       mimeType: image.mimeType,
+                    },
+                  },
+                ]
+              : []),
+            ...(lockedLogo
+              ? [
+                  { text: "LOCKED BRAND LOGO REFERENCE. Preserve this exact asset without modification:" },
+                  {
+                    inlineData: {
+                      data: lockedLogo.base64,
+                      mimeType: lockedLogo.mimeType,
                     },
                   },
                 ]
@@ -530,7 +565,7 @@ export async function POST(request: Request) {
       generationConfig: {
         responseModalities: ["TEXT", "IMAGE"],
         imageConfig: {
-          ...(operation === "resize" ? { aspectRatio: outputAspectRatio } : {}),
+          ...(operation === "resize" || seoBannerMode ? { aspectRatio: outputAspectRatio || "16:9" } : {}),
           imageSize: outputImageSize,
         },
       },

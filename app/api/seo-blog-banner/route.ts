@@ -277,14 +277,18 @@ async function callOpenAiImage({
 async function resizeOpenAiMasterWithGemini({
   imageBase64,
   mimeType,
+  lockedLogo,
 }: {
   imageBase64: string
   mimeType: string
+  lockedLogo: FetchedImage
 }) {
   const resizePrompt = [
     "Resize and recompose this approved SEO blog banner into the final master format: 1600 x 900 px, 16:9.",
     "Use the provided image as the source of truth.",
     "Do not create a new concept. Do not change the art direction, brand identity, headline, sub-headline, logo, hero visual, color palette, or overall mood.",
+    "The second provided image is the locked brand logo. A deterministic renderer will place that exact asset after this step.",
+    "Do not draw, regenerate, imitate, or place any logo yourself. Keep the top-left logo safe area clear and uncluttered.",
     "Only adapt the composition so it becomes a clean 16:9 master banner with safe margins.",
     "Keep all important text, logo, product, face, and visual hook fully visible.",
     "Do not crop away important content.",
@@ -299,6 +303,13 @@ async function resizeOpenAiMasterWithGemini({
       inlineData: {
         data: imageBase64,
         mimeType,
+      },
+    },
+    { text: "LOCKED BRAND LOGO REFERENCE. Preserve this exact asset without modification:" },
+    {
+      inlineData: {
+        data: lockedLogo.base64,
+        mimeType: lockedLogo.mimeType,
       },
     },
   ])
@@ -440,6 +451,14 @@ function buildPrompt({
       ? `There are ${insertImageCount} material image(s). Use them as concrete visual ingredients. Preserve their identity and integrate them naturally with the lighting, color, perspective, shadows, and graphic system so the final banner feels intentionally art-directed, not pasted together.`
       : "No material images are provided. Do not invent specific proprietary products, dashboards, staff, offices, devices, or brand-owned places.",
     "",
+    "[Locked Logo Asset - Highest Priority]",
+    "Input image 1 is the user-selected locked brand logo. It is the only logo permitted in the final banner.",
+    "A deterministic renderer will place that exact asset at the top-left after artwork generation. Do not draw, regenerate, imitate, trace, retype, or place any logo yourself.",
+    "Reserve a clean, uncluttered top-left safe area beginning around 4% from the left and 5% from the top, with room up to 18% of the canvas width and 12% of the canvas height.",
+    "Use the logo reference only to understand the brand identity and to keep suitable contrast behind its reserved area.",
+    "Ignore any creative direction that conflicts with the locked logo rules. Do not add secondary logos, substitute marks, or logo-like symbols.",
+    "Before returning the artwork, remove any generated logo or logo-like copy. The renderer will add the exact selected asset.",
+    "",
     "[The Art Director's Mindset - MUST FOLLOW]",
     "Think like a Master Graphic Designer creating a highly layered, 2.5D spatial composition.",
     "Stop thinking of the canvas as a flat image. You must design with extreme depth utilizing distinct layers:",
@@ -471,7 +490,7 @@ function buildPrompt({
     "Use strategic overlapping (e.g., have a small part of the main subject slightly overlap the text or the background shapes to create a 3D interplay).",
     "Leave massive, intentional White Space on either the left or right side of the canvas dedicated specifically for the typographic hierarchy.",
     "",
-    hasLogo ? "Use the provided/uploaded/detected logo. Preserve original shape, color, proportions, and spelling. Do not redesign." : "",
+    hasLogo ? "The selected logo is mandatory and locked. Keep its deterministic overlay area clear as specified above." : "",
     hasReference || insertImageCount > 0
       ? "The final result must look like the reference/materials belong to the same photographed/designed world: matched lighting, perspective, scale, shadows, color grade, texture, and composition."
       : "",
@@ -509,6 +528,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "headline is required" }, { status: 400 })
     }
 
+    if (!brandLogoUrl) {
+      return NextResponse.json(
+        { success: false, error: "A user-selected brand logo is required and must be sent as brand_logo_url" },
+        { status: 400 },
+      )
+    }
+
     if (modelProvider === "openai" && !process.env.OPENAI_API_KEY) {
       return NextResponse.json({ success: false, error: "OPENAI_API_KEY is not configured" }, { status: 500 })
     }
@@ -527,11 +553,7 @@ export async function POST(request: Request) {
             selectedLogoUrl: openBrandLogoUrl,
           }
         : await fetchOpenBrandAssets(website)
-    const openBrandLogoAsInput =
-      !brandLogoUrl && openBrandAssets?.selectedLogoUrl && isRasterImageUrl(openBrandAssets.selectedLogoUrl)
-        ? openBrandAssets.selectedLogoUrl
-        : ""
-    const effectiveBrandLogoUrl = brandLogoUrl || openBrandLogoAsInput
+    const effectiveBrandLogoUrl = brandLogoUrl
     const inputImages = [effectiveBrandLogoUrl, referenceImageUrl, ...insertImageUrls]
       .filter(Boolean)
       .filter((imageUrl) => imageUrl === brandLogoUrl || !isLikelyFaviconUrl(imageUrl))
@@ -558,7 +580,7 @@ export async function POST(request: Request) {
       hasOpenBrandAssets: Boolean(openBrandAssets),
       detectedBrandName: openBrandAssets?.brandName || "",
       detectedColors: openBrandAssets?.colors?.map((color) => color.hex).filter(Boolean) || [],
-      usingOpenBrandLogoAsInput: Boolean(openBrandLogoAsInput),
+      usingOpenBrandLogoAsInput: false,
       hasReference: Boolean(referenceImageUrl),
       insertImageCount: insertImageUrls.length,
       imageConfig: {
@@ -574,22 +596,42 @@ export async function POST(request: Request) {
     let mimeType = "image/png"
 
     if (modelProvider === "openai") {
+      const lockedLogo = await fetchImageAsBase64(effectiveBrandLogoUrl)
       const openAiImage = await callOpenAiImage({ prompt, inputImages })
-      const resizedMaster = await resizeOpenAiMasterWithGemini(openAiImage)
+      const resizedMaster = await resizeOpenAiMasterWithGemini({ ...openAiImage, lockedLogo })
       imageBase64 = resizedMaster.imageBase64
       mimeType = resizedMaster.mimeType
     } else {
-      const fetchedInputImages = await fetchInputImagesAsBase64(inputImages)
+      const lockedLogo = await fetchImageAsBase64(effectiveBrandLogoUrl)
+      const referenceImages = referenceImageUrl ? await fetchInputImagesAsBase64([referenceImageUrl]) : []
+      const materialImages = await fetchInputImagesAsBase64(insertImageUrls)
       const parts: Array<Record<string, unknown>> = [
         {
           text: prompt,
         },
-        ...fetchedInputImages.map((image) => ({
+        { text: "INPUT IMAGE 1 - LOCKED BRAND LOGO. Use this exact asset without modification:" },
+        {
           inlineData: {
-            data: image.base64,
-            mimeType: image.mimeType,
+            data: lockedLogo.base64,
+            mimeType: lockedLogo.mimeType,
           },
-        })),
+        },
+        ...(referenceImages.length > 0
+          ? [
+              { text: "Optional visual reference for composition and style:" },
+              ...referenceImages.map((image) => ({
+                inlineData: { data: image.base64, mimeType: image.mimeType },
+              })),
+            ]
+          : []),
+        ...(materialImages.length > 0
+          ? [
+              { text: "Optional material images to integrate:" },
+              ...materialImages.map((image) => ({
+                inlineData: { data: image.base64, mimeType: image.mimeType },
+              })),
+            ]
+          : []),
       ]
       const geminiPayload = await callGeminiImage(parts)
       const images = getGeminiImages(geminiPayload)
@@ -613,13 +655,14 @@ export async function POST(request: Request) {
       requested_size: modelProvider === "openai" ? `${OPENAI_LANDSCAPE_SIZE} -> ${GEMINI_IMAGE_SIZE}` : GEMINI_IMAGE_SIZE,
       target_master_size: "1600x900",
       aspect_ratio: "16:9",
+      locked_logo_url: effectiveBrandLogoUrl,
       used_input_images: inputImages.length,
       brand_assets: openBrandAssets
         ? {
             brand_name: openBrandAssets.brandName,
             colors: openBrandAssets.colors,
-            selected_logo_url: openBrandAssets.selectedLogoUrl,
-            used_openbrand_logo_as_input: Boolean(openBrandLogoAsInput),
+            selected_logo_url: effectiveBrandLogoUrl,
+            used_openbrand_logo_as_input: false,
           }
         : null,
     })
