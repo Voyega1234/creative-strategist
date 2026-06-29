@@ -388,7 +388,10 @@ async function renderSection(
   const pageWidthMm = 210
   const pageHeightMm = 297
   const usableWidth = pageWidthMm - options.marginMm * 2
-  const columns = Math.min(options.columns, cardElements.length)
+  // Always lay out on a fixed column grid so card width — and therefore font size — stays
+  // identical regardless of how many cards a section has (e.g. a 1-card "Other options"
+  // section still uses the 3-column width and sits in the left column, not stretched).
+  const columns = options.columns
   const colWidthMm = (usableWidth - options.gapMm * (columns - 1)) / columns
 
   // Pass 1: measure every card.

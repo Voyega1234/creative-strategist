@@ -686,7 +686,7 @@ export function ConceptMode({
               </p>
               {lastInstructions && <p className="mt-1 line-clamp-1 text-xs text-[#667085]">{lastInstructions}</p>}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               {exportStep === "recommend" ? (
                 <Button
                   type="button"
@@ -722,6 +722,20 @@ export function ConceptMode({
                   </Button>
                 </>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void requestIdeaGeneration(lastInstructions, "append")}
+                disabled={isGenerating || isLoadingMore}
+                className="rounded-full border-black/10 bg-white"
+              >
+                {isLoadingMore ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {isLoadingMore ? "Generating..." : "Generate More"}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
