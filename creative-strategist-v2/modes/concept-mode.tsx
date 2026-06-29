@@ -23,6 +23,37 @@ import { sessionManager } from "@/lib/session-manager";
 // "Other options" (PDF page 2) is capped so CS proposes only a few backups beyond the quota.
 const MAX_OTHER_OPTIONS = 3;
 
+// Plays the app's notification sound when idea generation finishes. Uses the same asset and
+// Web-Audio fallback as the other pages (new-client / renew). Never breaks the flow if blocked.
+function playGenerationDoneSound() {
+  try {
+    const audio = new Audio("/new-notification-011-364050.mp3");
+    audio.volume = 0.8;
+    audio.play().catch(() => {
+      try {
+        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        osc.frequency.setValueAtTime(600, ctx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(800, ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.3);
+      } catch {
+        // Fallback unavailable — ignore.
+      }
+    });
+  } catch {
+    // Audio not available — ignore.
+  }
+}
+
 // Cache the visual routes of the currently displayed concept ideas so that selecting the same idea
 // later from the "Use saved idea" list in Text to Image (which loads from a table without routes)
 // can recover them by key.
@@ -307,6 +338,7 @@ export function ConceptMode({
       setCurrentTaskId(null);
       taskContextRef.current = null;
       stopTaskPolling();
+      playGenerationDoneSound();
       void fetchSavedTitles();
     },
     [fetchSavedTitles, stopTaskPolling],
