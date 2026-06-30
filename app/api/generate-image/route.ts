@@ -11,6 +11,7 @@ type TextToImageCodeWorkflow = {
       outputDir?: string
       publicPathPrefix?: string
       saveLocal?: boolean
+      skipLog?: boolean
       skipUpload?: boolean
     },
   ) => Promise<{
@@ -32,6 +33,7 @@ async function runCodeImageGenerator(payload: Record<string, any>) {
   const workflow = (await import("@/text-to-image-code/src/workflow.mjs")) as TextToImageCodeWorkflow
   const result = await workflow.runTextToImageWorkflow(payload, {
     saveLocal: false,
+    skipLog: true,
     skipUpload: process.env.TEXT_TO_IMAGE_SKIP_SUPABASE_UPLOAD === "true",
   })
 

@@ -34,7 +34,7 @@ function safeLogPayload(payload) {
 }
 
 async function writeWorkflowLog(runId, payload, options = {}) {
-  if (process.env.TEXT_TO_IMAGE_SAVE_LOGS === "false" || options.skipLog) return null
+  if (process.env.TEXT_TO_IMAGE_SAVE_LOGS !== "true" || options.skipLog) return null
 
   const now = new Date()
   const dateDir = localDateStamp(now)
