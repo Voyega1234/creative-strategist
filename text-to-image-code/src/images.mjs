@@ -56,57 +56,29 @@ export async function downloadImage(image) {
 
 export function buildFinalPrompt(visualThinkingText, body, images) {
   const aspectRatio = body.aspectRatio || body.aspect_ratio || "4:5"
-  const colorPalette = body.color_palette || body.colorPalette || ""
   const imageNotes = images.map((image, index) => {
     if (image.type === "material") {
-      return `[IMAGE ${index + 1}: MATERIAL IMAGE] Use this as the source of truth for product, packaging, logo, brand asset, and physical details. Preserve identity accurately.`
+      return `[IMAGE ${index + 1}: LOCKED MATERIAL ASSET] Preserve its product silhouette, proportions, packaging structure, logo, label layout, and brand colors.`
     }
 
     if (image.type === "reference") {
-      return `[IMAGE ${index + 1}: STYLE REFERENCE IMAGE] Use this only for mood, layout, composition, graphic direction, and art direction. Do not copy literally.`
+      return `[IMAGE ${index + 1}: STYLE REFERENCE] Extract mood, composition, typography behavior, lighting, and graphic principles. Do not copy its subject literally.`
     }
 
     return `[IMAGE ${index + 1}: ${image.type.toUpperCase()}] Use this image as supporting visual context.`
   })
 
-  const copy = body.copywriting || {}
-  const copyLines = [
-    copy.headline && `Headline: "${copy.headline}"`,
-    (copy.sub_headline_1 || copy.sub_headline_2) &&
-      `Sub-headline: "${copy.sub_headline_1 || copy.sub_headline_2}"`,
-    copy.cta && `CTA: "${copy.cta}"`,
-  ].filter(Boolean)
-  const onImageTextSection = copyLines.length
-    ? `On-image text — the creative direction may use some or all of these lines; any text that appears must match EXACTLY, spelled correctly and fully legible (Thai must be accurate). Do not translate, paraphrase, add, or invent any other text:\n${copyLines.join("\n")}`
-    : `On-image text — only render copy that is explicitly defined in the brief. Do not invent headlines, labels, prices, or claims.`
-
   return `
-Create a polished, production-ready commercial advertising key visual. The result must look like premium agency/brand campaign work — intentionally art-directed and rendered to a professional commercial standard, not an AI generation.
-
-Main creative direction (authoritative — follow this concept):
 ${visualThinkingText}
 
-${onImageTextSection}
+ATTACHED IMAGE MAP — images are attached in this exact order:
+${imageNotes.length ? imageNotes.join("\n") : "No images attached."}
 
-Brand color palette:
-${Array.isArray(colorPalette) ? colorPalette.join(", ") : colorPalette || "Use colors that fit the brand and brief."}
-
-Reference image instructions:
-${imageNotes.length ? imageNotes.join("\n") : "No reference images provided. Create from the brief only."}
-
-Commercial quality bar:
-- Professional commercial photography or high-end 3D/graphic art direction with believable, consistent single-source lighting, real material texture, accurate perspective, scale, and shadows.
-- Clean, uncluttered layout with strong visual hierarchy and intentional negative space; the main message must read in one second.
-- Typography integrated as a designed element with correct kerning and leading, fully legible at a glance.
-- Preserve product, brand, and logo identity exactly from material images; use style references only for mood, composition, and art direction.
-- Modern, on-trend look that fits the business category and brand. No cyberpunk, sci-fi, neon-futuristic, or vaporwave unless the brief explicitly requires it.
-
-Avoid:
-- Anything a real production crew could not physically BUILD (structures missing their real supports and mechanics), STAGE (weightless props without contact shadows), RIG (sourceless glow, sparkle-dust fields), PRINT (pseudo-letter mush on dials, labels, keyboards, fine print), or SHOOT (broken perspective, waxy skin, melted shapes, over-smooth render sheen).
-- Misspelled, garbled, or duplicated text; do not add extra copy, fake badges, buttons, prices, icons, or watermarks beyond the specified on-image text.
-- Cluttered, generic stock-photo layouts.
-
-Output aspect ratio target: ${aspectRatio}
+Technical execution:
+- Render at ${aspectRatio}; protect safe margins and preserve the hierarchy described above.
+- Produce one complete, finished advertisement and follow the text instructions exactly.
+- Treat attached material assets as identity-locked. Never let a style reference override product or logo fidelity.
+- Do not add text, logos, prices, dates, claims, badges, certifications, interfaces, products, or people that the prompt does not authorize.
 `.trim()
 }
 

@@ -1,45 +1,18 @@
 import { readFile } from "node:fs/promises"
-import { dirname, resolve } from "node:path"
-import { fileURLToPath } from "node:url"
 import { requiredEnv } from "./env.mjs"
 
-const PROMPT_ENGINEER_PATH = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../prompts/prompt-engineer.md",
+const PROMPT_ENGINEER_PATH = new URL(
+  "../prompts/complete-static-ads-master-prompt.md",
+  import.meta.url,
 )
-const DESIGN_EXAMPLES_PATH = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../prompts/design-examples.md",
-)
-const DESIGN_EXAMPLES_PER_CALL = 3
 
-// Few-shot corpus: prompts reverse-engineered from the team's real ads (AW-Boon).
-// We sample a few per call so the model sees concrete examples of the expected design
-// thinking without converging on a single style.
-async function loadSampledDesignExamples(count = DESIGN_EXAMPLES_PER_CALL) {
-  try {
-    const raw = await readFile(DESIGN_EXAMPLES_PATH, "utf8")
-    const blocks = raw
-      .split(/\n---\n/)
-      .map((block) => block.trim())
-      .filter(Boolean)
-      .slice(1) // drop the intro header before the first separator
-    for (let i = blocks.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[blocks[i], blocks[j]] = [blocks[j], blocks[i]]
-    }
-    return blocks.slice(0, count)
-  } catch (error) {
-    console.warn("[visual-thinking] No design examples loaded:", error.message)
-    return []
-  }
-}
-
-// Source of truth for the concept system prompt is prompts/prompt-engineer.md (editable).
+// Source of truth is the generation-ready GPT Image 2 master prompt.
 // The inline string below is only a fallback if that file can't be read at runtime.
 async function loadVisualThinkingSystemPrompt() {
   try {
     const fileContent = (await readFile(PROMPT_ENGINEER_PATH, "utf8")).trim()
+    const promptBlock = fileContent.match(/```text\s*([\s\S]*?)```/)
+    if (promptBlock?.[1]?.trim()) return promptBlock[1].trim()
     if (fileContent) return fileContent
   } catch (error) {
     console.warn("[visual-thinking] Falling back to inline system prompt:", error.message)
@@ -47,46 +20,35 @@ async function loadVisualThinkingSystemPrompt() {
   return visualThinkingSystemPrompt
 }
 
-const visualThinkingSystemPrompt = `You are a senior Art Director and visual concept strategist.
-Deliver one strong advertising visual concept for social media.
-
-Create a direction based on the provided brand, product/service, copy, reference style, and user constraints.
-Extract the reference's visual DNA, translate it into the new brand context, and elevate it into a stronger advertising idea.
-
-Rules:
-- Output only the single best concept direction.
-- Do not use fixed formulas, fixed props, or generic catalogue layouts.
-- Every major visual element must come from the reference, user brief, brand context, product/service category, core message, or a clear creative reason.
-- The concept must feel practical, physically believable, uncluttered, scroll-stopping, and advertising-driven.
-- The main subject must remain the hero and interact meaningfully with the scene, typography, or idea.
-- On-image copy must be short, readable, and natural.
-
-Output language:
-- All rationale and art direction must be in English.
-- Actual copywriting text such as headline, subheadline, and CTA must be strictly in Thai.
-
-Output format:
-## REFERENCE STYLE SUMMARY
-- Mood & tone
-- Signature style
-- Layout logic
-- Visual mechanics
-
-## THE WINNING CONCEPT DIRECTION
-### CREATIVE TERRITORY
-### CONCEPT
-### COPYWRITING (THAI)
-### ADVERTISING IDEA
-### DESIGN ELEVATION
-Cover camera angle, composition, color, visual hook, and typography-image relationship.
-### TECHNIQUES USED
-Use 4-5 bullets only.
-### VISUAL DIRECTION FOR DESIGNER (PRACTICAL EXECUTION)
-1. Layout Structure
-2. Layer & Depth System
-3. Art Direction, Lighting & Material Craft`
+const visualThinkingSystemPrompt = `You are a Senior Art Director, Thai Advertising Designer, and GPT Image 2 Prompt Architect.
+Study the campaign brief and supplied images, select the correct advertising system, and output one final generation-ready GPT Image 2 prompt.
+The result must be a finished static advertisement with one immediate visual idea, intentional Thai typography, clear hierarchy, accurate assets, believable production, and no invented copy.
+Output only the final prompt in English. Keep required Thai copy verbatim inside quotation marks.`
 
 const MAX_VISUAL_THINKING_IMAGES = 6
+
+async function requestOpenRouter({ apiKey, model, messages, temperature = 1 }) {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost",
+      "X-Title": process.env.OPENROUTER_APP_NAME || "Creative Compass Imagegen Code",
+    },
+    body: JSON.stringify({ model, messages, temperature }),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`OpenRouter request failed: ${response.status} ${text}`)
+  }
+
+  const json = await response.json()
+  const text = json.choices?.[0]?.message?.content
+  if (!text) throw new Error("OpenRouter returned no text")
+  return text
+}
 
 // Material images = the real product/packaging/brand assets. Feeding them to the concept LLM lets
 // it plan a visual that actually matches what the product looks like from the start.
@@ -124,58 +86,106 @@ function formatChosenVisualRoute(route) {
   return parts.join("\n")
 }
 
+function formatReferenceRoles(materialImageUrls, referenceImageUrls) {
+  const roles = []
+  materialImageUrls.forEach((url, index) => {
+    roles.push(
+      `Image ${index + 1}: product / logo / brand material reference — locked identity asset — ${url}`,
+    )
+  })
+  referenceImageUrls.forEach((url, index) => {
+    roles.push(
+      `Image ${materialImageUrls.length + index + 1}: style / mood / layout reference — extract principles, do not copy literally — ${url}`,
+    )
+  })
+  return roles.join("\n") || "None supplied."
+}
+
+function formatBrandContext(client) {
+  if (!client || typeof client !== "object") return "No additional client profile data supplied."
+
+  const fields = [
+    ["Website", client.clientWebsiteUrl],
+    ["Market", client.market],
+    ["Services", client.services],
+    ["Pricing", client.pricing],
+    ["USP", client.usp],
+    ["Specialty", client.specialty],
+    ["Strengths", client.strengths],
+    ["Target audience", client.targetAudience],
+    ["Brand tone", client.brandTone],
+    ["Ad themes", client.adThemes],
+    ["Additional information", client.additionalInfo],
+    ["Competitor context", client.competitor_summary],
+  ]
+    .filter(([, value]) => value != null && String(value).trim())
+    .map(([label, value]) => `${label}: ${String(value).trim()}`)
+
+  return fields.join("\n") || "No additional client profile data supplied."
+}
+
 export function buildVisualThinkingUserPrompt(body, context = {}) {
   const chosenVisualRoute = formatChosenVisualRoute(body.selected_visual_route || body.selectedVisualRoute)
   const copy = body.copywriting || {}
-  const onImageCopy = [
-    copy.headline && `Headline: "${copy.headline}"`,
-    (copy.sub_headline_1 || copy.sub_headline_2) &&
-      `Sub-headline: "${copy.sub_headline_1 || copy.sub_headline_2}"`,
-    copy.cta && `CTA: "${copy.cta}"`,
-  ]
-    .filter(Boolean)
-    .join("\n")
+  const savedIdea = body.saved_ideas?.[0] || {}
+  const materialImageUrls = collectMaterialImageUrls(body)
+  const referenceImageUrls = collectReferenceImageUrls(body)
+  const supportingLine = copy.sub_headline_1 || copy.sub_headline_2 || ""
+  const creativeSeed = context.creativeSeed || body.creative_seed || body.creativeSeed || "not-supplied"
+  const explicitPeoplePolicy = body.people_allowed || body.peopleAllowed
+  const peoplePolicyLine = explicitPeoplePolicy
+    ? `PEOPLE CONSTRAINT: ${explicitPeoplePolicy}`
+    : ""
 
-  return `User brief:
-${body.prompt || ""}
+  return `CAMPAIGN BRIEF
 
-On-image copy (use these EXACT texts verbatim as the only on-image text — do not rewrite them):
-${onImageCopy || "No fixed copy provided — keep on-image text minimal and derived from the brief."}
+BRAND: ${body.client || "Not supplied"}
+PRODUCT / SERVICE: ${body.productFocus || body.product_focus || context.client?.productFocus || "Not supplied"}
+CAMPAIGN OBJECTIVE: ${body.campaign_objective || body.campaignObjective || "Create a high-performing static social advertisement that communicates the main idea within one second."}
+TARGET AUDIENCE: ${body.target_audience || body.targetAudience || context.client?.targetAudience || "Infer from the brand, category, selected idea, and supplied references."}
+CORE PROBLEM OR DESIRE: ${body.topic_description || savedIdea.description || body.prompt || "Not supplied"}
+MAIN BENEFIT: ${body.main_benefit || body.mainBenefit || body.core_concept || savedIdea.concept_idea || body.prompt || "Not supplied"}
+REASON TO BELIEVE: ${body.reason_to_believe || body.reasonToBelieve || savedIdea.competitiveGap || context.client?.usp || context.client?.strengths || "Use only evidence explicitly present in the brief or supplied assets."}
+OFFER / PRICE / DATE: ${body.offer_price_date || body.offerPriceDate || "None supplied. Do not invent one."}
+HEADLINE (VERBATIM): ${copy.headline ? `"${copy.headline}"` : "None supplied."}
+SUPPORTING LINE (VERBATIM): ${supportingLine ? `"${supportingLine}"` : "None supplied."}
+CTA (VERBATIM): ${copy.cta ? `"${copy.cta}"` : "None supplied."}
+PLATFORM: ${body.platform || "Paid social media"}
+CREATIVE FORMAT: ${body.creative_format_label || body.creativeFormatLabel || body.creative_format || body.creativeFormat || "Single static post"}
+ASPECT RATIO: ${body.aspect_ratio || body.aspectRatio || "4:5"}
+REQUESTED STYLE: ${body.ad_style || body.adStyle || "Auto — choose the best-fit advertising system."}
+CREATIVE VARIATION SEED: ${creativeSeed}
+${peoplePolicyLine}
+MANDATORY ASSETS: ${materialImageUrls.length ? `${materialImageUrls.length} locked material image(s). Preserve identity exactly.` : "None supplied. Do not invent a logo or detailed package label."}
+MANDATORY COLORS: ${JSON.stringify(body.color_palette || body.colorPalette || [])}
+PROHIBITED CLAIMS OR ELEMENTS: ${body.prohibited_elements || body.prohibitedElements || "No invented claims, prices, dates, awards, certifications, logos, product variants, or extra copy."}
+ADDITIONAL NOTES: ${body.userBrief || body.user_brief || "None."}
 
-Style:
-${body.userBrief || ""}
+BRAND PROFILE CONTEXT
+${formatBrandContext(context.client)}
 
-Brand:
-${body.client || ""}
+CHOSEN VISUAL ROUTE
+${chosenVisualRoute || "None specified. Select the strongest advertising system and proposition-specific visual mechanism."}
 
-Category Lens:
-${context.client?.productFocus || ""}
+SAVED IDEA CONTEXT
+${JSON.stringify(savedIdea, null, 2)}
 
-Brand identity:
-Color palette / mood / tone:
-${JSON.stringify(body.color_palette || body.colorPalette || [], null, 2)}
+REFERENCE IMAGES
+${formatReferenceRoles(materialImageUrls, referenceImageUrls)}
 
-ratio:
-${body.aspect_ratio || body.aspectRatio || "4:5"}
-
-Core concept:
-${body.core_concept || ""}
-
-Chosen visual route (the user explicitly picked this direction — build the concept around it and do not contradict it):
-${chosenVisualRoute || "None specified — choose the strongest direction for the brief."}
-
-Saved idea:
-${JSON.stringify(body.saved_ideas?.[0] || {}, null, 2)}`
+Return only one final generation-ready GPT Image 2 prompt. Do not return analysis, rationale, options, or a creative-direction document.`
 }
 
-export async function createVisualThinking(body, context = {}) {
+export async function createVisualThinkingPlan(body, context = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY
+  const enrichedContext = { ...context }
+
   if (!apiKey) {
     if (process.env.TEXT_TO_IMAGE_REQUIRE_VISUAL_THINKING === "true") {
       requiredEnv("OPENROUTER_API_KEY")
     }
 
-    return `## THE WINNING CONCEPT DIRECTION
+    const fallbackText = `## THE WINNING CONCEPT DIRECTION
 ### CREATIVE TERRITORY
 Advertising image generation from the user's direct brief.
 
@@ -183,24 +193,17 @@ Advertising image generation from the user's direct brief.
 Create a polished social advertising visual based on the provided brand, product/service, reference images, material images, copy, and constraints.
 
 ### SOURCE BRIEF
-${buildVisualThinkingUserPrompt(body, context)}`
+${buildVisualThinkingUserPrompt(body, enrichedContext)}`
+
+    return {
+      visualThinking: fallbackText,
+    }
   }
 
-  const model = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.6"
-  const baseSystemPrompt = await loadVisualThinkingSystemPrompt()
-  const designExamples = await loadSampledDesignExamples()
-  const systemPrompt = designExamples.length
-    ? `${baseSystemPrompt}
+  const model = process.env.TEXT_TO_IMAGE_OPENROUTER_MODEL || "anthropic/claude-sonnet-4.6"
+  const systemPrompt = await loadVisualThinkingSystemPrompt()
 
-# REFERENCE EXAMPLES — finished prompts at the expected level (reverse-engineered from this team's real award-level ads)
-Study how each one constructs the frame: the headline lockup with per-word treatments, the one-hue color
-system with a single accent, the staging/depth layers, named effects, and calm spacing. Learn the DESIGN
-THINKING — do NOT copy their subjects, metaphors, or styles.
-
-${designExamples.join("\n\n---\n\n")}`
-    : baseSystemPrompt
-
-  const userText = buildVisualThinkingUserPrompt(body, context)
+  const userText = buildVisualThinkingUserPrompt(body, enrichedContext)
   const materialImageUrls = collectMaterialImageUrls(body)
   const referenceImageUrls = collectReferenceImageUrls(body)
 
@@ -224,33 +227,22 @@ ${designExamples.join("\n\n---\n\n")}`
 
   const userContent = imageParts.length ? [{ type: "text", text: userText }, ...imageParts] : userText
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost",
-      "X-Title": process.env.OPENROUTER_APP_NAME || "Creative Compass Imagegen Code",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      temperature: 0.7,
-    }),
+  const text = await requestOpenRouter({
+    apiKey,
+    model,
+    temperature: 1,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ],
   })
 
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`OpenRouter request failed: ${response.status} ${text}`)
+  return {
+    visualThinking: text,
   }
+}
 
-  const json = await response.json()
-  const text = json.choices?.[0]?.message?.content
-
-  if (!text) throw new Error("OpenRouter returned no visual-thinking text")
-
-  return text
+export async function createVisualThinking(body, context = {}) {
+  const plan = await createVisualThinkingPlan(body, context)
+  return plan.visualThinking
 }
