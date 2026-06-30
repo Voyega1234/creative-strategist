@@ -171,7 +171,7 @@ export function SavedIdeas({ isOpen, onClose, activeClientName, activeProductFoc
         }
       })(),
       category: idea.category,
-      concept_type: (idea.concept_type || idea.impact || 'Proven Concept') as 'Proven Concept' | 'New Concept',
+      concept_type: (idea.concept_type || idea.impact || 'New Concept') as 'Proven Concept' | 'New Concept',
       competitiveGap: idea.competitivegap,
       tags: (() => {
         try {

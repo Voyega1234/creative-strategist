@@ -1,7 +1,7 @@
 import type { IdeaRecommendation } from "@/lib/ideas/types"
 
 export function normalizeIdea(idea: any): IdeaRecommendation {
-  const conceptType = idea?.concept_type || idea?.impact || "Proven Concept"
+  const conceptType = idea?.concept_type || idea?.impact || "New Concept"
   const rawVisualRoutes = Array.isArray(idea?.visual_routes)
     ? idea.visual_routes
     : Array.isArray(idea?.visualRoutes)

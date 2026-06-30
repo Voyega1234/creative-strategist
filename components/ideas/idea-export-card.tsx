@@ -12,6 +12,8 @@ interface IdeaExportCardProps {
   width?: number
   selectionLabel?: string
   selectionChecked?: boolean
+  // Optional content-format tag shown as a prominent badge (e.g. "UGC Video", "Static Ad").
+  contentType?: string
 }
 
 function getDescriptionSummary(description: IdeaRecommendation["description"]) {
@@ -67,6 +69,7 @@ export const IdeaExportCard = memo(function IdeaExportCard({
   width = 490,
   selectionLabel,
   selectionChecked = false,
+  contentType,
 }: IdeaExportCardProps) {
   const visualRoutes = topic.visual_routes || []
   const previewRouteIndex = getStableRouteIndex(
@@ -95,10 +98,20 @@ export const IdeaExportCard = memo(function IdeaExportCard({
         fontFamily: "'Sukhumvit Set', Arial, Helvetica, sans-serif",
       }}
     >
-      {topic.content_pillar && (
-        <p style={{ ...bodyStyle, fontSize: 13, fontWeight: 600, color: "#6D9EEB", margin: 0 }}>
-          {topic.content_pillar}
-        </p>
+      {(contentType || topic.content_pillar) && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 2 }}>
+          {contentType && (
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              {contentType}
+            </span>
+          )}
+          {contentType && topic.content_pillar && (
+            <span style={{ fontSize: 14, color: "#9aa4b2" }}>·</span>
+          )}
+          {topic.content_pillar && (
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#1f2937" }}>{topic.content_pillar}</span>
+          )}
+        </div>
       )}
 
       {hook && (
@@ -111,14 +124,14 @@ export const IdeaExportCard = memo(function IdeaExportCard({
       {subheadline && (
         <div style={sectionStyle}>
           <span style={labelGray}>Subheadline</span>
-          <p style={bodyStyle}>{subheadline}</p>
+          <p style={{ ...bodyStyle, fontWeight: 700 }}>{subheadline}</p>
         </div>
       )}
 
       {cta && (
         <div style={sectionStyle}>
           <span style={labelGray}>CTA</span>
-          <p style={bodyStyle}>{cta}</p>
+          <p style={{ ...bodyStyle, fontWeight: 700 }}>{cta}</p>
         </div>
       )}
 
