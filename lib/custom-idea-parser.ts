@@ -6,6 +6,7 @@ export interface ParsedCustomIdea {
   competitiveGap: string
   tags: string[]
   content_pillar: string
+  product_focus: string
   concept_idea: string
   copywriting: {
     headline: string
@@ -81,8 +82,10 @@ export function buildCustomIdeaFallback(rawText: string): ParsedCustomIdea {
     concept: "concept_idea",
     "concept idea": "concept_idea",
     "competitive gap": "competitiveGap",
+    "why this topic": "competitiveGap",
     tags: "tags",
     "content pillar": "content_pillar",
+    "product focus": "product_focus",
     headline: "headline",
     "subheadline 1": "sub_headline_1",
     "subheadline 2": "sub_headline_2",
@@ -129,6 +132,7 @@ export function buildCustomIdeaFallback(rawText: string): ParsedCustomIdea {
     competitiveGap: fields.competitiveGap || "",
     tags,
     content_pillar: fields.content_pillar || "",
+    product_focus: fields.product_focus || "",
     concept_idea: fields.concept_idea || description,
     copywriting: {
       headline: fields.headline || title,
@@ -169,6 +173,10 @@ export function normalizeParsedCustomIdea(payload: unknown, fallbackText: string
       normalizeText(source.content_pillar) ||
       normalizeText(source.contentPillar) ||
       fallback.content_pillar,
+    product_focus:
+      normalizeText(source.product_focus) ||
+      normalizeText(source.productFocus) ||
+      fallback.product_focus,
     concept_idea:
       normalizeText(source.concept_idea) ||
       normalizeText(source.conceptIdea) ||

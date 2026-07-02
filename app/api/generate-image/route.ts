@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 600; // Allow up to 10 minutes for each image generation request
+export const maxDuration = 900; // Allow up to 15 minutes for long-running n8n image workflows
+
+const N8N_IMAGE_TIMEOUT_MS = 14.5 * 60 * 1000
 
 type TextToImageCodeWorkflow = {
   runTextToImageWorkflow: (
@@ -64,6 +66,7 @@ async function runN8NImageGenerator(payload: Record<string, any>) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(N8N_IMAGE_TIMEOUT_MS),
   });
 
   if (!webhookResponse.ok) {
@@ -92,7 +95,17 @@ async function runN8NImageGenerator(payload: Record<string, any>) {
 
   let images = [];
 
-  if (Array.isArray(rawResponse)) {
+  const responseItems = Array.isArray(rawResponse) ? rawResponse : [rawResponse]
+  const imageOutputUrls = responseItems.flatMap((item) =>
+    item && typeof item === "object" && Array.isArray(item.image_output)
+      ? item.image_output.filter((url: unknown): url is string => typeof url === "string" && url.trim().length > 0)
+      : [],
+  )
+
+  if (imageOutputUrls.length > 0) {
+    images = imageOutputUrls.map((url) => ({ url, source: "n8n" }))
+    console.log('[generate-image] Found n8n image_output format with', images.length, 'images');
+  } else if (Array.isArray(rawResponse)) {
     images = rawResponse;
     console.log('[generate-image] Found direct array format with', images.length, 'images');
   } else if (rawResponse.images && Array.isArray(rawResponse.images)) {
@@ -170,6 +183,8 @@ export async function POST(request: Request) {
       user_brief,
       aspect_ratio,
       image_count,
+      brand_ci_text,
+      brand_ci_file_name,
     } = body;
 
     console.log('[generate-image] Generating AI images with prompt:', prompt);
@@ -216,6 +231,8 @@ export async function POST(request: Request) {
         image_count: sanitizedImageCount,
         imageCount: sanitizedImageCount,
         aspectRatio: selectedAspectRatio,
+        brand_ci_text: typeof brand_ci_text === "string" ? brand_ci_text.trim() : "",
+        brand_ci_file_name: typeof brand_ci_file_name === "string" ? brand_ci_file_name : "",
       }
 
       if (Array.isArray(reference_image_urls) && reference_image_urls.length) {
@@ -251,7 +268,7 @@ export async function POST(request: Request) {
     } catch (webhookError: any) {
       console.error('[generate-image] Error calling image generator:', webhookError);
 
-      if (webhookError.name === 'AbortError') {
+      if (webhookError.name === 'AbortError' || webhookError.name === 'TimeoutError') {
         throw new Error('Request timeout - image generation took too long');
       } else if (webhookError.message?.includes('fetch')) {
         throw new Error(`Network error connecting to image generation service: ${webhookError.message}`);

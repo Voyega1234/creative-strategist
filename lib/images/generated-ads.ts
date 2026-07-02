@@ -67,6 +67,8 @@ export type GeneratedAdRequestParams = {
   aspectRatio: string
   creativeFormat?: string
   creativeFormatLabel?: string
+  brandCiText?: string
+  brandCiFileName?: string
 }
 
 const GENERATED_IMAGES_STORAGE_PREFIX = "cvc_generated_images"
@@ -197,6 +199,8 @@ export function buildGeneratedAdRequestPayload(params: GeneratedAdRequestParams)
     user_brief: params.userBrief || null,
     creative_format: params.creativeFormat || null,
     creative_format_label: params.creativeFormatLabel || null,
+    brand_ci_text: params.brandCiText || null,
+    brand_ci_file_name: params.brandCiFileName || null,
     aspect_ratio: params.aspectRatio,
     image_count: 1,
   }
@@ -291,7 +295,7 @@ export function normalizeGeneratedImageEntries(entry: unknown): ImageEntry[] {
   return entries
 }
 
-export function getFirstGeneratedImageFromResponse(result: unknown): ImageEntry | null {
+export function getGeneratedImagesFromResponse(result: unknown): ImageEntry[] {
   const response = result as {
     success?: boolean
     image_url?: string
@@ -301,16 +305,20 @@ export function getFirstGeneratedImageFromResponse(result: unknown): ImageEntry 
     error?: string
   }
 
+  if (response?.success && Array.isArray(response.images)) {
+    return response.images.flatMap((image) => normalizeGeneratedImageEntries(image))
+  }
+
   if (response?.success && response.image_url) {
-    return {
+    return [{
       url: response.image_url,
       source: response.provider || response.model || "gemini",
-    }
+    }]
   }
 
-  if (response?.success && Array.isArray(response.images)) {
-    return response.images.flatMap((image) => normalizeGeneratedImageEntries(image))[0] || null
-  }
+  return []
+}
 
-  return null
+export function getFirstGeneratedImageFromResponse(result: unknown): ImageEntry | null {
+  return getGeneratedImagesFromResponse(result)[0] || null
 }

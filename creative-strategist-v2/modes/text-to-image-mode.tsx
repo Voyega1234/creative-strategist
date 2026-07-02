@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +25,7 @@ import {
 } from "@/creative-strategist-v2/modes/text-to-image-media-picker";
 import { AddImagesDialog } from "@/components/add-images-dialog";
 import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal";
-import { downloadGeneratedAdImage, requestGeneratedAdImage, runConcurrentImageJobs } from "@/lib/images/generated-ads-client";
+import { downloadGeneratedAdImage, requestGeneratedAdImages, runConcurrentImageJobs } from "@/lib/images/generated-ads-client";
 import {
   buildGeneratedAdRequestPayload,
   getGeneratedImagesStorageKey,
@@ -37,11 +38,12 @@ import { uploadFileToImageStorage } from "@/lib/images/client";
 import { AD_STYLE_OPTIONS, PAGE_REFERENCE_STYLE_VALUE } from "@/lib/images/generated-ads-config";
 import type { IdeaRecommendation } from "@/lib/ideas/types";
 import { cn } from "@/lib/utils";
-import { Bookmark, Check, Download, Files, ImageIcon, Images, Loader2, Palette, Pencil, RectangleHorizontal, Sparkles, Upload, Wand2 } from "lucide-react";
+import { Bookmark, Check, Download, FileText, Files, ImageIcon, Images, Loader2, Palette, Pencil, RectangleHorizontal, Sparkles, Upload, Wand2, X } from "lucide-react";
 import type { TextToImageIdeaHandoff, TextToImageReferenceHandoff } from "./types";
 
 const ASPECT_RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
 const IMAGE_COUNTS = [1, 2, 3] as const;
+const BRAND_CI_STORAGE_PREFIX = "cvc-text-to-image-brand-ci";
 const CREATIVE_FORMATS = [
   {
     value: "single-post",
@@ -71,6 +73,10 @@ type TextToImageModeProps = {
 };
 
 type BriefSource = "brief" | "idea";
+
+function getBrandCiStorageKey(clientId: string) {
+  return `${BRAND_CI_STORAGE_PREFIX}:${clientId}`;
+}
 
 type GenerationLogEntry = {
   id: string;
@@ -120,6 +126,12 @@ export function TextToImageMode({
   const [resultsVisibleCount, setResultsVisibleCount] = useState(20);
   const [generationLogs, setGenerationLogs] = useState<GenerationLogEntry[]>([]);
   const [uploadedReferenceFiles, setUploadedReferenceFiles] = useState<File[]>([]);
+  const [brandCiOwnerClientId, setBrandCiOwnerClientId] = useState("");
+  const [brandCiText, setBrandCiText] = useState("");
+  const [brandCiFileName, setBrandCiFileName] = useState("");
+  const [isReadingBrandCi, setIsReadingBrandCi] = useState(false);
+  const [isBrandCiDialogOpen, setIsBrandCiDialogOpen] = useState(false);
+  const [brandCiMessage, setBrandCiMessage] = useState("");
   const [brandWebsiteUrl, setBrandWebsiteUrl] = useState("");
   const [isExtractingBrandAssets, setIsExtractingBrandAssets] = useState(false);
   const [brandAssetMessage, setBrandAssetMessage] = useState("");
@@ -127,6 +139,8 @@ export function TextToImageMode({
   const [savingImageIds, setSavingImageIds] = useState<string[]>([]);
   const [savedImageIds, setSavedImageIds] = useState<string[]>([]);
   const referenceUploadInputRef = useRef<HTMLInputElement>(null);
+  const brandCiInputRef = useRef<HTMLInputElement>(null);
+  const brandAssetUploadInputRef = useRef<HTMLInputElement>(null);
 
   const selectedClientId = clientId || "";
   const selectedProductFocus = productFocus || "";
@@ -184,7 +198,7 @@ export function TextToImageMode({
     selectedProductFocus,
     clientColorPalette,
     onClientColorPaletteSaved: () => {},
-    loadAssets: isMaterialsMenuOpen,
+    loadAssets: isMaterialsMenuOpen || isBrandCiDialogOpen,
     loadReferences: isReferencesMenuOpen,
   });
 
@@ -211,6 +225,54 @@ export function TextToImageMode({
     () => uploadedReferenceFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
     [uploadedReferenceFiles],
   );
+
+  useEffect(() => {
+    setBrandCiMessage("");
+    if (!selectedClientId || typeof window === "undefined") {
+      setBrandCiOwnerClientId("");
+      setBrandCiText("");
+      setBrandCiFileName("");
+      return;
+    }
+
+    try {
+      const saved = window.localStorage.getItem(getBrandCiStorageKey(selectedClientId));
+      if (!saved) {
+        setBrandCiOwnerClientId(selectedClientId);
+        setBrandCiText("");
+        setBrandCiFileName("");
+        return;
+      }
+      const parsed = JSON.parse(saved) as { text?: string; fileName?: string };
+      setBrandCiOwnerClientId(selectedClientId);
+      setBrandCiText(parsed.text || "");
+      setBrandCiFileName(parsed.fileName || "");
+    } catch {
+      setBrandCiOwnerClientId(selectedClientId);
+      setBrandCiText("");
+      setBrandCiFileName("");
+    }
+  }, [selectedClientId]);
+
+  useEffect(() => {
+    if (!selectedClientId || typeof window === "undefined") return;
+    if (brandCiOwnerClientId !== selectedClientId) return;
+
+    const key = getBrandCiStorageKey(selectedClientId);
+    if (!brandCiText.trim() && !brandCiFileName.trim()) {
+      window.localStorage.removeItem(key);
+      return;
+    }
+
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        text: brandCiText,
+        fileName: brandCiFileName,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  }, [brandCiFileName, brandCiOwnerClientId, brandCiText, selectedClientId]);
 
   useEffect(() => {
     onNeedsScrollChange?.(needsScrollLayout);
@@ -348,6 +410,61 @@ export function TextToImageMode({
     };
   }, [uploadedReferencePreviews]);
 
+  const handleBrandCiUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!["pdf", "txt", "png", "jpg", "jpeg"].includes(extension || "")) {
+      alert("รองรับเฉพาะไฟล์ PDF, TXT, PNG และ JPG");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("ไฟล์ Brand CI ต้องมีขนาดไม่เกิน 10 MB");
+      return;
+    }
+
+    setIsReadingBrandCi(true);
+    setBrandCiMessage("");
+    try {
+      let text = "";
+      if (extension === "txt") {
+        text = (await file.text()).trim();
+      } else {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/brand-ci/extract", { method: "POST", body: formData });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "อ่าน Brand CI ไม่สำเร็จ");
+        }
+        text = String(result.text || "").trim();
+      }
+
+      if (!text) throw new Error("ไฟล์นี้ไม่มีข้อความที่ใช้งานได้");
+      setBrandCiOwnerClientId(selectedClientId);
+      setBrandCiText(text);
+      setBrandCiFileName(file.name);
+      if (file.type.startsWith("image/")) {
+        if (!selectedClientId) {
+          setBrandCiMessage("อ่าน CI สำเร็จ แต่ยังไม่ได้เซฟรูป เพราะยังไม่ได้เลือก client");
+        } else {
+          const uploadedUrl = await uploadFileToImageStorage(file, `materials/${selectedClientId}`);
+          selectMaterial(uploadedUrl);
+          await loadMaterialImages(selectedClientId);
+          setBrandCiMessage("อ่าน CI และเซฟรูปเข้า brand assets ของ client นี้แล้ว");
+        }
+      } else {
+        setBrandCiMessage("อ่าน CI และบันทึกไว้สำหรับ client นี้แล้ว");
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "อ่าน Brand CI ไม่สำเร็จ");
+    } finally {
+      setIsReadingBrandCi(false);
+    }
+  };
+
   const generateImages = async (message = "", files: File[] = []) => {
     if (generationInFlightRef.current) return;
     if (!selectedClientId || !selectedProductFocus || !clientName) {
@@ -420,6 +537,8 @@ export function TextToImageMode({
         creativeFormat: selectedCreativeFormat.value,
         creativeFormatLabel: selectedCreativeFormat.label,
         aspectRatio,
+        brandCiText,
+        brandCiFileName,
       });
 
       setGenerationLogs((prev) => [
@@ -442,18 +561,19 @@ export function TextToImageMode({
         items: requestIds,
         concurrency: 2,
         run: async (imageId) => {
-          const finalImage = await requestGeneratedAdImage(payload);
+          const returnedImages = await requestGeneratedAdImages(payload);
           setGeneratedImages((prev) =>
-            prev.map((image) =>
+            prev.flatMap((image) =>
               image.id === imageId
-                ? {
+                ? returnedImages.map((returnedImage, index) => ({
                     ...image,
-                    url: finalImage.url,
-                    source: finalImage.source,
-                    status: "completed",
+                    id: index === 0 ? image.id : crypto.randomUUID(),
+                    url: returnedImage.url,
+                    source: returnedImage.source,
+                    status: "completed" as const,
                     reference_image: allReferenceImageUrls[0],
-                  }
-                : image,
+                  }))
+                : [image],
             ),
           );
         },
@@ -868,6 +988,49 @@ export function TextToImageMode({
             primaryActionEnabled={briefSource === "idea" && Boolean(selectedTopicData)}
             leftActionsAddon={
               <div className="flex items-center gap-1 border-l border-black/10 pl-2">
+                <input
+                  ref={brandCiInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.png,.jpg,.jpeg,application/pdf,text/plain,image/png,image/jpeg"
+                  className="hidden"
+                  onChange={handleBrandCiUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsBrandCiDialogOpen(true)}
+                  disabled={isReadingBrandCi}
+                  className={cn(
+                    "flex h-8 items-center gap-1 rounded-full px-2 transition",
+                    brandCiText
+                      ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"
+                      : "text-[#777] hover:bg-indigo-50 hover:text-indigo-700",
+                  )}
+                  aria-label="Upload Brand CI"
+                  title={brandCiFileName || "Preview or upload Brand CI"}
+                >
+                  {isReadingBrandCi ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4" />
+                  )}
+                  <span className="max-w-20 truncate text-xs font-medium">{brandCiFileName || "Brand CI"}</span>
+                </button>
+                {brandCiText && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBrandCiOwnerClientId(selectedClientId);
+                      setBrandCiText("");
+                      setBrandCiFileName("");
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[#777] transition hover:bg-rose-50 hover:text-rose-600"
+                    aria-label="Remove Brand CI"
+                    title="Remove Brand CI"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -1318,6 +1481,206 @@ export function TextToImageMode({
           </div>
         </div>
       )}
+
+      <Dialog open={isBrandCiDialogOpen} onOpenChange={setIsBrandCiDialogOpen}>
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-hidden rounded-[28px] border-black/10 bg-white p-0">
+          <input
+            ref={brandAssetUploadInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              void uploadMaterials(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <DialogHeader className="border-b border-black/10 px-6 py-5">
+            <DialogTitle className="flex items-center gap-2 text-lg text-[#101828]">
+              <FileText className="h-5 w-5 text-indigo-600" />
+              Brand CI preview
+            </DialogTitle>
+            <p className="text-sm leading-relaxed text-[#667085]">
+              {clientName
+                ? `ข้อมูลนี้ผูกกับ ${clientName} และจะถูกใช้เป็น brand context ตอน generate`
+                : "เลือก client ก่อนเพื่อเซฟ Brand CI และ assets ไว้ใช้ซ้ำ"}
+            </p>
+          </DialogHeader>
+
+          <div className="grid max-h-[calc(90vh-92px)] overflow-y-auto lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="space-y-4 border-b border-black/10 p-5 lg:border-b-0 lg:border-r">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  className="rounded-full bg-[#101828] text-white hover:bg-black"
+                  onClick={() => brandCiInputRef.current?.click()}
+                  disabled={isReadingBrandCi}
+                >
+                  {isReadingBrandCi ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
+                  {isReadingBrandCi ? "Reading CI..." : brandCiText ? "Upload another CI" : "Upload Brand CI"}
+                </Button>
+                {brandCiText && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full border-rose-200 text-rose-600 hover:bg-rose-50"
+                    onClick={() => {
+                      setBrandCiOwnerClientId(selectedClientId);
+                      setBrandCiText("");
+                      setBrandCiFileName("");
+                      setBrandCiMessage("ลบ Brand CI ของ client นี้แล้ว");
+                    }}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Remove CI
+                  </Button>
+                )}
+              </div>
+
+              {brandCiMessage && (
+                <p className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700">
+                  {brandCiMessage}
+                </p>
+              )}
+
+              <div className="rounded-[22px] border border-black/10 bg-slate-50 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[#101828]">Extracted CI rules</p>
+                    <p className="mt-1 text-xs text-[#667085]">
+                      {brandCiFileName || "ยังไม่มีไฟล์ CI ที่อ่านไว้"}
+                    </p>
+                  </div>
+                  {brandCiText && (
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      Active
+                    </span>
+                  )}
+                </div>
+                {brandCiText ? (
+                  <Textarea
+                    value={brandCiText}
+                    onChange={(event) => setBrandCiText(event.target.value)}
+                    className="min-h-[300px] resize-y rounded-2xl border-black/10 bg-white text-sm leading-6 text-[#344054] focus-visible:ring-indigo-200"
+                    placeholder="Brand CI rules will appear here..."
+                  />
+                ) : (
+                  <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-black/10 bg-white px-6 text-center">
+                    <FileText className="h-8 w-8 text-[#98a2b3]" />
+                    <p className="mt-3 text-sm font-semibold text-[#101828]">No Brand CI yet</p>
+                    <p className="mt-1 max-w-sm text-sm leading-6 text-[#667085]">
+                      Upload PDF, TXT, PNG, JPG. Text rules will be extracted and saved for this client.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4 bg-[#fbfcfe] p-5">
+              <div className="rounded-[22px] border border-black/10 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#101828]">Brand colors</p>
+                    <p className="mt-1 text-xs text-[#667085]">ใช้ palette ที่เซฟไว้ของ client นี้</p>
+                  </div>
+                  <Palette className="h-4 w-4 text-[#667085]" />
+                </div>
+                {colorPalette.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {colorPalette.slice(0, 12).map((color) => (
+                      <div key={color} className="rounded-2xl border border-black/10 bg-white p-2">
+                        <div
+                          className="h-12 rounded-xl border border-black/10"
+                          style={{ backgroundColor: `#${color.replace("#", "")}` }}
+                        />
+                        <p className="mt-1 truncate text-center text-[11px] font-medium text-[#667085]">
+                          #{color.replace("#", "")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-2xl bg-slate-50 px-4 py-6 text-sm text-[#667085]">
+                    ยังไม่มีสีของแบรนด์ ลอง Extract brand assets หรือเพิ่มสีใน Format settings
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-[22px] border border-black/10 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[#101828]">Saved client assets</p>
+                    <p className="mt-1 text-xs text-[#667085]">Logo/materials ที่เก็บไว้ กดเพื่อเลือกใช้ตอน generate</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-black/10"
+                    onClick={() => brandAssetUploadInputRef.current?.click()}
+                    disabled={!selectedClientId || isUploadingMaterials}
+                  >
+                    {isUploadingMaterials ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-2 h-3.5 w-3.5" />}
+                    Add
+                  </Button>
+                </div>
+
+                {loadingMaterialImages ? (
+                  <div className="flex h-56 items-center justify-center rounded-2xl bg-slate-50 text-sm text-[#667085]">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading assets...
+                  </div>
+                ) : visibleMaterialImages.length > 0 ? (
+                  <div className="grid max-h-[360px] grid-cols-3 gap-2 overflow-y-auto pr-1">
+                    {visibleMaterialImages.slice(0, 30).map((asset) => {
+                      const isSelected = selectedMaterials.includes(asset.url);
+                      return (
+                        <button
+                          key={asset.url}
+                          type="button"
+                          onClick={() => toggleMaterial(asset.url)}
+                          className={cn(
+                            "group relative overflow-hidden rounded-2xl border bg-white transition",
+                            isSelected ? "border-indigo-500 ring-2 ring-indigo-200" : "border-black/10 hover:border-indigo-200",
+                          )}
+                          title={asset.name}
+                        >
+                          <div className="relative aspect-square">
+                            <Image
+                              src={asset.url}
+                              alt={asset.name}
+                              fill
+                              sizes="160px"
+                              className="object-contain p-2"
+                            />
+                          </div>
+                          {isSelected && (
+                            <span className="absolute right-2 top-2 rounded-full bg-indigo-600 p-1 text-white shadow">
+                              <Check className="h-3 w-3" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-black/10 bg-slate-50 px-6 text-center">
+                    <Images className="h-8 w-8 text-[#98a2b3]" />
+                    <p className="mt-3 text-sm font-semibold text-[#101828]">No saved assets</p>
+                    <p className="mt-1 text-sm leading-6 text-[#667085]">
+                      Upload logo, product, model, or CI image once and reuse it later.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AddImagesDialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
         <DialogContent className="max-h-[88vh] max-w-5xl overflow-hidden rounded-[28px] border-black/10 bg-white p-0">

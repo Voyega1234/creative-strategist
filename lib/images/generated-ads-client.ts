@@ -1,7 +1,11 @@
 "use client"
 
 import { base64ToBlob, downloadBlob } from "@/lib/images/client"
-import { getFirstGeneratedImageFromResponse, type ImageEntry } from "@/lib/images/generated-ads"
+import {
+  getFirstGeneratedImageFromResponse,
+  getGeneratedImagesFromResponse,
+  type ImageEntry,
+} from "@/lib/images/generated-ads"
 
 export type GeneratedAdRequestPayload = Record<string, unknown>
 
@@ -79,6 +83,29 @@ export async function requestGeneratedAdImage(payload: GeneratedAdRequestPayload
   }
 
   return finalImage
+}
+
+export async function requestGeneratedAdImages(payload: GeneratedAdRequestPayload): Promise<ImageEntry[]> {
+  const response = await fetch("/api/generate-image", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const result = await parseJsonResponse(response, "Invalid response from image generator")
+
+  if (!response.ok) {
+    throw new Error(result?.error || `การสร้างรูปไม่สำเร็จ (${response.status})`)
+  }
+
+  const images = getGeneratedImagesFromResponse(result)
+  if (images.length === 0) {
+    throw new Error(result?.error || "No valid image URL returned from generator")
+  }
+
+  return images
 }
 
 export async function requestUpscaledImage(imageUrl: string): Promise<ImageOperationResult> {

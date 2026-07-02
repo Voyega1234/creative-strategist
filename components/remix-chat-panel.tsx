@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -47,6 +47,7 @@ import {
   Info,
   ArrowUp,
   ArrowDown,
+  FileText,
 } from "lucide-react"
 
 // ─── Types ───────────────────────────────────────────────
@@ -221,6 +222,9 @@ export function RemixChatPanel({
   // Aspect ratio
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIO_OPTIONS[0])
   const [useBrandIdentity, setUseBrandIdentity] = useState(true)
+  const [brandCiText, setBrandCiText] = useState("")
+  const [brandCiFileName, setBrandCiFileName] = useState("")
+  const [isReadingBrandCi, setIsReadingBrandCi] = useState(false)
 
   // PMAX toggle
   const [isPmaxEnabled, setIsPmaxEnabled] = useState(false)
@@ -239,6 +243,7 @@ export function RemixChatPanel({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const chatContainerRef = useRef<HTMLDivElement | null>(null)
+  const brandCiInputRef = useRef<HTMLInputElement | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const wasHiddenRef = useRef<boolean>(false)
   const mainContainerRef = useRef<HTMLDivElement | null>(null)
@@ -355,6 +360,8 @@ export function RemixChatPanel({
           selectedImageForEditing,
           selectedMaterials,
           colorPalette,
+          brandCiText,
+          brandCiFileName,
           aspectRatio,
           useBrandIdentity,
           isPmaxEnabled,
@@ -377,6 +384,8 @@ export function RemixChatPanel({
     selectedImageForEditing,
     selectedMaterials,
     colorPalette,
+    brandCiText,
+    brandCiFileName,
     aspectRatio,
     useBrandIdentity,
     isPmaxEnabled,
@@ -432,6 +441,8 @@ export function RemixChatPanel({
           setSelectedImageForEditing(parsed.selectedImageForEditing || "")
           setSelectedMaterials(parsed.selectedMaterials || [])
           setColorPalette(parsed.colorPalette || [])
+          setBrandCiText(parsed.brandCiText || "")
+          setBrandCiFileName(parsed.brandCiFileName || "")
           setAspectRatio(parsed.aspectRatio || ASPECT_RATIO_OPTIONS[0])
           setUseBrandIdentity(parsed.useBrandIdentity ?? true)
           setIsPmaxEnabled(parsed.isPmaxEnabled || false)
@@ -782,6 +793,50 @@ export function RemixChatPanel({
     }
   }, [loadReferenceLibrary, selectedClientId])
 
+  const handleBrandCiUpload = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    const extension = file.name.split(".").pop()?.toLowerCase()
+    if (!["pdf", "txt", "png", "jpg", "jpeg"].includes(extension || "")) {
+      alert("รองรับเฉพาะไฟล์ PDF, TXT, PNG และ JPG")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("ไฟล์ Brand CI ต้องมีขนาดไม่เกิน 10 MB")
+      return
+    }
+
+    setIsReadingBrandCi(true)
+    try {
+      let text = ""
+      if (extension === "txt") {
+        text = (await file.text()).trim()
+      } else {
+        const formData = new FormData()
+        formData.append("file", file)
+        const response = await fetch("/api/brand-ci/extract", { method: "POST", body: formData })
+        const result = await response.json()
+        if (!response.ok || !result.success) throw new Error(result.error || "อ่าน Brand CI ไม่สำเร็จ")
+        text = String(result.text || "").trim()
+      }
+
+      if (!text) throw new Error("ไฟล์นี้ไม่มีข้อความที่ใช้งานได้")
+      setBrandCiText(text)
+      setBrandCiFileName(file.name)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "อ่าน Brand CI ไม่สำเร็จ")
+    } finally {
+      setIsReadingBrandCi(false)
+    }
+  }, [])
+
+  const clearBrandCi = useCallback(() => {
+    setBrandCiText("")
+    setBrandCiFileName("")
+  }, [])
+
   const removePendingImage = useCallback((url: string) => {
     setPendingImages((prev) => prev.filter((u) => u !== url))
   }, [])
@@ -916,6 +971,8 @@ export function RemixChatPanel({
       brief_text: briefText,
       brand_profile_snapshot: brandProfile,
       use_brand_identity: useBrandIdentity,
+      brand_ci_text: brandCiText,
+      brand_ci_file_name: brandCiFileName,
       aspect_ratio: (isEdit || (!isPmaxEnabled && !isPmaxFromHover)) ? aspectRatio : PMAX_ASPECT_RATIOS[0], // Primary aspect ratio
       aspectRatio: (isEdit || (!isPmaxEnabled && !isPmaxFromHover)) ? aspectRatio : PMAX_ASPECT_RATIOS[0],
       aspect_ratios: aspectRatiosToSend, // Array of all aspect ratios to generate
@@ -2732,6 +2789,40 @@ export function RemixChatPanel({
                 >
                   <ImageIcon className="w-5 h-5" />
                 </button>
+
+                {/* Brand CI upload button */}
+                <input
+                  ref={brandCiInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.png,.jpg,.jpeg,application/pdf,text/plain,image/png,image/jpeg"
+                  className="hidden"
+                  onChange={handleBrandCiUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => brandCiInputRef.current?.click()}
+                  disabled={isReadingBrandCi}
+                  className={`flex-shrink-0 h-8 rounded-lg px-3 flex items-center gap-1.5 text-xs font-medium transition-all ${
+                    brandCiText
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      : "bg-white border border-[#d1d1d6] text-[#8e8e93] hover:text-indigo-700 hover:border-indigo-200 hover:bg-indigo-50"
+                  }`}
+                  title={brandCiFileName || "Upload Brand CI PDF/TXT/PNG/JPG"}
+                >
+                  {isReadingBrandCi ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                  <span className="max-w-[88px] truncate">{brandCiFileName || "Brand CI"}</span>
+                </button>
+                {brandCiText && (
+                  <button
+                    type="button"
+                    onClick={clearBrandCi}
+                    disabled={isReadingBrandCi}
+                    className="flex-shrink-0 w-7 h-8 rounded-lg flex items-center justify-center text-[#8e8e93] hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="ลบ Brand CI"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
 
                 {/* Settings toggle */}
                 <button

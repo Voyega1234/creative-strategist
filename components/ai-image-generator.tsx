@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, type ChangeEvent } from "react"
+import { FileText, Loader2, Upload, X } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -75,6 +76,11 @@ export function AIImageGenerator({
   const [isPaletteOpen, setIsPaletteOpen] = useState(false)
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false)
   const [isReferencesOpen, setIsReferencesOpen] = useState(false)
+  const [brandCiText, setBrandCiText] = useState("")
+  const [brandCiFileName, setBrandCiFileName] = useState("")
+  const [isReadingBrandCi, setIsReadingBrandCi] = useState(false)
+  const brandCiInputRef = useRef<HTMLInputElement>(null)
+  const brandCiClientIdRef = useRef<string | null>(null)
   
   // AI generation results pagination
   const [showAllResults, setShowAllResults] = useState(false)
@@ -219,6 +225,14 @@ export function AIImageGenerator({
     saveGeneratedImagesToStorage(generatedImagesStorageKey, generatedImages)
   }, [generatedImages, generatedImagesStorageKey])
 
+  useEffect(() => {
+    if (brandCiClientIdRef.current && brandCiClientIdRef.current !== selectedClientId) {
+      setBrandCiText("")
+      setBrandCiFileName("")
+    }
+    brandCiClientIdRef.current = selectedClientId || null
+  }, [selectedClientId])
+
   // Update selection when props change (from URL parameters)
   useEffect(() => {
     if (activeClientId && activeProductFocus && clients.length > 0) {
@@ -320,6 +334,8 @@ export function AIImageGenerator({
         adStyleLabel: selectedAdStyleOption?.label || null,
         userBrief: selectedAdStyleOption?.userBrief || null,
         aspectRatio,
+        brandCiText,
+        brandCiFileName,
       })
 
       const generateSingleImage = async (imageId: string) => {
@@ -367,6 +383,50 @@ export function AIImageGenerator({
       generationInFlightRef.current = false
       setIsGenerating(false)
     }
+  }
+
+  const handleBrandCiUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    const extension = file.name.split(".").pop()?.toLowerCase()
+    if (!['pdf', 'txt', 'png', 'jpg', 'jpeg'].includes(extension || "")) {
+      alert("รองรับเฉพาะไฟล์ PDF, TXT, PNG และ JPG")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert("ไฟล์ Brand CI ต้องมีขนาดไม่เกิน 10 MB")
+      return
+    }
+
+    setIsReadingBrandCi(true)
+    try {
+      let text = ""
+      if (extension === "txt") {
+        text = (await file.text()).trim()
+      } else {
+        const formData = new FormData()
+        formData.append("file", file)
+        const response = await fetch("/api/brand-ci/extract", { method: "POST", body: formData })
+        const result = await response.json()
+        if (!response.ok || !result.success) throw new Error(result.error || "อ่าน Brand CI ไม่สำเร็จ")
+        text = String(result.text || "").trim()
+      }
+
+      if (!text) throw new Error("ไฟล์นี้ไม่มีข้อความที่ใช้งานได้")
+      setBrandCiText(text)
+      setBrandCiFileName(file.name)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "อ่าน Brand CI ไม่สำเร็จ")
+    } finally {
+      setIsReadingBrandCi(false)
+    }
+  }
+
+  const clearBrandCi = () => {
+    setBrandCiText("")
+    setBrandCiFileName("")
   }
 
   const handleDownloadImage = async (imageUrl: string) => {
@@ -581,6 +641,7 @@ export function AIImageGenerator({
     !!selectedAdStyleOption ||
     selectedMaterials.length > 0 ||
     selectedReferenceImages.length > 0 ||
+    Boolean(brandCiText) ||
     colorPalette.length > 0 ||
     aspectRatio !== "4:5" ||
     imageCount > 1
@@ -704,6 +765,48 @@ export function AIImageGenerator({
                 onClearSelectedIdea={() => setSelectedTopic("")}
                 onToggleShowAllTopics={() => setShowAllTopics((value) => !value)}
               />
+
+              <div className="rounded-[24px] border border-indigo-200 bg-indigo-50/70 p-4 sm:p-5">
+                <input
+                  ref={brandCiInputRef}
+                  type="file"
+                  accept=".pdf,.txt,.png,.jpg,.jpeg,application/pdf,text/plain,image/png,image/jpeg"
+                  className="hidden"
+                  onChange={handleBrandCiUpload}
+                />
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="rounded-xl bg-indigo-600 p-2.5 text-white">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-950">Brand CI</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
+                        อัปโหลด PDF หรือ TXT เพื่อบังคับใช้สี ฟอนต์ โลโก้ และข้อห้ามของแบรนด์
+                      </p>
+                      {brandCiFileName && (
+                        <p className="mt-2 truncate text-xs font-medium text-indigo-700">{brandCiFileName}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {brandCiFileName && (
+                      <Button type="button" variant="ghost" size="sm" onClick={clearBrandCi} disabled={isReadingBrandCi}>
+                        <X className="mr-1.5 h-4 w-4" /> ลบ
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      onClick={() => brandCiInputRef.current?.click()}
+                      disabled={isReadingBrandCi}
+                      className="bg-indigo-600 text-white hover:bg-indigo-700"
+                    >
+                      {isReadingBrandCi ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                      {isReadingBrandCi ? "กำลังอ่าน CI..." : brandCiFileName ? "เปลี่ยนไฟล์" : "Upload Brand CI"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
               <AdStyleSelector
                 selectedAdStyle={selectedAdStyle}

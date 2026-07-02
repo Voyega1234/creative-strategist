@@ -5,6 +5,10 @@ export type VisualRoute = {
   why_it_fits: string
 }
 
+export type IdeaContentType = "STATIC AD" | "UGC VIDEO" | "ALBUM AD" | "MOTION AD"
+
+export type IdeaSelectionStatus = "recommended" | "option" | "empty"
+
 export interface IdeaRecommendation {
   title: string
   description:
@@ -28,6 +32,7 @@ export interface IdeaRecommendation {
   content_pillar: string
   product_focus: string
   concept_idea: string
+  content_type?: IdeaContentType
   visual_routes?: VisualRoute[]
   copywriting: {
     headline: string

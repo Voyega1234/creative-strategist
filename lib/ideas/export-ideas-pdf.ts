@@ -4,14 +4,14 @@ import jsPDF, { AcroFormCheckBox } from "jspdf"
 const MAX_IDEAS = 10
 const SCALE = 2
 // The selection row lives INSIDE each card: capture reserves this much empty space at the
-// bottom of the card so the checkbox never overlaps the CTA or other text. All selection
+// bottom of the card so the checkbox never overlaps the card content. All selection
 // sizes are in the card's own CSS px (490px wide) so they scale with the card content.
 const SELECTION_STRIP_CSS_PX = 70
 const CHECKBOX_SIZE_CSS_PX = 34
 const CHECKBOX_LABEL_GAP_CSS_PX = 12
 const SELECTION_LEFT_INSET_CSS_PX = 16
 const SELECTION_LABEL_FONT_CSS_PX = 22
-// Section headings ("1. Recommended topics" / "2. Other options") for the multi-page export.
+// Section headings for the multi-page export.
 const SECTION_HEADING_FONT_PT = 10.5
 const SECTION_HEADING_TOP_MARGIN_MM = 4
 const SECTION_HEADING_GAP_MM = 5
@@ -389,7 +389,7 @@ async function renderSection(
   const pageHeightMm = 297
   const usableWidth = pageWidthMm - options.marginMm * 2
   // Always lay out on a fixed column grid so card width — and therefore font size — stays
-  // identical regardless of how many cards a section has (e.g. a 1-card "Other options"
+  // identical regardless of how many cards a section has (e.g. a 1-card options section
   // section still uses the 3-column width and sits in the left column, not stretched).
   const columns = options.columns
   const colWidthMm = (usableWidth - options.gapMm * (columns - 1)) / columns
@@ -436,7 +436,7 @@ async function renderSection(
       pdf.addPage()
       cursorY = options.marginMm + SECTION_HEADING_TOP_MARGIN_MM
       cursorY +=
-        drawSectionHeading(pdf, `${heading} (ต่อ)`, offsetX, cursorY, pdfTextFont) + SECTION_HEADING_GAP_MM
+        drawSectionHeading(pdf, `${heading} (continued)`, offsetX, cursorY, pdfTextFont) + SECTION_HEADING_GAP_MM
     }
     const rowImages = images.slice(row * columns, row * columns + columns)
     rowImages.forEach((imageData, col) => {
@@ -450,9 +450,8 @@ async function renderSection(
   return fieldId
 }
 
-// Two-section client deliverable: page 1+ "Recommended topics" (what the team selected,
-// unbounded), then a new page with "Other options" (the +3 backups). Each card keeps the
-// interactive "Select this topic" checkbox so the client picks their topics in the PDF.
+// Two-section client deliverable: recommended topics first, then a new page with up to three
+// backup options. Each card keeps an interactive checkbox so the client can pick in the PDF.
 export async function exportIdeasWithSectionsToPdf(
   recommendedCards: HTMLElement[],
   otherCards: HTMLElement[],

@@ -39,27 +39,27 @@ function getStableRouteIndex(seed: string, routeCount: number) {
   return hash % routeCount
 }
 
-// All headers share the same size; Hook and Concept are blue, the rest are gray.
-const labelBase: React.CSSProperties = {
-  display: "block",
-  fontSize: 14,
-  fontWeight: 600,
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-  marginBottom: 4,
+function getContentTypeLabel(contentType?: string) {
+  const labels: Record<string, string> = {
+    STATIC: "STATIC",
+    "STATIC AD": "STATIC AD",
+    ALBUM: "ALBUM",
+    "ALBUM AD": "ALBUM AD",
+    MOTION: "MOTION",
+    "MOTION AD": "MOTION AD",
+    "UGC VIDEO": "UGC VIDEO",
+    UGC: "UGC",
+  }
+
+  return contentType ? labels[contentType.toUpperCase()] || contentType : ""
 }
-const labelBlue: React.CSSProperties = { ...labelBase, color: "#2563eb" }
-const labelGray: React.CSSProperties = { ...labelBase, color: "#667085" }
 
 const bodyStyle: React.CSSProperties = {
-  fontSize: 20,
-  lineHeight: 1.45,
-  color: "#1f2937",
+  fontSize: 18,
+  lineHeight: 1.5,
+  color: "#475467",
   margin: 0,
 }
-
-// Space between sections so headers do not crowd the text above them.
-const sectionStyle: React.CSSProperties = { marginTop: 12 }
 
 // 490px keeps even long-content cards within the A4 3-column cell aspect (~1.07 h/w),
 // so the grid fills the page width with no side gaps and no distortion.
@@ -78,76 +78,128 @@ export const IdeaExportCard = memo(function IdeaExportCard({
   )
   const previewRoute = previewRouteIndex >= 0 ? visualRoutes[previewRouteIndex] : undefined
   const hook = topic.copywriting?.headline || topic.title || topic.concept_idea || ""
-  const concept = topic.title || topic.concept_idea || ""
-  const conceptText = typeof concept === "string" ? concept : getDescriptionSummary(concept)
   const subheadline = topic.copywriting?.sub_headline_1 || topic.copywriting?.sub_headline_2 || ""
+  const cta = topic.copywriting?.cta || ""
   const whyItMightWork =
     topic.competitiveGap || getDescriptionSummary(topic.description) || previewRoute?.why_it_fits || ""
-  const cta = topic.copywriting?.cta || ""
+  const contentTypeLabel = getContentTypeLabel(contentType)
+  const hookFontSize = hook.length > 90 ? 25 : hook.length > 55 ? 28 : 32
+  const subheadlineFontSize = subheadline.length > 160 ? 16 : subheadline.length > 100 ? 18 : 20
+  const whyFontSize = whyItMightWork.length > 170 ? 15 : whyItMightWork.length > 110 ? 16 : 18
+  const ctaFontSize = cta.length > 130 ? 15 : cta.length > 80 ? 16 : 18
 
   return (
     <div
       style={{
         width,
+        minHeight: 690,
         boxSizing: "border-box",
-        border: "1px solid #e4e7ec",
-        borderRadius: 12,
-        padding: 16,
+        border: "1px solid #dce3ec",
+        borderRadius: 18,
+        padding: "28px 26px 26px",
         background: "#ffffff",
-        color: "#1f2937",
+        color: "#101828",
         fontFamily: "'Sukhumvit Set', Arial, Helvetica, sans-serif",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      {(contentType || topic.content_pillar) && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 2 }}>
-          {contentType && (
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#1d4ed8", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              {contentType}
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        {(contentTypeLabel || topic.content_pillar) && (
+          <>
+          {contentTypeLabel && (
+            // Same html2canvas fix as the Why box: no fixed height, symmetric vertical padding
+            // centres the label instead of flex `align-items` (which html2canvas ignores).
+            <span
+              style={{
+                display: "inline-block",
+                minWidth: 116,
+                boxSizing: "border-box",
+                borderRadius: 6,
+                padding: "7px 12px",
+                background: "#eef2ff",
+                color: "#3730d8",
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: 1,
+                textAlign: "center",
+              }}
+            >
+              {contentTypeLabel}
             </span>
           )}
-          {contentType && topic.content_pillar && (
-            <span style={{ fontSize: 14, color: "#9aa4b2" }}>·</span>
-          )}
           {topic.content_pillar && (
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#1f2937" }}>{topic.content_pillar}</span>
+            <span style={{ fontSize: 16, fontWeight: 500, color: "#667085" }}>{topic.content_pillar}</span>
+          )}
+          </>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          flex: 1,
+          gridTemplateRows: "150px 110px 90px 100px 112px",
+          padding: "18px 0 20px",
+        }}
+      >
+        <div aria-hidden />
+
+        <div>
+          {hook && (
+            <p
+              style={{
+                margin: 0,
+                color: "#101828",
+                fontSize: hookFontSize,
+                fontWeight: 700,
+                lineHeight: 1.28,
+              }}
+            >
+              {hook}
+            </p>
           )}
         </div>
-      )}
 
-      {hook && (
-        <div style={sectionStyle}>
-          <span style={labelBlue}>Hook</span>
-          <p style={{ fontSize: 26, fontWeight: 630, lineHeight: 1.3, color: "#111827", margin: 0 }}>{hook}</p>
+        <div style={{ paddingTop: 14 }}>
+          {subheadline && (
+            <p style={{ margin: 0, color: "#344054", fontSize: subheadlineFontSize, fontWeight: 600, lineHeight: 1.45 }}>
+              {subheadline}
+            </p>
+          )}
         </div>
-      )}
 
-      {subheadline && (
-        <div style={sectionStyle}>
-          <span style={labelGray}>Subheadline</span>
-          <p style={{ ...bodyStyle, fontWeight: 700 }}>{subheadline}</p>
+        <div style={{ paddingTop: 10 }}>
+          {cta && (
+            <p style={{ ...bodyStyle, color: "#344054", fontSize: ctaFontSize }}>{cta}</p>
+          )}
         </div>
-      )}
 
-      {cta && (
-        <div style={sectionStyle}>
-          <span style={labelGray}>CTA</span>
-          <p style={{ ...bodyStyle, fontWeight: 700 }}>{cta}</p>
+        <div style={{ paddingTop: 12 }}>
+          {whyItMightWork && (
+            // No fixed height + symmetric vertical padding: html2canvas does not honour flex
+            // `align-items: center`, so the text is centred by equal top/bottom padding instead.
+            <div
+              style={{
+                display: "flex",
+                boxSizing: "border-box",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 14,
+                borderRadius: 10,
+                padding: "18px 18px",
+                background: "#eef2ff",
+                color: "#3730d8",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: whyFontSize, fontWeight: 600, lineHeight: 1.4 }}>
+                {whyItMightWork}
+              </p>
+              <span aria-hidden style={{ flexShrink: 0, color: "#101828", fontSize: 22, fontWeight: 700, lineHeight: 1 }}>→</span>
+            </div>
+          )}
         </div>
-      )}
-
-      {conceptText && (
-        <div style={sectionStyle}>
-          <span style={labelBlue}>Concept</span>
-          <p style={bodyStyle}>{conceptText}</p>
-        </div>
-      )}
-
-      {whyItMightWork && (
-        <div style={sectionStyle}>
-          <span style={labelGray}>Why</span>
-          <p style={bodyStyle}>{whyItMightWork}</p>
-        </div>
-      )}
+      </div>
 
       {selectionLabel && (
         <div

@@ -2,11 +2,10 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Bookmark, BookmarkCheck, FileDown, Loader2, Plus, Sparkles } from "lucide-react";
+import { Bookmark, BookmarkCheck, FileDown, Loader2, Plus, Sparkles } from "lucide-react";
 
 import { FeedbackForm } from "@/components/feedback-form";
 import { IdeaCard } from "@/components/ideas/idea-card";
-import { IdeaExportCard } from "@/components/ideas/idea-export-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,11 +16,46 @@ import { PromptInputBox } from "@/creative-strategist-v2/chat-model";
 import { IDEA_GENERATION_FAILED_MESSAGE } from "@/lib/ideas/generation-response";
 import { normalizeIdea } from "@/lib/ideas/idea-normalization";
 import { getIdeaSelectionKey, VISUAL_ROUTES_BY_IDEA_STORAGE_KEY } from "@/lib/ideas/idea-storage";
-import type { IdeaRecommendation } from "@/lib/ideas/types";
+import type { IdeaContentType, IdeaRecommendation, IdeaSelectionStatus } from "@/lib/ideas/types";
 import { sessionManager } from "@/lib/session-manager";
 
 // "Other options" (PDF page 2) is capped so CS proposes only a few backups beyond the quota.
 const MAX_OTHER_OPTIONS = 3;
+const CONTENT_TYPE_STORAGE_PREFIX = "cvc-idea-content-types";
+const THAI_OUTPUT_INSTRUCTION =
+  "[ข้อกำหนดภาษา] เขียนเนื้อหาที่ผู้ใช้อ่านทั้งหมดเป็นภาษาไทย รวมถึง Hook, Subheadline, Concept, Why, Content pillar, CTA และ Tags โดยคงชื่อแบรนด์หรือศัพท์เฉพาะที่จำเป็นไว้ได้";
+
+function getContentTypeStorageKey(clientName: string, productFocus: string) {
+  return `${CONTENT_TYPE_STORAGE_PREFIX}:${clientName.trim().toLowerCase()}:${productFocus.trim().toLowerCase()}`;
+}
+
+function loadSavedContentTypes(clientName: string, productFocus: string) {
+  if (typeof window === "undefined" || !clientName) return {} as Record<string, IdeaContentType>;
+  try {
+    const value = window.localStorage.getItem(getContentTypeStorageKey(clientName, productFocus));
+    return value ? JSON.parse(value) as Record<string, IdeaContentType> : {};
+  } catch {
+    return {} as Record<string, IdeaContentType>;
+  }
+}
+
+function applySavedContentTypes(
+  ideas: IdeaRecommendation[],
+  clientName: string,
+  productFocus: string,
+) {
+  const savedTypes = loadSavedContentTypes(clientName, productFocus);
+  return ideas.map((idea) => {
+    const key = getIdeaSelectionKey(idea);
+    return key && savedTypes[key]
+      ? { ...idea, content_type: savedTypes[key] }
+      : idea;
+  });
+}
+
+function getContentTypeValidationKey(idea: IdeaRecommendation) {
+  return getIdeaSelectionKey(idea) || idea.copywriting?.headline || idea.concept_idea || idea.title;
+}
 
 // Plays the app's notification sound when idea generation finishes. Uses the same asset and
 // Web-Audio fallback as the other pages (new-client / renew). Never breaks the flow if blocked.
@@ -150,8 +184,6 @@ export function ConceptMode({
   const [ideas, setIdeas] = useState<IdeaRecommendation[]>([]);
   const [savedTitles, setSavedTitles] = useState<string[]>([]);
   const [otherTitles, setOtherTitles] = useState<string[]>([]);
-  // Two-step export flow: pick Recommended first, then move on to pick Other options.
-  const [exportStep, setExportStep] = useState<"recommend" | "options">("recommend");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
@@ -161,10 +193,14 @@ export function ConceptMode({
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [selectedDetailRouteIndex, setSelectedDetailRouteIndex] = useState(0);
   const [isSavingDetailIdea, setIsSavingDetailIdea] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingNativePdf, setIsExportingNativePdf] = useState(false);
+  const [isImportIdeasOpen, setIsImportIdeasOpen] = useState(false);
+  const [importIdeasText, setImportIdeasText] = useState("");
+  const [isImportingIdeas, setIsImportingIdeas] = useState(false);
+  const [importIdeasError, setImportIdeasError] = useState("");
+  const [contentTypeWarnings, setContentTypeWarnings] = useState<Set<string>>(new Set());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState({ hook: "", subheadline: "", cta: "", concept: "", why: "" });
-  const exportCardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const activeClientName = clientName || "";
   const activeProductFocus = productFocus || "";
@@ -211,6 +247,7 @@ export function ConceptMode({
     setIsFeedbackOpen(false);
     setIdeas([]);
     ideasRef.current = [];
+    setOtherTitles([]);
     setLastInstructions("");
 
     const params = new URLSearchParams(searchParams.toString());
@@ -259,12 +296,16 @@ export function ConceptMode({
 
     if (sourceIdeas.length === 0) return false;
 
-    const normalizedIdeas = sourceIdeas.map(normalizeIdea);
+    const normalizedIdeas = applySavedContentTypes(
+      sourceIdeas.map(normalizeIdea),
+      activeClientName,
+      activeProductFocus,
+    );
     setIdeas(normalizedIdeas);
     ideasRef.current = normalizedIdeas;
     setLastInstructions(session.userInput || "");
     return true;
-  }, []);
+  }, [activeClientName, activeProductFocus]);
 
   const loadSelectedSessionIdeas = useCallback(async () => {
     if (!selectedSessionId) return false;
@@ -291,7 +332,11 @@ export function ConceptMode({
         : Array.isArray(result?.data?.ideas)
           ? result.data.ideas
           : [];
-      const normalizedIdeas = rawIdeas.map(normalizeIdea);
+      const normalizedIdeas = applySavedContentTypes(
+        rawIdeas.map(normalizeIdea),
+        activeClientName,
+        activeProductFocus,
+      );
 
       if (normalizedIdeas.length === 0) {
         alert(IDEA_GENERATION_FAILED_MESSAGE);
@@ -341,12 +386,13 @@ export function ConceptMode({
       playGenerationDoneSound();
       void fetchSavedTitles();
     },
-    [fetchSavedTitles, stopTaskPolling],
+    [activeClientName, activeProductFocus, fetchSavedTitles, stopTaskPolling],
   );
 
   useEffect(() => {
     setIdeas([]);
     ideasRef.current = [];
+    setOtherTitles([]);
     setLastInstructions("");
     stopTaskPolling();
     taskContextRef.current = null;
@@ -483,6 +529,7 @@ export function ConceptMode({
 
     const existingConceptIdeas =
       mode === "append" ? ideas.map((idea) => idea.concept_idea).filter(Boolean) : undefined;
+    const generationInstructions = `${finalInstructions}\n\n${THAI_OUTPUT_INSTRUCTION}`;
 
     try {
       const response = await fetch("/api/generate-ideas", {
@@ -492,7 +539,7 @@ export function ConceptMode({
           clientName: activeClientName,
           productFocus: activeProductFocus,
           service: "",
-          instructions: finalInstructions,
+          instructions: generationInstructions,
           model: "gemini-2.5-pro",
           existingConceptIdeas,
         }),
@@ -528,6 +575,11 @@ export function ConceptMode({
 
     const isSaved = savedTitlesRef.current.includes(idea.title);
     const action = isSaved ? "unsave" : "save";
+    setContentTypeWarnings((current) => {
+      const next = new Set(current);
+      next.delete(getContentTypeValidationKey(idea));
+      return next;
+    });
     setSavedTitles((currentTitles) =>
       action === "save"
         ? [...currentTitles, idea.title]
@@ -652,36 +704,161 @@ export function ConceptMode({
     setEditingIndex(null);
   }, [editingIndex, editDraft]);
 
-  // Toggle an idea in/out of the "Other options" set, capped at MAX_OTHER_OPTIONS.
-  const handleToggleOther = useCallback((idea: IdeaRecommendation) => {
-    setOtherTitles((current) => {
-      if (current.includes(idea.title)) return current.filter((title) => title !== idea.title);
-      if (current.length >= MAX_OTHER_OPTIONS) return current;
-      return [...current, idea.title];
+  const handleContentTypeChange = useCallback((index: number, contentType: IdeaContentType) => {
+    const idea = ideasRef.current[index];
+    setIdeas((current) => {
+      const next = current.map((idea, ideaIndex) =>
+        ideaIndex === index ? { ...idea, content_type: contentType } : idea,
+      );
+      ideasRef.current = next;
+      return next;
     });
-  }, []);
+    if (idea) {
+      setContentTypeWarnings((current) => {
+        const next = new Set(current);
+        next.delete(getContentTypeValidationKey({ ...idea, content_type: contentType }));
+        next.delete(getContentTypeValidationKey(idea));
+        return next;
+      });
+    }
 
-  // Client deliverable: one PDF with "1. Recommended topics" (saved) + "2. Other options".
-  const handleExportDeliverablePdf = useCallback(async () => {
-    const recommended = ideas
-      .map((idea, index) => (savedTitles.includes(idea.title) ? exportCardRefs.current[index] : null))
-      .filter((el): el is HTMLDivElement => el !== null);
-    const other = ideas
-      .map((idea, index) => (otherTitles.includes(idea.title) ? exportCardRefs.current[index] : null))
-      .filter((el): el is HTMLDivElement => el !== null);
+    if (idea && typeof window !== "undefined") {
+      const ideaKey = getIdeaSelectionKey(idea);
+      if (ideaKey) {
+        const savedTypes = loadSavedContentTypes(activeClientName, activeProductFocus);
+        savedTypes[ideaKey] = contentType;
+        window.localStorage.setItem(
+          getContentTypeStorageKey(activeClientName, activeProductFocus),
+          JSON.stringify(savedTypes),
+        );
+      }
+
+      if (selectedSessionId) {
+        const sessionIdeaKey = idea.copywriting?.headline || idea.concept_idea || idea.title || "";
+        fetch("/api/session-history/content-type", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: selectedSessionId, ideaKey: sessionIdeaKey, contentType }),
+        }).then((response) => {
+          if (!response.ok) console.warn("[ConceptMode] Could not persist content type to session");
+        }).catch((error) => {
+          console.warn("[ConceptMode] Content type session save failed:", error);
+        });
+      }
+    }
+  }, [activeClientName, activeProductFocus, selectedSessionId]);
+
+  const handleImportIdeas = useCallback(async () => {
+    const inputText = importIdeasText.trim();
+    if (!inputText || isImportingIdeas) return;
+
+    setIsImportingIdeas(true);
+    setImportIdeasError("");
+    try {
+      const response = await fetch("/api/parse-custom-idea", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputText,
+          clientName: activeClientName,
+          productFocus: activeProductFocus,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error || "Could not extract ideas.");
+
+      const rawIdeas = Array.isArray(result?.ideas) ? result.ideas : result?.idea ? [result.idea] : [];
+      const extractedIdeas = applySavedContentTypes(
+        rawIdeas.map(normalizeIdea),
+        activeClientName,
+        activeProductFocus,
+      );
+      if (extractedIdeas.length === 0) throw new Error("No ideas were found in the pasted text.");
+
+      const existingKeys = new Set(
+        ideasRef.current.map((idea) => idea.copywriting?.headline || idea.concept_idea || idea.title || ""),
+      );
+      const uniqueIdeas = extractedIdeas.filter((idea) => {
+        const key = idea.copywriting?.headline || idea.concept_idea || idea.title || "";
+        if (!key || existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+
+      if (uniqueIdeas.length === 0) throw new Error("These ideas are already in the current list.");
+
+      const nextIdeas = [...ideasRef.current, ...uniqueIdeas];
+      setIdeas(nextIdeas);
+      ideasRef.current = nextIdeas;
+      setLastInstructions(inputText);
+      setImportIdeasText("");
+      setIsImportIdeasOpen(false);
+      playGenerationDoneSound();
+    } catch (error) {
+      setImportIdeasError(error instanceof Error ? error.message : "Could not extract ideas.");
+    } finally {
+      setIsImportingIdeas(false);
+    }
+  }, [activeClientName, activeProductFocus, importIdeasText, isImportingIdeas]);
+
+  const handleSelectionStatusChange = useCallback((
+    idea: IdeaRecommendation,
+    index: number,
+    status: IdeaSelectionStatus,
+  ) => {
+    const isSaved = savedTitlesRef.current.includes(idea.title);
+    setContentTypeWarnings((current) => {
+      const next = new Set(current);
+      next.delete(getContentTypeValidationKey(idea));
+      return next;
+    });
+
+    if (status === "recommended") {
+      setOtherTitles((current) => current.filter((title) => title !== idea.title));
+      if (!isSaved) handleSaveIdea(idea, index);
+      return;
+    }
+
+    if (isSaved) handleSaveIdea(idea, index);
+    setOtherTitles((current) => {
+      const withoutIdea = current.filter((title) => title !== idea.title);
+      if (status === "option" && withoutIdea.length < MAX_OTHER_OPTIONS) {
+        return [...withoutIdea, idea.title];
+      }
+      return withoutIdea;
+    });
+  }, [handleSaveIdea]);
+
+  const validateSelectedIdeasContentType = useCallback(() => {
+    const selectedWithoutContentType = ideas.filter(
+      (idea) => (savedTitles.includes(idea.title) || otherTitles.includes(idea.title)) && !idea.content_type,
+    );
+    if (selectedWithoutContentType.length === 0) {
+      setContentTypeWarnings(new Set());
+      return true;
+    }
+
+    setContentTypeWarnings(new Set(selectedWithoutContentType.map(getContentTypeValidationKey)));
+    return false;
+  }, [ideas, savedTitles, otherTitles]);
+
+  const handleExportNativePdf = useCallback(async () => {
+    if (!validateSelectedIdeasContentType()) return;
+    const recommended = ideas.filter((idea) => savedTitles.includes(idea.title));
+    const other = ideas.filter((idea) => otherTitles.includes(idea.title));
     if (recommended.length === 0) return;
 
-    setIsExportingPdf(true);
+    setIsExportingNativePdf(true);
     try {
-      const { exportIdeasWithSectionsToPdf } = await import("@/lib/ideas/export-ideas-pdf");
-      await exportIdeasWithSectionsToPdf(recommended, other, `${activeClientName || "ideas"}-deliverable.pdf`);
+      const { exportIdeasNativePdf } = await import("@/lib/ideas/export-ideas-native-pdf");
+      await exportIdeasNativePdf(recommended, other, `${activeClientName || "ideas"}-native-deliverable.pdf`);
     } catch (error) {
-      console.error("[ConceptMode] Failed to export deliverable PDF:", error);
-      alert("ไม่สามารถสร้าง PDF ได้ กรุณาลองใหม่อีกครั้ง");
+      console.error("[ConceptMode] Failed to export native PDF:", error);
+      alert("ไม่สามารถสร้าง Native PDF ได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
-      setIsExportingPdf(false);
+      setIsExportingNativePdf(false);
     }
-  }, [ideas, savedTitles, otherTitles, activeClientName]);
+  }, [ideas, savedTitles, otherTitles, activeClientName, validateSelectedIdeasContentType]);
 
   return (
     <section className="mx-auto flex w-full max-w-none flex-col gap-4 pb-2">
@@ -696,6 +873,17 @@ export function ConceptMode({
             allowEmptySubmit
             className="flex min-h-[108px] flex-col justify-between !border-black/10 !bg-white !shadow-[0_16px_48px_rgba(15,23,42,0.10)] sm:min-h-[116px]"
           />
+          <div className="mt-3 flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsImportIdeasOpen(true)}
+              className="rounded-full border-black/10 bg-white"
+            >
+              <Plus className="h-4 w-4" />
+              Add existing ideas
+            </Button>
+          </div>
         </div>
       )}
 
@@ -712,48 +900,33 @@ export function ConceptMode({
             <div>
               <p className="text-sm font-semibold text-[#1f1f1f]">{ideas.length} concept ideas</p>
               <p className="mt-1 text-xs font-medium text-[#1d4ed8]">
-                {exportStep === "recommend"
-                  ? `Step 1 — เลือก Recommended topics (กด Save) · เลือกแล้ว ${savedCount}`
-                  : `Step 2 — เลือก Other options ได้สูงสุด ${MAX_OTHER_OPTIONS} · เลือกแล้ว ${otherCount}/${MAX_OTHER_OPTIONS}`}
+                Recommended {savedCount} · Options {otherCount}/{MAX_OTHER_OPTIONS}
               </p>
               {lastInstructions && <p className="mt-1 line-clamp-1 text-xs text-[#667085]">{lastInstructions}</p>}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              {exportStep === "recommend" ? (
-                <Button
-                  type="button"
-                  onClick={() => setExportStep("options")}
-                  disabled={isExportingPdf || savedCount === 0}
-                  title={savedCount === 0 ? "เลือก Recommended (กด Save) อย่างน้อย 1 อันก่อน" : undefined}
-                  className="rounded-full bg-[#1d4ed8] text-white hover:bg-[#1d4ed8]/90"
-                >
-                  <FileDown className="h-4 w-4" />
-                  Select Options
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setExportStep("recommend")}
-                    disabled={isExportingPdf}
-                    className="rounded-full border-black/10 bg-white"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => void handleExportDeliverablePdf()}
-                    disabled={isExportingPdf || savedCount === 0}
-                    title={`Recommended ${savedCount} · Other options ${otherCount}/${MAX_OTHER_OPTIONS}`}
-                    className="rounded-full bg-[#1d4ed8] text-white hover:bg-[#1d4ed8]/90"
-                  >
-                    <FileDown className="h-4 w-4" />
-                    {isExportingPdf ? "Exporting..." : "Export PDF"}
-                  </Button>
-                </>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsImportIdeasOpen(true)}
+                disabled={isImportingIdeas}
+                className="rounded-full border-black/10 bg-white"
+              >
+                <Plus className="h-4 w-4" />
+                Add ideas
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleExportNativePdf()}
+                disabled={isExportingNativePdf || savedCount === 0}
+                title={savedCount === 0
+                  ? "เลือก Recommended อย่างน้อย 1 อันก่อน"
+                  : `Recommended ${savedCount} · Other options ${otherCount}/${MAX_OTHER_OPTIONS}`}
+                className="rounded-full bg-[#1d4ed8] text-white hover:bg-[#1d4ed8]/90"
+              >
+                <FileDown className="h-4 w-4" />
+                {isExportingNativePdf ? "Exporting..." : "Export PDF"}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -788,24 +961,16 @@ export function ConceptMode({
                   topic={idea}
                   index={index}
                   isSaved={savedTitles.includes(idea.title)}
-                  selectionBar={
-                    exportStep === "recommend"
-                      ? {
-                          checked: savedTitles.includes(idea.title),
-                          label: savedTitles.includes(idea.title) ? "Recommended" : "Select as Recommended",
-                          onToggle: () => handleSaveIdea(idea, index),
-                        }
-                      : savedTitles.includes(idea.title)
-                        ? { locked: true, lockedLabel: "Recommended" }
-                        : {
-                            checked: otherTitles.includes(idea.title),
-                            label: otherTitles.includes(idea.title)
-                              ? "Added as Option"
-                              : "Add as Option",
-                            disabled: !otherTitles.includes(idea.title) && otherCount >= MAX_OTHER_OPTIONS,
-                            onToggle: () => handleToggleOther(idea),
-                          }
-                  }
+                  contentType={idea.content_type}
+                  selectionStatus={savedTitles.includes(idea.title)
+                    ? "recommended"
+                    : otherTitles.includes(idea.title)
+                      ? "option"
+                      : "empty"}
+                  isOptionDisabled={!otherTitles.includes(idea.title) && otherCount >= MAX_OTHER_OPTIONS}
+                  contentTypeWarning={contentTypeWarnings.has(getContentTypeValidationKey(idea))}
+                  onContentTypeChange={(value) => handleContentTypeChange(index, value)}
+                  onSelectionStatusChange={(value) => handleSelectionStatusChange(idea, index, value)}
                   onDetailClick={setDetailIdea}
                   onSaveClick={handleSaveIdea}
                   onFeedback={handleFeedback}
@@ -817,16 +982,65 @@ export function ConceptMode({
         </div>
       )}
 
-      {/* Off-screen print-only cards captured by the Export buttons. */}
-      {hasIdeas && (
-        <div aria-hidden style={{ position: "fixed", left: -99999, top: 0, pointerEvents: "none" }}>
-          {ideas.map((idea, index) => (
-            <div key={`export-${idea.title}-${index}`} ref={(el) => { exportCardRefs.current[index] = el; }}>
-              <IdeaExportCard topic={idea} index={index} />
+      <Dialog open={isImportIdeasOpen} onOpenChange={(open) => {
+        if (isImportingIdeas) return;
+        setIsImportIdeasOpen(open);
+        if (!open) setImportIdeasError("");
+      }}>
+        <DialogContent className="max-w-3xl rounded-[24px] border-black/10 bg-white p-0 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+          <div className="border-b border-black/10 px-6 py-5">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-[#101828]">Add existing ideas</DialogTitle>
+            </DialogHeader>
+            <p className="mt-1 text-sm leading-relaxed text-[#667085]">
+              Paste one or multiple ideas. AI will extract every Hook, Subheadline, CTA, Concept, Why, Product Focus, and Content type.
+            </p>
+          </div>
+
+          <div className="space-y-4 px-6 py-5">
+            <Textarea
+              value={importIdeasText}
+              onChange={(event) => {
+                setImportIdeasText(event.target.value);
+                if (importIdeasError) setImportIdeasError("");
+              }}
+              placeholder={'Static 1\nHook: ...\nSubheadline: ...\nCTA: ...\nConcept: ...\nWhy This Topic: ...\nProduct Focus: ...'}
+              className="min-h-[360px] resize-y rounded-2xl border-[#d0d5dd] bg-[#fcfcfd] p-4 text-sm leading-relaxed focus-visible:ring-[#84adff]"
+              disabled={isImportingIdeas}
+            />
+
+            {importIdeasError && (
+              <p className="rounded-xl bg-[#fff1f3] px-4 py-3 text-sm font-medium text-[#c01048]">
+                {importIdeasError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-[#667085]">The extracted ideas will be added to the current list.</p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsImportIdeasOpen(false)}
+                  disabled={isImportingIdeas}
+                  className="rounded-full border-black/10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleImportIdeas()}
+                  disabled={!importIdeasText.trim() || isImportingIdeas}
+                  className="rounded-full bg-[#101828] px-5 text-white hover:bg-[#1d2939]"
+                >
+                  {isImportingIdeas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {isImportingIdeas ? "Extracting..." : "Extract ideas"}
+                </Button>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(detailIdea)} onOpenChange={(open) => {
         if (!open) setDetailIdea(null);
