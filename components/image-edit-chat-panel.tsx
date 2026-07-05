@@ -598,7 +598,7 @@ export function ImageEditChatPanel({
       .filter((result) => result.status === "completed" && result.outputBlob)
       .forEach((result, index) => {
         window.setTimeout(() => {
-          downloadBlob(result.outputBlob!, `edit-image-${result.aspectRatio.replace(":", "x")}.png`)
+          void downloadBlob(result.outputBlob!, `edit-image-${result.aspectRatio.replace(":", "x")}.jpg`)
         }, index * 300)
       })
   }
@@ -833,9 +833,9 @@ export function ImageEditChatPanel({
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!currentImageBlob) return
-    downloadBlob(currentImageBlob, "edited-image.png")
+    await downloadBlob(currentImageBlob, "edited-image.jpg")
   }
 
   const handleInitialImageUpload = async (file: File | null) => {

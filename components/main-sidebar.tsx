@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock, Home, Loader2 } from "lucide-react"
+import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock, Home, Loader2, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { SavedIdeas } from "./saved-ideas"
 import type { ClientWithProductFocus } from "@/lib/client-options"
 import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
@@ -68,6 +68,7 @@ export function MainSidebar({
   const [isHistoryOpen, setIsHistoryOpen] = useState(true)
   const [savedIdeasModalOpen, setSavedIdeasModalOpen] = useState(false)
   const [clientSearch, setClientSearch] = useState("")
+  const [isSidebarHidden, setIsSidebarHidden] = useState(false)
   const [historySessions, setHistorySessions] = useState<SidebarSession[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(false)
   const normalizedQuery = clientSearch.trim().toLowerCase()
@@ -141,6 +142,19 @@ export function MainSidebar({
       window.removeEventListener("idea-session-renamed", handleRefresh)
     }
   }, [loadHistorySessions])
+
+  useEffect(() => {
+    if (mode !== "v2") return
+
+    const hideSidebar = () => setIsSidebarHidden(true)
+    const showSidebar = () => setIsSidebarHidden(false)
+    window.addEventListener("workspace-hide-main-sidebar", hideSidebar)
+    window.addEventListener("workspace-show-main-sidebar", showSidebar)
+    return () => {
+      window.removeEventListener("workspace-hide-main-sidebar", hideSidebar)
+      window.removeEventListener("workspace-show-main-sidebar", showSidebar)
+    }
+  }, [mode])
 
   const handleHistorySessionClick = (session: SidebarSession) => {
     if (mode === "v2") {
@@ -331,6 +345,24 @@ export function MainSidebar({
     ? "w-full h-8 text-xs bg-white border-black/10 hover:border-[#111827] focus:border-[#111827] dark:bg-white/5 dark:border-white/10 dark:text-slate-200 dark:hover:border-white/40"
     : "w-full h-8 text-xs bg-white border-[#e4e7ec] hover:border-[#1d4ed8] focus:border-[#1d4ed8]"
 
+  if (isV2Mode && isSidebarHidden) {
+    return (
+      <aside className="h-dvh w-14 shrink-0 border-r border-black/10 bg-white/95 px-2 py-5 shadow-[12px_0_35px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-[#0d1322]/95">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          onClick={() => setIsSidebarHidden(false)}
+          className="h-9 w-9 text-[#667085] hover:bg-white/70 hover:text-[#111827] dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+          title="Show sidebar"
+        >
+          <PanelLeftOpen className="h-4 w-4" />
+          <span className="sr-only">Show sidebar</span>
+        </Button>
+      </aside>
+    )
+  }
+
   return (
     <aside className={shellClassName}>
       <div className="flex h-full flex-col">
@@ -346,6 +378,19 @@ export function MainSidebar({
               <span className="sr-only">กลับหน้าหลัก</span>
             </Button>
             <h1 className="text-lg font-semibold text-[#000000] dark:text-white">Creative Compass</h1>
+            {isV2Mode && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setIsSidebarHidden(true)}
+                className={`ml-auto ${iconButtonClassName}`}
+                title="Hide sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+                <span className="sr-only">Hide sidebar</span>
+              </Button>
+            )}
           </div>
           <nav className="space-y-2">
             <Button

@@ -20,6 +20,7 @@ import {
   loadClientReferenceImages,
   uploadClientReferenceFiles,
 } from "@/lib/images/reference-library"
+import { downloadBlob } from "@/lib/images/client"
 import { getStorageClient } from "@/lib/supabase/client"
 import {
   Upload,
@@ -143,12 +144,6 @@ function getAllGeneratedImageUrls(msgs: ChatMessage[]): string[] {
     }
   }
   return urls
-}
-
-function getImageExtensionFromMimeType(mimeType: string) {
-  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg"
-  if (mimeType === "image/webp") return "webp"
-  return "png"
 }
 
 // Handle image selection for editing
@@ -1195,15 +1190,7 @@ export function RemixChatPanel({
     try {
       const res = await fetch(url)
       const blob = await res.blob()
-      const extension = getImageExtensionFromMimeType(blob.type)
-      const dl = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = dl
-      a.download = `remix-${Date.now()}.${extension}`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(dl)
+      await downloadBlob(blob, `remix-${Date.now()}.jpg`)
     } catch {
       console.error("Download failed")
     }

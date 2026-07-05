@@ -165,6 +165,26 @@ function getIdeaDescription(idea: IdeaRecommendation | null) {
   return "";
 }
 
+function getIdeaWhy(idea: IdeaRecommendation | null) {
+  if (!idea) return "";
+  if (idea.competitiveGap) return idea.competitiveGap;
+
+  const description = idea.description;
+  if (Array.isArray(description)) {
+    const priorityItem =
+      description.find((item) => item.label === "Why this converts" || item.label === "Evidence/Counterpoint") ||
+      null;
+    if (priorityItem?.text) return priorityItem.text;
+  }
+
+  if (description && typeof description === "object" && !Array.isArray(description)) {
+    const whySection = description.sections?.find((section) => section.group === "why_evidence");
+    if (whySection?.bullets?.length) return whySection.bullets.join("\n");
+  }
+
+  return idea.visual_routes?.find((route) => route.why_it_fits)?.why_it_fits || "";
+}
+
 export function ConceptMode({
   clientName,
   productFocus,
@@ -194,6 +214,7 @@ export function ConceptMode({
   const [selectedDetailRouteIndex, setSelectedDetailRouteIndex] = useState(0);
   const [isSavingDetailIdea, setIsSavingDetailIdea] = useState(false);
   const [isExportingNativePdf, setIsExportingNativePdf] = useState(false);
+  const [isExportingReviewPdf, setIsExportingReviewPdf] = useState(false);
   const [isImportIdeasOpen, setIsImportIdeasOpen] = useState(false);
   const [importIdeasText, setImportIdeasText] = useState("");
   const [isImportingIdeas, setIsImportingIdeas] = useState(false);
@@ -850,8 +871,8 @@ export function ConceptMode({
 
     setIsExportingNativePdf(true);
     try {
-      const { exportIdeasNativePdf } = await import("@/lib/ideas/export-ideas-native-pdf");
-      await exportIdeasNativePdf(recommended, other, `${activeClientName || "ideas"}-native-deliverable.pdf`);
+      const { exportIdeasNativeNumberedPdf } = await import("@/lib/ideas/export-ideas-native-pdf");
+      await exportIdeasNativeNumberedPdf(recommended, other, `${activeClientName || "ideas"}-native-deliverable.pdf`);
     } catch (error) {
       console.error("[ConceptMode] Failed to export native PDF:", error);
       alert("ไม่สามารถสร้าง Native PDF ได้ กรุณาลองใหม่อีกครั้ง");
@@ -859,6 +880,73 @@ export function ConceptMode({
       setIsExportingNativePdf(false);
     }
   }, [ideas, savedTitles, otherTitles, activeClientName, validateSelectedIdeasContentType]);
+
+  const handleExportReviewPdf = useCallback(async () => {
+    const recommended = ideas.filter((idea) => savedTitles.includes(idea.title));
+    const other = ideas.filter((idea) => otherTitles.includes(idea.title));
+    if (recommended.length === 0 && other.length === 0) {
+      alert("เลือก Recommended หรือ Option อย่างน้อย 1 อันก่อนสร้าง Review PDF");
+      return;
+    }
+
+    setIsExportingReviewPdf(true);
+    try {
+      const highlightItems = [
+        ...recommended.map((idea, index) => ({
+          id: `recommended:${index}`,
+          hook: idea.copywriting?.headline || idea.title || idea.concept_idea || "",
+          subheadline: idea.copywriting?.sub_headline_1 || idea.copywriting?.sub_headline_2 || "",
+          concept: idea.concept_idea || "",
+          cta: idea.copywriting?.cta || "",
+          why: idea.competitiveGap || getIdeaWhy(idea),
+          tags: idea.tags || [],
+        })),
+        ...other.map((idea, index) => ({
+          id: `option:${index}`,
+          hook: idea.copywriting?.headline || idea.title || idea.concept_idea || "",
+          subheadline: idea.copywriting?.sub_headline_1 || idea.copywriting?.sub_headline_2 || "",
+          concept: idea.concept_idea || "",
+          cta: idea.copywriting?.cta || "",
+          why: idea.competitiveGap || getIdeaWhy(idea),
+          tags: idea.tags || [],
+        })),
+      ].filter((item) => item.subheadline);
+      let highlightMap: Record<string, string[]> = {};
+
+      if (highlightItems.length > 0) {
+        try {
+          const response = await fetch("/api/idea-highlight-keywords", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items: highlightItems }),
+          });
+          const payload = await response.json().catch(() => null);
+          if (response.ok && payload?.highlights && typeof payload.highlights === "object") {
+            highlightMap = payload.highlights;
+          } else {
+            console.warn("[ConceptMode] Gemini highlight fallback:", payload?.error || response.status);
+          }
+        } catch (highlightError) {
+          console.warn("[ConceptMode] Gemini highlight fallback:", highlightError);
+        }
+      }
+
+      const { exportIdeasReviewPdf } = await import("@/lib/ideas/export-ideas-review-pdf");
+      await exportIdeasReviewPdf(
+        [
+          { heading: "Recommended topics", group: "recommended", ideas: recommended },
+          { heading: "Other options", group: "option", ideas: other },
+        ],
+        `${activeClientName || "ideas"}-idea-review.pdf`,
+        highlightMap,
+      );
+    } catch (error) {
+      console.error("[ConceptMode] Failed to export review PDF:", error);
+      alert("ไม่สามารถสร้าง Review PDF ได้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsExportingReviewPdf(false);
+    }
+  }, [ideas, savedTitles, otherTitles, activeClientName]);
 
   return (
     <section className="mx-auto flex w-full max-w-none flex-col gap-4 pb-2">
@@ -926,6 +1014,19 @@ export function ConceptMode({
               >
                 <FileDown className="h-4 w-4" />
                 {isExportingNativePdf ? "Exporting..." : "Export PDF"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleExportReviewPdf()}
+                disabled={isExportingReviewPdf || savedCount + otherCount === 0}
+                title={savedCount + otherCount === 0
+                  ? "เลือก Recommended หรือ Option อย่างน้อย 1 อันก่อน"
+                  : "Export แนวนอนแบบ review deck พร้อมเลข Idea 1-10"}
+                className="rounded-full border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]"
+              >
+                <FileDown className="h-4 w-4" />
+                {isExportingReviewPdf ? "Exporting..." : "Export Review"}
               </Button>
               <Button
                 type="button"
@@ -1093,6 +1194,15 @@ export function ConceptMode({
                       Core Concept
                     </p>
                     <p className="leading-relaxed">{detailIdea.concept_idea}</p>
+                  </section>
+                )}
+
+                {getIdeaWhy(detailIdea) && (
+                  <section className="rounded-2xl bg-[#eef2ff] p-4 text-[#3730d8]">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
+                      Why
+                    </p>
+                    <p className="whitespace-pre-line leading-relaxed">{getIdeaWhy(detailIdea)}</p>
                   </section>
                 )}
 

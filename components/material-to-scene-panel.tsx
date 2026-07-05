@@ -842,7 +842,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => currentImageUrl && void downloadImageFromUrl(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.png`)}
+                  onClick={() => currentImageUrl && void downloadImageFromUrl(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.jpg`)}
                   disabled={!currentImageUrl || isGenerating}
                   className="rounded-full bg-slate-950 text-white hover:bg-slate-800"
                 >
@@ -949,7 +949,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                       size="sm"
                       onClick={() =>
                         currentImageUrl &&
-                        void downloadImageFromUrl(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.png`)
+                        void downloadImageFromUrl(currentImageUrl, `material-to-scene-${selectedImageIndex + 1}.jpg`)
                       }
                       className="rounded-full border-slate-200 bg-white"
                     >

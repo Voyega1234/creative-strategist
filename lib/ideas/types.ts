@@ -5,7 +5,7 @@ export type VisualRoute = {
   why_it_fits: string
 }
 
-export type IdeaContentType = "STATIC AD" | "UGC VIDEO" | "ALBUM AD" | "MOTION AD"
+export type IdeaContentType = "STATIC AD" | "UGC VIDEO" | "ALBUM AD" | "SHORT VDO" | "MOTION AD"
 
 export type IdeaSelectionStatus = "recommended" | "option" | "empty"
 

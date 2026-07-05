@@ -47,6 +47,8 @@ type CheckboxWithAppearance = AcroFormCheckBox & {
   appearanceStreamContent?: { N?: Record<string, AppearanceFactory>; [k: string]: unknown }
 }
 type CardData = ReturnType<typeof getCardData>
+type NativeExportMode = "selection" | "numbered"
+type NativeIdeaGroup = "recommended" | "option"
 type CardLayout = {
   data: CardData
   hookFontSize: number
@@ -71,6 +73,12 @@ type CardLayout = {
 type RowLayout = {
   items: Array<{ layout: CardLayout; index: number }>
   height: number
+}
+type RenderSectionOptions = {
+  mode: NativeExportMode
+  group: NativeIdeaGroup
+  fieldIdStart: number
+  ideaNumberStart: number
 }
 
 const fontBase64Promises = new Map<string, Promise<string>>()
@@ -104,8 +112,10 @@ function getContentTypeLabel(contentType?: string) {
     "STATIC AD": "STATIC AD",
     ALBUM: "ALBUM",
     "ALBUM AD": "ALBUM AD",
-    MOTION: "MOTION",
-    "MOTION AD": "MOTION AD",
+    MOTION: "SHORT VDO",
+    "MOTION AD": "SHORT VDO",
+    "SHORT VDO": "SHORT VDO",
+    "SHORT VIDEO": "SHORT VDO",
     "UGC VIDEO": "UGC VIDEO",
     UGC: "UGC",
   }
@@ -268,6 +278,11 @@ function getCardData(topic: IdeaRecommendation, index: number) {
     why,
     contentType: getContentTypeLabel(topic.content_type),
     pillar: topic.content_pillar || "",
+    metaTags: [topic.content_pillar]
+      .filter(Boolean)
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .slice(0, 2),
   }
 }
 
@@ -277,6 +292,7 @@ function buildCardLayout(
   index: number,
   width: number,
   hasThaiFont: boolean,
+  mode: NativeExportMode = "selection",
 ): CardLayout {
   const data = getCardData(topic, index)
   const padX = 4.8
@@ -308,7 +324,7 @@ function buildCardLayout(
   const whyBoxY = ctaY + Math.max(ctaLineHeight, ctaHeight) + 5.2
   const whyBoxHeight = Math.max(13.6, whyLines.length * whyLineHeight + 5.2)
   const contentHeight = whyBoxY + whyBoxHeight + 2.8
-  const cardHeight = Math.max(CARD_HEIGHT_MM, contentHeight + SELECTION_STRIP_MM)
+  const cardHeight = Math.max(CARD_HEIGHT_MM, contentHeight + (mode === "selection" ? SELECTION_STRIP_MM : 0))
 
   return {
     data,
@@ -333,7 +349,7 @@ function buildCardLayout(
   }
 }
 
-function alignLayoutsByRow(layouts: CardLayout[]) {
+function alignLayoutsByRow(layouts: CardLayout[], mode: NativeExportMode = "selection") {
   const rows: RowLayout[] = []
 
   for (let row = 0; row < Math.ceil(layouts.length / COLUMNS); row += 1) {
@@ -359,7 +375,10 @@ function alignLayoutsByRow(layouts: CardLayout[]) {
       13.6,
       ...items.map(({ layout }) => layout.whyLines.length * layout.whyLineHeight + 5.2),
     )
-    const rowHeight = Math.max(CARD_HEIGHT_MM, whyBoxY + whyBoxHeight + 2.8 + SELECTION_STRIP_MM)
+    const rowHeight = Math.max(
+      CARD_HEIGHT_MM,
+      whyBoxY + whyBoxHeight + 2.8 + (mode === "selection" ? SELECTION_STRIP_MM : 0),
+    )
 
     const alignedItems = items.map(({ layout, index }) => ({
       index,
@@ -388,11 +407,13 @@ function drawCard(
   width: number,
   height: number,
   hasThaiFont: boolean,
+  options?: { mode?: NativeExportMode; group?: NativeIdeaGroup; ideaNumber?: number },
 ) {
   const data = layout.data
   const padX = 4.8
   const contentX = x + padX
   const contentWidth = width - padX * 2
+  const mode = options?.mode || "selection"
 
   pdf.setDrawColor(220, 227, 236)
   pdf.setFillColor(255, 255, 255)
@@ -400,7 +421,36 @@ function drawCard(
 
   const badgeY = y + 6
   const badgeHeight = 5.4
-  if (data.contentType) {
+  if (mode === "numbered" && options?.ideaNumber) {
+    pdf.setFillColor(238, 242, 255)
+    pdf.roundedRect(contentX, badgeY, 14.5, badgeHeight, 1.2, 1.2, "F")
+    pdf.setTextColor(37, 99, 235)
+    setFont(pdf, "bold", 6.9, hasThaiFont)
+    pdf.text(`Idea ${options.ideaNumber}`, contentX + 7.25, badgeY + badgeHeight / 2, {
+      align: "center",
+      baseline: "middle",
+    })
+
+    const contentBadgeX = contentX + 16.5
+    if (data.contentType) {
+      const badgeWidth = Math.min(20, Math.max(16, pdf.getTextWidth(data.contentType) + 5.8))
+      pdf.setFillColor(244, 247, 255)
+      pdf.roundedRect(contentBadgeX, badgeY, badgeWidth, badgeHeight, 1.2, 1.2, "F")
+      pdf.setTextColor(55, 48, 216)
+      setFont(pdf, "bold", 6.9, hasThaiFont)
+      const textWidth = pdf.getTextWidth(data.contentType)
+      pdf.text(data.contentType, contentBadgeX + (badgeWidth - textWidth) / 2, badgeY + badgeHeight / 2, {
+        baseline: "middle",
+      })
+    }
+
+    if (data.metaTags.length > 0) {
+      pdf.setTextColor(102, 112, 133)
+      setFont(pdf, "medium", 6.7, hasThaiFont)
+      const metaLines = wrapText(pdf, data.metaTags.join(" · "), contentWidth, 1)
+      pdf.text(metaLines[0] || "", contentX, y + 14.3, { baseline: "top" })
+    }
+  } else if (data.contentType) {
     const badgeWidth = Math.min(22, Math.max(17, pdf.getTextWidth(data.contentType) + 6.5))
     pdf.setFillColor(238, 242, 255)
     pdf.roundedRect(contentX, badgeY, badgeWidth, badgeHeight, 1.2, 1.2, "F")
@@ -576,10 +626,10 @@ async function renderSection(
   heading: string,
   ideas: IdeaRecommendation[],
   startOnNewPage: boolean,
-  fieldIdStart: number,
   hasThaiFont: boolean,
+  options: RenderSectionOptions,
 ) {
-  if (ideas.length === 0) return fieldIdStart
+  if (ideas.length === 0) return { nextFieldId: options.fieldIdStart, nextIdeaNumber: options.ideaNumberStart }
   if (startOnNewPage) pdf.addPage()
 
   const usableWidth = PAGE_WIDTH_MM - MARGIN_MM * 2
@@ -592,10 +642,11 @@ async function renderSection(
   cursorY += drawSectionHeading(pdf, heading, offsetX, cursorY, hasThaiFont) + SECTION_HEADING_GAP_MM
 
   const ideasToRender = ideas.slice(0, MAX_IDEAS)
-  const layouts = ideasToRender.map((idea, index) => buildCardLayout(pdf, idea, index, colWidth, hasThaiFont))
-  const rows = alignLayoutsByRow(layouts)
+  const layouts = ideasToRender.map((idea, index) => buildCardLayout(pdf, idea, index, colWidth, hasThaiFont, options.mode))
+  const rows = alignLayoutsByRow(layouts, options.mode)
 
-  let fieldId = fieldIdStart
+  let fieldId = options.fieldIdStart
+  let ideaNumber = options.ideaNumberStart
   rows.forEach((row, rowIndex) => {
     if (rowIndex > 0 && cursorY + row.height > bottomLimit) {
       pdf.addPage()
@@ -606,15 +657,22 @@ async function renderSection(
     row.items.forEach(({ layout, index }) => {
       const col = index % COLUMNS
       const x = offsetX + col * (colWidth + GAP_MM)
-      drawCard(pdf, layout, x, cursorY, colWidth, row.height, hasThaiFont)
-      addCardSelectionRow(pdf, fieldId, x, cursorY, colWidth, row.height, hasThaiFont)
-      fieldId += 1
+      drawCard(pdf, layout, x, cursorY, colWidth, row.height, hasThaiFont, {
+        mode: options.mode,
+        group: options.group,
+        ideaNumber,
+      })
+      if (options.mode === "selection") {
+        addCardSelectionRow(pdf, fieldId, x, cursorY, colWidth, row.height, hasThaiFont)
+        fieldId += 1
+      }
+      ideaNumber += 1
     })
 
     cursorY += row.height + GAP_MM
   })
 
-  return fieldId
+  return { nextFieldId: fieldId, nextIdeaNumber: ideaNumber }
 }
 
 export async function exportIdeasNativePdf(
@@ -625,9 +683,44 @@ export async function exportIdeasNativePdf(
   if (recommendedIdeas.length === 0) return
   const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" })
   const hasThaiFont = await ensureFonts(pdf)
-  const nextFieldId = await renderSection(pdf, "Recommended topics", recommendedIdeas, false, 1, hasThaiFont)
+  const recommendedResult = await renderSection(pdf, "Recommended topics", recommendedIdeas, false, hasThaiFont, {
+    mode: "selection",
+    group: "recommended",
+    fieldIdStart: 1,
+    ideaNumberStart: 1,
+  })
   if (otherIdeas.length > 0) {
-    await renderSection(pdf, "Other options", otherIdeas, true, nextFieldId, hasThaiFont)
+    await renderSection(pdf, "Other options", otherIdeas, true, hasThaiFont, {
+      mode: "selection",
+      group: "option",
+      fieldIdStart: recommendedResult.nextFieldId,
+      ideaNumberStart: recommendedResult.nextIdeaNumber,
+    })
+  }
+  savePdf(pdf, filename)
+}
+
+export async function exportIdeasNativeNumberedPdf(
+  recommendedIdeas: IdeaRecommendation[],
+  otherIdeas: IdeaRecommendation[],
+  filename: string,
+) {
+  if (recommendedIdeas.length === 0) return
+  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" })
+  const hasThaiFont = await ensureFonts(pdf)
+  const recommendedResult = await renderSection(pdf, "Recommended topics", recommendedIdeas, false, hasThaiFont, {
+    mode: "numbered",
+    group: "recommended",
+    fieldIdStart: 1,
+    ideaNumberStart: 1,
+  })
+  if (otherIdeas.length > 0) {
+    await renderSection(pdf, "Other options", otherIdeas, true, hasThaiFont, {
+      mode: "numbered",
+      group: "option",
+      fieldIdStart: recommendedResult.nextFieldId,
+      ideaNumberStart: recommendedResult.nextIdeaNumber,
+    })
   }
   savePdf(pdf, filename)
 }

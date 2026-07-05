@@ -32,6 +32,7 @@ const FacebookIcon = ({ className }: { className?: string }) => (
 )
 import { getStorageClient, getSupabase } from "@/lib/supabase/client"
 import Image from "next/image"
+import { downloadBlob } from "@/lib/images/client"
 
 interface AdImage {
   name: string
@@ -397,14 +398,7 @@ export function ReferenceImageSearch({
     try {
       const response = await fetch(imageUrl)
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `reference-${searchSource}-${Date.now()}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      await downloadBlob(blob, `reference-${searchSource}-${Date.now()}.jpg`)
     } catch (error) {
       console.error('Error downloading image:', error)
       alert('เกิดข้อผิดพลาดในการดาวน์โหลด')

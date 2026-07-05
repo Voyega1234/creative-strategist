@@ -1008,13 +1008,13 @@ export function SeoBlogBannerPanel({
     }
   }
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (resultBlob) {
-      downloadBlob(resultBlob, "seo-blog-banner-master-1600x900.png")
+      await downloadBlob(resultBlob, "seo-blog-banner-master-1600x900.jpg")
       return
     }
     if (result?.imageUrl) {
-      void downloadImageFromUrl(result.imageUrl, "seo-blog-banner-master-1600x900.png")
+      await downloadImageFromUrl(result.imageUrl, "seo-blog-banner-master-1600x900.jpg")
     }
   }
 
@@ -1124,8 +1124,8 @@ export function SeoBlogBannerPanel({
     }
   }
 
-  const handleDownloadAdditional = (output: AdditionalOutput) => {
-    downloadBlob(output.blob, `seo-blog-banner-${output.key}-${output.width}x${output.height}.png`)
+  const handleDownloadAdditional = async (output: AdditionalOutput) => {
+    await downloadBlob(output.blob, `seo-blog-banner-${output.key}-${output.width}x${output.height}.jpg`)
   }
 
   const handleEditSelectedImage = async () => {

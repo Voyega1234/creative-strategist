@@ -174,7 +174,7 @@ export async function downloadGeneratedAdImage(imageUrl: string) {
     })
 
     if (response.ok) {
-      downloadBlob(await response.blob(), `ai-generated-${Date.now()}.png`)
+      await downloadBlob(await response.blob(), `ai-generated-${Date.now()}.jpg`)
       console.log("✅ Image downloaded successfully")
       return
     }
@@ -194,7 +194,7 @@ export async function downloadGeneratedAdImage(imageUrl: string) {
   })
 
   if (proxyResponse.ok) {
-    downloadBlob(await proxyResponse.blob(), `ai-generated-${Date.now()}.png`)
+    await downloadBlob(await proxyResponse.blob(), `ai-generated-${Date.now()}.jpg`)
     console.log("✅ Image downloaded via proxy")
     return
   }

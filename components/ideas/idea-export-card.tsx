@@ -45,8 +45,10 @@ function getContentTypeLabel(contentType?: string) {
     "STATIC AD": "STATIC AD",
     ALBUM: "ALBUM",
     "ALBUM AD": "ALBUM AD",
-    MOTION: "MOTION",
-    "MOTION AD": "MOTION AD",
+    MOTION: "SHORT VDO",
+    "MOTION AD": "SHORT VDO",
+    "SHORT VDO": "SHORT VDO",
+    "SHORT VIDEO": "SHORT VDO",
     "UGC VIDEO": "UGC VIDEO",
     UGC: "UGC",
   }

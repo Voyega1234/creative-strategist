@@ -16,6 +16,7 @@ import {
   Filter
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { downloadBlob } from "@/lib/images/client"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -147,14 +148,7 @@ export function ImageGallery() {
     try {
       const response = await fetch(image.url)
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = image.name
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      await downloadBlob(blob, image.name)
     } catch (error) {
       console.error('Error downloading image:', error)
     }

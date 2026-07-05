@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowUp } from "lucide-react";
 import { ConceptMode } from "./modes/concept-mode";
@@ -165,6 +165,13 @@ export function V2Workspace({
     handleModeChange("text-to-image");
   };
 
+  const handleConceptHasIdeasChange = useCallback((hasIdeas: boolean) => {
+    setConceptHasIdeas(hasIdeas);
+    if (hasIdeas) {
+      window.dispatchEvent(new Event("workspace-hide-main-sidebar"));
+    }
+  }, []);
+
   const renderModeContent = (mode: WorkspaceMode) => {
     const feature = getWorkspaceFeature(mode);
 
@@ -175,7 +182,7 @@ export function V2Workspace({
           productFocus={productFocus}
           selectedSessionId={ideaSessionId}
           startNewSession={startNewSession}
-          onHasIdeasChange={setConceptHasIdeas}
+          onHasIdeasChange={handleConceptHasIdeasChange}
           onUseIdeaForImage={handleUseIdeaForImage}
         />
       );

@@ -19,6 +19,7 @@ import {
   loadClientReferenceImages,
   uploadClientReferenceFiles,
 } from "@/lib/images/reference-library"
+import { downloadBlob } from "@/lib/images/client"
 import { getStorageClient } from "@/lib/supabase/client"
 import {
   Upload,
@@ -49,12 +50,6 @@ type GeneratedImage = {
   id: string
   url: string
   source?: string
-}
-
-function getImageExtensionFromMimeType(mimeType: string) {
-  if (mimeType === "image/jpeg" || mimeType === "image/jpg") return "jpg"
-  if (mimeType === "image/webp") return "webp"
-  return "png"
 }
 
 type ClientProfileSummary = {
@@ -627,15 +622,7 @@ export function ReferenceRemixPanel({
     try {
       const response = await fetch(url)
       const blob = await response.blob()
-      const extension = getImageExtensionFromMimeType(blob.type)
-      const downloadUrl = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = downloadUrl
-      link.download = `remix-${Date.now()}.${extension}`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(downloadUrl)
+      await downloadBlob(blob, `remix-${Date.now()}.jpg`)
     } catch (error) {
       console.error("Download failed:", error)
       setErrorMessage("ดาวน์โหลดรูปไม่สำเร็จ")

@@ -55,6 +55,10 @@ function getStableRouteIndex(seed: string, routeCount: number) {
   return hash % routeCount
 }
 
+function getContentTypeLabel(contentType?: IdeaContentType) {
+  return contentType === "MOTION AD" ? "SHORT VDO" : contentType
+}
+
 export const IdeaCard = memo(function IdeaCard({
   topic,
   index,
@@ -89,6 +93,8 @@ export const IdeaCard = memo(function IdeaCard({
         ? "border-[#fedf89] bg-[#fffaeb] text-[#93370d] hover:bg-[#fef0c7]"
         : "border-[#e4e7ec] bg-[#f8fafc] text-[#475467] hover:bg-[#f2f4f7]"
   const whyItMightWork = topic.competitiveGap || getDescriptionSummary(topic.description) || previewRoute?.why_it_fits || ""
+  const whyTextSize =
+    whyItMightWork.length > 190 ? "text-[11px]" : whyItMightWork.length > 120 ? "text-xs" : "text-sm"
   const cta = topic.copywriting?.cta || ""
 
   return (
@@ -143,7 +149,7 @@ export const IdeaCard = memo(function IdeaCard({
       <div className="flex h-10 items-center gap-2 overflow-hidden pr-20">
         {contentType && (
           <Badge className="flex-shrink-0 rounded-md border-0 bg-[#eef2ff] px-3 py-1 text-xs font-bold text-[#3730d8] hover:bg-[#eef2ff]">
-            {contentType}
+            {getContentTypeLabel(contentType)}
           </Badge>
         )}
         {topic.content_pillar && (
@@ -184,11 +190,11 @@ export const IdeaCard = memo(function IdeaCard({
             )}
           </div>
 
-          <div className="h-[102px] overflow-hidden pt-2">
+          <div className="min-h-[102px] pt-2">
             {whyItMightWork && (
               <div className="rounded-lg bg-[#eef2ff] px-4 py-3 text-[#3730d8]">
-                <p className="mb-1 text-xs font-semibold">เหตุผลที่แนวคิดนี้น่าสนใจ</p>
-                <p className="line-clamp-3 text-sm font-semibold leading-relaxed">{whyItMightWork}</p>
+                <p className="mb-1 text-[11px] font-semibold">เหตุผลที่แนวคิดนี้น่าสนใจ</p>
+                <p className={`${whyTextSize} break-words font-semibold leading-relaxed`}>{whyItMightWork}</p>
               </div>
             )}
           </div>
@@ -247,7 +253,8 @@ export const IdeaCard = memo(function IdeaCard({
                 <SelectItem value="STATIC AD">STATIC AD</SelectItem>
                 <SelectItem value="UGC VIDEO">UGC VIDEO</SelectItem>
                 <SelectItem value="ALBUM AD">ALBUM AD</SelectItem>
-                <SelectItem value="MOTION AD">MOTION AD</SelectItem>
+                {contentType === "MOTION AD" && <SelectItem value="MOTION AD">SHORT VDO</SelectItem>}
+                <SelectItem value="SHORT VDO">SHORT VDO</SelectItem>
               </SelectContent>
             </Select>
           )}

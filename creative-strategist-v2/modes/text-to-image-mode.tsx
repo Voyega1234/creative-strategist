@@ -43,7 +43,6 @@ import type { TextToImageIdeaHandoff, TextToImageReferenceHandoff } from "./type
 
 const ASPECT_RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
 const IMAGE_COUNTS = [1, 2, 3] as const;
-const BRAND_CI_STORAGE_PREFIX = "cvc-text-to-image-brand-ci";
 const CREATIVE_FORMATS = [
   {
     value: "single-post",
@@ -74,10 +73,6 @@ type TextToImageModeProps = {
 
 type BriefSource = "brief" | "idea";
 
-function getBrandCiStorageKey(clientId: string) {
-  return `${BRAND_CI_STORAGE_PREFIX}:${clientId}`;
-}
-
 type GenerationLogEntry = {
   id: string;
   createdAt: string;
@@ -89,6 +84,19 @@ type GenerationLogEntry = {
   source: BriefSource;
   productAssets: number;
   references: number;
+};
+
+type BrandCiItem = {
+  id: string;
+  clientId: string;
+  title: string;
+  body: string;
+  fileName: string;
+  fileType: string;
+  fileUrl: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export function TextToImageMode({
@@ -126,9 +134,11 @@ export function TextToImageMode({
   const [resultsVisibleCount, setResultsVisibleCount] = useState(20);
   const [generationLogs, setGenerationLogs] = useState<GenerationLogEntry[]>([]);
   const [uploadedReferenceFiles, setUploadedReferenceFiles] = useState<File[]>([]);
-  const [brandCiOwnerClientId, setBrandCiOwnerClientId] = useState("");
-  const [brandCiText, setBrandCiText] = useState("");
-  const [brandCiFileName, setBrandCiFileName] = useState("");
+  const [brandCiItems, setBrandCiItems] = useState<BrandCiItem[]>([]);
+  const [brandCiDraftTitle, setBrandCiDraftTitle] = useState("");
+  const [brandCiDraftText, setBrandCiDraftText] = useState("");
+  const [isLoadingBrandCi, setIsLoadingBrandCi] = useState(false);
+  const [isSavingBrandCi, setIsSavingBrandCi] = useState(false);
   const [isReadingBrandCi, setIsReadingBrandCi] = useState(false);
   const [isBrandCiDialogOpen, setIsBrandCiDialogOpen] = useState(false);
   const [brandCiMessage, setBrandCiMessage] = useState("");
@@ -225,54 +235,19 @@ export function TextToImageMode({
     () => uploadedReferenceFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
     [uploadedReferenceFiles],
   );
-
-  useEffect(() => {
-    setBrandCiMessage("");
-    if (!selectedClientId || typeof window === "undefined") {
-      setBrandCiOwnerClientId("");
-      setBrandCiText("");
-      setBrandCiFileName("");
-      return;
-    }
-
-    try {
-      const saved = window.localStorage.getItem(getBrandCiStorageKey(selectedClientId));
-      if (!saved) {
-        setBrandCiOwnerClientId(selectedClientId);
-        setBrandCiText("");
-        setBrandCiFileName("");
-        return;
-      }
-      const parsed = JSON.parse(saved) as { text?: string; fileName?: string };
-      setBrandCiOwnerClientId(selectedClientId);
-      setBrandCiText(parsed.text || "");
-      setBrandCiFileName(parsed.fileName || "");
-    } catch {
-      setBrandCiOwnerClientId(selectedClientId);
-      setBrandCiText("");
-      setBrandCiFileName("");
-    }
-  }, [selectedClientId]);
-
-  useEffect(() => {
-    if (!selectedClientId || typeof window === "undefined") return;
-    if (brandCiOwnerClientId !== selectedClientId) return;
-
-    const key = getBrandCiStorageKey(selectedClientId);
-    if (!brandCiText.trim() && !brandCiFileName.trim()) {
-      window.localStorage.removeItem(key);
-      return;
-    }
-
-    window.localStorage.setItem(
-      key,
-      JSON.stringify({
-        text: brandCiText,
-        fileName: brandCiFileName,
-        updatedAt: new Date().toISOString(),
-      }),
-    );
-  }, [brandCiFileName, brandCiOwnerClientId, brandCiText, selectedClientId]);
+  const activeBrandCiText = useMemo(
+    () =>
+      brandCiItems
+        .filter((item) => item.body.trim())
+        .map((item, index) => `Brand CI ${index + 1}: ${item.title}\n${item.body.trim()}`)
+        .join("\n\n---\n\n"),
+    [brandCiItems],
+  );
+  const activeBrandCiFileName = useMemo(() => {
+    if (brandCiItems.length === 0) return "";
+    if (brandCiItems.length === 1) return brandCiItems[0]?.fileName || brandCiItems[0]?.title || "Brand CI";
+    return `${brandCiItems.length} Brand CI items`;
+  }, [brandCiItems]);
 
   useEffect(() => {
     onNeedsScrollChange?.(needsScrollLayout);
@@ -410,56 +385,209 @@ export function TextToImageMode({
     };
   }, [uploadedReferencePreviews]);
 
-  const handleBrandCiUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    const extension = file.name.split(".").pop()?.toLowerCase();
-    if (!["pdf", "txt", "png", "jpg", "jpeg"].includes(extension || "")) {
-      alert("รองรับเฉพาะไฟล์ PDF, TXT, PNG และ JPG");
+  const loadBrandCiItems = async (clientIdToLoad = selectedClientId) => {
+    if (!clientIdToLoad) {
+      setBrandCiItems([]);
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      alert("ไฟล์ Brand CI ต้องมีขนาดไม่เกิน 10 MB");
+
+    setIsLoadingBrandCi(true);
+    try {
+      const response = await fetch(`/api/text-to-image/brand-ci?clientId=${encodeURIComponent(clientIdToLoad)}`);
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.error || "Cannot load Brand CI");
+      }
+      setBrandCiItems(Array.isArray(payload.items) ? payload.items : []);
+    } catch (error) {
+      console.error("[Text to Image] Failed to load Brand CI:", error);
+      setBrandCiMessage(error instanceof Error ? error.message : "Cannot load Brand CI");
+      setBrandCiItems([]);
+    } finally {
+      setIsLoadingBrandCi(false);
+    }
+  };
+
+  useEffect(() => {
+    setBrandCiMessage("");
+    setBrandCiDraftTitle("");
+    setBrandCiDraftText("");
+    void loadBrandCiItems(selectedClientId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClientId]);
+
+  const saveBrandCiItem = async (item: {
+    title?: string;
+    body: string;
+    fileName?: string;
+    fileType?: string;
+    fileUrl?: string;
+    source?: string;
+  }) => {
+    if (!selectedClientId) {
+      throw new Error("เลือก client ก่อนเซฟ Brand CI");
+    }
+
+    const body = item.body.trim();
+    if (!body) {
+      throw new Error("Brand CI text ว่างอยู่");
+    }
+
+    const response = await fetch("/api/text-to-image/brand-ci", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: selectedClientId,
+        title: item.title?.trim() || item.fileName || "Brand CI",
+        body,
+        fileName: item.fileName || "",
+        fileType: item.fileType || "",
+        fileUrl: item.fileUrl || "",
+        source: item.source || "manual",
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload?.error || "Cannot save Brand CI");
+    }
+    setBrandCiItems((current) => [payload.item, ...current]);
+    return payload.item as BrandCiItem;
+  };
+
+  const updateBrandCiItem = async (item: BrandCiItem) => {
+    if (!selectedClientId) return;
+    setIsSavingBrandCi(true);
+    setBrandCiMessage("");
+    try {
+      const response = await fetch("/api/text-to-image/brand-ci", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          clientId: selectedClientId,
+          title: item.title,
+          body: item.body,
+          fileName: item.fileName,
+          fileType: item.fileType,
+          fileUrl: item.fileUrl,
+          source: item.source,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.error || "Cannot update Brand CI");
+      }
+      setBrandCiItems((current) => current.map((currentItem) => currentItem.id === item.id ? payload.item : currentItem));
+      setBrandCiMessage("อัปเดต Brand CI แล้ว");
+    } catch (error) {
+      setBrandCiMessage(error instanceof Error ? error.message : "Cannot update Brand CI");
+    } finally {
+      setIsSavingBrandCi(false);
+    }
+  };
+
+  const deleteBrandCiItem = async (itemId: string) => {
+    if (!selectedClientId || !itemId) return;
+    setIsSavingBrandCi(true);
+    setBrandCiMessage("");
+    try {
+      const response = await fetch(
+        `/api/text-to-image/brand-ci?id=${encodeURIComponent(itemId)}&clientId=${encodeURIComponent(selectedClientId)}`,
+        { method: "DELETE" },
+      );
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload?.error || "Cannot delete Brand CI");
+      }
+      setBrandCiItems((current) => current.filter((item) => item.id !== itemId));
+      setBrandCiMessage("ลบ Brand CI แล้ว");
+    } catch (error) {
+      setBrandCiMessage(error instanceof Error ? error.message : "Cannot delete Brand CI");
+    } finally {
+      setIsSavingBrandCi(false);
+    }
+  };
+
+  const handleAddManualBrandCi = async () => {
+    const body = brandCiDraftText.trim();
+    if (!body || isSavingBrandCi) return;
+
+    setIsSavingBrandCi(true);
+    setBrandCiMessage("");
+    try {
+      await saveBrandCiItem({
+        title: brandCiDraftTitle || "Manual Brand CI",
+        body,
+        source: "manual",
+      });
+      setBrandCiDraftTitle("");
+      setBrandCiDraftText("");
+      setBrandCiMessage("เพิ่ม Brand CI text แล้ว");
+    } catch (error) {
+      setBrandCiMessage(error instanceof Error ? error.message : "Cannot save Brand CI");
+    } finally {
+      setIsSavingBrandCi(false);
+    }
+  };
+
+  const handleBrandCiUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    if (!selectedClientId) {
+      alert("เลือก client ก่อนอัปโหลด Brand CI");
       return;
     }
 
     setIsReadingBrandCi(true);
     setBrandCiMessage("");
+    let savedCount = 0;
     try {
-      let text = "";
-      if (extension === "txt") {
-        text = (await file.text()).trim();
-      } else {
-        const formData = new FormData();
-        formData.append("file", file);
-        const response = await fetch("/api/brand-ci/extract", { method: "POST", body: formData });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || "อ่าน Brand CI ไม่สำเร็จ");
+      for (const file of files) {
+        const extension = file.name.split(".").pop()?.toLowerCase();
+        if (!["pdf", "txt", "png", "jpg", "jpeg"].includes(extension || "")) {
+          throw new Error(`รองรับเฉพาะไฟล์ PDF, TXT, PNG และ JPG: ${file.name}`);
         }
-        text = String(result.text || "").trim();
-      }
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error(`ไฟล์ Brand CI ต้องมีขนาดไม่เกิน 10 MB: ${file.name}`);
+        }
 
-      if (!text) throw new Error("ไฟล์นี้ไม่มีข้อความที่ใช้งานได้");
-      setBrandCiOwnerClientId(selectedClientId);
-      setBrandCiText(text);
-      setBrandCiFileName(file.name);
-      if (file.type.startsWith("image/")) {
-        if (!selectedClientId) {
-          setBrandCiMessage("อ่าน CI สำเร็จ แต่ยังไม่ได้เซฟรูป เพราะยังไม่ได้เลือก client");
+        let text = "";
+        if (extension === "txt") {
+          text = (await file.text()).trim();
         } else {
-          const uploadedUrl = await uploadFileToImageStorage(file, `materials/${selectedClientId}`);
-          selectMaterial(uploadedUrl);
-          await loadMaterialImages(selectedClientId);
-          setBrandCiMessage("อ่าน CI และเซฟรูปเข้า brand assets ของ client นี้แล้ว");
+          const formData = new FormData();
+          formData.append("file", file);
+          const response = await fetch("/api/brand-ci/extract", { method: "POST", body: formData });
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || `อ่าน Brand CI ไม่สำเร็จ: ${file.name}`);
+          }
+          text = String(result.text || "").trim();
         }
-      } else {
-        setBrandCiMessage("อ่าน CI และบันทึกไว้สำหรับ client นี้แล้ว");
+
+        if (!text) throw new Error(`ไฟล์นี้ไม่มีข้อความที่ใช้งานได้: ${file.name}`);
+
+        let uploadedUrl = "";
+        if (file.type.startsWith("image/")) {
+          uploadedUrl = await uploadFileToImageStorage(file, `materials/${selectedClientId}`);
+          selectMaterial(uploadedUrl);
+        }
+
+        await saveBrandCiItem({
+          title: file.name.replace(/\.[^.]+$/, ""),
+          body: text,
+          fileName: file.name,
+          fileType: file.type || extension || "",
+          fileUrl: uploadedUrl,
+          source: "file",
+        });
+        savedCount += 1;
       }
+      await loadMaterialImages(selectedClientId);
+      setBrandCiMessage(`อัปโหลดและเซฟ Brand CI แล้ว ${savedCount} ไฟล์`);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "อ่าน Brand CI ไม่สำเร็จ");
+      setBrandCiMessage(error instanceof Error ? error.message : "อ่าน Brand CI ไม่สำเร็จ");
     } finally {
       setIsReadingBrandCi(false);
     }
@@ -537,8 +665,8 @@ export function TextToImageMode({
         creativeFormat: selectedCreativeFormat.value,
         creativeFormatLabel: selectedCreativeFormat.label,
         aspectRatio,
-        brandCiText,
-        brandCiFileName,
+        brandCiText: activeBrandCiText,
+        brandCiFileName: activeBrandCiFileName,
       });
 
       setGenerationLogs((prev) => [
@@ -992,6 +1120,7 @@ export function TextToImageMode({
                   ref={brandCiInputRef}
                   type="file"
                   accept=".pdf,.txt,.png,.jpg,.jpeg,application/pdf,text/plain,image/png,image/jpeg"
+                  multiple
                   className="hidden"
                   onChange={handleBrandCiUpload}
                 />
@@ -1001,35 +1130,20 @@ export function TextToImageMode({
                   disabled={isReadingBrandCi}
                   className={cn(
                     "flex h-8 items-center gap-1 rounded-full px-2 transition",
-                    brandCiText
+                    activeBrandCiText
                       ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100"
                       : "text-[#777] hover:bg-indigo-50 hover:text-indigo-700",
                   )}
                   aria-label="Upload Brand CI"
-                  title={brandCiFileName || "Preview or upload Brand CI"}
+                  title={activeBrandCiFileName || "Preview or upload Brand CI"}
                 >
                   {isReadingBrandCi ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <FileText className="h-4 w-4" />
                   )}
-                  <span className="max-w-20 truncate text-xs font-medium">{brandCiFileName || "Brand CI"}</span>
+                  <span className="max-w-20 truncate text-xs font-medium">{activeBrandCiFileName || "Brand CI"}</span>
                 </button>
-                {brandCiText && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBrandCiOwnerClientId(selectedClientId);
-                      setBrandCiText("");
-                      setBrandCiFileName("");
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-[#777] transition hover:bg-rose-50 hover:text-rose-600"
-                    aria-label="Remove Brand CI"
-                    title="Remove Brand CI"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1521,24 +1635,11 @@ export function TextToImageMode({
                   ) : (
                     <Upload className="mr-2 h-4 w-4" />
                   )}
-                  {isReadingBrandCi ? "Reading CI..." : brandCiText ? "Upload another CI" : "Upload Brand CI"}
+                  {isReadingBrandCi ? "Reading CI..." : "Upload Brand CI files"}
                 </Button>
-                {brandCiText && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-full border-rose-200 text-rose-600 hover:bg-rose-50"
-                    onClick={() => {
-                      setBrandCiOwnerClientId(selectedClientId);
-                      setBrandCiText("");
-                      setBrandCiFileName("");
-                      setBrandCiMessage("ลบ Brand CI ของ client นี้แล้ว");
-                    }}
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Remove CI
-                  </Button>
-                )}
+                <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-[#475467]">
+                  {isLoadingBrandCi ? "Loading..." : `${brandCiItems.length} saved`}
+                </span>
               </div>
 
               {brandCiMessage && (
@@ -1550,30 +1651,113 @@ export function TextToImageMode({
               <div className="rounded-[22px] border border-black/10 bg-slate-50 p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#101828]">Extracted CI rules</p>
-                    <p className="mt-1 text-xs text-[#667085]">
-                      {brandCiFileName || "ยังไม่มีไฟล์ CI ที่อ่านไว้"}
-                    </p>
+                    <p className="text-sm font-semibold text-[#101828]">Add Brand CI text</p>
+                    <p className="mt-1 text-xs text-[#667085]">พิมพ์เองได้หลายอัน และเซฟลง database ให้ทีมเห็นร่วมกัน</p>
                   </div>
-                  {brandCiText && (
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                      Active
-                    </span>
-                  )}
                 </div>
-                {brandCiText ? (
-                  <Textarea
-                    value={brandCiText}
-                    onChange={(event) => setBrandCiText(event.target.value)}
-                    className="min-h-[300px] resize-y rounded-2xl border-black/10 bg-white text-sm leading-6 text-[#344054] focus-visible:ring-indigo-200"
-                    placeholder="Brand CI rules will appear here..."
+                <div className="space-y-3">
+                  <Input
+                    value={brandCiDraftTitle}
+                    onChange={(event) => setBrandCiDraftTitle(event.target.value)}
+                    placeholder="Title เช่น Logo usage, Tone of voice, Campaign CI"
+                    className="rounded-2xl border-black/10 bg-white"
+                    disabled={isSavingBrandCi}
                   />
+                  <Textarea
+                    value={brandCiDraftText}
+                    onChange={(event) => setBrandCiDraftText(event.target.value)}
+                    className="min-h-[120px] resize-y rounded-2xl border-black/10 bg-white text-sm leading-6 text-[#344054] focus-visible:ring-indigo-200"
+                    placeholder="Paste or type Brand CI rules here..."
+                    disabled={isSavingBrandCi}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      className="rounded-full bg-[#101828] text-white hover:bg-black"
+                      onClick={() => void handleAddManualBrandCi()}
+                      disabled={!brandCiDraftText.trim() || isSavingBrandCi || !selectedClientId}
+                    >
+                      {isSavingBrandCi ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                      Save text
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[22px] border border-black/10 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#101828]">Saved Brand CI</p>
+                    <p className="mt-1 text-xs text-[#667085]">แก้ไข ลบ หรือเพิ่มไฟล์ใหม่ได้ตลอด</p>
+                  </div>
+                </div>
+
+                {isLoadingBrandCi ? (
+                  <div className="flex h-40 items-center justify-center rounded-2xl bg-slate-50 text-sm text-[#667085]">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading Brand CI...
+                  </div>
+                ) : brandCiItems.length > 0 ? (
+                  <div className="max-h-[430px] space-y-3 overflow-y-auto pr-1">
+                    {brandCiItems.map((item) => (
+                      <div key={item.id} className="rounded-2xl border border-black/10 bg-slate-50 p-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <Input
+                            value={item.title}
+                            onChange={(event) =>
+                              setBrandCiItems((current) =>
+                                current.map((currentItem) =>
+                                  currentItem.id === item.id ? { ...currentItem, title: event.target.value } : currentItem,
+                                ),
+                              )
+                            }
+                            className="h-9 rounded-xl border-black/10 bg-white text-sm font-semibold"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 rounded-full border-black/10"
+                            onClick={() => void updateBrandCiItem(item)}
+                            disabled={isSavingBrandCi || !item.body.trim()}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 rounded-full border-rose-200 text-rose-600 hover:bg-rose-50"
+                            onClick={() => void deleteBrandCiItem(item.id)}
+                            disabled={isSavingBrandCi}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={item.body}
+                          onChange={(event) =>
+                            setBrandCiItems((current) =>
+                              current.map((currentItem) =>
+                                currentItem.id === item.id ? { ...currentItem, body: event.target.value } : currentItem,
+                              ),
+                            )
+                          }
+                          className="min-h-[130px] resize-y rounded-xl border-black/10 bg-white text-sm leading-6 text-[#344054]"
+                        />
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[#667085]">
+                          <span className="rounded-full bg-white px-2 py-1">{item.source}</span>
+                          {item.fileName && <span className="truncate rounded-full bg-white px-2 py-1">{item.fileName}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-black/10 bg-white px-6 text-center">
+                  <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-black/10 bg-slate-50 px-6 text-center">
                     <FileText className="h-8 w-8 text-[#98a2b3]" />
                     <p className="mt-3 text-sm font-semibold text-[#101828]">No Brand CI yet</p>
                     <p className="mt-1 max-w-sm text-sm leading-6 text-[#667085]">
-                      Upload PDF, TXT, PNG, JPG. Text rules will be extracted and saved for this client.
+                      Upload multiple files or add manual text. Everything is saved per client in database.
                     </p>
                   </div>
                 )}

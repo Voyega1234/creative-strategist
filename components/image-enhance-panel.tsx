@@ -382,11 +382,11 @@ export function ImageEnhancePanel({ variant = "legacy" }: ImageEnhancePanelProps
     }
   }
 
-  const handleDownloadGenerated = () => {
+  const handleDownloadGenerated = async () => {
     if (!generatedResult) return
 
     const blob = dataUrlToBlob(generatedResult.imageUrl)
-    downloadBlob(blob, `enhance-${generatedResult.mode}-${Date.now()}.png`)
+    await downloadBlob(blob, `enhance-${generatedResult.mode}-${Date.now()}.jpg`)
   }
 
   const handleRemoveText = async () => {
