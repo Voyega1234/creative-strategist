@@ -23,6 +23,7 @@ import { sessionManager } from "@/lib/session-manager";
 // "Other options" (PDF page 2) is capped so CS proposes only a few backups beyond the quota.
 const MAX_OTHER_OPTIONS = 3;
 const CONTENT_TYPE_STORAGE_PREFIX = "cvc-idea-content-types";
+const CONCEPT_BRIEF_DRAFT_STORAGE_KEY = "cvc-generate-concept-brief-draft";
 const GENERATION_CONTENT_TYPES = ["STATIC AD", "UGC VIDEO", "SHORT VIDEO", "ALBUM AD"] as const;
 const DEFAULT_CONTENT_TYPE_QUOTAS = {
   "STATIC AD": 0,
@@ -284,10 +285,47 @@ type SessionHistoryRecord = {
 
 type TaskResultPayload = {
   ideas?: unknown[];
+  recommendations?: unknown[];
+  n8nResponse?: unknown;
   data?: {
     ideas?: unknown[];
+    recommendations?: unknown[];
   };
 };
+
+type NormalizedN8nIdeaExtra = {
+  product_service_focus?: string;
+  strategic_angle?: string;
+  format_execution?: string;
+  why_this_concept?: string;
+  creative_direction?: {
+    main_visual_or_scene?: string;
+    layout_or_sequence?: string;
+    production_notes?: string;
+  };
+};
+
+type NormalizedIdea = IdeaRecommendation & NormalizedN8nIdeaExtra;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function extractRawIdeas(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload.flatMap((item) => extractRawIdeas(item));
+  }
+
+  if (!isRecord(payload)) return [];
+
+  if (Array.isArray(payload.ideas)) return payload.ideas;
+  if (Array.isArray(payload.recommendations)) return payload.recommendations;
+
+  const dataIdeas = extractRawIdeas(payload.data);
+  if (dataIdeas.length) return dataIdeas;
+
+  return extractRawIdeas(payload.n8nResponse);
+}
 
 function getIdeaDescription(idea: IdeaRecommendation | null) {
   const description = idea?.description;
@@ -308,6 +346,8 @@ function getIdeaDescription(idea: IdeaRecommendation | null) {
 
 function getIdeaWhy(idea: IdeaRecommendation | null) {
   if (!idea) return "";
+  const extendedIdea = idea as NormalizedIdea;
+  if (extendedIdea.why_this_concept) return extendedIdea.why_this_concept;
   if (idea.competitiveGap) return idea.competitiveGap;
 
   const description = idea.description;
@@ -324,6 +364,10 @@ function getIdeaWhy(idea: IdeaRecommendation | null) {
   }
 
   return idea.visual_routes?.find((route) => route.why_it_fits)?.why_it_fits || "";
+}
+
+function getIdeaExtra(idea: IdeaRecommendation | null) {
+  return (idea || {}) as NormalizedIdea;
 }
 
 export function ConceptMode({
@@ -451,11 +495,7 @@ export function ConceptMode({
   }, [activeClientName, activeProductFocus]);
 
   const loadSessionIdeas = useCallback((session: SessionHistoryRecord) => {
-    const sourceIdeas = Array.isArray(session?.n8nResponse?.ideas)
-      ? session.n8nResponse.ideas
-      : Array.isArray(session?.ideas)
-        ? session.ideas
-        : [];
+    const sourceIdeas = extractRawIdeas(session);
 
     if (sourceIdeas.length === 0) return false;
 
@@ -490,11 +530,7 @@ export function ConceptMode({
 
   const processTaskResult = useCallback(
     (result: TaskResultPayload, context: TaskContext) => {
-      const rawIdeas: unknown[] = Array.isArray(result?.ideas)
-        ? result.ideas
-        : Array.isArray(result?.data?.ideas)
-          ? result.data.ideas
-          : [];
+      const rawIdeas = extractRawIdeas(result);
       const normalizedIdeas = applySavedContentTypes(
         rawIdeas.map(normalizeIdea),
         activeClientName,
@@ -1159,6 +1195,8 @@ export function ConceptMode({
             showUtilityControls={false}
             fileMode="brief-document"
             uploadTooltip="Upload brief file"
+            persistInputKey={CONCEPT_BRIEF_DRAFT_STORAGE_KEY}
+            preserveInputOnSend
             leftActionsAddon={
               <ContentTypeQuotaPicker
                 quotas={contentTypeQuotas}
@@ -1368,6 +1406,16 @@ export function ConceptMode({
                         {detailIdea.content_pillar}
                       </Badge>
                     )}
+                    {detailIdea.content_type && (
+                      <Badge variant="outline" className="rounded-full border-black/10 bg-white">
+                        {detailIdea.content_type}
+                      </Badge>
+                    )}
+                    {getIdeaExtra(detailIdea).strategic_angle && (
+                      <Badge variant="outline" className="rounded-full border-black/10 bg-white">
+                        {getIdeaExtra(detailIdea).strategic_angle}
+                      </Badge>
+                    )}
                   </div>
                   <DialogTitle className="text-2xl font-semibold leading-tight text-[#111827]">
                     {detailIdea.title || detailIdea.concept_idea || "Concept idea"}
@@ -1376,6 +1424,17 @@ export function ConceptMode({
               </div>
 
               <div className="mt-6 space-y-5 text-sm text-[#475467]">
+                {(getIdeaExtra(detailIdea).product_service_focus || detailIdea.product_focus) && (
+                  <section>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                      Product / Service Focus
+                    </p>
+                    <p className="leading-relaxed">
+                      {getIdeaExtra(detailIdea).product_service_focus || detailIdea.product_focus}
+                    </p>
+                  </section>
+                )}
+
                 {detailIdea.copywriting?.headline && (
                   <section className="rounded-2xl border border-black/10 bg-[#f8fafc] p-4">
                     <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
@@ -1390,7 +1449,7 @@ export function ConceptMode({
                 {getIdeaDescription(detailIdea) && (
                   <section>
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
-                      Description
+                      {getIdeaExtra(detailIdea).format_execution ? "Format Execution" : "Description"}
                     </p>
                     <p className="whitespace-pre-line leading-relaxed">{getIdeaDescription(detailIdea)}</p>
                   </section>
@@ -1426,9 +1485,62 @@ export function ConceptMode({
                       {detailIdea.copywriting.sub_headline_2 && (
                         <p><span className="font-semibold text-[#111827]">Sub headline 2:</span> {detailIdea.copywriting.sub_headline_2}</p>
                       )}
+                      {detailIdea.copywriting.bullets?.length > 0 && (
+                        <div>
+                          <p className="font-semibold text-[#111827]">Bullets:</p>
+                          <ul className="mt-1 list-disc space-y-1 pl-5">
+                            {detailIdea.copywriting.bullets.map((bullet) => (
+                              <li key={bullet}>{bullet}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       {detailIdea.copywriting.cta && (
                         <p><span className="font-semibold text-[#111827]">CTA:</span> {detailIdea.copywriting.cta}</p>
                       )}
+                    </div>
+                  </section>
+                )}
+
+                {getIdeaExtra(detailIdea).creative_direction && (
+                  <section className="rounded-2xl border border-black/10 p-4">
+                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                      Creative Direction
+                    </p>
+                    <div className="space-y-3">
+                      {getIdeaExtra(detailIdea).creative_direction?.main_visual_or_scene && (
+                        <p>
+                          <span className="font-semibold text-[#111827]">Main visual / scene:</span>{" "}
+                          {getIdeaExtra(detailIdea).creative_direction?.main_visual_or_scene}
+                        </p>
+                      )}
+                      {getIdeaExtra(detailIdea).creative_direction?.layout_or_sequence && (
+                        <p>
+                          <span className="font-semibold text-[#111827]">Layout / sequence:</span>{" "}
+                          {getIdeaExtra(detailIdea).creative_direction?.layout_or_sequence}
+                        </p>
+                      )}
+                      {getIdeaExtra(detailIdea).creative_direction?.production_notes && (
+                        <p>
+                          <span className="font-semibold text-[#111827]">Production notes:</span>{" "}
+                          {getIdeaExtra(detailIdea).creative_direction?.production_notes}
+                        </p>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {detailIdea.tags?.length > 0 && (
+                  <section>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#667085]">
+                      Tags
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {detailIdea.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="rounded-full border-black/10">
+                          {tag}
+                        </Badge>
+                      ))}
                     </div>
                   </section>
                 )}

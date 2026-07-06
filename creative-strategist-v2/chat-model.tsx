@@ -451,6 +451,7 @@ interface PromptInputBoxProps {
   fileMode?: "image" | "brief-document";
   uploadAccept?: string;
   uploadTooltip?: string;
+  persistInputKey?: string;
 }
 export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref: React.Ref<HTMLDivElement>) => {
   const {
@@ -468,8 +469,16 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
     fileMode = "image",
     uploadAccept,
     uploadTooltip,
+    persistInputKey,
   } = props;
-  const [input, setInput] = React.useState("");
+  const [input, setInput] = React.useState(() => {
+    if (!persistInputKey || typeof window === "undefined") return "";
+    try {
+      return window.localStorage.getItem(persistInputKey) || "";
+    } catch {
+      return "";
+    }
+  });
   const [files, setFiles] = React.useState<File[]>([]);
   const [filePreviews, setFilePreviews] = React.useState<{ [key: string]: string }>({});
   const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
@@ -586,6 +595,15 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
   }, [handlePaste]);
+
+  React.useEffect(() => {
+    if (!persistInputKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(persistInputKey, input);
+    } catch {
+      // Ignore storage failures such as private browsing quota restrictions.
+    }
+  }, [input, persistInputKey]);
 
   const handleSubmit = () => {
     if (allowEmptySubmit || primaryActionEnabled || input.trim() || files.length > 0) {
