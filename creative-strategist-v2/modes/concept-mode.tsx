@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bookmark, BookmarkCheck, FileDown, Loader2, Plus, Sparkles } from "lucide-react";
+import { Bookmark, BookmarkCheck, FileDown, Loader2, Minus, Plus, Sparkles } from "lucide-react";
 
 import { FeedbackForm } from "@/components/feedback-form";
 import { IdeaCard } from "@/components/ideas/idea-card";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { PromptInputBox } from "@/creative-strategist-v2/chat-model";
 import { IDEA_GENERATION_FAILED_MESSAGE } from "@/lib/ideas/generation-response";
@@ -22,8 +23,18 @@ import { sessionManager } from "@/lib/session-manager";
 // "Other options" (PDF page 2) is capped so CS proposes only a few backups beyond the quota.
 const MAX_OTHER_OPTIONS = 3;
 const CONTENT_TYPE_STORAGE_PREFIX = "cvc-idea-content-types";
+const GENERATION_CONTENT_TYPES = ["STATIC AD", "UGC VIDEO", "SHORT VIDEO", "ALBUM AD"] as const;
+const DEFAULT_CONTENT_TYPE_QUOTAS = {
+  "STATIC AD": 0,
+  "UGC VIDEO": 0,
+  "SHORT VIDEO": 0,
+  "ALBUM AD": 0,
+} satisfies Record<GenerationContentType, number>;
 const THAI_OUTPUT_INSTRUCTION =
   "[ข้อกำหนดภาษา] เขียนเนื้อหาที่ผู้ใช้อ่านทั้งหมดเป็นภาษาไทย รวมถึง Hook, Subheadline, Concept, Why, Content pillar, CTA และ Tags โดยคงชื่อแบรนด์หรือศัพท์เฉพาะที่จำเป็นไว้ได้";
+
+type GenerationContentType = (typeof GENERATION_CONTENT_TYPES)[number];
+type ContentTypeQuotas = Record<GenerationContentType, number>;
 
 function getContentTypeStorageKey(clientName: string, productFocus: string) {
   return `${CONTENT_TYPE_STORAGE_PREFIX}:${clientName.trim().toLowerCase()}:${productFocus.trim().toLowerCase()}`;
@@ -55,6 +66,136 @@ function applySavedContentTypes(
 
 function getContentTypeValidationKey(idea: IdeaRecommendation) {
   return getIdeaSelectionKey(idea) || idea.copywriting?.headline || idea.concept_idea || idea.title;
+}
+
+function getActiveContentTypeQuotas(quotas: ContentTypeQuotas) {
+  return GENERATION_CONTENT_TYPES
+    .map((type) => ({ type, count: Math.max(0, Math.floor(quotas[type] || 0)) }))
+    .filter((item) => item.count > 0);
+}
+
+function buildContentTypeQuotaInstruction(quotas: ContentTypeQuotas) {
+  const activeQuotas = getActiveContentTypeQuotas(quotas);
+  if (!activeQuotas.length) return "";
+
+  const total = activeQuotas.reduce((sum, item) => sum + item.count, 0);
+  const quotaText = activeQuotas.map((item) => `${item.type}: ${item.count}`).join(", ");
+
+  return `[ข้อกำหนดจำนวนและ Content Type] สร้างไอเดียรวม ${total} ไอเดียตามจำนวนนี้เท่านั้น: ${quotaText}. ใส่ field content_type ให้ตรงกับประเภทของแต่ละไอเดีย และห้ามสร้าง content type อื่นนอกเหนือจากรายการนี้.`;
+}
+
+function ContentTypeQuotaPicker({
+  quotas,
+  onChange,
+}: {
+  quotas: ContentTypeQuotas;
+  onChange: (quotas: ContentTypeQuotas) => void;
+}) {
+  const activeQuotas = getActiveContentTypeQuotas(quotas);
+  const total = activeQuotas.reduce((sum, item) => sum + item.count, 0);
+
+  const updateQuota = (type: GenerationContentType, count: number) => {
+    onChange({
+      ...quotas,
+      [type]: Math.max(0, Math.min(20, Math.floor(Number.isFinite(count) ? count : 0))),
+    });
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-black/10 bg-white px-3 text-xs font-semibold text-[#344054] transition-colors hover:bg-black/[0.03]"
+        >
+          <Plus className="h-3.5 w-3.5 text-[#1d4ed8]" />
+          <span>Content types</span>
+          {total > 0 && (
+            <span className="rounded-full bg-[#eff6ff] px-1.5 py-0.5 text-[11px] font-bold text-[#1d4ed8]">
+              {total}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" sideOffset={8} className="w-[330px] rounded-2xl border-[#e4e7ec] bg-white p-3 shadow-[0_18px_40px_rgba(16,24,40,0.16)]">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-[#101828]">Content type quota</p>
+            <p className="mt-0.5 text-xs font-medium text-[#667085]">เลือกประเภทและจำนวนที่อยาก generate</p>
+          </div>
+          {total > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange({ ...DEFAULT_CONTENT_TYPE_QUOTAS })}
+              className="rounded-full px-2 py-1 text-xs font-semibold text-[#667085] hover:bg-[#f2f4f7]"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          {GENERATION_CONTENT_TYPES.map((type) => {
+            const count = quotas[type] || 0;
+            const isActive = count > 0;
+
+            return (
+              <div
+                key={type}
+                className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+                  isActive ? "border-[#bfdbfe] bg-[#eff6ff]" : "border-[#e4e7ec] bg-white"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => updateQuota(type, isActive ? 0 : 1)}
+                  className={`min-w-0 flex-1 truncate text-left text-sm font-bold ${
+                    isActive ? "text-[#1d4ed8]" : "text-[#344054]"
+                  }`}
+                >
+                  {type}
+                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => updateQuota(type, count - 1)}
+                    disabled={count <= 0}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-[#d0d5dd] bg-white text-[#475467] disabled:opacity-35"
+                    aria-label={`Decrease ${type}`}
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={20}
+                    value={count}
+                    onChange={(event) => updateQuota(type, Number(event.target.value))}
+                    className="h-7 w-12 rounded-lg px-1.5 text-center text-sm font-bold"
+                    aria-label={`${type} count`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateQuota(type, count + 1)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-[#bfdbfe] bg-white text-[#1d4ed8]"
+                    aria-label={`Increase ${type}`}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {total > 0 && (
+          <p className="mt-3 rounded-xl bg-[#f8fafc] px-3 py-2 text-xs font-semibold text-[#475467]">
+            รวม {total} ไอเดีย: {activeQuotas.map((item) => `${item.type} ${item.count}`).join(" · ")}
+          </p>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 // Plays the app's notification sound when idea generation finishes. Uses the same asset and
@@ -220,6 +361,7 @@ export function ConceptMode({
   const [isImportingIdeas, setIsImportingIdeas] = useState(false);
   const [importIdeasError, setImportIdeasError] = useState("");
   const [contentTypeWarnings, setContentTypeWarnings] = useState<Set<string>>(new Set());
+  const [contentTypeQuotas, setContentTypeQuotas] = useState<ContentTypeQuotas>({ ...DEFAULT_CONTENT_TYPE_QUOTAS });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState({ hook: "", subheadline: "", cta: "", concept: "", why: "" });
 
@@ -510,6 +652,38 @@ export function ConceptMode({
     return data.description as string;
   };
 
+  const isBriefDocumentFile = (file: File) => {
+    if (file.type.startsWith("image/")) return false;
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    return (
+      file.type === "application/pdf" ||
+      file.type === "text/plain" ||
+      file.type === "text/csv" ||
+      file.type === "application/csv" ||
+      file.type === "application/vnd.ms-excel" ||
+      extension === "pdf" ||
+      extension === "txt" ||
+      extension === "csv"
+    );
+  };
+
+  const extractAttachedBriefFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/brief-file/extract", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.success || !data.text) {
+      throw new Error(data.error || "ไม่สามารถอ่านไฟล์ brief ที่แนบได้");
+    }
+
+    return data.text as string;
+  };
+
   const requestIdeaGeneration = async (
     instructions: string,
     mode: "initial" | "append",
@@ -530,15 +704,30 @@ export function ConceptMode({
 
     let finalInstructions = instructions.trim() || " ";
     const attachedImage = files?.find((file) => file.type.startsWith("image/"));
+    const attachedBriefFile = files?.find(isBriefDocumentFile);
+    const attachedContexts: string[] = [];
+
+    if (attachedBriefFile) {
+      try {
+        const briefText = await extractAttachedBriefFile(attachedBriefFile);
+        attachedContexts.push(
+          `[ข้อมูลจากไฟล์ brief ที่ผู้ใช้แนบมา — ใช้เป็น input หลักประกอบการ generate]\n${briefText}`,
+        );
+      } catch (error) {
+        console.error("[ConceptMode] Failed to extract attached brief file:", error);
+        alert(error instanceof Error ? error.message : "ไม่สามารถอ่านไฟล์ brief ที่แนบได้ กรุณาลองใหม่");
+        setIsGenerating(false);
+        setIsLoadingMore(false);
+        return;
+      }
+    }
+
     if (attachedImage) {
       try {
         const imageDescription = await describeAttachedImage(attachedImage);
-        finalInstructions = [
-          instructions.trim(),
+        attachedContexts.push(
           `[คำอธิบายรูปภาพที่ผู้ใช้แนบมา — ใช้เป็นบริบทอ้างอิงประกอบ brief]\n${imageDescription}`,
-        ]
-          .filter(Boolean)
-          .join("\n\n");
+        );
       } catch (error) {
         console.error("[ConceptMode] Failed to describe attached image:", error);
         alert(error instanceof Error ? error.message : "ไม่สามารถวิเคราะห์รูปที่แนบได้ กรุณาลองใหม่");
@@ -548,9 +737,18 @@ export function ConceptMode({
       }
     }
 
+    if (attachedContexts.length > 0) {
+      finalInstructions = [instructions.trim(), ...attachedContexts].filter(Boolean).join("\n\n");
+    }
+
     const existingConceptIdeas =
       mode === "append" ? ideas.map((idea) => idea.concept_idea).filter(Boolean) : undefined;
-    const generationInstructions = `${finalInstructions}\n\n${THAI_OUTPUT_INSTRUCTION}`;
+    const contentTypeQuotaInstruction = buildContentTypeQuotaInstruction(contentTypeQuotas);
+    const activeContentTypeQuotas = getActiveContentTypeQuotas(contentTypeQuotas);
+    const requestedIdeaCount = activeContentTypeQuotas.reduce((sum, item) => sum + item.count, 0);
+    const generationInstructions = [finalInstructions, contentTypeQuotaInstruction, THAI_OUTPUT_INSTRUCTION]
+      .filter(Boolean)
+      .join("\n\n");
 
     try {
       const response = await fetch("/api/generate-ideas", {
@@ -563,6 +761,8 @@ export function ConceptMode({
           instructions: generationInstructions,
           model: "gemini-2.5-pro",
           existingConceptIdeas,
+          contentTypeQuotas: activeContentTypeQuotas,
+          requestedIdeaCount: requestedIdeaCount || undefined,
         }),
       });
       const data = await response.json();
@@ -957,6 +1157,14 @@ export function ConceptMode({
             onSend={(message, files) => void requestIdeaGeneration(message, "initial", files)}
             placeholder="พิมพ์โจทย์หรือ direction สำหรับ generate concept ideas..."
             showUtilityControls={false}
+            fileMode="brief-document"
+            uploadTooltip="Upload brief file"
+            leftActionsAddon={
+              <ContentTypeQuotaPicker
+                quotas={contentTypeQuotas}
+                onChange={setContentTypeQuotas}
+              />
+            }
             primaryActionLabel="Generate Ideas"
             allowEmptySubmit
             className="flex min-h-[108px] flex-col justify-between !border-black/10 !bg-white !shadow-[0_16px_48px_rgba(15,23,42,0.10)] sm:min-h-[116px]"

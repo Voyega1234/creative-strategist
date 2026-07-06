@@ -3,7 +3,7 @@
 import React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ArrowUp, Paperclip, Square, X, StopCircle, Mic, Globe, BrainCog, FolderCode, Sparkles } from "lucide-react";
+import { ArrowUp, Paperclip, Square, X, StopCircle, Mic, Globe, BrainCog, FolderCode, Sparkles, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Utility function for className merging
@@ -448,6 +448,9 @@ interface PromptInputBoxProps {
   primaryActionEnabled?: boolean;
   /** Keep the typed text in the box after sending (e.g. briefs the user may tweak and re-run). */
   preserveInputOnSend?: boolean;
+  fileMode?: "image" | "brief-document";
+  uploadAccept?: string;
+  uploadTooltip?: string;
 }
 export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref: React.Ref<HTMLDivElement>) => {
   const {
@@ -462,6 +465,9 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
     allowEmptySubmit = false,
     primaryActionEnabled = false,
     preserveInputOnSend = false,
+    fileMode = "image",
+    uploadAccept,
+    uploadTooltip,
   } = props;
   const [input, setInput] = React.useState("");
   const [files, setFiles] = React.useState<File[]>([]);
@@ -487,10 +493,38 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
   const handleCanvasToggle = () => setShowCanvas((prev) => !prev);
 
   const isImageFile = React.useCallback((file: File) => file.type.startsWith("image/"), []);
+  const isBriefDocumentFile = React.useCallback((file: File) => {
+    if (file.type.startsWith("image/")) return false;
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    return (
+      file.type === "application/pdf" ||
+      file.type === "text/plain" ||
+      file.type === "text/csv" ||
+      file.type === "application/csv" ||
+      file.type === "application/vnd.ms-excel" ||
+      extension === "pdf" ||
+      extension === "txt" ||
+      extension === "csv"
+    );
+  }, []);
+
+  const isAllowedFile = React.useCallback(
+    (file: File) => (fileMode === "brief-document" ? isBriefDocumentFile(file) : isImageFile(file)),
+    [fileMode, isBriefDocumentFile, isImageFile],
+  );
+
+  const fileTypeErrorMessage =
+    fileMode === "brief-document" ? "Only PDF, TXT, or CSV files are allowed" : "Only image files are allowed";
+  const fileInputAccept =
+    uploadAccept ||
+    (fileMode === "brief-document"
+      ? ".pdf,.txt,.csv,application/pdf,text/plain,text/csv,application/csv,application/vnd.ms-excel"
+      : "image/*");
+  const fileUploadTooltip = uploadTooltip || (fileMode === "brief-document" ? "Upload brief file" : "Upload image");
 
   const processFile = React.useCallback((file: File) => {
-    if (!isImageFile(file)) {
-      console.log("Only image files are allowed");
+    if (!isAllowedFile(file)) {
+      console.log(fileTypeErrorMessage);
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -498,10 +532,14 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
       return;
     }
     setFiles([file]);
+    if (!isImageFile(file)) {
+      setFilePreviews({});
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => setFilePreviews({ [file.name]: e.target?.result as string });
     reader.readAsDataURL(file);
-  }, [isImageFile]);
+  }, [fileTypeErrorMessage, isAllowedFile, isImageFile]);
 
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -517,9 +555,9 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
     e.preventDefault();
     e.stopPropagation();
     const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter((file) => isImageFile(file));
-    if (imageFiles.length > 0) processFile(imageFiles[0]);
-  }, [isImageFile, processFile]);
+    const acceptedFiles = files.filter((file) => isAllowedFile(file));
+    if (acceptedFiles.length > 0) processFile(acceptedFiles[0]);
+  }, [isAllowedFile, processFile]);
 
   const handleRemoveFile = (index: number) => {
     const fileToRemove = files[index];
@@ -533,7 +571,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
     const items = e.clipboardData?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image") !== -1) {
+      if (fileMode === "image" && items[i].type.indexOf("image") !== -1) {
         const file = items[i].getAsFile();
         if (file) {
           e.preventDefault();
@@ -542,7 +580,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
         }
       }
     }
-  }, [processFile]);
+  }, [fileMode, processFile]);
 
   React.useEffect(() => {
     document.addEventListener("paste", handlePaste);
@@ -619,6 +657,23 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
                     </button>
                   </div>
                 )}
+                {!file.type.startsWith("image/") && (
+                  <div className="flex max-w-[260px] items-center gap-2 rounded-xl border border-black/10 bg-black/[0.03] px-3 py-2 text-sm text-[#344054]">
+                    <FileText className="h-4 w-4 shrink-0 text-[#1d4ed8]" />
+                    <span className="truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFile(index);
+                      }}
+                      className="ml-1 rounded-full p-0.5 text-[#667085] transition-colors hover:bg-black/10 hover:text-[#1f1f1f]"
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -659,7 +714,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
               isRecording ? "opacity-0 invisible h-0" : "opacity-100 visible"
             )}
           >
-            <PromptInputAction tooltip="Upload image">
+            <PromptInputAction tooltip={fileUploadTooltip}>
               <button
                 onClick={() => {
                   if (onUploadClick) {
@@ -680,7 +735,7 @@ export const PromptInputBox = React.forwardRef((props: PromptInputBoxProps, ref:
                     if (e.target.files && e.target.files.length > 0) processFile(e.target.files[0]);
                     if (e.target) e.target.value = "";
                   }}
-                  accept="image/*"
+                  accept={fileInputAccept}
                 />
               </button>
             </PromptInputAction>

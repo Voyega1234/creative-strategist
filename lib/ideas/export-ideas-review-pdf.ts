@@ -234,7 +234,7 @@ function drawHighlightedText(
   lines.forEach((line, lineIndex) => {
     let cursorX = x
     line.forEach((run) => {
-      pdf.setTextColor(run.highlight ? 29 : 52, run.highlight ? 78 : 64, run.highlight ? 216 : 84)
+      pdf.setTextColor(run.highlight ? 16 : 52, run.highlight ? 24 : 64, run.highlight ? 40 : 84)
       setFont(pdf, run.highlight ? "bold" : "medium", sizePt, hasThaiFont)
       pdf.text(run.text, cursorX, y + lineIndex * lineHeightMm, { baseline: "top" })
       cursorX += pdf.getTextWidth(run.text)
