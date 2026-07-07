@@ -1324,10 +1324,10 @@ export function ConceptMode({
                 title={savedCount === 0
                   ? "เลือก Recommended อย่างน้อย 1 อันก่อน"
                   : `Recommended ${savedCount} · Other options ${otherCount}/${MAX_OTHER_OPTIONS}`}
-                className="rounded-full bg-[#1d4ed8] text-white hover:bg-[#1d4ed8]/90"
+                className="hidden rounded-full bg-[#1d4ed8] text-white hover:bg-[#1d4ed8]/90"
               >
                 <FileDown className="h-4 w-4" />
-                {isExportingNativePdf ? "Exporting..." : "Export PDF"}
+                {isExportingNativePdf ? "Exporting..." : "(Legacy)"}
               </Button>
               <Button
                 type="button"
@@ -1340,7 +1340,7 @@ export function ConceptMode({
                 className="rounded-full border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]"
               >
                 <FileDown className="h-4 w-4" />
-                {isExportingReviewPdf ? "Exporting..." : "Export Review"}
+                {isExportingReviewPdf ? "Exporting..." : "Export PDF"}
               </Button>
               <Button
                 type="button"

@@ -9,7 +9,7 @@ const HORIZONTAL_MARGIN_MM = 16
 const VERTICAL_MARGIN_MM = 20
 const GAP_MM = 8
 const COLUMNS = 3
-const CARD_HEIGHT_MM = 170
+const CARD_HEIGHT_MM = 148
 const FONT_NAME = "SukhumvitReview"
 const PT_TO_MM = 0.3528
 const FONT_FILES = {
@@ -204,11 +204,16 @@ function drawHighlightedText(
   lineHeightMm: number,
   sizePt: number,
   hasThaiFont: boolean,
+  align: "left" | "center" = "left",
 ) {
   const lines = wrapRuns(pdf, runs, maxWidthMm, maxLines, "medium", "bold", sizePt, hasThaiFont)
 
   lines.forEach((line, lineIndex) => {
-    let cursorX = x
+    const lineWidth =
+      align === "center"
+        ? line.reduce((total, run) => total + getTextRunWidth(pdf, run, "medium", "bold", sizePt, hasThaiFont), 0)
+        : 0
+    let cursorX = align === "center" ? x + Math.max(0, maxWidthMm - lineWidth) / 2 : x
     line.forEach((run) => {
       pdf.setTextColor(run.highlight ? 16 : 52, run.highlight ? 24 : 64, run.highlight ? 40 : 84)
       setFont(pdf, run.highlight ? "bold" : "medium", sizePt, hasThaiFont)
@@ -272,24 +277,10 @@ function wrapText(pdf: jsPDF, text: string, maxWidthMm: number, maxLines: number
   return lines
 }
 
-function drawTextBlock(pdf: jsPDF, lines: string[], x: number, y: number, lineHeightMm: number) {
+function drawCenteredTextBlock(pdf: jsPDF, lines: string[], centerX: number, y: number, lineHeightMm: number) {
   lines.forEach((line, index) => {
-    pdf.text(line, x, y + index * lineHeightMm, { baseline: "top" })
+    pdf.text(line, centerX, y + index * lineHeightMm, { align: "center", baseline: "top" })
   })
-}
-
-function getDescriptionSummary(description: IdeaRecommendation["description"]) {
-  if (!description) return ""
-  if (typeof description === "string") return description
-  if (Array.isArray(description)) {
-    const priorityItem =
-      description.find((item) => item.label === "Why this converts" || item.label === "Evidence/Counterpoint") ||
-      description[0]
-    return priorityItem?.text || ""
-  }
-  const prioritySection =
-    description.sections?.find((section) => section.group === "why_evidence") || description.sections?.[0]
-  return prioritySection?.bullets?.[0] || description.summary || ""
 }
 
 function getContentTypeLabel(contentType?: string) {
@@ -320,7 +311,6 @@ function getCardData(idea: IdeaRecommendation) {
     hook: idea.copywriting?.headline || idea.title || idea.concept_idea || "",
     subheadline: idea.copywriting?.sub_headline_1 || idea.copywriting?.sub_headline_2 || "",
     cta: idea.copywriting?.cta || "",
-    why: idea.competitiveGap || getDescriptionSummary(idea.description),
     metaTags,
     contentType: getContentTypeLabel(idea.content_type),
   }
@@ -330,7 +320,6 @@ function drawIdeaCard(
   pdf: jsPDF,
   idea: IdeaRecommendation,
   ideaNumber: number,
-  group: ReviewIdeaGroup,
   highlightTerms: string[] | undefined,
   x: number,
   y: number,
@@ -349,38 +338,33 @@ function drawIdeaCard(
   pdf.setFillColor(255, 255, 255)
   pdf.roundedRect(x, y, width, height, 3.2, 3.2, "FD")
 
+  const ideaBadgeWidth = 21
+  const badgeGap = data.contentType ? 4 : 0
+  setFont(pdf, "bold", 9.5, hasThaiFont)
+  const contentTypeBadgeWidth = data.contentType ? Math.min(29, Math.max(21, pdf.getTextWidth(data.contentType) + 7)) : 0
+  const badgeGroupWidth = ideaBadgeWidth + badgeGap + contentTypeBadgeWidth
+  const badgeStartX = contentX + (contentWidth - badgeGroupWidth) / 2
+
   pdf.setFillColor(238, 242, 255)
-  pdf.roundedRect(contentX, y + 7, 21, 6.2, 1.6, 1.6, "F")
+  pdf.roundedRect(badgeStartX, y + 7, ideaBadgeWidth, 6.2, 1.6, 1.6, "F")
   pdf.setTextColor(37, 99, 235)
   setFont(pdf, "bold", 9.7, hasThaiFont)
-  pdf.text(`Idea ${ideaNumber}`, contentX + 10.5, y + 10.1, { align: "center", baseline: "middle" })
+  pdf.text(`Idea ${ideaNumber}`, badgeStartX + ideaBadgeWidth / 2, y + 10.1, { align: "center", baseline: "middle" })
 
-  let nextBadgeX = contentX + 24
   if (data.contentType) {
-    const badgeX = nextBadgeX
-    setFont(pdf, "bold", 9.5, hasThaiFont)
-    const badgeWidth = Math.min(29, Math.max(21, pdf.getTextWidth(data.contentType) + 7))
+    const badgeX = badgeStartX + ideaBadgeWidth + badgeGap
     pdf.setFillColor(244, 247, 255)
-    pdf.roundedRect(badgeX, y + 7, badgeWidth, 6.2, 1.6, 1.6, "F")
+    pdf.roundedRect(badgeX, y + 7, contentTypeBadgeWidth, 6.2, 1.6, 1.6, "F")
     pdf.setTextColor(29, 78, 216)
-    pdf.text(data.contentType, badgeX + badgeWidth / 2, y + 10.1, { align: "center", baseline: "middle" })
-    nextBadgeX = badgeX + badgeWidth + 3
+    pdf.text(data.contentType, badgeX + contentTypeBadgeWidth / 2, y + 10.1, { align: "center", baseline: "middle" })
   }
-
-  const groupLabel = group === "recommended" ? "REC" : "OPT"
-  const groupBadgeWidth = group === "recommended" ? 15 : 15.5
-  pdf.setFillColor(group === "recommended" ? 219 : 245, group === "recommended" ? 234 : 245, group === "recommended" ? 254 : 245)
-  pdf.roundedRect(nextBadgeX, y + 7, groupBadgeWidth, 6.2, 1.6, 1.6, "F")
-  pdf.setTextColor(group === "recommended" ? 29 : 102, group === "recommended" ? 78 : 112, group === "recommended" ? 216 : 133)
-  setFont(pdf, "bold", 8.6, hasThaiFont)
-  pdf.text(groupLabel, nextBadgeX + groupBadgeWidth / 2, y + 10.1, { align: "center", baseline: "middle" })
 
   if (data.metaTags.length > 0) {
     pdf.setTextColor(102, 112, 133)
     setFont(pdf, "medium", 9.0, hasThaiFont)
     const metaText = data.metaTags.join(" · ")
     const metaLines = wrapText(pdf, metaText, contentWidth, 1)
-    pdf.text(metaLines[0] || "", contentX, y + 18.5, { baseline: "top" })
+    pdf.text(metaLines[0] || "", contentX + contentWidth / 2, y + 18.5, { align: "center", baseline: "top" })
   }
 
   const hookFontSize = data.hook.length > 92 ? 16.8 : data.hook.length > 58 ? 18.4 : 19.8
@@ -388,7 +372,7 @@ function drawIdeaCard(
   pdf.setTextColor(16, 24, 40)
   setFont(pdf, "bold", hookFontSize, hasThaiFont)
   const hookLines = wrapText(pdf, data.hook, contentWidth, 3)
-  drawTextBlock(pdf, hookLines, contentX, y + 57, hookLineHeight)
+  drawCenteredTextBlock(pdf, hookLines, contentX + contentWidth / 2, y + 57, hookLineHeight)
 
   if (data.subheadline) {
     const subY = y + 84
@@ -402,6 +386,7 @@ function drawIdeaCard(
       bodyLineHeight,
       bodyFontSize,
       hasThaiFont,
+      "center",
     )
   }
 
@@ -409,28 +394,14 @@ function drawIdeaCard(
     const ctaTextY = y + 112
     pdf.setTextColor(102, 112, 133)
     setFont(pdf, "semibold", 9.1, hasThaiFont)
-    pdf.text("CTA", contentX, ctaTextY, { baseline: "top" })
+    pdf.text("CTA", contentX + contentWidth / 2, ctaTextY, { align: "center", baseline: "top" })
 
     pdf.setTextColor(71, 84, 103)
     setFont(pdf, "medium", bodyFontSize, hasThaiFont)
     const ctaLines = wrapText(pdf, data.cta, contentWidth, 2)
-    drawTextBlock(pdf, ctaLines, contentX, ctaTextY + 6.5, bodyLineHeight)
+    drawCenteredTextBlock(pdf, ctaLines, contentX + contentWidth / 2, ctaTextY + 6.5, bodyLineHeight)
   }
 
-  if (data.why) {
-    const whyBoxY = y + height - 35
-    pdf.setFillColor(238, 242, 255)
-    pdf.roundedRect(contentX, whyBoxY, contentWidth, 30, 2.2, 2.2, "F")
-    pdf.setTextColor(29, 78, 216)
-    setFont(pdf, "bold", 8.8, hasThaiFont)
-    pdf.text("เหตุผลที่แนวคิดนี้น่าสนใจ", contentX + 4, whyBoxY + 4.2, { baseline: "top" })
-    setFont(pdf, "bold", bodyFontSize, hasThaiFont)
-    const whyLines = wrapText(pdf, data.why, contentWidth - 17, 3)
-    drawTextBlock(pdf, whyLines, contentX + 4, whyBoxY + 9.5, bodyLineHeight)
-    pdf.setTextColor(16, 24, 40)
-    setFont(pdf, "bold", 11, hasThaiFont)
-    pdf.text("→", contentX + contentWidth - 6, whyBoxY + 15, { baseline: "middle" })
-  }
 }
 
 function drawSectionHeading(pdf: jsPDF, heading: string, x: number, y: number, hasThaiFont: boolean) {
@@ -483,7 +454,6 @@ export async function exportIdeasReviewPdf(
         pdf,
         idea,
         ideaNumber,
-        section.group,
         highlightMap[getReviewHighlightKey(section.group, index)],
         x,
         cardY,
