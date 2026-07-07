@@ -70,6 +70,8 @@ export async function POST(request: Request) {
           ],
         },
       ],
+    }, {
+      labels: { feature: "concept_ideas", operation: "describe_reference_image" },
     })
 
     const text = await response.text()

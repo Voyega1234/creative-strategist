@@ -43,7 +43,9 @@ async function callGeminiAPI(prompt: string, model: string = "gemini-2.5-flash",
         console.log("Using Google grounding search for Gemini API call");
     }
 
-    const response = await vertexGenerateContent(model, body);
+    const response = await vertexGenerateContent(model, body, {
+        labels: { feature: "market_research", operation: "grounded_research" },
+    });
 
     if (!response.ok) {
         const errorText = await response.text();

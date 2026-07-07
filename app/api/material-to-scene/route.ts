@@ -15,6 +15,9 @@ const OUTPUT_PREFIX = "generated/material-to-scene-outputs"
 const ANALYSIS_CACHE_VERSION = "v1"
 const ANALYSIS_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30
 const analysisMemoryCache = new Map<string, { description: string; createdAt: number }>()
+const PHOTOSTOCK_LABELS = { feature: "photostock" }
+
+type PhotostockOperation = "background_removal" | "material_analysis" | "scene_generation"
 
 const PRESET_STYLES: Record<string, string> = {
   "Ad Creative":
@@ -220,8 +223,10 @@ function getGeminiImages(payload: any): GeminiInlineImage[] {
     .filter((part: GeminiInlineImage) => Boolean(part.data))
 }
 
-async function callGemini(body: unknown) {
-  const response = await vertexGenerateContent(IMAGE_MODEL, body)
+async function callGemini(body: unknown, operation: PhotostockOperation) {
+  const response = await vertexGenerateContent(IMAGE_MODEL, body, {
+    labels: { ...PHOTOSTOCK_LABELS, operation },
+  })
 
   const text = await response.text()
   let payload: any = null
@@ -258,6 +263,8 @@ async function analyzeMaterial(referenceImageBase64: string, mimeType: string) {
         ],
       },
     ],
+  }, {
+    labels: { ...PHOTOSTOCK_LABELS, operation: "material_analysis" },
   })
 
   const text = await response.text()
@@ -435,7 +442,7 @@ export async function POST(request: Request) {
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
         },
-      })
+      }, "background_removal")
 
       const images = getGeminiImages(payload)
       if (images.length === 0) {
@@ -537,7 +544,7 @@ export async function POST(request: Request) {
               imageSize,
             },
           },
-        }),
+        }, "scene_generation"),
       ),
     )
 

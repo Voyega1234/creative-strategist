@@ -107,6 +107,8 @@ ${buffer.toString("utf8").slice(0, MAX_TEXT_CHARS)}`,
     const response = await vertexGenerateContent(BRIEF_FILE_MODEL, {
       contents: [{ parts }],
       generationConfig: { temperature: 0.1 },
+    }, {
+      labels: { feature: "concept_ideas", operation: "extract_brief_file" },
     })
 
     const raw = await response.text()

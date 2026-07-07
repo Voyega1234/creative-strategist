@@ -172,6 +172,8 @@ export async function POST(request: Request) {
           imageSize: targetSize,
         },
       },
+    }, {
+      labels: { feature: "image_tools", operation: "remove_text" },
     })
 
     const responseText = await geminiResponse.text()

@@ -195,6 +195,8 @@ async function callGeminiImage(parts: Array<Record<string, unknown>>) {
         imageSize: GEMINI_IMAGE_SIZE,
       },
     },
+  }, {
+    labels: { feature: "seo_banner", operation: "generate" },
   })
 
   const responseText = await response.text()

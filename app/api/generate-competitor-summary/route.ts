@@ -10,6 +10,8 @@ async function callGeminiAPI(prompt: string) {
       parts: [{ text: prompt }]
     }],
     generationConfig: { temperature: 0.7 }
+  }, {
+    labels: { feature: "competitor_research", operation: "generate_summary" }
   })
 
   if (!response.ok) {

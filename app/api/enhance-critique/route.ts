@@ -409,6 +409,8 @@ export async function POST(request: Request) {
           ],
         },
       ],
+    }, {
+      labels: { feature: "enhance_image", operation: "creative_critique" },
     })
 
     const text = await response.text()

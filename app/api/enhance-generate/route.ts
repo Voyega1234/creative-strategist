@@ -231,6 +231,8 @@ async function resizeWithGemini({
         imageSize: DEFAULT_FINAL_IMAGE_SIZE,
       },
     },
+  }, {
+    labels: { feature: "enhance_image", operation: "resize_output" },
   })
 
   const rawText = await response.text()

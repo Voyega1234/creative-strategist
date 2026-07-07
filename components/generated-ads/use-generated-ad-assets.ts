@@ -155,10 +155,10 @@ export function useGeneratedAdAssets({
     })
   }
 
-  const selectMaterial = (url: string) => {
+  const selectMaterial = useCallback((url: string) => {
     if (!url) return
     setSelectedMaterials((prev) => (prev.includes(url) ? prev : [...prev, url]))
-  }
+  }, [])
 
   const selectReference = useCallback((url: string) => {
     if (!url) return
@@ -259,8 +259,8 @@ export function useGeneratedAdAssets({
 
   const addColor = () => {
     const sanitized = sanitizeColorValue(colorInput)
-    if (!sanitized) {
-      alert("กรุณากรอกโค้ดสีที่ถูกต้อง")
+    if (!/^[0-9A-F]{6}$/.test(sanitized)) {
+      alert("กรุณากรอกโค้ดสี HEX 6 หลัก เช่น #265484")
       return
     }
     if (colorPalette.includes(sanitized)) {

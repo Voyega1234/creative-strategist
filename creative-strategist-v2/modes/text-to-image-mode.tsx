@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,7 @@ import {
 } from "@/creative-strategist-v2/modes/text-to-image-media-picker";
 import { AddImagesDialog } from "@/components/add-images-dialog";
 import { EditableSavedIdeaModal } from "@/components/editable-saved-idea-modal";
-import { downloadGeneratedAdImage, requestGeneratedAdImages, runConcurrentImageJobs } from "@/lib/images/generated-ads-client";
+import { downloadGeneratedAdImage, requestGeneratedAdImages } from "@/lib/images/generated-ads-client";
 import {
   buildGeneratedAdRequestPayload,
   getGeneratedImagesStorageKey,
@@ -38,7 +39,7 @@ import { uploadFileToImageStorage } from "@/lib/images/client";
 import { AD_STYLE_OPTIONS, PAGE_REFERENCE_STYLE_VALUE } from "@/lib/images/generated-ads-config";
 import type { IdeaRecommendation } from "@/lib/ideas/types";
 import { cn } from "@/lib/utils";
-import { Bookmark, Check, Download, FileText, Files, ImageIcon, Images, Loader2, Palette, Pencil, RectangleHorizontal, Sparkles, Upload, Wand2, X } from "lucide-react";
+import { AlertCircle, Bookmark, Check, Download, FileText, Files, ImageIcon, Images, Loader2, Palette, Pencil, RectangleHorizontal, Sparkles, Upload, Wand2, X } from "lucide-react";
 import type { TextToImageIdeaHandoff, TextToImageReferenceHandoff } from "./types";
 
 const ASPECT_RATIOS = ["1:1", "4:5", "9:16", "16:9"] as const;
@@ -117,6 +118,7 @@ export function TextToImageMode({
   const [aspectRatio, setAspectRatio] = useState<(typeof ASPECT_RATIOS)[number]>("1:1");
   const [imageCount, setImageCount] = useState<(typeof IMAGE_COUNTS)[number]>(1);
   const [selectedAdStyle, setSelectedAdStyle] = useState("");
+  const [referenceStyleEnabled, setReferenceStyleEnabled] = useState(true);
   // "Match Page Style": scraped Facebook page posts used as references.
   const [pageReferenceUrl, setPageReferenceUrl] = useState("");
   const [pageReferenceImages, setPageReferenceImages] = useState<Array<{ name: string; url: string }>>([]);
@@ -142,6 +144,10 @@ export function TextToImageMode({
   const [isReadingBrandCi, setIsReadingBrandCi] = useState(false);
   const [isBrandCiDialogOpen, setIsBrandCiDialogOpen] = useState(false);
   const [brandCiMessage, setBrandCiMessage] = useState("");
+  const [requiredLogoUrl, setRequiredLogoUrl] = useState("");
+  const [requiredLogoName, setRequiredLogoName] = useState("");
+  const [isLoadingRequiredLogo, setIsLoadingRequiredLogo] = useState(false);
+  const [logoRequiredMessage, setLogoRequiredMessage] = useState("");
   const [brandWebsiteUrl, setBrandWebsiteUrl] = useState("");
   const [isExtractingBrandAssets, setIsExtractingBrandAssets] = useState(false);
   const [brandAssetMessage, setBrandAssetMessage] = useState("");
@@ -150,6 +156,7 @@ export function TextToImageMode({
   const [savedImageIds, setSavedImageIds] = useState<string[]>([]);
   const referenceUploadInputRef = useRef<HTMLInputElement>(null);
   const brandCiInputRef = useRef<HTMLInputElement>(null);
+  const requiredLogoInputRef = useRef<HTMLInputElement>(null);
   const brandAssetUploadInputRef = useRef<HTMLInputElement>(null);
 
   const selectedClientId = clientId || "";
@@ -215,6 +222,16 @@ export function TextToImageMode({
   const visibleIdeas = savedTopics;
   const visibleMaterialImages = useMemo(() => materialImages.slice(0, 80), [materialImages]);
   const visibleReferenceImages = useMemo(() => referenceImages.slice(0, 80), [referenceImages]);
+  const colorPickerValue = useMemo(() => {
+    const draftColor = colorInput.replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+    if (/^[0-9a-fA-F]{6}$/.test(draftColor)) {
+      return `#${draftColor}`;
+    }
+
+    const firstSavedColor = (colorPalette[0] || "").replace(/[^0-9a-fA-F]/g, "").slice(0, 6);
+    return /^[0-9a-fA-F]{6}$/.test(firstSavedColor) ? `#${firstSavedColor}` : "#265484";
+  }, [colorInput, colorPalette]);
+  const canAddBrandColor = /^[0-9a-fA-F]{6}$/.test(colorInput.replace(/[^0-9a-fA-F]/g, ""));
   const selectedAdStyleOption = useMemo(
     () => AD_STYLE_OPTIONS.find((style) => style.value === selectedAdStyle) || null,
     [selectedAdStyle],
@@ -270,6 +287,7 @@ export function TextToImageMode({
 
   useEffect(() => {
     if (!referenceHandoff) return;
+    setReferenceStyleEnabled(true);
     selectReference(referenceHandoff.imageUrl);
   }, [referenceHandoff, selectReference]);
 
@@ -282,6 +300,9 @@ export function TextToImageMode({
   useEffect(() => {
     setBrandWebsiteUrl("");
     setBrandAssetMessage("");
+    setRequiredLogoUrl("");
+    setRequiredLogoName("");
+    setLogoRequiredMessage("");
     setPreviewImage(null);
     setSavingImageIds([]);
     setSavedImageIds([]);
@@ -289,6 +310,44 @@ export function TextToImageMode({
     setPageReferenceImages([]);
     setPageReferenceMessage("");
   }, [selectedClientId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRequiredLogo() {
+      if (!selectedClientId) {
+        setIsLoadingRequiredLogo(false);
+        return;
+      }
+      setIsLoadingRequiredLogo(true);
+      try {
+        const response = await fetch(
+          `/api/text-to-image/brand-logo?clientId=${encodeURIComponent(selectedClientId)}`,
+        );
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload?.error || "Cannot load brand logo");
+        }
+        if (!cancelled && payload.logo?.url) {
+          setRequiredLogoUrl(payload.logo.url);
+          setRequiredLogoName(payload.logo.name || "Brand logo");
+          selectMaterial(payload.logo.url);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[Text to Image] Failed to load saved logo:", error);
+          setLogoRequiredMessage("โหลดโลโก้ที่บันทึกไว้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingRequiredLogo(false);
+      }
+    }
+
+    void loadRequiredLogo();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectMaterial, selectedClientId]);
 
   // When the "Match Page Style" style is active, prefill the page URL from the client profile and
   // load any references already scraped for this client (no Apify call on load).
@@ -593,6 +652,51 @@ export function TextToImageMode({
     }
   };
 
+  const handleRequiredLogoUpload = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setLogoRequiredMessage("กรุณาอัปโหลดไฟล์โลโก้เป็นรูปภาพเท่านั้น");
+      return;
+    }
+
+    const uploadedUrls = await uploadMaterials(files);
+    const logoUrl = Array.isArray(uploadedUrls) ? uploadedUrls[0] : "";
+    if (logoUrl) {
+      try {
+        const response = await fetch("/api/text-to-image/brand-logo", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: selectedClientId, logoUrl, logoName: file.name }),
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload?.error || "Cannot save brand logo");
+        }
+        setRequiredLogoUrl(payload.logo?.url || logoUrl);
+        setRequiredLogoName(payload.logo?.name || file.name);
+        setLogoRequiredMessage("");
+        setBrandCiMessage("อัปโหลดและบันทึกโลโก้แล้ว ระบบจะใช้โลโก้นี้กับ client นี้ต่อไป");
+      } catch (error) {
+        console.error("[Text to Image] Failed to save uploaded logo:", error);
+        setLogoRequiredMessage("อัปโหลดไฟล์แล้ว แต่บันทึกโลโก้ลงฐานข้อมูลไม่สำเร็จ กรุณาลองใหม่");
+      }
+    }
+  };
+
+  const saveRequiredLogo = async (logoUrl: string, logoName: string) => {
+    const response = await fetch("/api/text-to-image/brand-logo", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: selectedClientId, logoUrl, logoName }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload?.error || "Cannot save brand logo");
+    }
+    return payload.logo as { url: string; name: string };
+  };
+
   const generateImages = async (message = "", files: File[] = []) => {
     if (generationInFlightRef.current) return;
     if (!selectedClientId || !selectedProductFocus || !clientName) {
@@ -600,16 +704,35 @@ export function TextToImageMode({
       return;
     }
 
+    if (isLoadingRequiredLogo) {
+      setLogoRequiredMessage("กำลังโหลดโลโก้ที่บันทึกไว้ กรุณารอสักครู่");
+      return;
+    }
+
+    if (!requiredLogoUrl) {
+      setLogoRequiredMessage("กรุณาอัปโหลดโลโก้ก่อน Generate Image");
+      setIsBrandCiDialogOpen(true);
+      return;
+    }
+
     const normalizedMessage = message.trim();
     const usingIdea = briefSource === "idea" && selectedTopicData;
-    const promptText =
-      normalizedMessage ||
-      selectedTopicData?.concept_idea ||
-      selectedTopicData?.description ||
-      "";
+    const promptText = normalizedMessage;
+    const attachedReferenceFiles = files.filter((file) => file.type.startsWith("image/"));
+    const hasReferenceStyleSource =
+      selectedReferenceImages.length > 0 ||
+      uploadedReferenceFiles.length > 0 ||
+      attachedReferenceFiles.length > 0 ||
+      (selectedAdStyle === PAGE_REFERENCE_STYLE_VALUE && pageReferenceImages.length > 0);
 
     if (!usingIdea && !promptText) {
-      alert("พิมพ์ brief หรือเลือก saved idea ก่อน generate");
+      alert("กรุณาเลือก saved idea หรือพิมพ์ brief ก่อน generate");
+      return;
+    }
+
+    if (referenceStyleEnabled && !hasReferenceStyleSource) {
+      alert("Reference style เปิดอยู่ กรุณาเลือกหรือแนบ reference image ก่อน Generate Image");
+      setIsImageDialogOpen(true);
       return;
     }
 
@@ -618,8 +741,8 @@ export function TextToImageMode({
     setLastBrief(promptText);
 
     const requestIds = Array.from({ length: imageCount }, () => crypto.randomUUID());
-    const topicTitle = selectedTopicData?.title || "Custom brief";
-    const topicSummary = selectedTopicData ? selectedTopicSummary : promptText;
+    const topicTitle = usingIdea ? selectedTopicData.title : "Custom brief";
+    const topicSummary = usingIdea ? selectedTopicSummary : promptText;
 
     setGeneratedImages((prev) => [
       ...requestIds.map((id) => ({
@@ -637,19 +760,22 @@ export function TextToImageMode({
     ]);
 
     try {
-      const referenceFiles = [...uploadedReferenceFiles, ...files.filter((file) => file.type.startsWith("image/"))];
+      const referenceFiles = referenceStyleEnabled ? [...uploadedReferenceFiles, ...attachedReferenceFiles] : [];
       const referenceImageUrls = await Promise.all(
         referenceFiles.map((file) => uploadFileToImageStorage(file, "generated/text-to-image-references")),
       );
       const pageStyleReferenceUrls =
-        selectedAdStyle === PAGE_REFERENCE_STYLE_VALUE && pageReferenceImages.length > 0
+        referenceStyleEnabled && selectedAdStyle === PAGE_REFERENCE_STYLE_VALUE && pageReferenceImages.length > 0
           ? pickRandomItems(pageReferenceImages.map((image) => image.url), 2, 3)
           : [];
-      const allReferenceImageUrls = [
-        ...selectedReferenceImages,
-        ...referenceImageUrls,
-        ...pageStyleReferenceUrls,
-      ];
+      const allReferenceImageUrls = referenceStyleEnabled
+        ? Array.from(new Set([
+            ...selectedReferenceImages,
+            ...referenceImageUrls,
+            ...pageStyleReferenceUrls,
+          ]))
+        : [];
+      const materialImageUrls = Array.from(new Set([requiredLogoUrl, ...selectedMaterials].filter(Boolean)));
 
       const payload = buildGeneratedAdRequestPayload({
         prompt: promptText,
@@ -659,12 +785,14 @@ export function TextToImageMode({
         selectedTopicData: usingIdea ? selectedTopicData : null,
         selectedVisualRoute,
         colorPalette,
-        materialImageUrls: selectedMaterials,
+        materialImageUrls,
         adStyleLabel: selectedAdStyleOption?.label || null,
         userBrief: selectedAdStyleOption?.userBrief || "",
+        referenceStyleEnabled,
         creativeFormat: selectedCreativeFormat.value,
         creativeFormatLabel: selectedCreativeFormat.label,
         aspectRatio,
+        imageCount,
         brandCiText: activeBrandCiText,
         brandCiFileName: activeBrandCiFileName,
       });
@@ -679,42 +807,60 @@ export function TextToImageMode({
           count: imageCount,
           style: selectedAdStyleOption?.label || "Auto style",
           source: briefSource,
-          productAssets: selectedMaterials.length,
+          productAssets: materialImageUrls.length,
           references: allReferenceImageUrls.length,
         },
         ...prev,
       ].slice(0, 8));
 
-      const { failedCount } = await runConcurrentImageJobs({
-        items: requestIds,
-        concurrency: 2,
-        run: async (imageId) => {
-          const returnedImages = await requestGeneratedAdImages(payload);
-          setGeneratedImages((prev) =>
-            prev.flatMap((image) =>
-              image.id === imageId
-                ? returnedImages.map((returnedImage, index) => ({
-                    ...image,
-                    id: index === 0 ? image.id : crypto.randomUUID(),
-                    url: returnedImage.url,
-                    source: returnedImage.source,
-                    status: "completed" as const,
-                    reference_image: allReferenceImageUrls[0],
-                  }))
-                : [image],
-            ),
-          );
-        },
-        onError: (imageId, error) => {
-          console.error("[Text to Image] generation failed:", error);
-          setGeneratedImages((prev) =>
-            prev.map((image) => (image.id === imageId ? { ...image, status: "error" } : image)),
-          );
-        },
+      const returnedImages = await requestGeneratedAdImages(payload);
+      const returnedByRequestId = new Map(
+        requestIds.map((requestId, index) => [requestId, returnedImages[index]]),
+      );
+      const extraReturnedImages = returnedImages.slice(requestIds.length);
+
+      setGeneratedImages((prev) => {
+        const updatedImages = prev.map((image) => {
+          const returnedImage = returnedByRequestId.get(image.id);
+          if (!requestIds.includes(image.id)) return image;
+          if (!returnedImage) return { ...image, status: "error" as const };
+          return {
+            ...image,
+            url: returnedImage.url,
+            source: returnedImage.source,
+            status: "completed" as const,
+            reference_image: allReferenceImageUrls[0],
+          };
+        });
+        const extraImages = extraReturnedImages.map((returnedImage) => ({
+          id: crypto.randomUUID(),
+          url: returnedImage.url,
+          prompt: promptText,
+          topicTitle,
+          topicSummary,
+          status: "completed" as const,
+          created_at: new Date().toISOString(),
+          aspectRatio,
+          operation: "generate" as const,
+          source: returnedImage.source,
+          reference_image: allReferenceImageUrls[0],
+        }));
+        if (extraImages.length === 0) return updatedImages;
+
+        const lastRequestIndex = updatedImages.reduce(
+          (lastIndex, image, index) => (requestIds.includes(image.id) ? index : lastIndex),
+          -1,
+        );
+        if (lastRequestIndex < 0) return [...extraImages, ...updatedImages];
+        return [
+          ...updatedImages.slice(0, lastRequestIndex + 1),
+          ...extraImages,
+          ...updatedImages.slice(lastRequestIndex + 1),
+        ];
       });
 
-      if (failedCount > 0) {
-        alert(`มี ${failedCount} รูปที่สร้างไม่สำเร็จ`);
+      if (returnedImages.length < imageCount) {
+        alert(`สร้างสำเร็จ ${returnedImages.length} จาก ${imageCount} รูป`);
       }
     } catch (error) {
       console.error("[Text to Image] generation failed:", error);
@@ -798,7 +944,11 @@ export function TextToImageMode({
       }
 
       if (payload.logo_material_url) {
+        const savedLogo = await saveRequiredLogo(payload.logo_material_url, "OpenBrand logo");
         selectMaterial(payload.logo_material_url);
+        setRequiredLogoUrl(savedLogo?.url || payload.logo_material_url);
+        setRequiredLogoName(savedLogo?.name || "OpenBrand logo");
+        setLogoRequiredMessage("");
         await loadMaterialImages(selectedClientId);
       }
 
@@ -1124,6 +1274,16 @@ export function TextToImageMode({
                   className="hidden"
                   onChange={handleBrandCiUpload}
                 />
+                <input
+                  ref={requiredLogoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    void handleRequiredLogoUpload(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
                 <button
                   type="button"
                   onClick={() => setIsBrandCiDialogOpen(true)}
@@ -1143,6 +1303,31 @@ export function TextToImageMode({
                     <FileText className="h-4 w-4" />
                   )}
                   <span className="max-w-20 truncate text-xs font-medium">{activeBrandCiFileName || "Brand CI"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => requiredLogoInputRef.current?.click()}
+                  disabled={isUploadingMaterials || isLoadingRequiredLogo}
+                  className={cn(
+                    "flex h-8 items-center gap-1 rounded-full px-2 transition",
+                    requiredLogoUrl
+                      ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                      : "bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100",
+                  )}
+                  aria-label="Upload required logo"
+                  title={requiredLogoName || "Upload required logo"}
+                >
+                  {isUploadingMaterials || isLoadingRequiredLogo ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : requiredLogoUrl ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4" />
+                  )}
+                  <span className="max-w-20 truncate text-xs font-medium">
+                    {requiredLogoName || "Logo required"}
+                  </span>
                 </button>
 
                 <DropdownMenu>
@@ -1184,6 +1369,24 @@ export function TextToImageMode({
                     })}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                <label
+                  className={cn(
+                    "flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 transition",
+                    referenceStyleEnabled
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                      : "border-black/10 bg-white text-[#667085] hover:bg-black/[0.03]",
+                  )}
+                  title="Learn the visual system from selected references, then adapt it to the brand and concept"
+                >
+                  <Switch
+                    checked={referenceStyleEnabled}
+                    onCheckedChange={setReferenceStyleEnabled}
+                    className="scale-75 data-[state=checked]:bg-indigo-600"
+                    aria-label="Reference style"
+                  />
+                  <span className="whitespace-nowrap text-xs font-medium">Reference style</span>
+                </label>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1262,7 +1465,10 @@ export function TextToImageMode({
                       return (
                         <DropdownMenuItem
                           key={style.value}
-                          onClick={() => setSelectedAdStyle(style.value)}
+                          onClick={() => {
+                            setSelectedAdStyle(style.value);
+                            if (style.value === PAGE_REFERENCE_STYLE_VALUE) setReferenceStyleEnabled(true);
+                          }}
                           className={cn(
                             "rounded-xl text-sm",
                             selectedAdStyle === style.value && "font-semibold text-[#1f1f1f]",
@@ -1367,6 +1573,13 @@ export function TextToImageMode({
             }
             className="flex min-h-[108px] flex-col justify-between !border-black/10 !bg-white !shadow-none sm:min-h-[116px]"
           />
+
+          {logoRequiredMessage && (
+            <p className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {logoRequiredMessage}
+            </p>
+          )}
 
           {hasSelectedImages && (
             <div className="rounded-[22px] border border-black/10 bg-slate-50 p-3">
@@ -1637,10 +1850,43 @@ export function TextToImageMode({
                   )}
                   {isReadingBrandCi ? "Reading CI..." : "Upload Brand CI files"}
                 </Button>
+                <Button
+                  type="button"
+                  variant={requiredLogoUrl ? "outline" : "default"}
+                  className={cn(
+                    "rounded-full",
+                    requiredLogoUrl
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : "bg-red-600 text-white hover:bg-red-700",
+                  )}
+                  onClick={() => requiredLogoInputRef.current?.click()}
+                  disabled={!selectedClientId || isUploadingMaterials || isLoadingRequiredLogo}
+                >
+                  {isUploadingMaterials || isLoadingRequiredLogo ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : requiredLogoUrl ? (
+                    <Check className="mr-2 h-4 w-4" />
+                  ) : (
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                  )}
+                  {requiredLogoUrl ? "Logo uploaded" : "Upload required logo"}
+                </Button>
                 <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-[#475467]">
                   {isLoadingBrandCi ? "Loading..." : `${brandCiItems.length} saved`}
                 </span>
               </div>
+
+              {logoRequiredMessage && (
+                <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {logoRequiredMessage}
+                </p>
+              )}
+
+              {requiredLogoName && (
+                <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                  โลโก้ที่ใช้: {requiredLogoName}
+                </p>
+              )}
 
               {brandCiMessage && (
                 <p className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700">
@@ -1769,14 +2015,49 @@ export function TextToImageMode({
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-[#101828]">Brand colors</p>
-                    <p className="mt-1 text-xs text-[#667085]">ใช้ palette ที่เซฟไว้ของ client นี้</p>
+                    <p className="mt-1 text-xs text-[#667085]">เลือกจาก color picker หรือกรอก HEX แล้วบันทึกให้ client นี้</p>
                   </div>
                   <Palette className="h-4 w-4 text-[#667085]" />
                 </div>
+
+                <div className="mb-4 grid grid-cols-[44px_minmax(0,1fr)_auto] gap-2">
+                  <input
+                    type="color"
+                    value={colorPickerValue}
+                    onChange={(event) => setColorInput(event.target.value.toUpperCase())}
+                    className="h-10 w-11 cursor-pointer rounded-xl border border-black/10 bg-white p-1"
+                    aria-label="Choose brand color"
+                    title="Choose brand color"
+                  />
+                  <Input
+                    value={colorInput}
+                    onChange={(event) => setColorInput(event.target.value.toUpperCase())}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && canAddBrandColor) {
+                        event.preventDefault();
+                        addColor();
+                      }
+                    }}
+                    placeholder="#265484"
+                    maxLength={7}
+                    aria-label="Brand color HEX value"
+                    className="h-10 rounded-xl border-black/10 bg-white font-mono uppercase focus-visible:ring-indigo-200"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addColor}
+                    disabled={!canAddBrandColor}
+                    className="h-10 rounded-xl border-black/10 bg-white px-4 text-sm font-semibold"
+                  >
+                    Add
+                  </Button>
+                </div>
+
                 {colorPalette.length > 0 ? (
                   <div className="grid grid-cols-4 gap-2">
-                    {colorPalette.slice(0, 12).map((color) => (
-                      <div key={color} className="rounded-2xl border border-black/10 bg-white p-2">
+                    {colorPalette.slice(0, 12).map((color, index) => (
+                      <div key={`${color}-${index}`} className="relative rounded-2xl border border-black/10 bg-white p-2">
                         <div
                           className="h-12 rounded-xl border border-black/10"
                           style={{ backgroundColor: `#${color.replace("#", "")}` }}
@@ -1784,14 +2065,33 @@ export function TextToImageMode({
                         <p className="mt-1 truncate text-center text-[11px] font-medium text-[#667085]">
                           #{color.replace("#", "")}
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => removeColor(index)}
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-black/10 bg-white text-[#667085] shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                          aria-label={`Remove #${color.replace("#", "")}`}
+                          title={`Remove #${color.replace("#", "")}`}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="rounded-2xl bg-slate-50 px-4 py-6 text-sm text-[#667085]">
-                    ยังไม่มีสีของแบรนด์ ลอง Extract brand assets หรือเพิ่มสีใน Format settings
+                    ยังไม่มีสีของแบรนด์ เลือกสีด้านบนหรือกรอก HEX เพื่อเริ่มสร้าง palette
                   </p>
                 )}
+
+                <Button
+                  type="button"
+                  onClick={() => void savePalette()}
+                  disabled={!selectedClientId || isSavingPalette}
+                  className="mt-4 h-10 w-full rounded-xl bg-[#101828] text-sm font-semibold text-white hover:bg-black"
+                >
+                  {isSavingPalette ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Palette className="mr-2 h-4 w-4" />}
+                  {isSavingPalette ? "Saving..." : "Save brand colors"}
+                </Button>
               </div>
 
               <div className="rounded-[22px] border border-black/10 bg-white p-4">

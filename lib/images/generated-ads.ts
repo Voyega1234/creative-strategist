@@ -64,7 +64,9 @@ export type GeneratedAdRequestParams = {
   materialImageUrls: string[]
   adStyleLabel?: string | null
   userBrief?: string | null
+  referenceStyleEnabled?: boolean
   aspectRatio: string
+  imageCount?: number
   creativeFormat?: string
   creativeFormatLabel?: string
   brandCiText?: string
@@ -197,12 +199,13 @@ export function buildGeneratedAdRequestPayload(params: GeneratedAdRequestParams)
     material_image_urls: params.materialImageUrls,
     ad_style: params.adStyleLabel || null,
     user_brief: params.userBrief || null,
+    reference_style_enabled: params.referenceStyleEnabled === true,
     creative_format: params.creativeFormat || null,
     creative_format_label: params.creativeFormatLabel || null,
     brand_ci_text: params.brandCiText || null,
     brand_ci_file_name: params.brandCiFileName || null,
     aspect_ratio: params.aspectRatio,
-    image_count: 1,
+    image_count: Math.min(5, Math.max(1, params.imageCount || 1)),
   }
 }
 

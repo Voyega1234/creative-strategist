@@ -88,6 +88,8 @@ ${inputText}
       response_mime_type: "application/json",
       temperature: 0.2,
     },
+  }, {
+    labels: { feature: "concept_ideas", operation: "parse_custom_idea" },
   })
 
   if (!response.ok) {

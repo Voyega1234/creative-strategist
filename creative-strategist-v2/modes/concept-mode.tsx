@@ -370,6 +370,25 @@ function getIdeaExtra(idea: IdeaRecommendation | null) {
   return (idea || {}) as NormalizedIdea;
 }
 
+function normalizeEditedContentType(value: string): IdeaContentType | undefined {
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) return undefined;
+  if (normalized === "STATIC" || normalized === "STATIC AD") return "STATIC AD";
+  if (normalized === "UGC" || normalized === "UGC VIDEO") return "UGC VIDEO";
+  if (normalized === "ALBUM" || normalized === "ALBUM AD") return "ALBUM AD";
+  if (normalized === "SHORT VIDEO" || normalized === "SHORT VDO" || normalized === "MOTION" || normalized === "MOTION AD") {
+    return "SHORT VDO";
+  }
+  return undefined;
+}
+
+function splitEditableList(value: string) {
+  return value
+    .split(/\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function ConceptMode({
   clientName,
   productFocus,
@@ -407,7 +426,25 @@ export function ConceptMode({
   const [contentTypeWarnings, setContentTypeWarnings] = useState<Set<string>>(new Set());
   const [contentTypeQuotas, setContentTypeQuotas] = useState<ContentTypeQuotas>({ ...DEFAULT_CONTENT_TYPE_QUOTAS });
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState({ hook: "", subheadline: "", cta: "", concept: "", why: "" });
+  const [editDraft, setEditDraft] = useState({
+    title: "",
+    contentType: "",
+    productServiceFocus: "",
+    strategicAngle: "",
+    contentPillar: "",
+    hook: "",
+    subheadline1: "",
+    subheadline2: "",
+    bullets: "",
+    cta: "",
+    coreConcept: "",
+    why: "",
+    formatExecution: "",
+    mainVisualOrScene: "",
+    layoutOrSequence: "",
+    productionNotes: "",
+    tags: "",
+  });
 
   const activeClientName = clientName || "";
   const activeProductFocus = productFocus || "";
@@ -926,12 +963,25 @@ export function ConceptMode({
   }, []);
 
   const handleEditIdea = useCallback((idea: IdeaRecommendation, index: number) => {
+    const extra = getIdeaExtra(idea);
     setEditDraft({
+      title: idea.title || "",
+      contentType: idea.content_type || "",
+      productServiceFocus: extra.product_service_focus || idea.product_focus || "",
+      strategicAngle: extra.strategic_angle || idea.category || "",
+      contentPillar: idea.content_pillar || "",
       hook: idea.copywriting?.headline || idea.title || idea.concept_idea || "",
-      subheadline: idea.copywriting?.sub_headline_1 || idea.copywriting?.sub_headline_2 || "",
+      subheadline1: idea.copywriting?.sub_headline_1 || "",
+      subheadline2: idea.copywriting?.sub_headline_2 || "",
+      bullets: (idea.copywriting?.bullets || []).join("\n"),
       cta: idea.copywriting?.cta || "",
-      concept: idea.title || idea.concept_idea || "",
-      why: idea.competitiveGap || getIdeaDescription(idea) || "",
+      coreConcept: idea.concept_idea || "",
+      why: getIdeaWhy(idea),
+      formatExecution: extra.format_execution || getIdeaDescription(idea) || "",
+      mainVisualOrScene: extra.creative_direction?.main_visual_or_scene || "",
+      layoutOrSequence: extra.creative_direction?.layout_or_sequence || "",
+      productionNotes: extra.creative_direction?.production_notes || "",
+      tags: (idea.tags || []).join("\n"),
     });
     setEditingIndex(index);
   }, []);
@@ -943,17 +993,35 @@ export function ConceptMode({
       const next = current.map((idea, i) =>
         i !== editingIndex
           ? idea
-          : {
+          : ({
               ...idea,
-              title: editDraft.concept,
+              title: editDraft.title,
+              category: editDraft.strategicAngle,
               competitiveGap: editDraft.why,
+              content_type: normalizeEditedContentType(editDraft.contentType),
+              content_pillar: editDraft.contentPillar,
+              product_focus: editDraft.productServiceFocus,
+              concept_idea: editDraft.coreConcept,
+              description: editDraft.formatExecution,
               copywriting: {
                 ...idea.copywriting,
                 headline: editDraft.hook,
-                sub_headline_1: editDraft.subheadline,
+                sub_headline_1: editDraft.subheadline1,
+                sub_headline_2: editDraft.subheadline2,
+                bullets: splitEditableList(editDraft.bullets),
                 cta: editDraft.cta,
               },
-            },
+              tags: splitEditableList(editDraft.tags),
+              product_service_focus: editDraft.productServiceFocus,
+              strategic_angle: editDraft.strategicAngle,
+              format_execution: editDraft.formatExecution,
+              why_this_concept: editDraft.why,
+              creative_direction: {
+                main_visual_or_scene: editDraft.mainVisualOrScene,
+                layout_or_sequence: editDraft.layoutOrSequence,
+                production_notes: editDraft.productionNotes,
+              },
+            } as IdeaRecommendation),
       );
       ideasRef.current = next;
       return next;
@@ -1160,10 +1228,10 @@ export function ConceptMode({
           if (response.ok && payload?.highlights && typeof payload.highlights === "object") {
             highlightMap = payload.highlights;
           } else {
-            console.warn("[ConceptMode] Gemini highlight fallback:", payload?.error || response.status);
+            console.warn("[ConceptMode] Gemini highlight failed:", payload?.error || response.status);
           }
         } catch (highlightError) {
-          console.warn("[ConceptMode] Gemini highlight fallback:", highlightError);
+          console.warn("[ConceptMode] Gemini highlight failed:", highlightError);
         }
       }
 
@@ -1626,12 +1694,55 @@ export function ConceptMode({
       </Dialog>
 
       <Dialog open={editingIndex !== null} onOpenChange={(open) => { if (!open) setEditingIndex(null); }}>
-        <DialogContent className="max-h-[86vh] max-w-xl overflow-y-auto rounded-[24px] border-black/10 bg-white">
+        <DialogContent className="max-h-[86vh] max-w-3xl overflow-y-auto rounded-[24px] border-black/10 bg-white">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-[#111827]">แก้ไขไอเดีย</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="grid gap-4 py-2 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Title</Label>
+              <Textarea
+                value={editDraft.title}
+                onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+                rows={2}
+                className="border-black/10"
+              />
+            </div>
             <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Content Type</Label>
+              <Input
+                value={editDraft.contentType}
+                onChange={(e) => setEditDraft((d) => ({ ...d, contentType: e.target.value }))}
+                placeholder="STATIC AD / UGC VIDEO / SHORT VIDEO / ALBUM AD"
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Strategic Angle</Label>
+              <Input
+                value={editDraft.strategicAngle}
+                onChange={(e) => setEditDraft((d) => ({ ...d, strategicAngle: e.target.value }))}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Product / Service Focus</Label>
+              <Textarea
+                value={editDraft.productServiceFocus}
+                onChange={(e) => setEditDraft((d) => ({ ...d, productServiceFocus: e.target.value }))}
+                rows={2}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Content Pillar</Label>
+              <Input
+                value={editDraft.contentPillar}
+                onChange={(e) => setEditDraft((d) => ({ ...d, contentPillar: e.target.value }))}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
               <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Hook</Label>
               <Textarea
                 value={editDraft.hook}
@@ -1640,16 +1751,35 @@ export function ConceptMode({
                 className="border-black/10"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Subheadline</Label>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Sub headline 1</Label>
               <Textarea
-                value={editDraft.subheadline}
-                onChange={(e) => setEditDraft((d) => ({ ...d, subheadline: e.target.value }))}
+                value={editDraft.subheadline1}
+                onChange={(e) => setEditDraft((d) => ({ ...d, subheadline1: e.target.value }))}
                 rows={2}
                 className="border-black/10"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Sub headline 2</Label>
+              <Textarea
+                value={editDraft.subheadline2}
+                onChange={(e) => setEditDraft((d) => ({ ...d, subheadline2: e.target.value }))}
+                rows={2}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Bullets</Label>
+              <Textarea
+                value={editDraft.bullets}
+                onChange={(e) => setEditDraft((d) => ({ ...d, bullets: e.target.value }))}
+                rows={4}
+                placeholder="1 line per bullet"
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
               <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">CTA</Label>
               <Input
                 value={editDraft.cta}
@@ -1657,21 +1787,67 @@ export function ConceptMode({
                 className="border-black/10"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Concept</Label>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Core Concept</Label>
               <Textarea
-                value={editDraft.concept}
-                onChange={(e) => setEditDraft((d) => ({ ...d, concept: e.target.value }))}
-                rows={2}
+                value={editDraft.coreConcept}
+                onChange={(e) => setEditDraft((d) => ({ ...d, coreConcept: e.target.value }))}
+                rows={3}
                 className="border-black/10"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
               <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Why</Label>
               <Textarea
                 value={editDraft.why}
                 onChange={(e) => setEditDraft((d) => ({ ...d, why: e.target.value }))}
                 rows={3}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Format Execution</Label>
+              <Textarea
+                value={editDraft.formatExecution}
+                onChange={(e) => setEditDraft((d) => ({ ...d, formatExecution: e.target.value }))}
+                rows={3}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Main Visual / Scene</Label>
+              <Textarea
+                value={editDraft.mainVisualOrScene}
+                onChange={(e) => setEditDraft((d) => ({ ...d, mainVisualOrScene: e.target.value }))}
+                rows={3}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Layout / Sequence</Label>
+              <Textarea
+                value={editDraft.layoutOrSequence}
+                onChange={(e) => setEditDraft((d) => ({ ...d, layoutOrSequence: e.target.value }))}
+                rows={3}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Production Notes</Label>
+              <Textarea
+                value={editDraft.productionNotes}
+                onChange={(e) => setEditDraft((d) => ({ ...d, productionNotes: e.target.value }))}
+                rows={3}
+                className="border-black/10"
+              />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-[#667085]">Tags</Label>
+              <Textarea
+                value={editDraft.tags}
+                onChange={(e) => setEditDraft((d) => ({ ...d, tags: e.target.value }))}
+                rows={3}
+                placeholder="1 line per tag or comma-separated"
                 className="border-black/10"
               />
             </div>

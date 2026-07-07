@@ -4,7 +4,9 @@ import { vertexGenerateContent } from "@/lib/google/vertex-ai"
 
 const HIGHLIGHT_MODEL = process.env.IDEA_HIGHLIGHT_GEMINI_MODEL || "gemini-3-flash-preview"
 const MAX_ITEMS = 20
-const MAX_TERMS_PER_ITEM = 2
+const MAX_HIGHLIGHTS_PER_ITEM = 1
+const MAX_RETRIES = 3
+const RETRY_BASE_DELAY_MS = 500
 
 type HighlightRequestItem = {
   id: string
@@ -60,10 +62,49 @@ function parseHighlightResponse(text: string, allowedIds: Set<string>) {
       .filter((term): term is string => typeof term === "string")
       .map((term) => term.trim())
       .filter(Boolean)
-      .slice(0, MAX_TERMS_PER_ITEM)
+      .slice(0, MAX_HIGHLIGHTS_PER_ITEM)
   }
 
   return highlights
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isRetryableStatus(status: number) {
+  return status === 429 || status >= 500
+}
+
+async function generateHighlightsWithRetry(prompt: string) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    try {
+      const response = await vertexGenerateContent(HIGHLIGHT_MODEL, {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          response_mime_type: "application/json",
+          temperature: 0.1,
+        },
+      }, {
+        labels: { feature: "export_review", operation: "subheadline_highlight" },
+      })
+
+      if (!isRetryableStatus(response.status) || attempt === MAX_RETRIES) {
+        return response
+      }
+
+      console.warn(
+        `[idea-highlight-keywords] Gemini returned ${response.status}; retrying (${attempt + 1}/${MAX_RETRIES})`,
+      )
+    } catch (error) {
+      if (attempt === MAX_RETRIES) throw error
+      console.warn(`[idea-highlight-keywords] Gemini request failed; retrying (${attempt + 1}/${MAX_RETRIES})`, error)
+    }
+
+    await wait(RETRY_BASE_DELAY_MS * 2 ** attempt)
+  }
+
+  throw new Error("Gemini request failed after retries")
 }
 
 export async function POST(request: NextRequest) {
@@ -91,10 +132,7 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = `
-You are choosing visual emphasis words for a client-facing ad idea PDF.
-
-For each item, select only 1-2 truly important exact words or short phrases from the subheadline that a reader should skim first.
-
+Bold the sentence of this text that you think it's a highlight of this sub-headline
 Rules:
 - Return JSON only.
 - Use exact text spans from subheadline. Do not rewrite.
@@ -105,7 +143,7 @@ Rules:
 Return this exact shape:
 {
   "items": [
-    { "id": "same id", "highlights": ["exact phrase", "exact phrase"] }
+    { "id": "same id", "highlights": ["one exact continuous clause"] }
   ]
 }
 
@@ -113,13 +151,7 @@ Items:
 ${JSON.stringify(items, null, 2)}
 `.trim()
 
-    const response = await vertexGenerateContent(HIGHLIGHT_MODEL, {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        response_mime_type: "application/json",
-        temperature: 0.1,
-      },
-    })
+    const response = await generateHighlightsWithRetry(prompt)
 
     const payload = await response.json().catch(() => null)
     if (!response.ok) {

@@ -258,6 +258,8 @@ export async function POST(request: Request) {
       generationConfig: {
         temperature: 0,
       },
+    }, {
+      labels: { feature: "image_tools", operation: "spell_check" },
     })
 
     const text = await response.text()

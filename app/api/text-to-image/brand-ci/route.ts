@@ -1,9 +1,29 @@
 import { NextResponse } from "next/server"
+import { getSupabaseAdmin } from "@/lib/supabase/admin"
 import { getSupabase } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
 const TABLE_NAME = "text_to_image_brand_ci_assets"
+
+function getBrandCiSupabase() {
+  return getSupabaseAdmin() || getSupabase()
+}
+
+function brandCiErrorResponse(error: unknown, fallbackMessage: string) {
+  const message = error instanceof Error ? error.message : fallbackMessage
+  const isRlsError = message.toLowerCase().includes("row-level security")
+
+  return NextResponse.json(
+    {
+      success: false,
+      error: isRlsError
+        ? "Brand CI save is blocked by Supabase RLS. Add SUPABASE_SERVICE_ROLE_KEY to the server environment or create an RLS policy for text_to_image_brand_ci_assets."
+        : message,
+    },
+    { status: 500 },
+  )
+}
 
 function normalizeString(value: unknown) {
   return typeof value === "string" ? value.trim() : ""
@@ -33,7 +53,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: "clientId is required" }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = getBrandCiSupabase()
     const { data, error } = await supabase
       .from(TABLE_NAME)
       .select("*")
@@ -48,10 +68,7 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error("[text-to-image/brand-ci] GET failed:", error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to load Brand CI" },
-      { status: 500 },
-    )
+    return brandCiErrorResponse(error, "Failed to load Brand CI")
   }
 }
 
@@ -69,7 +86,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Brand CI text is required" }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = getBrandCiSupabase()
     const { data, error } = await supabase
       .from(TABLE_NAME)
       .insert({
@@ -89,10 +106,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, item: mapBrandCiRow(data as Record<string, unknown>) })
   } catch (error) {
     console.error("[text-to-image/brand-ci] POST failed:", error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to save Brand CI" },
-      { status: 500 },
-    )
+    return brandCiErrorResponse(error, "Failed to save Brand CI")
   }
 }
 
@@ -111,7 +125,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: false, error: "Brand CI text is required" }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = getBrandCiSupabase()
     const { data, error } = await supabase
       .from(TABLE_NAME)
       .update({
@@ -133,10 +147,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true, item: mapBrandCiRow(data as Record<string, unknown>) })
   } catch (error) {
     console.error("[text-to-image/brand-ci] PATCH failed:", error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to update Brand CI" },
-      { status: 500 },
-    )
+    return brandCiErrorResponse(error, "Failed to update Brand CI")
   }
 }
 
@@ -150,7 +161,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, error: "id and clientId are required" }, { status: 400 })
     }
 
-    const supabase = getSupabase()
+    const supabase = getBrandCiSupabase()
     const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id).eq("client_id", clientId)
 
     if (error) throw new Error(error.message)
@@ -158,9 +169,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[text-to-image/brand-ci] DELETE failed:", error)
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to delete Brand CI" },
-      { status: 500 },
-    )
+    return brandCiErrorResponse(error, "Failed to delete Brand CI")
   }
 }

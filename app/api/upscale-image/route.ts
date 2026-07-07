@@ -196,6 +196,8 @@ export async function POST(request: Request) {
           imageSize: targetSize,
         },
       },
+    }, {
+      labels: { feature: "upscale_image", operation: "upscale" },
     })
 
     const responseText = await geminiResponse.text()

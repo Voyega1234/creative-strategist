@@ -1,10 +1,56 @@
 import { NextResponse } from 'next/server';
+import * as http from 'node:http';
+import * as https from 'node:https';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 900; // Allow up to 15 minutes for long-running n8n image workflows
 
 const N8N_IMAGE_TIMEOUT_MS = 14.5 * 60 * 1000
+
+function postJsonWithLongTimeout(url: string, payload: Record<string, unknown>, timeoutMs: number) {
+  const requestUrl = new URL(url)
+  const requestBody = JSON.stringify(payload)
+  const transport = requestUrl.protocol === "http:" ? http : https
+
+  return new Promise<{ ok: boolean; status: number; text: () => Promise<string> }>((resolve, reject) => {
+    const request = transport.request(
+      requestUrl,
+      {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(requestBody),
+        },
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+
+        response.on("data", (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        })
+
+        response.on("end", () => {
+          const responseText = Buffer.concat(chunks).toString("utf8")
+          const status = response.statusCode || 0
+          resolve({
+            ok: status >= 200 && status < 300,
+            status,
+            text: async () => responseText,
+          })
+        })
+      },
+    )
+
+    request.on("error", reject)
+    request.setTimeout(timeoutMs, () => {
+      request.destroy(new Error(`N8N webhook timeout after ${Math.round(timeoutMs / 1000)} seconds`))
+    })
+    request.write(requestBody)
+    request.end()
+  })
+}
 
 type TextToImageCodeWorkflow = {
   runTextToImageWorkflow: (
@@ -60,14 +106,7 @@ async function runN8NImageGenerator(payload: Record<string, any>) {
     process.env.TEXT_TO_IMAGE_N8N_WEBHOOK_URL ||
     "https://n8n.srv934175.hstgr.cloud/webhook/631578fd-816a-4670-aea4-f9ae0f0253d7"
 
-  const webhookResponse = await fetch(n8nWebhookUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(N8N_IMAGE_TIMEOUT_MS),
-  });
+  const webhookResponse = await postJsonWithLongTimeout(n8nWebhookUrl, payload, N8N_IMAGE_TIMEOUT_MS);
 
   if (!webhookResponse.ok) {
     const errorText = await webhookResponse.text();
@@ -181,6 +220,7 @@ export async function POST(request: Request) {
       material_image_urls,
       ad_style,
       user_brief,
+      reference_style_enabled,
       aspect_ratio,
       image_count,
       brand_ci_text,
@@ -227,6 +267,8 @@ export async function POST(request: Request) {
         ad_style: ad_style || "",
         user_brief: user_brief || "",
         userBrief: user_brief || "",
+        reference_style_enabled: reference_style_enabled === true,
+        referenceStyleEnabled: reference_style_enabled === true,
         aspect_ratio: selectedAspectRatio,
         image_count: sanitizedImageCount,
         imageCount: sanitizedImageCount,

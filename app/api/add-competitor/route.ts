@@ -16,6 +16,8 @@ async function callGeminiWithGrounding(prompt: string) {
       response_mime_type: "application/json",
       temperature: 0.7
     }
+  }, {
+    labels: { feature: "competitor_research", operation: "add_competitor" }
   })
 
   if (!response.ok) {

@@ -569,6 +569,11 @@ export async function POST(request: Request) {
           imageSize: outputImageSize,
         },
       },
+    }, {
+      labels: {
+        feature: seoBannerMode ? "seo_banner" : "edit_image",
+        operation: operation === "resize" ? "resize" : "edit",
+      },
     })
 
     const rawText = await response.text()

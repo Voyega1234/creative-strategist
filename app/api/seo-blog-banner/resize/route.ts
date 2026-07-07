@@ -150,6 +150,8 @@ async function callGeminiResize({
         imageSize: GEMINI_IMAGE_SIZE,
       },
     },
+  }, {
+    labels: { feature: "seo_banner", operation: "resize" },
   })
 
   const responseText = await response.text()

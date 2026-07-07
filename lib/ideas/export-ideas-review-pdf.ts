@@ -34,31 +34,6 @@ const FONT_FILES = {
 type FontStyle = keyof typeof FONT_FILES
 
 const fontBase64Promises = new Map<string, Promise<string>>()
-const STOP_WORDS = new Set([
-  "และ",
-  "ด้วย",
-  "ให้",
-  "เพื่อ",
-  "ของ",
-  "ที่",
-  "ใน",
-  "จาก",
-  "เป็น",
-  "ไม่",
-  "ได้",
-  "นี้",
-  "แบบ",
-  "อย่าง",
-  "กับ",
-  "หรือ",
-  "the",
-  "and",
-  "for",
-  "with",
-  "that",
-  "this",
-  "your",
-])
 
 type TextRun = {
   text: string
@@ -107,7 +82,17 @@ function setFont(pdf: jsPDF, style: FontStyle, sizePt: number, hasThaiFont: bool
   pdf.setFontSize(sizePt)
 }
 
-function tokenize(text: string) {
+type TokenSegment = {
+  text: string
+  start: number
+  end: number
+}
+
+function normalizeSubheadlineText(text: string) {
+  return text.replace(/\s+/g, " ").trim()
+}
+
+function tokenizeWithRanges(text: string): TokenSegment[] {
   const cleanText = text.replace(/\s+/g, " ").trim()
   if (!cleanText) return []
 
@@ -115,68 +100,59 @@ function tokenize(text: string) {
     const Segmenter = Intl.Segmenter
     const segmenter = new Segmenter("th", { granularity: "word" })
     return Array.from(segmenter.segment(cleanText))
-      .map((segment) => segment.segment)
-      .filter(Boolean)
+      .map((segment) => ({
+        text: segment.segment,
+        start: segment.index,
+        end: segment.index + segment.segment.length,
+      }))
+      .filter((segment) => segment.text)
   }
 
-  return cleanText.split(/(\s+)/).filter(Boolean)
+  return Array.from(cleanText.matchAll(/\s+|\S+/g)).map((match) => ({
+    text: match[0],
+    start: match.index || 0,
+    end: (match.index || 0) + match[0].length,
+  }))
 }
 
-function normalizeToken(token: string) {
-  return token.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "")
-}
-
-function pickSubheadlineHighlights(subheadline: string, idea: IdeaRecommendation) {
-  const directTerms = [
-    ...(idea.tags || []),
-    idea.content_pillar,
-    idea.product_focus,
-    idea.concept_idea,
-    idea.copywriting?.cta,
-  ]
-    .filter(Boolean)
-    .map((term) => normalizeToken(term))
-    .filter((term) => term.length >= 4)
-
-  const tokens = tokenize(subheadline)
-  const highlights = new Set<string>()
-
-  for (const token of tokens) {
-    const normalized = normalizeToken(token)
-    if (!normalized || STOP_WORDS.has(normalized)) continue
-    if (directTerms.some((term) => term.includes(normalized) || normalized.includes(term))) {
-      highlights.add(normalized)
-    }
-    if (highlights.size >= 2) return highlights
-  }
-
-  for (const token of tokens) {
-    const normalized = normalizeToken(token)
-    if (!normalized || STOP_WORDS.has(normalized)) continue
-    if (normalized.length >= 5 || /[A-Za-z0-9]/.test(normalized)) {
-      highlights.add(normalized)
-    }
-    if (highlights.size >= 2) break
-  }
-
-  return highlights
+function tokenize(text: string) {
+  return tokenizeWithRanges(text).map((segment) => segment.text)
 }
 
 function getReviewHighlightKey(group: ReviewIdeaGroup, index: number) {
   return `${group}:${index}`
 }
 
-function makeHighlightedRuns(text: string, idea: IdeaRecommendation, highlightTerms?: string[]) {
-  const highlights = highlightTerms?.length
-    ? new Set(highlightTerms.map((term) => normalizeToken(term)).filter((term) => term.length >= 2))
-    : pickSubheadlineHighlights(text, idea)
-  return tokenize(text).map((token) => {
-    const normalized = normalizeToken(token)
-    const isHighlighted =
-      Boolean(normalized) &&
-      Array.from(highlights).some((term) => term === normalized || term.includes(normalized) || normalized.includes(term))
+function getExactHighlightRanges(text: string, highlightTerms?: string[]) {
+  if (!highlightTerms?.length) return []
+
+  const ranges: Array<{ start: number; end: number }> = []
+  const terms = highlightTerms
+    .map((term) => normalizeSubheadlineText(term))
+    .filter((term) => term.length >= 2 && text.includes(term))
+    .sort((a, b) => b.length - a.length)
+
+  for (const term of terms) {
+    let start = text.indexOf(term)
+    while (start >= 0) {
+      const end = start + term.length
+      const overlaps = ranges.some((range) => start < range.end && end > range.start)
+      if (!overlaps) ranges.push({ start, end })
+      start = text.indexOf(term, end)
+    }
+  }
+
+  return ranges.sort((a, b) => a.start - b.start)
+}
+
+function makeHighlightedRuns(text: string, highlightTerms?: string[]) {
+  const cleanText = normalizeSubheadlineText(text)
+  const highlightRanges = getExactHighlightRanges(cleanText, highlightTerms)
+
+  return tokenizeWithRanges(cleanText).map((token) => {
+    const isHighlighted = highlightRanges.some((range) => token.start < range.end && token.end > range.start)
     return {
-      text: token,
+      text: token.text,
       highlight: isHighlighted,
     }
   })
@@ -418,7 +394,7 @@ function drawIdeaCard(
     const subY = y + 84
     drawHighlightedText(
       pdf,
-      makeHighlightedRuns(data.subheadline, idea, highlightTerms),
+      makeHighlightedRuns(data.subheadline, highlightTerms),
       contentX,
       subY,
       contentWidth,

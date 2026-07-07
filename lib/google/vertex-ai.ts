@@ -96,6 +96,25 @@ function withContentRoles(body: unknown): unknown {
   }
 }
 
+function withLabels(body: unknown, labels?: Record<string, string>): unknown {
+  if (!labels || Object.keys(labels).length === 0 || !body || typeof body !== "object" || Array.isArray(body)) {
+    return body
+  }
+
+  const existingLabels =
+    "labels" in body && body.labels && typeof body.labels === "object" && !Array.isArray(body.labels)
+      ? (body.labels as Record<string, string>)
+      : {}
+
+  return {
+    ...body,
+    labels: {
+      ...existingLabels,
+      ...labels,
+    },
+  }
+}
+
 /**
  * POST to the Vertex AI `generateContent` endpoint for a Gemini model.
  * Returns the raw fetch Response so callers parse it exactly as before.
@@ -107,7 +126,7 @@ function withContentRoles(body: unknown): unknown {
 export async function vertexGenerateContent(
   model: string,
   body: unknown,
-  init?: { signal?: AbortSignal },
+  init?: { signal?: AbortSignal; labels?: Record<string, string> },
 ): Promise<Response> {
   if (!PROJECT_ID) {
     throw new Error("GCP_PROJECT_ID is not configured")
@@ -122,7 +141,7 @@ export async function vertexGenerateContent(
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(withContentRoles(body)),
+    body: JSON.stringify(withLabels(withContentRoles(body), init?.labels)),
     signal: init?.signal,
   })
 }

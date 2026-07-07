@@ -25,7 +25,9 @@ async function callGeminiAPI(prompt: string): Promise<string> {
     }
   };
 
-  const response = await vertexGenerateContent(NAME_MATCH_MODEL, body);
+  const response = await vertexGenerateContent(NAME_MATCH_MODEL, body, {
+    labels: { feature: "client_data", operation: "company_name_matching" },
+  });
 
   if (!response.ok) {
     const errorText = await response.text();

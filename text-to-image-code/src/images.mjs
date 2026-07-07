@@ -18,11 +18,14 @@ export function mapAspectRatioToSize(ratio) {
 }
 
 export function normalizeImageUrls(body) {
-  const referenceUrls = Array.isArray(body.reference_image_urls)
-    ? body.reference_image_urls
-    : body.reference_image_url
-      ? [body.reference_image_url]
-      : []
+  const referenceStyleEnabled = body.reference_style_enabled === true || body.referenceStyleEnabled === true
+  const referenceUrls = referenceStyleEnabled
+    ? Array.isArray(body.reference_image_urls)
+      ? body.reference_image_urls
+      : body.reference_image_url
+        ? [body.reference_image_url]
+        : []
+    : []
 
   const materialUrls = Array.isArray(body.material_image_urls) ? body.material_image_urls : []
 
@@ -56,29 +59,49 @@ export async function downloadImage(image) {
 
 export function buildFinalPrompt(visualThinkingText, body, images) {
   const aspectRatio = body.aspectRatio || body.aspect_ratio || "4:5"
+  const referenceStyleEnabled = body.reference_style_enabled === true || body.referenceStyleEnabled === true
+  const colorPalette = body.color_palette || body.colorPalette || ""
+  const colorPaletteText = Array.isArray(colorPalette) ? colorPalette.join(",") : colorPalette
   const imageNotes = images.map((image, index) => {
     if (image.type === "material") {
-      return `[IMAGE ${index + 1}: LOCKED MATERIAL ASSET] Preserve its product silhouette, proportions, packaging structure, logo, label layout, and brand colors.`
+      return `[IMAGE ${index + 1}: MATERIAL IMAGE] Use this as the source of truth for product, packaging, logo, brand asset, and physical details. Preserve identity accurately.`
     }
 
     if (image.type === "reference") {
-      return `[IMAGE ${index + 1}: STYLE REFERENCE] Extract mood, composition, typography behavior, lighting, and graphic principles. Do not copy its subject literally.`
+      return `[IMAGE ${index + 1}: STYLE REFERENCE IMAGE] Study its visual system: composition logic, hierarchy, spacing, typography behavior, color relationships, lighting, texture, depth, and graphic treatment. Translate those principles to the supplied brand and concept. Do not copy its subject, text, logo, product, people, or distinctive objects.`
     }
 
     return `[IMAGE ${index + 1}: ${image.type.toUpperCase()}] Use this image as supporting visual context.`
   })
 
   return `
+Create a high-quality promotional advertising image.
+
+ภาพโปรโมทโฆษณา , พร้อมรายละเอียดอ่านง่าย ไม่รกดูแล้วสบายตา ไม่ดูแน่นไปหมด มีความ Cretive มีการใช้เทคนิคด้านกราฟิกให้เหมาะสม ให้เหมาะกับประเภทของธุรกิจ ดูเป็นงานที่ดูผ่านการคัดสรรมาอย่างดี, สไตล์ภาพเหมาะกับสมัยปัจจุบัน ไม่ cyberpunk, scifi ไม่ดู AI ดูสบายตาหยุดคนดูได้
+
+Main brief:
 ${visualThinkingText}
 
-ATTACHED IMAGE MAP — images are attached in this exact order:
-${imageNotes.length ? imageNotes.join("\n") : "No images attached."}
+Brand color palette:
+${colorPaletteText || "Use colors that fit the brand and brief."}
 
-Technical execution:
-- Render at ${aspectRatio}; protect safe margins and preserve the hierarchy described above.
-- Produce one complete, finished advertisement and follow the text instructions exactly.
-- Treat attached material assets as identity-locked. Never let a style reference override product or logo fidelity.
-- Do not add text, logos, prices, dates, claims, badges, certifications, interfaces, products, or people that the prompt does not authorize.
+Reference image instructions:
+${imageNotes.length ? imageNotes.join("\n") : "No reference images supplied."}
+
+Reference style mode:
+${referenceStyleEnabled
+  ? "ENABLED. The new image must feel informed by the reference visual system, but rebuilt for this brand and the received concept. Brand CI, brand colors, locked material assets, approved copy, and the selected idea are authoritative. The reference supplies design principles only."
+  : "DISABLED. Develop the art direction directly from the brand, brief, and selected idea without borrowing a reference visual system."}
+
+Creative direction:
+- Make the design clean, readable, and not overcrowded.
+- Use strong visual hierarchy.
+- Make it suitable for a youth-oriented audience.
+- Use graphic techniques that fit the business category.
+- Avoid messy layouts, excessive text, and generic AI-looking visuals.
+- Preserve product/brand identity from material images.
+- When reference style mode is enabled, visibly apply the reference's reusable design principles while preserving the new brand and concept.
+- Output aspect ratio target: ${aspectRatio}
 `.trim()
 }
 

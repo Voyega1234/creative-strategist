@@ -50,6 +50,8 @@ Do not invent or summarize away specific constraints. Return concise plain text 
         },
       ],
       generationConfig: { temperature: 0.1 },
+    }, {
+      labels: { feature: "brand_ci", operation: "extract" },
     })
 
     const raw = await response.text()
