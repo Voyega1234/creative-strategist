@@ -695,7 +695,7 @@ export function SeoBlogBannerPanel({
     writeClientBrandAssetCache(nextCache)
   }, [brandColorRoles, brandColorValues, brandName, composedBrandContext, openBrandLogoUrl, selectedClientId, website])
 
-  const canGenerate = website.trim().length > 0 && headline.trim().length > 0 && Boolean(logoAsset)
+  const canGenerate = website.trim().length > 0 && headline.trim().length > 0
   const selectedAdditionalSizeConfig = ADDITIONAL_SIZES.find((size) => size.key === selectedAdditionalSize) || ADDITIONAL_SIZES[0]
 
   const insertHint = useMemo(() => {
@@ -813,6 +813,7 @@ export function SeoBlogBannerPanel({
     if (!file) return
     revokeAsset(logoAsset)
     setLogoAsset(createAsset(file))
+    setError(null)
     setResult(null)
     setAdditionalOutputs([])
   }
@@ -902,7 +903,11 @@ export function SeoBlogBannerPanel({
   const handleGenerate = async () => {
     if (generationInFlightRef.current) return
     if (!canGenerate) {
-      setError("Website, headline, and a selected brand logo are required.")
+      setError("Website and headline are required.")
+      return
+    }
+    if (!logoAsset) {
+      setError("กรุณาอัพโหลดโลโก้ก่อนกด Generate.")
       return
     }
 
@@ -1538,10 +1543,17 @@ export function SeoBlogBannerPanel({
                   </div>
                 </div>
 
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+                <div
+                  className={cn(
+                    "mt-3 rounded-2xl border px-3 py-2 text-xs leading-5",
+                    logoAsset
+                      ? "border-slate-200 bg-slate-50 text-slate-600"
+                      : "border-red-200 bg-red-50 font-medium text-red-700",
+                  )}
+                >
                   {logoAsset
                     ? "Logo locked. Generation and edits must preserve this selected asset."
-                    : "Logo required. Upload or choose a saved logo before generating."}
+                    : "กรุณาอัพโหลดโลโก้ก่อนกด Generate."}
                 </div>
 
                 <details className="mt-2">
@@ -2086,6 +2098,11 @@ export function SeoBlogBannerPanel({
                   }}
                   compact
                 />
+                {!logoAsset ? (
+                  <p className="-mt-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                    กรุณาอัพโหลดโลโก้ก่อนกด Generate.
+                  </p>
+                ) : null}
 
                 <div className="flex flex-1 flex-col space-y-3">
                   <div>
