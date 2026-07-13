@@ -73,7 +73,7 @@ function getContentTypeValidationKey(idea: IdeaRecommendation) {
 function normalizeContentTypeForSort(contentType?: string) {
   const normalized = (contentType || "").trim().toUpperCase();
   if (normalized === "STATIC") return "STATIC AD";
-  if (normalized === "UGC") return "UGC VIDEO";
+  if (normalized === "UGC" || normalized === "VIDEO AD") return "UGC VIDEO";
   if (normalized === "MOTION" || normalized === "MOTION AD" || normalized === "SHORT VDO") return "SHORT VIDEO";
   if (normalized === "ALBUM") return "ALBUM AD";
   return normalized;
@@ -397,7 +397,7 @@ function normalizeEditedContentType(value: string): IdeaContentType | undefined 
   const normalized = value.trim().toUpperCase();
   if (!normalized) return undefined;
   if (normalized === "STATIC" || normalized === "STATIC AD") return "STATIC AD";
-  if (normalized === "UGC" || normalized === "UGC VIDEO") return "UGC VIDEO";
+  if (normalized === "UGC" || normalized === "UGC VIDEO" || normalized === "VIDEO AD") return "UGC VIDEO";
   if (normalized === "ALBUM" || normalized === "ALBUM AD") return "ALBUM AD";
   if (normalized === "SHORT VIDEO" || normalized === "SHORT VDO" || normalized === "MOTION" || normalized === "MOTION AD") {
     return "SHORT VDO";

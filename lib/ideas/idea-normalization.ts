@@ -35,7 +35,7 @@ function normalizeContentType(value: unknown): IdeaContentType | undefined {
     return "SHORT VDO"
   }
   if (normalized === "STATIC" || normalized === "STATIC AD") return "STATIC AD"
-  if (normalized === "UGC" || normalized === "UGC VIDEO") return "UGC VIDEO"
+  if (normalized === "UGC" || normalized === "UGC VIDEO" || normalized === "VIDEO AD") return "UGC VIDEO"
   if (normalized === "ALBUM" || normalized === "ALBUM AD") return "ALBUM AD"
   return undefined
 }

@@ -295,6 +295,7 @@ function getContentTypeLabel(contentType?: string) {
     "SHORT VIDEO": "SHORT VDO",
     UGC: "UGC VIDEO",
     "UGC VIDEO": "UGC VIDEO",
+    "VIDEO AD": "UGC VIDEO",
   }
 
   return contentType ? labels[contentType.toUpperCase()] || contentType : ""
