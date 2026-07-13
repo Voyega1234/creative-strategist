@@ -25,6 +25,7 @@ const MAX_OTHER_OPTIONS = 3;
 const CONTENT_TYPE_STORAGE_PREFIX = "cvc-idea-content-types";
 const CONCEPT_BRIEF_DRAFT_STORAGE_KEY = "cvc-generate-concept-brief-draft";
 const GENERATION_CONTENT_TYPES = ["STATIC AD", "UGC VIDEO", "SHORT VIDEO", "ALBUM AD"] as const;
+const EXPORT_CONTENT_TYPE_ORDER = ["STATIC AD", "ALBUM AD", "UGC VIDEO", "SHORT VIDEO"] as const;
 const DEFAULT_CONTENT_TYPE_QUOTAS = {
   "STATIC AD": 0,
   "UGC VIDEO": 0,
@@ -67,6 +68,28 @@ function applySavedContentTypes(
 
 function getContentTypeValidationKey(idea: IdeaRecommendation) {
   return getIdeaSelectionKey(idea) || idea.copywriting?.headline || idea.concept_idea || idea.title;
+}
+
+function normalizeContentTypeForSort(contentType?: string) {
+  const normalized = (contentType || "").trim().toUpperCase();
+  if (normalized === "STATIC") return "STATIC AD";
+  if (normalized === "UGC") return "UGC VIDEO";
+  if (normalized === "MOTION" || normalized === "MOTION AD" || normalized === "SHORT VDO") return "SHORT VIDEO";
+  if (normalized === "ALBUM") return "ALBUM AD";
+  return normalized;
+}
+
+function sortIdeasByContentType(ideasToSort: IdeaRecommendation[]) {
+  return ideasToSort
+    .map((idea, index) => ({ idea, index }))
+    .sort((left, right) => {
+      const leftRank = EXPORT_CONTENT_TYPE_ORDER.indexOf(normalizeContentTypeForSort(left.idea.content_type) as (typeof EXPORT_CONTENT_TYPE_ORDER)[number]);
+      const rightRank = EXPORT_CONTENT_TYPE_ORDER.indexOf(normalizeContentTypeForSort(right.idea.content_type) as (typeof EXPORT_CONTENT_TYPE_ORDER)[number]);
+      const leftSafeRank = leftRank === -1 ? EXPORT_CONTENT_TYPE_ORDER.length : leftRank;
+      const rightSafeRank = rightRank === -1 ? EXPORT_CONTENT_TYPE_ORDER.length : rightRank;
+      return leftSafeRank - rightSafeRank || left.index - right.index;
+    })
+    .map(({ idea }) => idea);
 }
 
 function getActiveContentTypeQuotas(quotas: ContentTypeQuotas) {
@@ -1169,8 +1192,8 @@ export function ConceptMode({
 
   const handleExportNativePdf = useCallback(async () => {
     if (!validateSelectedIdeasContentType()) return;
-    const recommended = ideas.filter((idea) => savedTitles.includes(idea.title));
-    const other = ideas.filter((idea) => otherTitles.includes(idea.title));
+    const recommended = sortIdeasByContentType(ideas.filter((idea) => savedTitles.includes(idea.title)));
+    const other = sortIdeasByContentType(ideas.filter((idea) => otherTitles.includes(idea.title)));
     if (recommended.length === 0) return;
 
     setIsExportingNativePdf(true);
@@ -1186,8 +1209,8 @@ export function ConceptMode({
   }, [ideas, savedTitles, otherTitles, activeClientName, validateSelectedIdeasContentType]);
 
   const handleExportReviewPdf = useCallback(async () => {
-    const recommended = ideas.filter((idea) => savedTitles.includes(idea.title));
-    const other = ideas.filter((idea) => otherTitles.includes(idea.title));
+    const recommended = sortIdeasByContentType(ideas.filter((idea) => savedTitles.includes(idea.title)));
+    const other = sortIdeasByContentType(ideas.filter((idea) => otherTitles.includes(idea.title)));
     if (recommended.length === 0 && other.length === 0) {
       alert("เลือก Recommended หรือ Option อย่างน้อย 1 อันก่อนสร้าง Review PDF");
       return;
