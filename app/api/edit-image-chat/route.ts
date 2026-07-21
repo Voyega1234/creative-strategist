@@ -11,7 +11,7 @@ const GEMINI_IMAGE_MODEL =
   process.env.EDIT_IMAGE_GEMINI_MODEL ||
   process.env.SEO_BLOG_BANNER_GEMINI_MODEL ||
   process.env.SEO_BLOG_BANNER_IMAGE_MODEL ||
-  "gemini-3.1-flash-image-preview"
+  "gemini-3.1-flash-image"
 
 type EditImageChatRequest = {
   image_url?: string

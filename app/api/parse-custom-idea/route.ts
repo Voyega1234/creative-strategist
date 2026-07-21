@@ -9,7 +9,7 @@ const GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
 
 function normalizeContentType(value: unknown) {
   const text = typeof value === "string" ? value.trim().toUpperCase() : ""
-  if (text.includes("UGC")) return "UGC VIDEO"
+  if (text.includes("UGC") || text.includes("VIDEO AD")) return "UGC VIDEO"
   if (text.includes("ALBUM")) return "ALBUM AD"
   if (text.includes("MOTION") || text.includes("SHORT VDO") || text.includes("SHORT VIDEO")) return "SHORT VDO"
   if (text.includes("STATIC")) return "STATIC AD"
@@ -18,7 +18,7 @@ function normalizeContentType(value: unknown) {
 
 function splitFallbackIdeas(inputText: string) {
   const blocks = inputText
-    .split(/\n(?=(?:Static\s+\d+|UGC\s+Video|Album(?:\s+Ad)?|Motion(?:\s+Ad)?|Short\s+(?:VDO|Video)|Option\s+[A-Z])\b)/gi)
+    .split(/\n(?=(?:Static\s+\d+|UGC\s+Video|Video\s+Ad|Album(?:\s+Ad)?|Motion(?:\s+Ad)?|Short\s+(?:VDO|Video)|Option\s+[A-Z])\b)/gi)
     .map((block) => block.trim())
     .filter(Boolean)
 
@@ -67,7 +67,7 @@ Required JSON shape:
 Rules:
 - Preserve the user's meaning. Do not invent a new strategy unrelated to the input.
 - Return exactly one array item for each idea found in the input. Never merge separate ideas.
-- Map Static to STATIC AD, UGC to UGC VIDEO, Album to ALBUM AD, and Motion/Short video to SHORT VDO.
+- Map Static to STATIC AD, UGC/Video Ad to UGC VIDEO, Album to ALBUM AD, and Motion/Short video to SHORT VDO.
 - Use null for content_type when the input does not identify a format.
 - If some fields are missing, infer lightly from the input and keep them concise.
 - Keep the response practical for static image ad generation.

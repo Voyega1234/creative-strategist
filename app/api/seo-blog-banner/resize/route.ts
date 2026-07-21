@@ -9,7 +9,7 @@ const GEMINI_IMAGE_MODEL =
   process.env.SEO_BLOG_BANNER_RESIZE_MODEL ||
   process.env.SEO_BLOG_BANNER_GEMINI_MODEL ||
   process.env.SEO_BLOG_BANNER_IMAGE_MODEL ||
-  "gemini-3.1-flash-image-preview"
+  "gemini-3.1-flash-image"
 const GEMINI_IMAGE_SIZE = process.env.SEO_BLOG_BANNER_RESIZE_IMAGE_SIZE || "2K"
 
 const TARGET_SIZES = {

@@ -7,7 +7,7 @@ export const maxDuration = 600
 
 const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
 const OPENAI_IMAGE_MODEL = "gpt-image-2"
-const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
 const DEFAULT_FINAL_IMAGE_SIZE = "4K"
 type OpenAiImageSize = "1024x1024" | "1536x1024" | "1024x1536"
 

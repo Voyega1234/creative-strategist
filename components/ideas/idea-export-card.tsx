@@ -50,6 +50,7 @@ function getContentTypeLabel(contentType?: string) {
     "SHORT VDO": "SHORT VDO",
     "SHORT VIDEO": "SHORT VDO",
     "UGC VIDEO": "UGC VIDEO",
+    "VIDEO AD": "UGC VIDEO",
     UGC: "UGC",
   }
 

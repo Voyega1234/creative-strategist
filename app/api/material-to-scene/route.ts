@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
 const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
-const IMAGE_MODEL = "gemini-3.1-flash-image-preview"
+const IMAGE_MODEL = "gemini-3.1-flash-image"
 const STORAGE_BUCKET = "ads-creative-image"
 const GENERATED_IMAGE_COUNT = 4
 const ANALYSIS_CACHE_PREFIX = "generated/material-to-scene-analysis-cache"

@@ -5,7 +5,7 @@ import { vertexGenerateContent } from "@/lib/google/vertex-ai"
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
-const GEMINI_MODEL = "gemini-3.1-flash-image-preview"
+const GEMINI_MODEL = "gemini-3.1-flash-image"
 const SUPPORTED_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
 const SUPPORTED_IMAGE_SIZES = ["1K", "2K", "4K"] as const
 

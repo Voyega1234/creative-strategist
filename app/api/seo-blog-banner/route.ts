@@ -5,7 +5,7 @@ import { vertexGenerateContent } from "@/lib/google/vertex-ai"
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
-const GEMINI_IMAGE_MODEL = process.env.SEO_BLOG_BANNER_GEMINI_MODEL || process.env.SEO_BLOG_BANNER_IMAGE_MODEL || "gemini-3.1-flash-image-preview"
+const GEMINI_IMAGE_MODEL = process.env.SEO_BLOG_BANNER_GEMINI_MODEL || process.env.SEO_BLOG_BANNER_IMAGE_MODEL || "gemini-3.1-flash-image"
 const GEMINI_IMAGE_SIZE = process.env.SEO_BLOG_BANNER_IMAGE_SIZE || "2K"
 const OPENAI_IMAGE_MODEL = process.env.SEO_BLOG_BANNER_OPENAI_MODEL || "gpt-image-2"
 const OPENAI_GENERATIONS_ENDPOINT = "https://api.openai.com/v1/images/generations"

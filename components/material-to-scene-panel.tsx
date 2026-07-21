@@ -210,7 +210,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
       void saveGenerationSession({
         outputUrls: [publicUrl],
         inputUrls: [currentImageUrl],
-        model: result.model || "gemini-3.1-flash-image-preview",
+        model: result.model || "gemini-3.1-flash-image",
         promptOverride: `แก้ไข: ${instruction}`,
       })
     } catch (err) {
