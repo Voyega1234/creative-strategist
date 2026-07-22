@@ -12,6 +12,7 @@ import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock, Home,
 import { SavedIdeas } from "./saved-ideas"
 import type { ClientWithProductFocus } from "@/lib/client-options"
 import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
+import { getSupabase } from "@/lib/supabase/client"
 
 type SidebarMode = "configure" | "images" | "v2"
 
@@ -310,13 +311,10 @@ export function MainSidebar({
       ? activeServiceFilter
       : ALL_SERVICES_VALUE
 
-  const handleLogout = () => {
-    try {
-      localStorage.removeItem("creative_strategist_auth")
-    } catch (error) {
-      console.error("Error clearing auth on logout:", error)
-    }
-    router.push("/login")
+  const handleLogout = async () => {
+    await getSupabase().auth.signOut()
+    router.replace("/login")
+    router.refresh()
   }
 
   const isV2Mode = mode === "v2"

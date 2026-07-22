@@ -788,7 +788,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                 </Button>
                 <p className="text-xs leading-5 text-slate-500">
                   {!canGenerate
-                    ? "ต้องมี material photo และ scene brief ก่อนจึงจะ generate ได้"
+                    ? "ต้องมี product/material photo และ scene brief ก่อนจึงจะ generate ได้"
                     : `พร้อมสร้างแล้ว ระบบจะ generate scene ใหม่ ${DEFAULT_GENERATED_SCENE_COUNT} ภาพ`}
                 </p>
               </div>

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { AuthGuard } from '@/components/auth-guard'
 import { ThemeToggle } from '@/components/theme-toggle'
 
 export const metadata: Metadata = {
@@ -48,7 +47,7 @@ export default function RootLayout({
           }}
         />
         <ThemeToggle />
-        <AuthGuard>{children}</AuthGuard>
+        {children}
       </body>
     </html>
   )
