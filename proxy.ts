@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-import { getSafeNextPath, isAllowedEmail } from "@/lib/auth"
+import { AUTH_ENABLED, getSafeNextPath, isAllowedEmail } from "@/lib/auth"
 
 const PUBLIC_PATHS = ["/login", "/auth", "/shared"]
 
@@ -19,6 +19,14 @@ function isPublicRequest(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (!AUTH_ENABLED) {
+    if (request.nextUrl.pathname === "/login") {
+      return NextResponse.redirect(new URL("/", request.url))
+    }
+
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(

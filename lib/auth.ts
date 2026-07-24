@@ -1,3 +1,6 @@
+// Temporary kill switch. Set to true to restore Supabase authentication.
+export const AUTH_ENABLED = false
+
 export const ALLOWED_EMAIL_DOMAIN = "convertcake.com"
 
 export function isAllowedEmail(email: string | null | undefined) {

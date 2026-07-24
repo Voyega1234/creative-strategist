@@ -12,6 +12,7 @@ import { ChevronUp, Plus, User, Bookmark, Settings, History, Images, Lock, Home,
 import { SavedIdeas } from "./saved-ideas"
 import type { ClientWithProductFocus } from "@/lib/client-options"
 import { buildMissingClientOnboardingUrl, clientExistsInSystem } from "@/lib/client-options"
+import { AUTH_ENABLED } from "@/lib/auth"
 import { getSupabase } from "@/lib/supabase/client"
 
 type SidebarMode = "configure" | "images" | "v2"
@@ -614,14 +615,16 @@ export function MainSidebar({
               <LinkPendingSpinner />
             </Link>
           </Button>
-          <Button
-            onClick={handleLogout}
-            variant="ghost"
-            className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
-          >
-            <Lock className="mr-2 h-4 w-4" />
-            ออกจากระบบ
-          </Button>
+          {AUTH_ENABLED && (
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              className="w-full justify-start text-[#8e8e93] hover:bg-[#f5f5f5] hover:text-red-600 text-sm"
+            >
+              <Lock className="mr-2 h-4 w-4" />
+              ออกจากระบบ
+            </Button>
+          )}
         </div>
       </div>
 
