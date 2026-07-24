@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createServerClient } from "@supabase/ssr"
-import { getSafeNextPath, isAllowedEmail } from "@/lib/auth"
+import { getSafeNextPath, isAllowedEmail, isGoogleAuthProvider } from "@/lib/auth"
 
 function setLocation(response: NextResponse, request: NextRequest, path: string) {
   response.headers.set("location", new URL(path, request.url).toString())
@@ -32,7 +32,10 @@ export async function GET(request: NextRequest) {
   )
 
   if (!code) {
-    setLocation(response, request, "/login?error=invalid_link")
+    const errorCode = request.nextUrl.searchParams.has("error")
+      ? "oauth_error"
+      : "invalid_link"
+    setLocation(response, request, `/login?error=${errorCode}`)
     return response
   }
 
@@ -46,6 +49,9 @@ export async function GET(request: NextRequest) {
   if (!isAllowedEmail(data.user.email)) {
     await supabase.auth.signOut()
     setLocation(response, request, "/login?error=domain")
+  } else if (!isGoogleAuthProvider(data.user.app_metadata)) {
+    await supabase.auth.signOut()
+    setLocation(response, request, "/login?error=provider")
   }
 
   return response

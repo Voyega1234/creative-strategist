@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-import { AUTH_ENABLED, getSafeNextPath, isAllowedEmail } from "@/lib/auth"
+import {
+  AUTH_ENABLED,
+  getSafeNextPath,
+  isAllowedEmail,
+  isGoogleAuthProvider,
+} from "@/lib/auth"
 
 const PUBLIC_PATHS = ["/login", "/auth", "/shared"]
 
@@ -56,7 +61,9 @@ export async function proxy(request: NextRequest) {
   const { data: claimsData } = await supabase.auth.getClaims()
   const email =
     typeof claimsData?.claims.email === "string" ? claimsData.claims.email : null
-  const isAuthorized = isAllowedEmail(email)
+  const isAuthorized =
+    isAllowedEmail(email) &&
+    isGoogleAuthProvider(claimsData?.claims.app_metadata)
   const { pathname, search } = request.nextUrl
 
   if (!isPublicRequest(request) && !isAuthorized) {

@@ -1,4 +1,4 @@
--- Reject new Supabase Auth users unless their email belongs to Convert Cake.
+-- Reject new Supabase Auth users unless they use Google with a Convert Cake email.
 -- After applying this migration, enable this function as the
 -- Authentication > Hooks > Before User Created hook in the Supabase dashboard.
 
@@ -8,7 +8,20 @@ language plpgsql
 as $$
 declare
   email_address text := lower(trim(event->'user'->>'email'));
+  auth_provider text := lower(trim(coalesce(
+    event->'user'->'app_metadata'->>'provider',
+    ''
+  )));
 begin
+  if auth_provider <> 'google' then
+    return jsonb_build_object(
+      'error', jsonb_build_object(
+        'http_code', 403,
+        'message', 'Sign in with your Convert Cake Google account.'
+      )
+    );
+  end if;
+
   if email_address is null
     or position('@' in email_address) <= 1
     or length(email_address) - length(replace(email_address, '@', '')) <> 1
