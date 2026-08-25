@@ -1,9 +1,10 @@
 "use client"
 
 import { Suspense, useState } from "react"
-import { Loader2, LockKeyhole } from "lucide-react"
+import { Eye, EyeOff, Loader2, LockKeyhole } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { ALLOWED_EMAIL_DOMAIN, getSafeNextPath } from "@/lib/auth"
 import { getSupabase } from "@/lib/supabase/client"
 
@@ -44,6 +45,36 @@ function LoginContent() {
     ERROR_MESSAGES[searchParams.get("error") ?? ""] ?? ""
   )
   const [isSigningIn, setIsSigningIn] = useState(false)
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [isPasswordSigningIn, setIsPasswordSigningIn] = useState(false)
+
+  async function handlePasswordSignIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError("")
+    setIsPasswordSigningIn(true)
+
+    try {
+      const response = await fetch("/api/password-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        setError(result?.error || "Password sign-in could not be completed.")
+        return
+      }
+
+      setPassword("")
+      window.location.assign(nextPath)
+    } catch {
+      setError("Password sign-in could not be completed. Please try again.")
+    } finally {
+      setIsPasswordSigningIn(false)
+    }
+  }
 
   async function handleGoogleSignIn() {
     setError("")
@@ -126,12 +157,59 @@ function LoginContent() {
               </p>
             )}
 
+            <form onSubmit={handlePasswordSignIn} className="space-y-3">
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Access password"
+                  autoComplete="current-password"
+                  className="h-11 pr-10"
+                  disabled={isPasswordSigningIn || isSigningIn}
+                  aria-label="Access password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <Button
+                type="submit"
+                className="h-11 w-full bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
+                disabled={!password || isPasswordSigningIn || isSigningIn}
+              >
+                {isPasswordSigningIn ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Continue with password"
+                )}
+              </Button>
+            </form>
+
+            <div className="flex items-center gap-3 py-1 text-xs text-slate-400">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span>or</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
             <Button
               type="button"
               variant="outline"
               className="h-11 w-full border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
               onClick={handleGoogleSignIn}
-              disabled={isSigningIn}
+              disabled={isSigningIn || isPasswordSigningIn}
               aria-describedby={error ? "login-error" : "google-account-help"}
             >
               {isSigningIn ? (

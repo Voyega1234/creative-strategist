@@ -313,7 +313,10 @@ export function MainSidebar({
       : ALL_SERVICES_VALUE
 
   const handleLogout = async () => {
-    await getSupabase().auth.signOut()
+    await Promise.allSettled([
+      getSupabase().auth.signOut(),
+      fetch("/api/password-login", { method: "DELETE" }),
+    ])
     router.replace("/login")
     router.refresh()
   }

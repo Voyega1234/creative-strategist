@@ -6,6 +6,10 @@ import {
   isAllowedEmail,
   isGoogleAuthProvider,
 } from "@/lib/auth"
+import {
+  PASSWORD_ACCESS_COOKIE,
+  verifyPasswordAccessToken,
+} from "@/lib/password-auth"
 
 const PUBLIC_PATHS = ["/login", "/auth", "/shared"]
 
@@ -18,6 +22,7 @@ function isPublicRequest(request: NextRequest) {
   return (
     isPublicPage ||
     pathname === "/api/generate-ideas/callback" ||
+    pathname === "/api/password-login" ||
     (pathname === "/api/share-ideas" && request.method === "GET") ||
     (pathname === "/api/facebook-post" && request.method === "POST")
   )
@@ -58,12 +63,21 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: claimsData } = await supabase.auth.getClaims()
+  const isPasswordAuthorized = await verifyPasswordAccessToken(
+    request.cookies.get(PASSWORD_ACCESS_COOKIE)?.value,
+    process.env.NEXT_ACCESS_KEY
+  )
+  const { data: claimsData } = isPasswordAuthorized
+    ? { data: { claims: null } }
+    : await supabase.auth.getClaims()
   const email =
-    typeof claimsData?.claims.email === "string" ? claimsData.claims.email : null
+    typeof claimsData?.claims?.email === "string"
+      ? claimsData.claims.email
+      : null
   const isAuthorized =
-    isAllowedEmail(email) &&
-    isGoogleAuthProvider(claimsData?.claims.app_metadata)
+    isPasswordAuthorized ||
+    (isAllowedEmail(email) &&
+      isGoogleAuthProvider(claimsData?.claims?.app_metadata))
   const { pathname, search } = request.nextUrl
 
   if (!isPublicRequest(request) && !isAuthorized) {
