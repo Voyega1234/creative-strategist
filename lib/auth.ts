@@ -1,7 +1,10 @@
 export const AUTH_ENABLED = true
 
 export const ALLOWED_EMAIL_DOMAIN = "convertcake.com"
-export const ALLOWED_EMAIL_ADDRESSES = ["treesiri.for.work@gmail.com"] as const
+export const ALLOWED_EMAIL_ADDRESSES = [
+  "treesiri.for.work@gmail.com",
+  "nattametee.ck@gmail.com",
+] as const
 
 export function isAllowedEmail(email: string | null | undefined) {
   if (!email) return false
