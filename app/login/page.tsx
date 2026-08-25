@@ -1,7 +1,7 @@
 "use client"
 
 import { Suspense, useState } from "react"
-import { Eye, EyeOff, Loader2, LockKeyhole } from "lucide-react"
+import { ChevronDown, Eye, EyeOff, Loader2, LockKeyhole } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,6 +47,7 @@ function LoginContent() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [showExternalAccess, setShowExternalAccess] = useState(false)
   const [isPasswordSigningIn, setIsPasswordSigningIn] = useState(false)
 
   async function handlePasswordSignIn(event: React.FormEvent<HTMLFormElement>) {
@@ -146,7 +147,7 @@ function LoginContent() {
           <div>
             <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Sign in</h2>
             <p className="mt-3 leading-7 text-slate-600">
-              Use your approved Google account, or enter the access password below.
+              Use your approved Google account. External access is available below.
             </p>
           </div>
 
@@ -189,50 +190,69 @@ function LoginContent() {
               <div className="h-px flex-1 bg-slate-200" />
             </div>
 
-            <form onSubmit={handlePasswordSignIn} className="space-y-3">
-              <label htmlFor="access-password" className="block text-sm font-medium text-slate-700">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full justify-between border-slate-300 bg-white px-4 text-slate-800 hover:bg-slate-50 hover:text-slate-900"
+              onClick={() => setShowExternalAccess((visible) => !visible)}
+              aria-expanded={showExternalAccess}
+              aria-controls="external-access-form"
+            >
+              <span className="flex items-center gap-2">
+                <LockKeyhole className="h-4 w-4" />
                 External access
-              </label>
-              <div className="relative">
-                <Input
-                  id="access-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter access password"
-                  autoComplete="current-password"
-                  className="h-11 pr-10"
-                  disabled={isPasswordSigningIn || isSigningIn}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${showExternalAccess ? "rotate-180" : ""}`}
+              />
+            </Button>
+
+            {showExternalAccess && (
+              <form id="external-access-form" onSubmit={handlePasswordSignIn} className="space-y-3">
+                <label htmlFor="access-password" className="block text-sm font-medium text-slate-700">
+                  Access password
+                </label>
+                <div className="relative">
+                  <Input
+                    id="access-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter access password"
+                    autoComplete="current-password"
+                    className="h-11 pr-10"
+                    disabled={isPasswordSigningIn || isSigningIn}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="h-11 w-full border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
+                  disabled={!password || isPasswordSigningIn || isSigningIn}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                  {isPasswordSigningIn ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    "Continue with password"
                   )}
-                </button>
-              </div>
-              <Button
-                type="submit"
-                variant="outline"
-                className="h-11 w-full border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
-                disabled={!password || isPasswordSigningIn || isSigningIn}
-              >
-                {isPasswordSigningIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  "Continue with password"
-                )}
-              </Button>
-            </form>
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </section>
