@@ -4,6 +4,7 @@ export const ALLOWED_EMAIL_DOMAIN = "convertcake.com"
 export const ALLOWED_EMAIL_ADDRESSES = [
   "treesiri.for.work@gmail.com",
   "nattametee.ck@gmail.com",
+  "siri.sirihoro@gmail.com",
 ] as const
 
 export function isAllowedEmail(email: string | null | undefined) {

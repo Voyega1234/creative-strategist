@@ -27,7 +27,8 @@ begin
       split_part(email_address, '@', 2) <> 'convertcake.com'
       and email_address not in (
         'treesiri.for.work@gmail.com',
-        'nattametee.ck@gmail.com'
+        'nattametee.ck@gmail.com',
+        'siri.sirihoro@gmail.com'
       )
     )
   then
