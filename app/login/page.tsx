@@ -146,7 +146,7 @@ function LoginContent() {
           <div>
             <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Sign in</h2>
             <p className="mt-3 leading-7 text-slate-600">
-              Continue with your approved Google account.
+              Use your approved Google account, or enter the access password below.
             </p>
           </div>
 
@@ -157,17 +157,52 @@ function LoginContent() {
               </p>
             )}
 
+            <Button
+              type="button"
+              className="h-11 w-full bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
+              onClick={handleGoogleSignIn}
+              disabled={isSigningIn || isPasswordSigningIn}
+              aria-describedby={error ? "login-error" : "google-account-help"}
+            >
+              {isSigningIn ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redirecting to Google...
+                </>
+              ) : (
+                <>
+                  <span className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-white">
+                    <GoogleIcon />
+                  </span>
+                  Continue with Google
+                </>
+              )}
+            </Button>
+
+            <p id="google-account-help" className="text-center text-xs text-slate-500">
+              Only @{ALLOWED_EMAIL_DOMAIN} and approved exception accounts are allowed.
+            </p>
+
+            <div className="flex items-center gap-3 py-1 text-xs text-slate-400">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span>or</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
             <form onSubmit={handlePasswordSignIn} className="space-y-3">
+              <label htmlFor="access-password" className="block text-sm font-medium text-slate-700">
+                External access
+              </label>
               <div className="relative">
                 <Input
+                  id="access-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Access password"
+                  placeholder="Enter access password"
                   autoComplete="current-password"
                   className="h-11 pr-10"
                   disabled={isPasswordSigningIn || isSigningIn}
-                  aria-label="Access password"
                 />
                 <button
                   type="button"
@@ -184,7 +219,8 @@ function LoginContent() {
               </div>
               <Button
                 type="submit"
-                className="h-11 w-full bg-[#1d4ed8] text-white hover:bg-[#1e40af]"
+                variant="outline"
+                className="h-11 w-full border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
                 disabled={!password || isPasswordSigningIn || isSigningIn}
               >
                 {isPasswordSigningIn ? (
@@ -197,39 +233,6 @@ function LoginContent() {
                 )}
               </Button>
             </form>
-
-            <div className="flex items-center gap-3 py-1 text-xs text-slate-400">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span>or</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full border-slate-300 bg-white text-slate-800 hover:bg-slate-50 hover:text-slate-900"
-              onClick={handleGoogleSignIn}
-              disabled={isSigningIn || isPasswordSigningIn}
-              aria-describedby={error ? "login-error" : "google-account-help"}
-            >
-              {isSigningIn ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Redirecting to Google...
-                </>
-              ) : (
-                <>
-                  <span className="mr-3">
-                    <GoogleIcon />
-                  </span>
-                  Continue with Google
-                </>
-              )}
-            </Button>
-
-            <p id="google-account-help" className="text-center text-xs text-slate-500">
-              Only @{ALLOWED_EMAIL_DOMAIN} and approved exception accounts are allowed.
-            </p>
           </div>
         </div>
       </section>
