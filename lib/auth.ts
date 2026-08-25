@@ -1,6 +1,7 @@
 export const AUTH_ENABLED = true
 
 export const ALLOWED_EMAIL_DOMAIN = "convertcake.com"
+export const ALLOWED_EMAIL_ADDRESSES = ["treesiri.for.work@gmail.com"] as const
 
 export function isAllowedEmail(email: string | null | undefined) {
   if (!email) return false
@@ -8,7 +9,13 @@ export function isAllowedEmail(email: string | null | undefined) {
   const normalizedEmail = email.trim().toLowerCase()
   const atIndex = normalizedEmail.lastIndexOf("@")
 
-  return atIndex > 0 && normalizedEmail.slice(atIndex + 1) === ALLOWED_EMAIL_DOMAIN
+  return (
+    ALLOWED_EMAIL_ADDRESSES.some(
+      (allowedEmail) => normalizedEmail === allowedEmail
+    ) ||
+    (atIndex > 0 &&
+      normalizedEmail.slice(atIndex + 1) === ALLOWED_EMAIL_DOMAIN)
+  )
 }
 
 export function isGoogleAuthProvider(

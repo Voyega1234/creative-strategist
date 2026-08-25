@@ -1,7 +1,4 @@
--- Reject new Supabase Auth users unless they use Google with a Convert Cake email
--- or the explicitly approved exception account.
--- After applying this migration, enable this function as the
--- Authentication > Hooks > Before User Created hook in the Supabase dashboard.
+-- Update an existing Before User Created hook to allow the approved Gmail account.
 
 create or replace function public.restrict_auth_to_convertcake(event jsonb)
 returns jsonb
@@ -18,7 +15,7 @@ begin
     return jsonb_build_object(
       'error', jsonb_build_object(
         'http_code', 403,
-        'message', 'Sign in with your Convert Cake Google account.'
+        'message', 'Sign in with an approved Google account.'
       )
     );
   end if;

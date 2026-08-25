@@ -1,6 +1,6 @@
 # Supabase passwordless authentication setup
 
-The application code is configured for passwordless email-link sign-in and only accepts `@convertcake.com` sessions. Complete these one-time Supabase project settings before deploying.
+The application uses Google sign-in and accepts `@convertcake.com` sessions plus explicitly approved exception accounts. Complete these one-time Supabase project settings before deploying.
 
 Application pages and API routes require a valid company session. Existing public share links remain accessible, as do the share-page Facebook mockup endpoint and the n8n idea-generation callback.
 
@@ -8,7 +8,9 @@ Application pages and API routes require a valid company session. Existing publi
 
 Run `db/migrations/restrict_auth_to_convertcake.sql` in the Supabase SQL Editor (or through your normal migration workflow).
 
-Then open **Authentication > Hooks**, enable **Before User Created**, select the Postgres function `public.restrict_auth_to_convertcake`, and save. This makes Supabase reject non-company users even if someone calls the Auth API outside this application.
+For a project where the hook is already installed, run `db/migrations/allow_treesiri_google_account.sql` to update the allowlist.
+
+Then open **Authentication > Hooks**, enable **Before User Created**, select the Postgres function `public.restrict_auth_to_convertcake`, and save. This makes Supabase reject unapproved users even if someone calls the Auth API outside this application.
 
 ## 2. Configure email authentication
 

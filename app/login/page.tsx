@@ -8,8 +8,8 @@ import { ALLOWED_EMAIL_DOMAIN, getSafeNextPath } from "@/lib/auth"
 import { getSupabase } from "@/lib/supabase/client"
 
 const ERROR_MESSAGES: Record<string, string> = {
-  domain: `Only @${ALLOWED_EMAIL_DOMAIN} email addresses can access Creative Compass.`,
-  provider: "Please sign in with your Convert Cake Google account.",
+  domain: `Only @${ALLOWED_EMAIL_DOMAIN} and approved exception accounts can access Creative Compass.`,
+  provider: "Please sign in with an approved Google account.",
   invalid_link: "This Google sign-in attempt is invalid or has expired. Please try again.",
   oauth_error: "Google sign-in could not be completed. Please try again.",
 }
@@ -57,7 +57,6 @@ function LoginContent() {
       options: {
         redirectTo: callbackUrl.toString(),
         queryParams: {
-          hd: ALLOWED_EMAIL_DOMAIN,
           include_granted_scopes: "true",
           prompt: "select_account",
         },
@@ -116,7 +115,7 @@ function LoginContent() {
           <div>
             <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Sign in</h2>
             <p className="mt-3 leading-7 text-slate-600">
-              Continue with your Convert Cake Google Workspace account.
+              Continue with your approved Google account.
             </p>
           </div>
 
@@ -151,7 +150,7 @@ function LoginContent() {
             </Button>
 
             <p id="google-account-help" className="text-center text-xs text-slate-500">
-              Only @{ALLOWED_EMAIL_DOMAIN} Google accounts are allowed.
+              Only @{ALLOWED_EMAIL_DOMAIN} and approved exception accounts are allowed.
             </p>
           </div>
         </div>
