@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 
 import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { getSupabase } from "@/lib/supabase/server"
+import { invalidateCache } from "@/lib/utils/server-cache"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
@@ -17,9 +19,11 @@ type ImageModelProvider = "gemini" | "openai"
 
 type SeoBlogBannerRequest = {
   model_provider?: ImageModelProvider
+  client_id?: string
   website?: string
   brand_name?: string
   brand_colors?: string
+  color_palette?: string[]
   brand_context?: string
   brand_logo_url?: string
   openbrand_logo_url?: string
@@ -504,6 +508,36 @@ function buildPrompt({
     .join("\n")
 }
 
+function sanitizeColorValue(value: unknown) {
+  return String(value).replace(/[^0-9a-fA-F]/g, "").substring(0, 6).toUpperCase()
+}
+
+async function persistClientBrandAssets(clientId: string, website: string, colorPalette: unknown[]) {
+  try {
+    const sanitizedPalette = Array.from(
+      new Set(colorPalette.map(sanitizeColorValue).filter((value) => value.length === 6)),
+    )
+    const supabase = getSupabase()
+    const { error } = await supabase
+      .from("Clients")
+      .update({
+        clientWebsiteUrl: website,
+        ...(sanitizedPalette.length > 0 ? { color_palette: sanitizedPalette } : {}),
+      })
+      .eq("id", clientId)
+
+    if (error) {
+      console.error("[seo-blog-banner] Failed to persist client brand assets:", error)
+      return
+    }
+
+    invalidateCache("clients")
+    invalidateCache(`client-profile:${clientId}`)
+  } catch (error) {
+    console.error("[seo-blog-banner] Unexpected error persisting client brand assets:", error)
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as SeoBlogBannerRequest
@@ -539,6 +573,11 @@ export async function POST(request: Request) {
 
     if (modelProvider === "openai" && !process.env.OPENAI_API_KEY) {
       return NextResponse.json({ success: false, error: "OPENAI_API_KEY is not configured" }, { status: 500 })
+    }
+
+    const clientId = typeof body.client_id === "string" ? body.client_id.trim() : ""
+    if (clientId) {
+      void persistClientBrandAssets(clientId, website, Array.isArray(body.color_palette) ? body.color_palette : [])
     }
 
     const websiteContext = await fetchWebsiteContext(website)

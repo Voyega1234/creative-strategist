@@ -54,9 +54,11 @@ type UploadedAsset = {
 type ClientOption = {
   id: string
   clientName: string
+  colorPalette?: string[]
   productFocuses: Array<{
     id: string
     productFocus: string
+    colorPalette?: string[]
   }>
 }
 
@@ -695,6 +697,52 @@ export function SeoBlogBannerPanel({
     writeClientBrandAssetCache(nextCache)
   }, [brandColorRoles, brandColorValues, brandName, composedBrandContext, openBrandLogoUrl, selectedClientId, website])
 
+  useEffect(() => {
+    if (!selectedClientId) return
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/client-profile?clientId=${encodeURIComponent(selectedClientId)}`)
+        const payload = await response.json()
+        if (cancelled || !payload?.success) return
+        const savedWebsite = payload.client?.clientWebsiteUrl
+        if (savedWebsite) setWebsite(savedWebsite)
+      } catch (fetchError) {
+        console.warn("Failed to load saved client website:", fetchError)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedClientId])
+
+  useEffect(() => {
+    if (!selectedClientId) return
+    const matchedProductFocus = selectedClient?.productFocuses.find(
+      (productFocus) => productFocus.id === selectedClientId,
+    )
+    const palette =
+      (matchedProductFocus?.colorPalette?.length ? matchedProductFocus.colorPalette : selectedClient?.colorPalette) ||
+      []
+    if (palette.length === 0) return
+
+    const formatted = palette.map((hex: string) => normalizeHexColor(hex.startsWith("#") ? hex : `#${hex}`))
+    setBrandColorValues(formatted)
+    setBrandColorRoles(formatted.map((_: string, index: number) => COLOR_ROLE_OPTIONS[index] || "Accent"))
+  }, [selectedClientId, selectedClient])
+
+  useEffect(() => {
+    revokeAsset(logoAssetRef.current)
+    setLogoAsset(null)
+  }, [selectedClientId])
+
+  useEffect(() => {
+    if (!selectedClientId || savedLogos.length === 0) return
+    setLogoAsset((prev) => prev ?? createStoredAsset(savedLogos[0]))
+  }, [selectedClientId, savedLogos])
+
   const canGenerate = website.trim().length > 0 && headline.trim().length > 0
   const selectedAdditionalSizeConfig = ADDITIONAL_SIZES.find((size) => size.key === selectedAdditionalSize) || ADDITIONAL_SIZES[0]
 
@@ -933,11 +981,13 @@ export function SeoBlogBannerPanel({
         },
         body: JSON.stringify({
           model_provider: "openai",
+          client_id: selectedClientId,
           website: website.trim(),
           brand_name: brandName.trim(),
           brand_colors: brandColorValues
             .map((color, index) => `${brandColorRoles[index] || "Accent"}: ${color}`)
             .join(", "),
+          color_palette: brandColorValues,
           brand_context: composedBrandContext,
           brand_logo_url: brandLogoUrl,
           openbrand_logo_url: openBrandLogoUrl,
