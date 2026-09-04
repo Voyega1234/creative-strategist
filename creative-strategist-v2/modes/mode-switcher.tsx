@@ -24,7 +24,7 @@ const MODE_GROUPS: Array<{
   {
     title: "Revise Creative",
     description: "Improve or edit existing work.",
-    modes: ["edit-image", "enhance", "upscale"],
+    modes: ["edit-image", "resize-image", "enhance", "upscale"],
   },
   {
     title: "Brand Library",

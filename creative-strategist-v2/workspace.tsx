@@ -12,6 +12,7 @@ import { DEFAULT_WORKSPACE_MODE, getWorkspaceFeature, modeRequiresClient } from 
 import { ModeSwitcher } from "./modes/mode-switcher";
 import { PendingMode } from "./modes/pending-mode";
 import { ProductSceneMode } from "./modes/product-scene-mode";
+import { ResizeImageMode } from "./modes/resize-image-mode";
 import { SeoBannerMode } from "./modes/seo-banner-mode";
 import { TextToImageMode } from "./modes/text-to-image-mode";
 import type {
@@ -51,7 +52,7 @@ const LANDING_GROUPS: Array<{
     description: "ปรับงานเดิม — แก้รูปด้วยแชท ตรวจและเพิ่มคุณภาพ หรือขยายความละเอียด",
     image: ROLE_IMAGES.designer,
     tint: "bg-gradient-to-b from-[#EEF6FF] to-white",
-    modes: ["edit-image", "enhance", "upscale"],
+    modes: ["edit-image", "resize-image", "enhance", "upscale"],
   },
   {
     title: "Brand Library",
@@ -104,6 +105,7 @@ export function V2Workspace({
     activeMode === "seo-banner" ||
     activeMode === "enhance" ||
     activeMode === "edit-image" ||
+    activeMode === "resize-image" ||
     activeMode === "material-to-scene" ||
     activeMode === "image-assets";
   const isScrollableMode =
@@ -121,6 +123,7 @@ export function V2Workspace({
     activeMode === "seo-banner" ||
     activeMode === "enhance" ||
     activeMode === "edit-image" ||
+    activeMode === "resize-image" ||
     activeMode === "material-to-scene" ||
     activeMode === "image-assets";
 
@@ -210,6 +213,9 @@ export function V2Workspace({
           productFocus={productFocus}
         />
       );
+    }
+    if (mode === "resize-image") {
+      return <ResizeImageMode productFocus={productFocus} />;
     }
     if (mode === "seo-banner") return <SeoBannerMode clients={clients} activeClientId={clientId} />;
     if (mode === "upscale") return <UpscaleMode />;
@@ -433,6 +439,11 @@ export function V2Workspace({
             {activeMode === "edit-image" && (
               <WorkspaceMascotHint image={ROLE_IMAGES.designer}>
                 เลือก Source Image ที่ต้องการแก้ก่อน จากนั้นพิมพ์คำสั่งแก้ไข ใช้ Brush ระบุพื้นที่ หรือแนบ Reference และ Materials เพิ่มได้
+              </WorkspaceMascotHint>
+            )}
+            {activeMode === "resize-image" && (
+              <WorkspaceMascotHint image={ROLE_IMAGES.designer}>
+                อัปโหลด Source Image เลือกสัดส่วนที่ต้องการ แล้วกด Resize เพื่อสร้าง Creative หลายขนาดพร้อมกัน
               </WorkspaceMascotHint>
             )}
             {activeMode === "upscale" && (

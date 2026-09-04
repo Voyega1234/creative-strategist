@@ -8,6 +8,7 @@ import {
   Maximize2,
   PanelTop,
   PenTool,
+  Scaling,
   Sparkles,
 } from "lucide-react";
 import type { WorkspaceFeature, WorkspaceMode } from "./types";
@@ -58,6 +59,13 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [
     kind: "chat",
   },
   {
+    id: "resize-image",
+    label: "Resize Image",
+    description: "Adapt one creative into multiple aspect ratios.",
+    icon: Scaling,
+    kind: "tool",
+  },
+  {
     id: "image-assets",
     label: "Reference Folder",
     description: "Browse and manage reusable brand imagery.",
@@ -97,6 +105,7 @@ export const WORKSPACE_FEATURES: WorkspaceFeature[] = [
 // Modes that work purely on uploaded files, so they are usable before a client is selected.
 export const CLIENT_FREE_MODES: WorkspaceMode[] = [
   "edit-image",
+  "resize-image",
   "enhance",
   "upscale",
   "material-to-scene",

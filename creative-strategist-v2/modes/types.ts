@@ -8,6 +8,7 @@ export type WorkspaceMode =
   | "album-post"
   | "carousel"
   | "edit-image"
+  | "resize-image"
   | "image-assets"
   | "seo-banner"
   | "upscale"
