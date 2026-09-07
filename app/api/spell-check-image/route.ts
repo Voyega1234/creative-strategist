@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { normalizeExternalImageUrl } from "@/lib/images/external-url"
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 120
@@ -241,7 +241,7 @@ export async function POST(request: Request) {
       image = await fetchImageAsBase64(imageUrl)
     }
 
-    const response = await vertexGenerateContent(SPELL_CHECK_MODEL, {
+    const response = await openRouterGenerateContent(SPELL_CHECK_MODEL, {
       contents: [
         {
           parts: [

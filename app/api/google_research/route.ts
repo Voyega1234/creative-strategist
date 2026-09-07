@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server'; // Import Supabase client
-import { vertexGenerateContent } from '@/lib/google/vertex-ai';
+import { openRouterGenerateContent } from '@/lib/openrouter';
 import { invalidateCache } from '@/lib/utils/server-cache';
 
 // Define a basic Competitor type matching Supabase table structure
@@ -33,17 +33,17 @@ async function callGeminiAPI(prompt: string, model: string = "gemini-2.5-flash",
         generationConfig: { temperature: 1.0 }
     };
 
-    // Add Google Search grounding if requested (Vertex AI uses `googleSearch`)
+    // Add OpenRouter's model-agnostic web search tool when grounding is requested.
     if (useGrounding) {
         body.tools = [
             {
-                googleSearch: {}
+                type: "openrouter:web_search"
             }
         ];
-        console.log("Using Google grounding search for Gemini API call");
+        console.log("Using OpenRouter web search for the research call");
     }
 
-    const response = await vertexGenerateContent(model, body, {
+    const response = await openRouterGenerateContent(model, body, {
         labels: { feature: "market_research", operation: "grounded_research" },
     });
 

@@ -108,10 +108,10 @@ Creative direction:
 function responseToImage(responseJson) {
   const image = responseJson?.data?.[0]
   if (!image?.b64_json) {
-    throw new Error(`OpenAI returned no image data: ${JSON.stringify(responseJson).slice(0, 1000)}`)
+    throw new Error(`OpenRouter returned no image data: ${JSON.stringify(responseJson).slice(0, 1000)}`)
   }
 
-  const format = (image.output_format || process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "png").toLowerCase()
+  const format = (image.media_type?.split("/")[1] || image.output_format || "png").toLowerCase()
   const extension = format === "jpeg" ? "jpg" : format
   const contentType =
     format === "jpeg" || format === "jpg"
@@ -129,57 +129,43 @@ function responseToImage(responseJson) {
 }
 
 export async function generateImage({ prompt, size, images = [] }) {
-  const apiKey = requiredEnv("OPENAI_API_KEY")
-  const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2"
-  const quality = process.env.OPENAI_IMAGE_QUALITY || "medium"
-  const outputFormat = process.env.OPENAI_IMAGE_OUTPUT_FORMAT || "png"
-
-  let response
-
-  if (images.length > 0) {
-    const form = new FormData()
-    form.set("model", model)
-    form.set("prompt", prompt)
-    form.set("size", size)
-    form.set("quality", quality)
-    form.set("output_format", outputFormat)
-
-    images.slice(0, 16).forEach((image, index) => {
-      const extension = image.contentType.includes("jpeg")
-        ? "jpg"
-        : image.contentType.includes("webp")
-          ? "webp"
-          : "png"
-      const blob = new Blob([image.buffer], { type: image.contentType })
-      form.append("image[]", blob, `${image.type}_${index + 1}.${extension}`)
-    })
-
-    response = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
-    })
-  } else {
-    response = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        prompt,
-        size,
-        quality,
-        output_format: outputFormat,
-      }),
-    })
+  const apiKey = requiredEnv("OPENROUTER_API_KEY")
+  const model = process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image-preview"
+  const aspectRatioBySize = {
+    "1024x1024": "1:1",
+    "1536x1024": "3:2",
+    "1024x1536": "2:3",
   }
+  const inputReferences = images.slice(0, 14).map((image) => ({
+    type: "image_url",
+    image_url: {
+      url: `data:${image.contentType};base64,${image.buffer.toString("base64")}`,
+    },
+  }))
+  const payload = {
+    model,
+    prompt,
+    resolution: process.env.OPENROUTER_IMAGE_RESOLUTION || "2K",
+    n: 1,
+    ...(aspectRatioBySize[size] ? { aspect_ratio: aspectRatioBySize[size] } : {}),
+    ...(inputReferences.length > 0 ? { input_references: inputReferences } : {}),
+  }
+
+  const response = await fetch("https://openrouter.ai/api/v1/images", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "http://localhost",
+      "X-Title": process.env.OPENROUTER_APP_NAME || "Creative Compass Imagegen Code",
+    },
+    body: JSON.stringify(payload),
+  })
 
   const responseJson = await response.json().catch(async () => ({ error: await response.text() }))
 
   if (!response.ok) {
-    throw new Error(`OpenAI image request failed: ${response.status} ${JSON.stringify(responseJson)}`)
+    throw new Error(`OpenRouter image request failed: ${response.status} ${JSON.stringify(responseJson)}`)
   }
 
   return responseToImage(responseJson)

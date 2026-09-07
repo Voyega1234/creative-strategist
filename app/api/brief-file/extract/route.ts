@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -104,7 +104,7 @@ ${buffer.toString("utf8").slice(0, MAX_TEXT_CHARS)}`,
             },
           ]
 
-    const response = await vertexGenerateContent(BRIEF_FILE_MODEL, {
+    const response = await openRouterGenerateContent(BRIEF_FILE_MODEL, {
       contents: [{ parts }],
       generationConfig: { temperature: 0.1 },
     }, {

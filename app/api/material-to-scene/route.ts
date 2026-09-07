@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 import { createHash } from "node:crypto"
 import { getSupabase } from "@/lib/supabase/server"
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { OPENROUTER_IMAGE_MODEL, openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
 const ANALYSIS_MODEL = "gemini-3.1-pro-preview"
-const IMAGE_MODEL = "gemini-3.1-flash-image"
+const IMAGE_MODEL = OPENROUTER_IMAGE_MODEL
 const STORAGE_BUCKET = "ads-creative-image"
 const GENERATED_IMAGE_COUNT = 4
 const ANALYSIS_CACHE_PREFIX = "generated/material-to-scene-analysis-cache"
@@ -224,7 +224,7 @@ function getGeminiImages(payload: any): GeminiInlineImage[] {
 }
 
 async function callGemini(body: unknown, operation: PhotostockOperation) {
-  const response = await vertexGenerateContent(IMAGE_MODEL, body, {
+  const response = await openRouterGenerateContent(IMAGE_MODEL, body, {
     labels: { ...PHOTOSTOCK_LABELS, operation },
   })
 
@@ -246,7 +246,7 @@ async function callGemini(body: unknown, operation: PhotostockOperation) {
 }
 
 async function analyzeMaterial(referenceImageBase64: string, mimeType: string) {
-  const response = await vertexGenerateContent(ANALYSIS_MODEL, {
+  const response = await openRouterGenerateContent(ANALYSIS_MODEL, {
     contents: [
       {
         parts: [

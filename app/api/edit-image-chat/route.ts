@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server"
 
 import { normalizeExternalImageUrl } from "@/lib/images/external-url"
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { OPENROUTER_IMAGE_MODEL, openRouterGenerateContent } from "@/lib/openrouter"
 import { getSupabase } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
-const GEMINI_IMAGE_MODEL =
-  process.env.EDIT_IMAGE_GEMINI_MODEL ||
-  process.env.SEO_BLOG_BANNER_GEMINI_MODEL ||
-  process.env.SEO_BLOG_BANNER_IMAGE_MODEL ||
-  "gemini-3.1-flash-image"
+const GEMINI_IMAGE_MODEL = OPENROUTER_IMAGE_MODEL
 
 type EditImageChatRequest = {
   image_url?: string
@@ -509,7 +505,7 @@ export async function POST(request: Request) {
       hasLockedLogo: Boolean(lockedLogo),
     })
 
-    const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
+    const response = await openRouterGenerateContent(GEMINI_IMAGE_MODEL, {
       contents: [
         ...historyContents,
         {

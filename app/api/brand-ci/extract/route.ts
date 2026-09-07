@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "ไฟล์ต้องมีขนาดไม่เกิน 10 MB" }, { status: 400 })
     }
 
-    const response = await vertexGenerateContent(BRAND_CI_MODEL, {
+    const response = await openRouterGenerateContent(BRAND_CI_MODEL, {
       contents: [
         {
           parts: [

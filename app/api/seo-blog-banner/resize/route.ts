@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { OPENROUTER_IMAGE_MODEL, openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
-const GEMINI_IMAGE_MODEL =
-  process.env.SEO_BLOG_BANNER_RESIZE_MODEL ||
-  process.env.SEO_BLOG_BANNER_GEMINI_MODEL ||
-  process.env.SEO_BLOG_BANNER_IMAGE_MODEL ||
-  "gemini-3.1-flash-image"
+const GEMINI_IMAGE_MODEL = OPENROUTER_IMAGE_MODEL
 const GEMINI_IMAGE_SIZE = process.env.SEO_BLOG_BANNER_RESIZE_IMAGE_SIZE || "2K"
 
 const TARGET_SIZES = {
@@ -122,7 +118,7 @@ async function callGeminiResize({
   lockedLogo: { base64: string; mimeType: string }
   aspectRatio: string
 }) {
-  const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
+  const response = await openRouterGenerateContent(GEMINI_IMAGE_MODEL, {
     contents: [
       {
         parts: [

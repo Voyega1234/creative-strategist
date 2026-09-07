@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabase } from '@/lib/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
-import { vertexGenerateContent } from '@/lib/google/vertex-ai'
+import { openRouterGenerateContent } from '@/lib/openrouter'
 
 // Helper function to call Gemini API with Google Grounding Search
 async function callGeminiWithGrounding(prompt: string) {
-  const response = await vertexGenerateContent('gemini-2.5-flash', {
+  const response = await openRouterGenerateContent('gemini-2.5-flash', {
     contents: [{
       parts: [{ text: prompt }]
     }],
-    tools: [{
-      googleSearch: {}
-    }],
+    tools: [{ type: "openrouter:web_search" }],
     generationConfig: {
       response_mime_type: "application/json",
       temperature: 0.7

@@ -3,7 +3,7 @@ import {
   buildCustomIdeaFallback,
   normalizeParsedCustomIdea,
 } from "@/lib/custom-idea-parser"
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { openRouterGenerateContent } from "@/lib/openrouter"
 
 const GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
 
@@ -78,7 +78,7 @@ User input:
 ${inputText}
 `.trim()
 
-  const response = await vertexGenerateContent(GEMINI_MODEL, {
+  const response = await openRouterGenerateContent(GEMINI_MODEL, {
     contents: [
       {
         parts: [{ text: prompt }],

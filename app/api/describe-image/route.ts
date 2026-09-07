@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const response = await vertexGenerateContent(DESCRIBE_MODEL, {
+    const response = await openRouterGenerateContent(DESCRIBE_MODEL, {
       contents: [
         {
           parts: [

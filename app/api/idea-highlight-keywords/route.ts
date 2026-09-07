@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { openRouterGenerateContent } from "@/lib/openrouter"
 
 const HIGHLIGHT_MODEL = process.env.IDEA_HIGHLIGHT_GEMINI_MODEL || "gemini-3-flash-preview"
 const MAX_ITEMS = 20
@@ -79,7 +79,7 @@ function isRetryableStatus(status: number) {
 async function generateHighlightsWithRetry(prompt: string) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     try {
-      const response = await vertexGenerateContent(HIGHLIGHT_MODEL, {
+      const response = await openRouterGenerateContent(HIGHLIGHT_MODEL, {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           response_mime_type: "application/json",

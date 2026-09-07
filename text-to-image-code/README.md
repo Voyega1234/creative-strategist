@@ -10,18 +10,16 @@ This version intentionally mirrors the n8n capability set. It does not include t
 2. Optionally fetches client and market context from Supabase.
 3. Runs the same visual-thinking step through OpenRouter when `OPENROUTER_API_KEY` is available.
 4. Downloads material images and reference images.
-5. Builds the final OpenAI image prompt in the same structure as the n8n Code node.
-6. Calls OpenAI Images API.
-   - Uses `/v1/images/edits` when material/reference images are attached.
-   - Uses `/v1/images/generations` when no images are attached.
+5. Builds the final image prompt in the same structure as the n8n Code node.
+6. Calls OpenRouter's dedicated Image API.
 7. Saves the generated image locally.
 8. Optionally uploads the image to Supabase Storage.
 
 ## Requirements
 
 - Node.js 22+
-- `OPENAI_API_KEY`
-- `OPENROUTER_API_KEY` if you want the visual-thinking step instead of direct-brief fallback
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_IMAGE_MODEL` (optional; defaults to `google/gemini-3.1-flash-image-preview`)
 - Supabase env vars if you want DB context or storage upload
 
 Copy the example env file:
@@ -88,7 +86,6 @@ TEXT_TO_IMAGE_PROVIDER=n8n
 
 ## Notes
 
-- The workflow defaults to `gpt-image-2`.
-- Override the image model with `OPENAI_IMAGE_MODEL`.
-- Image quality defaults to `medium`.
-- Output format defaults to `png`.
+- The workflow defaults to `google/gemini-3.1-flash-image-preview` through OpenRouter.
+- Override the image model with `OPENROUTER_IMAGE_MODEL`.
+- Image resolution defaults to `2K`.

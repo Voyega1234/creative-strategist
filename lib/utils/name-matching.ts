@@ -1,5 +1,5 @@
 // Utility for matching company names using Gemini Flash as fallback
-import { vertexGenerateContent } from "@/lib/google/vertex-ai";
+import { openRouterGenerateContent } from "@/lib/openrouter";
 
 const NAME_MATCH_MODEL = "gemini-2.0-flash-exp";
 
@@ -25,7 +25,7 @@ async function callGeminiAPI(prompt: string): Promise<string> {
     }
   };
 
-  const response = await vertexGenerateContent(NAME_MATCH_MODEL, body, {
+  const response = await openRouterGenerateContent(NAME_MATCH_MODEL, body, {
     labels: { feature: "client_data", operation: "company_name_matching" },
   });
 

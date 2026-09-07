@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { OPENROUTER_IMAGE_MODEL, openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
 
-const GEMINI_MODEL = "gemini-3.1-flash-image"
+const GEMINI_MODEL = OPENROUTER_IMAGE_MODEL
 const SUPPORTED_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"] as const
 const SUPPORTED_IMAGE_SIZES = ["1K", "2K", "4K"] as const
 
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
       prompt,
     })
 
-    const geminiResponse = await vertexGenerateContent(GEMINI_MODEL, {
+    const geminiResponse = await openRouterGenerateContent(GEMINI_MODEL, {
       contents: [
         {
           parts: [

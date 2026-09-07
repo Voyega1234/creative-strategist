@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 
+import { openRouterGenerateContent } from '@/lib/openrouter'
+
 export const dynamic = 'force-dynamic'
 
-const OPENAI_MODEL = 'gpt-5'
-const OPENAI_ENDPOINT = 'https://api.openai.com/v1/responses'
+const OPENROUTER_MODEL = process.env.OPENROUTER_PROMPT_MODEL || 'openai/gpt-5'
 
 function simpleEnhancement(prompt: string): string {
   const trimmed = prompt.trim()
@@ -23,49 +24,33 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-
-    if (!apiKey) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return NextResponse.json({
         success: true,
         improvedPrompt: simpleEnhancement(prompt),
-        warning: 'OPENAI_API_KEY ไม่ถูกตั้งค่า ใช้ prompt enhancer ภายในระบบแทน'
+        warning: 'OPENROUTER_API_KEY ไม่ถูกตั้งค่า ใช้ prompt enhancer ภายในระบบแทน'
       })
     }
 
     try {
-      const response = await fetch(OPENAI_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
+      const response = await openRouterGenerateContent(OPENROUTER_MODEL, {
+        systemInstruction: {
+          parts: [{
+            text: 'You are PromptSmith, an elite prompt engineer. Rewrite the user prompt so it is clearer, more actionable, and optimized for high-quality AI outputs. Return only the improved prompt.'
+          }]
         },
-        body: JSON.stringify({
-          model: OPENAI_MODEL,
-          input: [
-            {
-              role: 'system',
-              content:
-                'You are PromptSmith, an elite prompt engineer. Rewrite the user prompt so it is clearer, more actionable, and optimized for high-quality AI outputs. Return only the improved prompt.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-        })
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
       })
 
       const rawText = await response.text()
-      console.log('[improve-prompt] OpenAI response status:', response.status)
-      console.log('[improve-prompt] OpenAI response body:', rawText)
+      console.log('[improve-prompt] OpenRouter response status:', response.status)
 
       if (!response.ok) {
-        console.error('[improve-prompt] OpenAI response error body:', rawText)
+        console.error('[improve-prompt] OpenRouter response error body:', rawText)
         return NextResponse.json({
           success: true,
           improvedPrompt: simpleEnhancement(prompt),
-          warning: 'ไม่สามารถเชื่อมต่อ OpenAI GPT-5 ได้ ใช้ prompt enhancer ภายในระบบแทน'
+          warning: 'ไม่สามารถเชื่อมต่อ OpenRouter ได้ ใช้ prompt enhancer ภายในระบบแทน'
         })
       }
 
@@ -73,7 +58,7 @@ export async function POST(request: Request) {
       try {
         data = rawText ? JSON.parse(rawText) : null
       } catch (parseError) {
-        console.error('[improve-prompt] Failed to parse OpenAI response JSON:', parseError)
+        console.error('[improve-prompt] Failed to parse OpenRouter response JSON:', parseError)
         return NextResponse.json({
           success: true,
           improvedPrompt: simpleEnhancement(prompt),
@@ -82,6 +67,11 @@ export async function POST(request: Request) {
       }
 
       let improved: string | undefined
+
+      const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text
+      if (typeof candidateText === 'string') {
+        improved = candidateText.trim()
+      }
 
       if (typeof data?.output_text === 'string') {
         improved = data.output_text.trim()
@@ -107,11 +97,11 @@ export async function POST(request: Request) {
       }
 
       if (!improved) {
-        console.warn('[improve-prompt] OpenAI returned no improved text. Full payload:', data)
+        console.warn('[improve-prompt] OpenRouter returned no improved text. Full payload:', data)
         return NextResponse.json({
           success: true,
           improvedPrompt: simpleEnhancement(prompt),
-          warning: 'ไม่ได้รับคำตอบจาก OpenAI GPT-5 ใช้ prompt enhancer ภายในระบบแทน'
+          warning: 'ไม่ได้รับคำตอบจาก OpenRouter ใช้ prompt enhancer ภายในระบบแทน'
         })
       }
 
@@ -120,11 +110,11 @@ export async function POST(request: Request) {
         improvedPrompt: improved
       })
     } catch (apiError) {
-      console.error('[improve-prompt] OpenAI API error:', apiError)
+      console.error('[improve-prompt] OpenRouter API error:', apiError)
       return NextResponse.json({
         success: true,
         improvedPrompt: simpleEnhancement(prompt),
-        warning: 'เกิดข้อผิดพลาดขณะแตะ OpenAI GPT-5 ใช้ prompt enhancer ภายในระบบแทน'
+        warning: 'เกิดข้อผิดพลาดขณะเรียก OpenRouter ใช้ prompt enhancer ภายในระบบแทน'
       })
     }
   } catch (error) {

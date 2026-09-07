@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCompetitors } from '@/lib/data/competitors'
 import { getSupabase } from '@/lib/supabase/server'
-import { vertexGenerateContent } from '@/lib/google/vertex-ai'
+import { openRouterGenerateContent } from '@/lib/openrouter'
 
 // Helper function to call Gemini API
 async function callGeminiAPI(prompt: string) {
-  const response = await vertexGenerateContent('gemini-2.5-flash', {
+  const response = await openRouterGenerateContent('gemini-2.5-flash', {
     contents: [{
       parts: [{ text: prompt }]
     }],

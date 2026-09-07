@@ -1,27 +1,11 @@
 import { NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { OPENROUTER_IMAGE_MODEL, openRouterGenerateImage } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
-const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
-const OPENAI_IMAGE_MODEL = "gpt-image-2"
-const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image"
 const DEFAULT_FINAL_IMAGE_SIZE = "4K"
-type OpenAiImageSize = "1024x1024" | "1536x1024" | "1024x1536"
-
-const OPENAI_EXACT_SIZE_BY_RATIO: Record<string, OpenAiImageSize> = {
-  "1:1": "1024x1024",
-  "3:2": "1536x1024",
-  "2:3": "1024x1536",
-}
-
-const OPENAI_SUPPORTED_SIZES: Array<{ ratio: string; size: OpenAiImageSize }> = [
-  { ratio: "1:1", size: "1024x1024" },
-  { ratio: "3:2", size: "1536x1024" },
-  { ratio: "2:3", size: "1024x1536" },
-]
 
 type EnhanceMode = "preserve" | "reimagine"
 
@@ -93,25 +77,6 @@ function getClosestAspectRatioLabel(width: number, height: number) {
   }, "1:1" as (typeof supportedRatios)[number])
 }
 
-function ratioLabelToNumber(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number)
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return null
-  }
-  return width / height
-}
-
-function getClosestOpenAiSizeForRatio(ratio: string): OpenAiImageSize {
-  const targetRatio = ratioLabelToNumber(ratio)
-  if (!targetRatio) return "1024x1024"
-
-  return OPENAI_SUPPORTED_SIZES.reduce((closest, current) => {
-    const currentRatio = ratioLabelToNumber(current.ratio) || 1
-    const closestRatio = ratioLabelToNumber(closest.ratio) || 1
-    return Math.abs(currentRatio - targetRatio) < Math.abs(closestRatio - targetRatio) ? current : closest
-  }).size
-}
-
 function isSaneDimensions(width: number, height: number) {
   return (
     Number.isFinite(width) &&
@@ -177,86 +142,6 @@ function inferDimensions(buffer: Uint8Array, mimeType: string) {
   if (mimeType === "image/jpeg" || mimeType === "image/jpg") return parseJpegDimensions(buffer)
   if (mimeType === "image/webp") return parseWebpDimensions(buffer)
   return null
-}
-
-function extractGeminiImagePart(payload: any) {
-  const parts = payload?.candidates?.flatMap((candidate: any) => candidate?.content?.parts || []) || []
-  const imagePart = parts.find(
-    (part: any) =>
-      (part.inlineData?.data && part.inlineData?.mimeType) ||
-      (part.inline_data?.data && part.inline_data?.mime_type),
-  )
-
-  return {
-    imageBase64: imagePart?.inlineData?.data || imagePart?.inline_data?.data || "",
-    mimeType: imagePart?.inlineData?.mimeType || imagePart?.inline_data?.mime_type || "image/png",
-    details:
-      parts
-        .filter((part: any) => typeof part.text === "string")
-        .map((part: any) => part.text)
-        .join("\n")
-        .trim() || null,
-  }
-}
-
-async function resizeWithGemini({
-  imageBase64,
-  mimeType,
-  aspectRatio,
-}: {
-  imageBase64: string
-  mimeType: string
-  aspectRatio: string
-}) {
-  const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
-    contents: [
-      {
-        parts: [
-          {
-            text: "Resize/upscale this exact image only. Preserve the image content, composition, layout, typography, products, colors, mood, tone, and visual design. Do not redesign, crop, add, remove, or change anything except final resolution and canvas aspect ratio.",
-          },
-          {
-            inlineData: {
-              mimeType,
-              data: imageBase64,
-            },
-          },
-        ],
-      },
-    ],
-    generationConfig: {
-      responseModalities: ["TEXT", "IMAGE"],
-      imageConfig: {
-        aspectRatio,
-        imageSize: DEFAULT_FINAL_IMAGE_SIZE,
-      },
-    },
-  }, {
-    labels: { feature: "enhance_image", operation: "resize_output" },
-  })
-
-  const rawText = await response.text()
-  let payload: any = null
-
-  try {
-    payload = rawText ? JSON.parse(rawText) : null
-  } catch (error) {
-    console.error("[enhance-generate] Failed to parse Gemini resize response:", error, rawText)
-    throw new Error("Invalid Gemini resize response")
-  }
-
-  if (!response.ok) {
-    console.error("[enhance-generate] Gemini resize failed:", payload)
-    throw new Error(payload?.error?.message || `Gemini resize failed (${response.status})`)
-  }
-
-  const geminiImage = extractGeminiImagePart(payload)
-  if (!geminiImage.imageBase64) {
-    console.error("[enhance-generate] Gemini resize returned no image:", payload)
-    throw new Error("Gemini did not return resized image")
-  }
-
-  return geminiImage
 }
 
 function buildReferenceGuidance(mode: EnhanceMode) {
@@ -347,9 +232,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "critique is required" }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: "OPENAI_API_KEY ไม่ได้ถูกตั้งค่า" }, { status: 500 })
+    if (!process.env.OPENROUTER_API_KEY) {
+      return NextResponse.json({ success: false, error: "OPENROUTER_API_KEY ไม่ได้ถูกตั้งค่า" }, { status: 500 })
     }
 
     const basePrompt =
@@ -361,29 +245,11 @@ export async function POST(request: Request) {
       : basePrompt
     const expectedAspectRatio =
       isSaneDimensions(sourceWidth, sourceHeight) ? getClosestAspectRatioLabel(sourceWidth, sourceHeight) : detectedAspectRatio || null
-    const needsFinalGeminiResize = !!expectedAspectRatio && !OPENAI_EXACT_SIZE_BY_RATIO[expectedAspectRatio]
-    const requestedOpenAiSize = expectedAspectRatio
-      ? OPENAI_EXACT_SIZE_BY_RATIO[expectedAspectRatio] || getClosestOpenAiSizeForRatio(expectedAspectRatio)
-      : "auto"
-
-    const endpoint = OPENAI_EDITS_ENDPOINT
-    const bodyPayload = {
-      model: OPENAI_IMAGE_MODEL,
-      images: [
-        { image_url: imageUrl },
-        ...(referenceImageUrl ? [{ image_url: referenceImageUrl }] : []),
-      ],
+    const response = await openRouterGenerateImage({
       prompt,
-      size: requestedOpenAiSize,
-    }
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(bodyPayload),
+      inputReferences: [imageUrl, ...(referenceImageUrl ? [referenceImageUrl] : [])],
+      resolution: DEFAULT_FINAL_IMAGE_SIZE,
+      aspectRatio: expectedAspectRatio || undefined,
     })
 
     const rawText = await response.text()
@@ -392,40 +258,30 @@ export async function POST(request: Request) {
     try {
       payload = rawText ? JSON.parse(rawText) : null
     } catch (parseError) {
-      console.error("[enhance-generate] Failed to parse OpenAI response:", parseError, rawText)
-      return NextResponse.json({ success: false, error: "Invalid OpenAI response" }, { status: 500 })
+      console.error("[enhance-generate] Failed to parse OpenRouter response:", parseError, rawText)
+      return NextResponse.json({ success: false, error: "Invalid OpenRouter response" }, { status: 500 })
     }
 
     if (!response.ok) {
-      console.error("[enhance-generate] OpenAI request failed:", payload)
+      console.error("[enhance-generate] OpenRouter request failed:", payload)
       return NextResponse.json(
         {
           success: false,
-          error: payload?.error?.message || `OpenAI image generation failed (${response.status})`,
+          error: payload?.error?.message || `OpenRouter image generation failed (${response.status})`,
         },
         { status: response.status },
       )
     }
 
     const imageBase64 = payload?.data?.[0]?.b64_json
-    const outputMimeType = payload?.output_format ? `image/${payload.output_format}` : "image/png"
+    const outputMimeType = payload?.data?.[0]?.media_type || (payload?.output_format ? `image/${payload.output_format}` : "image/png")
 
     if (!imageBase64) {
-      console.error("[enhance-generate] No image returned from OpenAI:", payload)
-      return NextResponse.json({ success: false, error: "OpenAI did not return an image" }, { status: 500 })
+      console.error("[enhance-generate] No image returned from OpenRouter:", payload)
+      return NextResponse.json({ success: false, error: "OpenRouter did not return an image" }, { status: 500 })
     }
 
-    const resizedImage = needsFinalGeminiResize
-      ? await resizeWithGemini({
-          imageBase64,
-          mimeType: outputMimeType,
-          aspectRatio: expectedAspectRatio!,
-        })
-      : {
-          imageBase64,
-          mimeType: outputMimeType,
-          details: null,
-        }
+    const resizedImage = { imageBase64, mimeType: outputMimeType, details: null }
 
     const finalBuffer = Uint8Array.from(Buffer.from(resizedImage.imageBase64, "base64"))
     const finalDimensions = inferDimensions(finalBuffer, resizedImage.mimeType)
@@ -455,12 +311,12 @@ export async function POST(request: Request) {
       mime_type: resizedImage.mimeType,
       image_base64: resizedImage.imageBase64,
       image_data_url: `data:${resizedImage.mimeType};base64,${resizedImage.imageBase64}`,
-      model: needsFinalGeminiResize ? `${OPENAI_IMAGE_MODEL} -> ${GEMINI_IMAGE_MODEL}` : OPENAI_IMAGE_MODEL,
+      model: OPENROUTER_IMAGE_MODEL,
       output_dimensions: finalDimensions,
       requested_source_aspect_ratio: expectedAspectRatio,
       output_aspect_ratio: finalAspectRatio || expectedAspectRatio,
-      requested_openai_size: requestedOpenAiSize,
-      final_image_size: needsFinalGeminiResize ? DEFAULT_FINAL_IMAGE_SIZE : null,
+      requested_openrouter_size: DEFAULT_FINAL_IMAGE_SIZE,
+      final_image_size: DEFAULT_FINAL_IMAGE_SIZE,
       reference_used: Boolean(referenceImageUrl),
     })
   } catch (error) {

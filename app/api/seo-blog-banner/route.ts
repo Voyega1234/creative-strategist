@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { OPENROUTER_IMAGE_MODEL, openRouterGenerateContent, openRouterGenerateImage } from "@/lib/openrouter"
 import { getSupabase } from "@/lib/supabase/server"
 import { invalidateCache } from "@/lib/utils/server-cache"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 600
 
-const GEMINI_IMAGE_MODEL = process.env.SEO_BLOG_BANNER_GEMINI_MODEL || process.env.SEO_BLOG_BANNER_IMAGE_MODEL || "gemini-3.1-flash-image"
+const GEMINI_IMAGE_MODEL = OPENROUTER_IMAGE_MODEL
 const GEMINI_IMAGE_SIZE = process.env.SEO_BLOG_BANNER_IMAGE_SIZE || "2K"
-const OPENAI_IMAGE_MODEL = process.env.SEO_BLOG_BANNER_OPENAI_MODEL || "gpt-image-2"
-const OPENAI_GENERATIONS_ENDPOINT = "https://api.openai.com/v1/images/generations"
-const OPENAI_EDITS_ENDPOINT = "https://api.openai.com/v1/images/edits"
 const OPENAI_LANDSCAPE_SIZE = "1536x1024"
 const OPENBRAND_ENDPOINT = "https://openbrand.sh/api/extract"
 
@@ -186,7 +183,7 @@ function getGeminiImages(payload: any): GeminiInlineImage[] {
 }
 
 async function callGeminiImage(parts: Array<Record<string, unknown>>) {
-  const response = await vertexGenerateContent(GEMINI_IMAGE_MODEL, {
+  const response = await openRouterGenerateContent(GEMINI_IMAGE_MODEL, {
     contents: [
       {
         parts,
@@ -220,36 +217,18 @@ async function callGeminiImage(parts: Array<Record<string, unknown>>) {
   return payload
 }
 
-async function callOpenAiImage({
+async function callOpenRouterImage({
   prompt,
   inputImages,
 }: {
   prompt: string
   inputImages: string[]
 }) {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured")
-  }
-
-  const endpoint = inputImages.length > 0 ? OPENAI_EDITS_ENDPOINT : OPENAI_GENERATIONS_ENDPOINT
-  const payload: Record<string, unknown> = {
-    model: OPENAI_IMAGE_MODEL,
+  const response = await openRouterGenerateImage({
     prompt,
-    size: OPENAI_LANDSCAPE_SIZE,
-  }
-
-  if (inputImages.length > 0) {
-    payload.images = inputImages.map((imageUrl) => ({ image_url: imageUrl }))
-  }
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    inputReferences: inputImages,
+    resolution: GEMINI_IMAGE_SIZE,
+    aspectRatio: "16:9",
   })
 
   const rawText = await response.text()
@@ -258,20 +237,22 @@ async function callOpenAiImage({
   try {
     openAiPayload = rawText ? JSON.parse(rawText) : null
   } catch (error) {
-    console.error("[seo-blog-banner] Failed to parse OpenAI response:", error, rawText)
-    throw new Error("Invalid OpenAI response")
+    console.error("[seo-blog-banner] Failed to parse OpenRouter response:", error, rawText)
+    throw new Error("Invalid OpenRouter response")
   }
 
   if (!response.ok) {
-    throw new Error(openAiPayload?.error?.message || `OpenAI image generation failed (${response.status})`)
+    throw new Error(openAiPayload?.error?.message || `OpenRouter image generation failed (${response.status})`)
   }
 
   const imageBase64 = openAiPayload?.data?.[0]?.b64_json
-  const mimeType = openAiPayload?.output_format ? `image/${openAiPayload.output_format}` : "image/png"
+  const mimeType =
+    openAiPayload?.data?.[0]?.media_type ||
+    (openAiPayload?.output_format ? `image/${openAiPayload.output_format}` : "image/png")
 
   if (!imageBase64) {
-    console.error("[seo-blog-banner] No image returned from OpenAI:", openAiPayload)
-    throw new Error("OpenAI did not return an image")
+    console.error("[seo-blog-banner] No image returned from OpenRouter:", openAiPayload)
+    throw new Error("OpenRouter did not return an image")
   }
 
   return {
@@ -571,8 +552,8 @@ export async function POST(request: Request) {
       )
     }
 
-    if (modelProvider === "openai" && !process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ success: false, error: "OPENAI_API_KEY is not configured" }, { status: 500 })
+    if (!process.env.OPENROUTER_API_KEY) {
+      return NextResponse.json({ success: false, error: "OPENROUTER_API_KEY is not configured" }, { status: 500 })
     }
 
     const clientId = typeof body.client_id === "string" ? body.client_id.trim() : ""
@@ -615,7 +596,7 @@ export async function POST(request: Request) {
 
     console.log("[seo-blog-banner] Generating master banner", {
       provider: modelProvider,
-      model: modelProvider === "openai" ? OPENAI_IMAGE_MODEL : GEMINI_IMAGE_MODEL,
+      model: GEMINI_IMAGE_MODEL,
       website,
       hasLogo: Boolean(effectiveBrandLogoUrl),
       hasOpenBrandAssets: Boolean(openBrandAssets),
@@ -638,7 +619,7 @@ export async function POST(request: Request) {
 
     if (modelProvider === "openai") {
       const lockedLogo = await fetchImageAsBase64(effectiveBrandLogoUrl)
-      const openAiImage = await callOpenAiImage({ prompt, inputImages })
+      const openAiImage = await callOpenRouterImage({ prompt, inputImages })
       const resizedMaster = await resizeOpenAiMasterWithGemini({ ...openAiImage, lockedLogo })
       imageBase64 = resizedMaster.imageBase64
       mimeType = resizedMaster.mimeType
@@ -691,7 +672,7 @@ export async function POST(request: Request) {
       image_data_url: `data:${mimeType};base64,${imageBase64}`,
       mime_type: mimeType,
       provider: modelProvider,
-      model: modelProvider === "openai" ? `${OPENAI_IMAGE_MODEL} -> ${GEMINI_IMAGE_MODEL}` : GEMINI_IMAGE_MODEL,
+      model: GEMINI_IMAGE_MODEL,
       prompt,
       requested_size: modelProvider === "openai" ? `${OPENAI_LANDSCAPE_SIZE} -> ${GEMINI_IMAGE_SIZE}` : GEMINI_IMAGE_SIZE,
       target_master_size: "1600x900",

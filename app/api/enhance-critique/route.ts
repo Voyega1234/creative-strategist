@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createHash } from "node:crypto"
 
-import { vertexGenerateContent } from "@/lib/google/vertex-ai"
+import { openRouterGenerateContent } from "@/lib/openrouter"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 180
@@ -393,7 +393,7 @@ export async function POST(request: Request) {
     // Spell check (Claude via OpenRouter) runs in parallel with the Gemini creative critique.
     const spellCheckPromise = runClaudeSpellCheck(base64, mimeType)
 
-    const response = await vertexGenerateContent(ANALYSIS_MODEL, {
+    const response = await openRouterGenerateContent(ANALYSIS_MODEL, {
       contents: [
         {
           parts: [
