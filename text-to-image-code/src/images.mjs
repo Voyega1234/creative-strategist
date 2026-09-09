@@ -130,7 +130,7 @@ function responseToImage(responseJson) {
 
 export async function generateImage({ prompt, size, images = [] }) {
   const apiKey = requiredEnv("OPENROUTER_API_KEY")
-  const model = process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image-preview"
+  const model = process.env.OPENROUTER_IMAGE_MODEL || "openai/gpt-image-2.5-flare"
   const aspectRatioBySize = {
     "1024x1024": "1:1",
     "1536x1024": "3:2",

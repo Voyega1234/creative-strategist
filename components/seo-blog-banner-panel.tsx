@@ -1014,7 +1014,7 @@ export function SeoBlogBannerPanel({
         sourceDataUrl: payload.image_data_url,
         lockedLogoUrl: brandLogoUrl,
         provider: payload.provider || "openai",
-        model: payload.model || "gpt-image-2 -> gemini-3.1-flash-image",
+        model: payload.model || "openai/gpt-image-2.5-flare",
         prompt: payload.prompt || "",
         requestedSize: payload.requested_size || "2K",
         targetMasterSize: payload.target_master_size || "1600x900",
@@ -1031,7 +1031,7 @@ export function SeoBlogBannerPanel({
           productFocus: selectedProductFocus,
           title: headline.trim(),
           prompt: userBrief.trim() || headline.trim(),
-          model: payload.model || "gpt-image-2",
+          model: payload.model || "openai/gpt-image-2.5-flare",
           outputUrls: [publicUrl],
           inputUrls: [brandLogoUrl, referenceImageUrl, ...insertImageUrls].filter(Boolean),
           metadata: {

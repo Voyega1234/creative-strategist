@@ -19,7 +19,7 @@ This version intentionally mirrors the n8n capability set. It does not include t
 
 - Node.js 22+
 - `OPENROUTER_API_KEY`
-- `OPENROUTER_IMAGE_MODEL` (optional; defaults to `google/gemini-3.1-flash-image-preview`)
+- `OPENROUTER_IMAGE_MODEL` (optional; defaults to `openai/gpt-image-2.5-flare`)
 - Supabase env vars if you want DB context or storage upload
 
 Copy the example env file:
@@ -86,6 +86,6 @@ TEXT_TO_IMAGE_PROVIDER=n8n
 
 ## Notes
 
-- The workflow defaults to `google/gemini-3.1-flash-image-preview` through OpenRouter.
+- The workflow defaults to `openai/gpt-image-2.5-flare` through OpenRouter.
 - Override the image model with `OPENROUTER_IMAGE_MODEL`.
 - Image resolution defaults to `2K`.

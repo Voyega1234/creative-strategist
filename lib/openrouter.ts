@@ -1,7 +1,7 @@
 import "server-only"
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-const DEFAULT_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview"
+const DEFAULT_IMAGE_MODEL = "openai/gpt-image-2.5-flare"
 
 type GeminiPart = {
   text?: string

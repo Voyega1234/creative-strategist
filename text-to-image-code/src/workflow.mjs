@@ -101,7 +101,7 @@ export async function runTextToImageWorkflow(body, options = {}) {
     dataUrl,
     imageCount: downloadedImages.length,
     size,
-    model: process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image-preview",
+    model: process.env.OPENROUTER_IMAGE_MODEL || "openai/gpt-image-2.5-flare",
     visualThinking,
     finalPrompt: prompt,
     revisedPrompt: generated.revisedPrompt,
@@ -118,7 +118,7 @@ export async function runTextToImageWorkflow(body, options = {}) {
     imageRequest: {
       size,
       imageCount: downloadedImages.length,
-      model: process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image-preview",
+      model: process.env.OPENROUTER_IMAGE_MODEL || "openai/gpt-image-2.5-flare",
     },
     imageResult: {
       publicUrl: upload?.url || null,

@@ -369,7 +369,7 @@ export function ImageEnhancePanel({ variant = "legacy" }: ImageEnhancePanelProps
         imageUrl: result.image_data_url,
         mimeType: result.mime_type || "image/png",
         prompt: result.prompt || "",
-        model: result.model || "gpt-image-2",
+        model: result.model || "openai/gpt-image-2.5-flare",
       })
     } catch (err) {
       console.error("Enhance generation failed:", err)
