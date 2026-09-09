@@ -1,4 +1,5 @@
 import "server-only"
+import sharp from "sharp"
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 const DEFAULT_IMAGE_MODEL = "openai/gpt-image-2.5-flare"
@@ -237,14 +238,23 @@ export async function openRouterGenerateImage({
   size?: string
   signal?: AbortSignal
 }): Promise<Response> {
+  const model = process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL
+  // Flare rejects 4:5 and 5:4. Generate nearby native ratios, then crop back.
+  const fallbackRatios: Record<string, string> = { "4:5": "3:4", "5:4": "4:3" }
+  const nativeRatio = model === "openai/gpt-image-2.5-flare" && aspectRatio
+    ? fallbackRatios[aspectRatio] || aspectRatio
+    : aspectRatio
+  const needsCrop = Boolean(aspectRatio && nativeRatio !== aspectRatio)
   const requestBody: Record<string, unknown> = {
-    model: process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL,
-    prompt,
+    model,
+    prompt: needsCrop
+      ? `${prompt}\n\nThe final image will be center-cropped to ${aspectRatio}. Keep all text, logos, products and essential content inside the central 90% of the canvas; leave only expendable background at the edges.`
+      : prompt,
     n: 1,
   }
 
   if (resolution) requestBody.resolution = resolution
-  if (aspectRatio) requestBody.aspect_ratio = aspectRatio
+  if (nativeRatio) requestBody.aspect_ratio = nativeRatio
   if (size) requestBody.size = size
   if (inputReferences.length > 0) {
     requestBody.input_references = inputReferences.slice(0, 14).map((url) => ({
@@ -253,12 +263,35 @@ export async function openRouterGenerateImage({
     }))
   }
 
-  return fetch(`${OPENROUTER_BASE_URL}/images`, {
+  const response = await fetch(`${OPENROUTER_BASE_URL}/images`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(requestBody),
     signal,
   })
+  if (!response.ok || !needsCrop) return response
+
+  const payload = await response.json()
+  const [ratioWidth, ratioHeight] = aspectRatio!.split(":").map(Number)
+  for (const image of payload.data || []) {
+    if (typeof image.b64_json !== "string") continue
+    const input = Buffer.from(image.b64_json, "base64")
+    const { width, height } = await sharp(input).metadata()
+    if (!width || !height) throw new Error("Cannot determine generated image dimensions")
+    const scale = Math.floor(Math.min(width / ratioWidth, height / ratioHeight))
+    const cropWidth = scale * ratioWidth
+    const cropHeight = scale * ratioHeight
+    const cropped = await sharp(input).extract({
+      left: Math.floor((width - cropWidth) / 2),
+      top: Math.floor((height - cropHeight) / 2),
+      width: cropWidth,
+      height: cropHeight,
+    }).png().toBuffer()
+    image.b64_json = cropped.toString("base64")
+    image.media_type = "image/png"
+  }
+  payload.output_format = "png"
+  return Response.json(payload, { status: response.status })
 }
 
 async function generateCompatibleImage(body: GeminiRequest, signal?: AbortSignal): Promise<Response> {
