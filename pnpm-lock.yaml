@@ -5272,8 +5272,7 @@ snapshots:
       has-property-descriptors: 1.0.2
       object-keys: 1.1.1
 
-  detect-libc@2.1.2:
-    optional: true
+  detect-libc@2.1.2: {}
 
   detect-node-es@1.1.0: {}
 
@@ -7218,8 +7217,6 @@ snapshots:
   '@img/sharp-win32-x64@0.35.4':
     optional: true
 
-  detect-libc@2.1.2: {}
-
   semver@7.8.5: {}
 
   sharp@0.35.4(@types/node@22.16.5):
@@ -7254,4 +7251,3 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.4
       '@img/sharp-win32-x64': 0.35.4
       '@types/node': 22.16.5
-
