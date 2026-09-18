@@ -33,7 +33,7 @@ import {
   Palette,
 } from "lucide-react"
 
-const ASPECT_RATIO_OPTIONS = ["1:1", "2:3", "3:2", "3:4", "4:3", "5:4", "9:16", "16:9", "21:9"]
+const ASPECT_RATIO_OPTIONS = ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"]
 const DEFAULT_IMAGE_COUNT = 1
 
 type ReferenceImage = {

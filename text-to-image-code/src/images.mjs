@@ -5,7 +5,7 @@ export function mapAspectRatioToSize(ratio) {
   const map = {
     "1:1": "1024x1024",
     "4:5": "1024x1536",
-    "5:4": "auto",
+    "5:4": "1536x1024",
     "3:4": "1024x1536",
     "4:3": "1536x1024",
     "2:3": "1024x1536",
@@ -59,7 +59,7 @@ export async function downloadImage(image) {
 
 export function buildFinalPrompt(visualThinkingText, body, images) {
   const requestedRatio = body.aspectRatio || body.aspect_ratio || "3:4"
-  const aspectRatio = requestedRatio === "4:5" ? "3:4" : requestedRatio
+  const aspectRatio = requestedRatio === "4:5" ? "3:4" : requestedRatio === "5:4" ? "4:3" : requestedRatio
   const referenceStyleEnabled = body.reference_style_enabled === true || body.referenceStyleEnabled === true
   const colorPalette = body.color_palette || body.colorPalette || ""
   const colorPaletteText = Array.isArray(colorPalette) ? colorPalette.join(",") : colorPalette
@@ -148,7 +148,7 @@ export async function generateImage({ prompt, size, aspectRatio, images = [] }) 
     prompt,
     resolution: process.env.OPENROUTER_IMAGE_RESOLUTION || "2K",
     n: 1,
-    ...(aspectRatio || aspectRatioBySize[size] ? { aspect_ratio: aspectRatio === "4:5" ? "3:4" : aspectRatio || aspectRatioBySize[size] } : {}),
+    ...(aspectRatio || aspectRatioBySize[size] ? { aspect_ratio: aspectRatio === "4:5" ? "3:4" : aspectRatio === "5:4" ? "4:3" : aspectRatio || aspectRatioBySize[size] } : {}),
     ...(inputReferences.length > 0 ? { input_references: inputReferences } : {}),
   }
 

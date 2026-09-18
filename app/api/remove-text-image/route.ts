@@ -149,6 +149,7 @@ export async function POST(request: Request) {
     const inferredAspectRatio = parsedDimensions ? getClosestAspectRatio(parsedDimensions.width, parsedDimensions.height) : null
     let aspectRatio = sourceAspectRatio || inferredAspectRatio || "1:1"
     if (aspectRatio === "4:5") aspectRatio = "3:4"
+    if (aspectRatio === "5:4") aspectRatio = "4:3"
 
     const geminiResponse = await openRouterGenerateContent(GEMINI_MODEL, {
       contents: [

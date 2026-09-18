@@ -64,7 +64,7 @@ export async function runTextToImageWorkflow(body, options = {}) {
   const downloadedImages = await Promise.all(imageInputs.map(downloadImage))
   const prompt = buildFinalPrompt(visualThinking, body, downloadedImages)
   const requestedRatio = body.aspectRatio || body.aspect_ratio || "3:4"
-  const aspectRatio = requestedRatio === "4:5" ? "3:4" : requestedRatio
+  const aspectRatio = requestedRatio === "4:5" ? "3:4" : requestedRatio === "5:4" ? "4:3" : requestedRatio
   const size = mapAspectRatioToSize(aspectRatio)
   const generated = await generateImage({ prompt, size, aspectRatio: ["3:4", "4:3"].includes(aspectRatio) ? aspectRatio : undefined, images: downloadedImages })
 

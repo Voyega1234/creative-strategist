@@ -114,7 +114,7 @@ type BatchResult = {
   error?: string
 }
 
-const PMAX_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "5:4", "9:16", "16:9", "21:9"] as const
+const PMAX_ASPECT_RATIOS = ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"] as const
 const DEFAULT_PMAX_ASPECT_RATIOS = ["1:1", "3:4", "16:9", "9:16"] as const
 const MAX_HISTORY_TURNS_FOR_EDIT = 2
 const MAX_THOUGHT_SIGNATURE_CHARS = 2048

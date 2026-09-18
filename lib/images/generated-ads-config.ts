@@ -4,7 +4,6 @@ export const ASPECT_RATIO_OPTIONS = [
   "3:2",
   "3:4",
   "4:3",
-  "5:4",
   "9:16",
   "16:9",
   "21:9",
