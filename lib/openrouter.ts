@@ -239,8 +239,10 @@ export async function openRouterGenerateImage({
   signal?: AbortSignal
 }): Promise<Response> {
   const model = process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL
-  // Flare rejects 4:5 and 5:4. Generate nearby native ratios, then crop back.
-  const fallbackRatios: Record<string, string> = { "4:5": "3:4", "5:4": "4:3" }
+  // Retired 4:5 requests now produce 4:3 output, without cropping back.
+  if (aspectRatio?.trim() === "4:5") aspectRatio = "4:3"
+  // Preserve the existing 5:4 fallback for Flare.
+  const fallbackRatios: Record<string, string> = { "5:4": "4:3" }
   const nativeRatio = model === "openai/gpt-image-2.5-flare" && aspectRatio
     ? fallbackRatios[aspectRatio] || aspectRatio
     : aspectRatio

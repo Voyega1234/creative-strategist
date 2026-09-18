@@ -19,7 +19,6 @@ export const SUPPORTED_ASPECT_RATIO_LABELS = [
   "3:2",
   "3:4",
   "4:3",
-  "4:5",
   "5:4",
   "9:16",
   "16:9",

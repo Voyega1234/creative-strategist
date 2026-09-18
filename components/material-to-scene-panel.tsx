@@ -31,7 +31,7 @@ import {
 } from "@/components/generated-image-gallery"
 
 type Preset = "Ad Creative" | "E-commerce Product Shot" | "Interior & Material" | "Social Media Content"
-type AspectRatio = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "9:16" | "16:9" | "21:9"
+type AspectRatio = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "9:16" | "16:9" | "21:9"
 type ImageSize = "1K" | "2K" | "4K"
 type PhotographyStyle =
   | "auto"
@@ -49,7 +49,7 @@ type PhotographyStyle =
 const DEFAULT_PRESET: Preset = "Ad Creative"
 const DEFAULT_IMAGE_SIZE: ImageSize = "1K"
 
-const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "9:16", "16:9", "21:9"]
+const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"]
 const MAX_SCENE_REFERENCES = 3
 const DEFAULT_GENERATED_SCENE_COUNT = 4
 const PROMPT_GUIDE_IMAGES = [
@@ -87,7 +87,6 @@ const PREVIEW_ASPECT_CLASS: Record<AspectRatio, string> = {
   "3:2": "aspect-[3/2]",
   "3:4": "aspect-[3/4]",
   "4:3": "aspect-[4/3]",
-  "4:5": "aspect-[4/5]",
   "9:16": "aspect-[9/16]",
   "16:9": "aspect-video",
   "21:9": "aspect-[21/9]",
@@ -99,7 +98,6 @@ const PREVIEW_WIDTH_CLASS: Record<AspectRatio, string> = {
   "3:2": "max-w-[760px]",
   "3:4": "max-w-[480px]",
   "4:3": "max-w-[700px]",
-  "4:5": "max-w-[500px]",
   "9:16": "max-w-[390px]",
   "16:9": "max-w-[820px]",
   "21:9": "max-w-[900px]",

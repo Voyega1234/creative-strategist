@@ -245,7 +245,7 @@ export async function POST(request: Request) {
     const parsedImageCount = typeof image_count === 'string' ? parseInt(image_count, 10) : image_count
     const numericImageCount = typeof parsedImageCount === 'number' ? parsedImageCount : Number(parsedImageCount)
     const sanitizedImageCount = Math.min(5, Math.max(1, Number.isFinite(numericImageCount) ? numericImageCount : 1))
-    const selectedAspectRatio = typeof aspect_ratio === 'string' && aspect_ratio.trim().length > 0 ? aspect_ratio : '1:1'
+    const selectedAspectRatio = typeof aspect_ratio === 'string' && aspect_ratio.trim().length > 0 ? (aspect_ratio.trim() === '4:5' ? '4:3' : aspect_ratio) : '1:1'
     console.log('[generate-image] Image count requested:', sanitizedImageCount)
     console.log('[generate-image] Aspect ratio selected:', selectedAspectRatio)
 

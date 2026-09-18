@@ -147,7 +147,8 @@ export async function POST(request: Request) {
       sourceResponse.headers.get("content-type")?.split(";")[0].trim() || getMimeTypeFromBuffer(imageBuffer)
     const parsedDimensions = inferDimensions(imageBuffer, mimeType)
     const inferredAspectRatio = parsedDimensions ? getClosestAspectRatio(parsedDimensions.width, parsedDimensions.height) : null
-    const aspectRatio = sourceAspectRatio || inferredAspectRatio || "1:1"
+    let aspectRatio = sourceAspectRatio || inferredAspectRatio || "1:1"
+    if (aspectRatio === "4:5") aspectRatio = "4:3"
 
     const geminiResponse = await openRouterGenerateContent(GEMINI_MODEL, {
       contents: [

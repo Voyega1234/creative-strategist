@@ -58,7 +58,7 @@ const PHOTOGRAPHY_STYLES: Record<string, string> = {
 const ASPECT_RATIO_MAP: Record<string, string> = {
   "2:3": "3:4",
   "3:2": "4:3",
-  "4:5": "3:4",
+  "4:5": "4:3",
   "21:9": "16:9",
 }
 

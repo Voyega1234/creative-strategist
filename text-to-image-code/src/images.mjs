@@ -1,10 +1,10 @@
 import { requiredEnv } from "./env.mjs"
 
 export function mapAspectRatioToSize(ratio) {
-  const normalized = String(ratio || "4:5").trim()
+  const normalized = String(ratio || "4:3").trim()
   const map = {
     "1:1": "1024x1024",
-    "4:5": "auto",
+    "4:5": "1536x1024",
     "5:4": "auto",
     "3:4": "1024x1536",
     "4:3": "1536x1024",
@@ -58,7 +58,8 @@ export async function downloadImage(image) {
 }
 
 export function buildFinalPrompt(visualThinkingText, body, images) {
-  const aspectRatio = body.aspectRatio || body.aspect_ratio || "4:5"
+  const requestedRatio = body.aspectRatio || body.aspect_ratio || "4:3"
+  const aspectRatio = requestedRatio === "4:5" ? "4:3" : requestedRatio
   const referenceStyleEnabled = body.reference_style_enabled === true || body.referenceStyleEnabled === true
   const colorPalette = body.color_palette || body.colorPalette || ""
   const colorPaletteText = Array.isArray(colorPalette) ? colorPalette.join(",") : colorPalette
@@ -128,7 +129,7 @@ function responseToImage(responseJson) {
   }
 }
 
-export async function generateImage({ prompt, size, images = [] }) {
+export async function generateImage({ prompt, size, aspectRatio, images = [] }) {
   const apiKey = requiredEnv("OPENROUTER_API_KEY")
   const model = process.env.OPENROUTER_IMAGE_MODEL || "openai/gpt-image-2.5-flare"
   const aspectRatioBySize = {
@@ -147,7 +148,7 @@ export async function generateImage({ prompt, size, images = [] }) {
     prompt,
     resolution: process.env.OPENROUTER_IMAGE_RESOLUTION || "2K",
     n: 1,
-    ...(aspectRatioBySize[size] ? { aspect_ratio: aspectRatioBySize[size] } : {}),
+    ...(aspectRatio || aspectRatioBySize[size] ? { aspect_ratio: aspectRatio === "4:5" ? "4:3" : aspectRatio || aspectRatioBySize[size] } : {}),
     ...(inputReferences.length > 0 ? { input_references: inputReferences } : {}),
   }
 

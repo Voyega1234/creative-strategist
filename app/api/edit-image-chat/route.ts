@@ -433,16 +433,18 @@ export async function POST(request: Request) {
     const materialUrls = normalizeUrlList(body.material_image_urls)
     const clientName = typeof body.client_name === "string" ? body.client_name.trim() : ""
     const productFocus = typeof body.product_focus === "string" ? body.product_focus.trim() : ""
-    const requestedAspectRatio =
+    let requestedAspectRatio =
       operation === "resize"
         ? resizeIntent.requestedRatio || (typeof body.output_aspect_ratio === "string" ? body.output_aspect_ratio : "")
         : ""
-    const outputAspectRatio =
+    if (requestedAspectRatio === "4:5") requestedAspectRatio = "4:3"
+    let outputAspectRatio =
       operation === "resize"
         ? resizeIntent.modelAspectRatio ||
           getClosestGeminiAspectRatio(requestedAspectRatio) ||
           normalizeChoice(body.output_aspect_ratio, GEMINI_ASPECT_RATIOS, "1:1")
         : ""
+    if (outputAspectRatio === "4:5") outputAspectRatio = "4:3"
     const outputImageSize = normalizeChoice(body.output_image_size, GEMINI_IMAGE_SIZES, "2K")
 
     if (!imageUrl) {

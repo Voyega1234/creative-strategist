@@ -643,7 +643,7 @@ export function AIImageGenerator({
     selectedReferenceImages.length > 0 ||
     Boolean(brandCiText) ||
     colorPalette.length > 0 ||
-    aspectRatio !== "4:5" ||
+    aspectRatio !== "4:3" ||
     imageCount > 1
   const canChooseIdea = Boolean(selectedClientId && selectedProductFocus)
   const canGenerate = Boolean(selectedClientId && selectedProductFocus && hasIdeaOrBrief)

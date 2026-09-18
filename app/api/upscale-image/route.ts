@@ -152,9 +152,10 @@ export async function POST(request: Request) {
         ? { width: clientWidth, height: clientHeight }
         : null
     const dimensions = isSaneDimensions(parsedDimensions) ? parsedDimensions : fallbackDimensions
-    const aspectRatio = dimensions
+    let aspectRatio = dimensions
       ? getClosestAspectRatio(dimensions.width, dimensions.height)
       : clientDetectedRatio || "1:1"
+    if (aspectRatio === "4:5") aspectRatio = "4:3"
     const prompt = getPreservePrompt()
 
     console.log("[upscale-image] request summary", {
