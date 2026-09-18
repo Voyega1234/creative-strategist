@@ -46,7 +46,7 @@ const server = createServer(async (req, res) => {
         userBrief: "Clean, modern, readable, youth-oriented.",
         reference_image_urls: [],
         material_image_urls: [],
-        aspect_ratio: "4:3",
+        aspect_ratio: "3:4",
         color_palette: ["#111111", "#ffffff"],
       },
     })

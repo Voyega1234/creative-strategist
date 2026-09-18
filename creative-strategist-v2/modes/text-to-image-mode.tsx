@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 import { AlertCircle, Bookmark, Check, Download, FileText, Files, ImageIcon, Images, Loader2, Palette, Pencil, RectangleHorizontal, Sparkles, Upload, Wand2, X } from "lucide-react";
 import type { TextToImageIdeaHandoff, TextToImageReferenceHandoff } from "./types";
 
-const ASPECT_RATIOS = ["1:1", "4:3", "9:16", "16:9"] as const;
+const ASPECT_RATIOS = ["1:1", "3:4", "9:16", "16:9"] as const;
 const IMAGE_COUNTS = [1, 2, 3] as const;
 const CREATIVE_FORMATS = [
   {

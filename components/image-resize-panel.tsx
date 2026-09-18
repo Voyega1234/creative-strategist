@@ -48,7 +48,7 @@ type ImageResizePanelProps = {
   productFocus?: string | null
 }
 
-const DEFAULT_RATIOS: SupportedAspectRatioLabel[] = ["1:1", "4:3", "16:9", "9:16"]
+const DEFAULT_RATIOS: SupportedAspectRatioLabel[] = ["1:1", "3:4", "16:9", "9:16"]
 
 async function readResizeResponse(response: Response): Promise<ResizeApiResponse> {
   const rawText = await response.text()

@@ -113,7 +113,7 @@ const REMIX_WEBHOOK_URL =
   "https://n8n.srv934175.hstgr.cloud/webhook/44bffd94-9280-441a-a166-cdad46ab7981"
 
 // Performance Max required aspect ratios based on Google Ads specs
-const PMAX_ASPECT_RATIOS = ["1:1", "4:3", "16:9", "9:16"]
+const PMAX_ASPECT_RATIOS = ["1:1", "3:4", "16:9", "9:16"]
 
 const SUGGESTED_PROMPTS = [
   "สร้างภาพโฆษณาสินค้า minimal style บนพื้นหลังสีพาสเทล",

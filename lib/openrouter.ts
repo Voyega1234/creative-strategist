@@ -1,5 +1,4 @@
 import "server-only"
-import sharp from "sharp"
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 const DEFAULT_IMAGE_MODEL = "openai/gpt-image-2.5-flare"
@@ -239,8 +238,8 @@ export async function openRouterGenerateImage({
   signal?: AbortSignal
 }): Promise<Response> {
   const model = process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL
-  // Retired 4:5 requests now produce 4:3 output, without cropping back.
-  if (aspectRatio?.trim() === "4:5") aspectRatio = "4:3"
+  // Retired 4:5 requests now produce 3:4 output, without cropping back.
+  if (aspectRatio?.trim() === "4:5") aspectRatio = "3:4"
   // Preserve the existing 5:4 fallback for Flare.
   const fallbackRatios: Record<string, string> = { "5:4": "4:3" }
   const nativeRatio = model === "openai/gpt-image-2.5-flare" && aspectRatio
@@ -273,6 +272,7 @@ export async function openRouterGenerateImage({
   })
   if (!response.ok || !needsCrop) return response
 
+  const { default: sharp } = await import("sharp")
   const payload = await response.json()
   const [ratioWidth, ratioHeight] = aspectRatio!.split(":").map(Number)
   for (const image of payload.data || []) {

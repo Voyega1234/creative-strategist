@@ -245,7 +245,7 @@ export async function POST(request: Request) {
       : basePrompt
     let expectedAspectRatio =
       isSaneDimensions(sourceWidth, sourceHeight) ? getClosestAspectRatioLabel(sourceWidth, sourceHeight) : detectedAspectRatio || null
-    if (expectedAspectRatio === "4:5") expectedAspectRatio = "4:3"
+    if (expectedAspectRatio === "4:5") expectedAspectRatio = "3:4"
     const response = await openRouterGenerateImage({
       prompt,
       inputReferences: [imageUrl, ...(referenceImageUrl ? [referenceImageUrl] : [])],

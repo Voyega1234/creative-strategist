@@ -437,14 +437,14 @@ export async function POST(request: Request) {
       operation === "resize"
         ? resizeIntent.requestedRatio || (typeof body.output_aspect_ratio === "string" ? body.output_aspect_ratio : "")
         : ""
-    if (requestedAspectRatio === "4:5") requestedAspectRatio = "4:3"
+    if (requestedAspectRatio === "4:5") requestedAspectRatio = "3:4"
     let outputAspectRatio =
       operation === "resize"
         ? resizeIntent.modelAspectRatio ||
           getClosestGeminiAspectRatio(requestedAspectRatio) ||
           normalizeChoice(body.output_aspect_ratio, GEMINI_ASPECT_RATIOS, "1:1")
         : ""
-    if (outputAspectRatio === "4:5") outputAspectRatio = "4:3"
+    if (outputAspectRatio === "4:5") outputAspectRatio = "3:4"
     const outputImageSize = normalizeChoice(body.output_image_size, GEMINI_IMAGE_SIZES, "2K")
 
     if (!imageUrl) {

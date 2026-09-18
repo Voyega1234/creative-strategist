@@ -155,7 +155,7 @@ export async function POST(request: Request) {
     let aspectRatio = dimensions
       ? getClosestAspectRatio(dimensions.width, dimensions.height)
       : clientDetectedRatio || "1:1"
-    if (aspectRatio === "4:5") aspectRatio = "4:3"
+    if (aspectRatio === "4:5") aspectRatio = "3:4"
     const prompt = getPreservePrompt()
 
     console.log("[upscale-image] request summary", {

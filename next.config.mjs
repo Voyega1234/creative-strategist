@@ -17,6 +17,14 @@ const nextConfig = {
   // (it is read from disk at runtime, not imported, so tracing wouldn't include it otherwise).
   outputFileTracingIncludes: {
     '/api/generate-image': ['./text-to-image-code/prompts/**'],
+    // Native shared libraries are loaded by sharp at runtime. Include pnpm's
+    // physical package paths as well as the standard node_modules layout.
+    '/api/**': [
+      './node_modules/sharp/**/*',
+      './node_modules/@img/sharp-*/**/*',
+      './node_modules/.pnpm/sharp@*/node_modules/sharp/**/*',
+      './node_modules/.pnpm/@img+sharp-*/node_modules/@img/sharp-*/**/*',
+    ],
   },
   turbopack: {
     root: process.cwd(),
