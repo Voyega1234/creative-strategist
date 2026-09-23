@@ -1,0 +1,1 @@
+export const MAX_PRODUCT_REFERENCES = 10

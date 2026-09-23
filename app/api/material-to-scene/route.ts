@@ -1,3 +1,4 @@
+import { MAX_PRODUCT_REFERENCES } from "@/lib/images/photostock"
 import { NextResponse } from "next/server"
 import { createHash } from "node:crypto"
 import { getSupabase } from "@/lib/supabase/server"
@@ -461,6 +462,13 @@ export async function POST(request: Request) {
 
     const referenceImageBase64 = typeof body.reference_image_base64 === "string" ? body.reference_image_base64.trim() : ""
     const referenceImageUrl = typeof body.reference_image_url === "string" ? body.reference_image_url.trim() : ""
+    const referenceImageUrls: string[] = body.reference_image_urls === undefined
+      ? (referenceImageUrl ? [referenceImageUrl] : [])
+      : body.reference_image_urls
+    if (!Array.isArray(referenceImageUrls) || referenceImageUrls.length > MAX_PRODUCT_REFERENCES ||
+      referenceImageUrls.some((url: unknown) => typeof url !== "string" || !url.trim())) {
+      return NextResponse.json({ success: false, error: `reference_image_urls must contain at most ${MAX_PRODUCT_REFERENCES} non-empty image URLs` }, { status: 400 })
+    }
     const sceneReferenceImageUrls: string[] = Array.isArray(body.scene_reference_image_urls)
       ? body.scene_reference_image_urls.filter((url: unknown): url is string => typeof url === "string" && Boolean(url.trim()))
       : []
@@ -474,7 +482,7 @@ export async function POST(request: Request) {
     const aspectRatioInput = typeof body.aspect_ratio === "string" ? body.aspect_ratio.trim() : "1:1"
     const imageSize = typeof body.image_size === "string" ? body.image_size.trim() : "1K"
 
-    if (!referenceImageBase64 && !referenceImageUrl) {
+    if (!referenceImageBase64 && referenceImageUrls.length === 0) {
       return NextResponse.json(
         { success: false, error: "reference_image_url or reference_image_base64 is required" },
         { status: 400 },
@@ -485,17 +493,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "prompt is required" }, { status: 400 })
     }
 
-    const { base64: referenceBase64, mimeType } = referenceImageUrl
-      ? await fetchImageAsBase64(referenceImageUrl, requestedMimeType)
-      : { base64: referenceImageBase64, mimeType: requestedMimeType }
+    const productReferences = referenceImageUrls.length > 0
+      ? await Promise.all(referenceImageUrls.map((url) => fetchImageAsBase64(url.trim())))
+      : [{ base64: referenceImageBase64, mimeType: requestedMimeType }]
     const sceneReferences = await Promise.all(
       sceneReferenceImageUrls.slice(0, 3).map((imageUrl) => fetchImageAsBase64(imageUrl.trim())),
     )
-
-    const { description: materialDescription, cacheHit: materialAnalysisCacheHit } = await getOrAnalyzeMaterial(
-      referenceBase64,
-      mimeType,
-    )
+    const analyses = await Promise.all(productReferences.map((reference) => getOrAnalyzeMaterial(reference.base64, reference.mimeType)))
+    const materialDescription = analyses.map((analysis, index) => `Product / Material ${index + 1}: ${analysis.description}`).join("\n\n")
+    const materialAnalysisCacheHit = analyses.every((analysis) => analysis.cacheHit)
     const aspectRatio = ASPECT_RATIO_MAP[aspectRatioInput] || aspectRatioInput
     const generationPrompt = buildGenerationPrompt(
       materialDescription,
@@ -514,16 +520,11 @@ export async function POST(request: Request) {
                 {
                   text: generationPrompt,
                 },
-                {
-                  text:
-                    "HERO MATERIAL / HERO PRODUCT IMAGE. Preserve this exact object/material identity, texture, color, construction, logo/detail placement, and all distinctive product features.",
-                },
-                {
-                  inlineData: {
-                    data: referenceBase64,
-                    mimeType,
-                  },
-                },
+                { text: "The numbered PRODUCT / MATERIAL images are product inputs, distinct from SCENE / BACKGROUND references. Follow the brief to use the supplied products together or as alternate views of the same item. Preserve each product's identity separately; do not merge their features. Numbers match the upload order." },
+                ...productReferences.flatMap((reference, index) => [
+                  { text: `PRODUCT / MATERIAL ${index + 1}. Preserve this exact identity, texture, color, construction, branding, and distinctive features.` },
+                  { inlineData: { data: reference.base64, mimeType: reference.mimeType } },
+                ]),
                 ...sceneReferences.flatMap((sceneReference, index) => [
                   {
                     text: `SCENE / BACKGROUND REFERENCE ${index + 1}. Use only for environment, lighting, perspective, mood, and background styling. Do not copy unrelated objects or alter the hero material/product.`,

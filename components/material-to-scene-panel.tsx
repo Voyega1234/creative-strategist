@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ArrowLeft,
   ChevronLeft,
@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { downloadImageFromUrl, downloadImagesFromUrls, uploadDataUrlToImageStorage, uploadFileToImageStorage } from "@/lib/images/client"
+import { MAX_PRODUCT_REFERENCES } from "@/lib/images/photostock"
 import { cn } from "@/lib/utils"
 import { MaterialToSceneError } from "@/components/material-to-scene/material-to-scene-error"
 import { MaterialToSceneHeader } from "@/components/material-to-scene/material-to-scene-header"
@@ -122,8 +123,9 @@ type MaterialToScenePanelProps = {
 }
 
 export function MaterialToScenePanel({ clientName, productFocus }: MaterialToScenePanelProps = {}) {
-  const [file, setFile] = useState<File | null>(null)
-  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null)
+  const [productReferences, setProductReferences] = useState<SceneReference[]>([])
+  const productReferencesRef = useRef<SceneReference[]>([])
+  const file = productReferences[0]?.file
   const [sceneReferences, setSceneReferences] = useState<SceneReference[]>([])
   const [prompt, setPrompt] = useState("")
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1")
@@ -151,11 +153,9 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
 
   useEffect(() => {
     return () => {
-      if (originalImageUrl) {
-        URL.revokeObjectURL(originalImageUrl)
-      }
+      productReferencesRef.current.forEach((reference) => URL.revokeObjectURL(reference.previewUrl))
     }
-  }, [originalImageUrl])
+  }, [])
 
   useEffect(() => {
     sceneReferencesRef.current = sceneReferences
@@ -282,18 +282,26 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
     setError(null)
   }
 
-  const uploadHint = useMemo(() => {
-    if (!file) return "อัปโหลด material photo เพื่อให้ระบบวิเคราะห์ texture และสร้าง scene ใหม่"
-    return `${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`
-  }, [file])
+  const handleFileSelect = (selectedFiles: FileList | null) => {
+    if (!selectedFiles?.length || isGenerating) return
+    const images = Array.from(selectedFiles).filter((selectedFile) => selectedFile.type.startsWith("image/"))
+    const remaining = MAX_PRODUCT_REFERENCES - productReferencesRef.current.length
+    const additions = images.slice(0, remaining).map((file) => ({ file, previewUrl: URL.createObjectURL(file) }))
+    const next = [...productReferencesRef.current, ...additions]
+    productReferencesRef.current = next
+    setProductReferences(next)
+    setGeneratedImageUrls([])
+    setSelectedImageIndex(0)
+    setError(images.length > remaining ? `อัปโหลด product/material ได้สูงสุด ${MAX_PRODUCT_REFERENCES} รูป` : null)
+  }
 
-  const handleFileSelect = (selectedFile: File) => {
-    if (originalImageUrl) {
-      URL.revokeObjectURL(originalImageUrl)
-    }
-
-    setFile(selectedFile)
-    setOriginalImageUrl(URL.createObjectURL(selectedFile))
+  const handleRemoveProductReference = (indexToRemove: number) => {
+    const removed = productReferencesRef.current[indexToRemove]
+    if (!removed || isGenerating) return
+    URL.revokeObjectURL(removed.previewUrl)
+    const next = productReferencesRef.current.filter((_, index) => index !== indexToRemove)
+    productReferencesRef.current = next
+    setProductReferences(next)
     setGeneratedImageUrls([])
     setSelectedImageIndex(0)
     setError(null)
@@ -347,7 +355,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
     setError(null)
 
     try {
-      const referenceImageUrl = await uploadFileToStorage(file)
+      const referenceImageUrls = await Promise.all(productReferences.map((reference) => uploadFileToStorage(reference.file)))
       const sceneReferenceImageUrls =
         sceneReferences.length > 0
           ? await Promise.all(sceneReferences.map((reference) => uploadFileToStorage(reference.file)))
@@ -359,7 +367,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
         },
         body: JSON.stringify({
           action: "generate",
-          reference_image_url: referenceImageUrl,
+          reference_image_urls: referenceImageUrls,
           scene_reference_image_urls: sceneReferenceImageUrls,
           mime_type: file.type,
           preset: DEFAULT_PRESET,
@@ -390,7 +398,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
       setSelectedHistorySessionId(null)
       void saveGenerationSession({
         outputUrls: urls,
-        inputUrls: [referenceImageUrl, ...sceneReferenceImageUrls],
+        inputUrls: [...referenceImageUrls, ...sceneReferenceImageUrls],
         model: typeof result.model === "string" ? result.model : "gemini-image",
       })
     } catch (err) {
@@ -497,14 +505,14 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
             <div className="space-y-5">
               <input
                 ref={fileInputRef}
+                multiple
+                disabled={isGenerating || productReferences.length >= MAX_PRODUCT_REFERENCES}
                 type="file"
                 accept="image/*"
                 className="hidden"
                 onChange={(event) => {
-                  const selectedFile = event.target.files?.[0]
-                  if (selectedFile) {
-                    handleFileSelect(selectedFile)
-                  }
+                  handleFileSelect(event.target.files)
+                  event.target.value = ""
                 }}
               />
               <input
@@ -525,7 +533,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                     value="product"
                     className="rounded-[10px] py-1 text-sm text-slate-600 data-[state=active]:text-slate-950"
                   >
-                    Product / Material{file ? " · 1" : ""}
+                    Product / Material · {productReferences.length}/{MAX_PRODUCT_REFERENCES}
                   </TabsTrigger>
                   <TabsTrigger
                     value="background"
@@ -536,45 +544,31 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                 </TabsList>
 
                 <TabsContent value="product" className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={cn(
-                      "group flex min-h-[190px] w-full items-center justify-center overflow-hidden rounded-[20px] border border-dashed transition-all",
-                      file
-                        ? "border-slate-300 bg-white hover:border-slate-400"
-                        : "border-slate-200 bg-white hover:border-slate-300",
-                    )}
-                  >
-                    {originalImageUrl ? (
-                      <div className="grid h-full w-full gap-4 p-4 sm:grid-cols-[140px_minmax(0,1fr)] sm:items-center">
-                        <div className="relative mx-auto aspect-square w-full max-w-[140px] overflow-hidden rounded-[16px] bg-slate-50 shadow-sm">
-                          <img src={originalImageUrl} alt="Product or material preview" className="h-full w-full object-contain" />
-                        </div>
-                        <div className="space-y-2 text-left">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Asset ready</p>
-                          <h3 className="text-lg font-semibold text-slate-950">Product or material selected</h3>
-                          <p className="max-w-xl text-sm leading-6 text-slate-600">
-                            ระบบจะใช้ภาพนี้เป็น hero asset และพยายามรักษารูปทรง สี พื้นผิว และรายละเอียดเดิมใน scene ใหม่
-                          </p>
-                          <p className="text-sm text-slate-500">{uploadHint}</p>
-                        </div>
+                  <div className="space-y-4 rounded-[20px] border border-dashed border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-950">Upload products or materials</h3>
+                        <p className="text-sm text-slate-500">เพิ่มได้สูงสุด {MAX_PRODUCT_REFERENCES} รูป · JPG, PNG, WEBP</p>
                       </div>
-                    ) : (
-                      <div className="space-y-3 px-6 text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[16px] bg-slate-950 text-white shadow-sm">
-                          <UploadCloud className="h-5 w-5" />
-                        </div>
-                        <div className="space-y-1">
-                          <h3 className="text-lg font-semibold text-slate-950">Upload product or material</h3>
-                          <p className="mx-auto max-w-md text-sm leading-6 text-slate-600">
-                            เลือกภาพสินค้า วัสดุ texture sample หรือ product detail shot ที่ต้องการใช้เป็นพระเอกของภาพ
-                          </p>
-                        </div>
-                        <p className="text-xs text-slate-500">JPG, PNG, WEBP</p>
+                      <Button type="button" variant="outline" disabled={isGenerating || productReferences.length >= MAX_PRODUCT_REFERENCES} onClick={() => fileInputRef.current?.click()}>
+                        <UploadCloud className="mr-2 h-4 w-4" /> เพิ่มรูป
+                      </Button>
+                    </div>
+                    <p className="text-sm text-slate-500">ระบุใน brief ว่าต้องการใช้สินค้า/วัสดุแต่ละรูปอย่างไร โดยอ้างอิงหมายเลขรูปได้</p>
+                    {productReferences.length > 0 && (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                        {productReferences.map((reference, index) => (
+                          <div key={reference.previewUrl} className="relative rounded-xl border border-slate-200 p-2">
+                            <img src={reference.previewUrl} alt={`Product / Material ${index + 1}`} className="aspect-square w-full rounded-lg object-contain" />
+                            <p className="mt-2 truncate text-xs text-slate-500" title={reference.file.name}>{index + 1}. {reference.file.name}</p>
+                            <button type="button" disabled={isGenerating} onClick={() => handleRemoveProductReference(index)} aria-label={`ลบ Product / Material ${index + 1}`} className="absolute right-1 top-1 rounded-full bg-white p-1 shadow-sm disabled:opacity-50">
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
-                  </button>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="background" className="mt-3">
@@ -1008,14 +1002,15 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                 <div className="space-y-4">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Reference</p>
-                    <h3 className="mt-1.5 text-lg font-semibold tracking-[-0.02em] text-slate-950">Original material</h3>
+                    <h3 className="mt-1.5 text-lg font-semibold tracking-[-0.02em] text-slate-950">Original products / materials</h3>
                   </div>
-                  <div className="relative overflow-hidden rounded-[20px] bg-slate-50">
-                    <div className="aspect-square">
-                      {originalImageUrl ? (
-                        <img src={originalImageUrl} alt="Original material" className="h-full w-full object-contain" />
-                      ) : null}
-                    </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {productReferences.map((reference, index) => (
+                      <div key={reference.previewUrl} className="overflow-hidden rounded-xl bg-slate-50 p-2">
+                        <img src={reference.previewUrl} alt={`Original product / material ${index + 1}`} className="aspect-square w-full object-contain" />
+                        <p className="mt-1 text-xs text-slate-500">Product / Material {index + 1}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </Card>
