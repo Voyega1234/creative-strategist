@@ -496,9 +496,7 @@ export async function POST(request: Request) {
     const productReferences = referenceImageUrls.length > 0
       ? await Promise.all(referenceImageUrls.map((url) => fetchImageAsBase64(url.trim())))
       : [{ base64: referenceImageBase64, mimeType: requestedMimeType }]
-    const sceneReferences = await Promise.all(
-      sceneReferenceImageUrls.slice(0, 3).map((imageUrl) => fetchImageAsBase64(imageUrl.trim())),
-    )
+    const sceneReferences = sceneReferenceImageUrls.slice(0, 3).map((imageUrl) => imageUrl.trim())
     const analyses = await Promise.all(productReferences.map((reference) => getOrAnalyzeMaterial(reference.base64, reference.mimeType)))
     const materialDescription = analyses.map((analysis, index) => `Product / Material ${index + 1}: ${analysis.description}`).join("\n\n")
     const materialAnalysisCacheHit = analyses.every((analysis) => analysis.cacheHit)
@@ -523,17 +521,17 @@ export async function POST(request: Request) {
                 { text: "The numbered PRODUCT / MATERIAL images are product inputs, distinct from SCENE / BACKGROUND references. Follow the brief to use the supplied products together or as alternate views of the same item. Preserve each product's identity separately; do not merge their features. Numbers match the upload order." },
                 ...productReferences.flatMap((reference, index) => [
                   { text: `PRODUCT / MATERIAL ${index + 1}. Preserve this exact identity, texture, color, construction, branding, and distinctive features.` },
-                  { inlineData: { data: reference.base64, mimeType: reference.mimeType } },
+                  // Storage URLs avoid embedding all product images in the provider request.
+                  referenceImageUrls[index]
+                    ? { fileData: { fileUri: referenceImageUrls[index].trim(), mimeType: reference.mimeType } }
+                    : { inlineData: { data: reference.base64, mimeType: reference.mimeType } },
                 ]),
                 ...sceneReferences.flatMap((sceneReference, index) => [
                   {
                     text: `SCENE / BACKGROUND REFERENCE ${index + 1}. Use only for environment, lighting, perspective, mood, and background styling. Do not copy unrelated objects or alter the hero material/product.`,
                   },
                   {
-                    inlineData: {
-                      data: sceneReference.base64,
-                      mimeType: sceneReference.mimeType,
-                    },
+                    fileData: { fileUri: sceneReference },
                   },
                 ]),
               ],
