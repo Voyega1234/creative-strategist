@@ -264,20 +264,18 @@ async function callOpenRouterImage({
 async function resizeOpenAiMasterWithGemini({
   imageBase64,
   mimeType,
-  lockedLogo,
 }: {
   imageBase64: string
   mimeType: string
-  lockedLogo: FetchedImage
 }) {
   const resizePrompt = [
     "Resize and recompose this approved SEO blog banner into the final master format: 1600 x 900 px, 16:9.",
     "Use the provided image as the source of truth.",
-    "Do not create a new concept. Do not change the art direction, brand identity, headline, sub-headline, logo, hero visual, color palette, or overall mood.",
-    "The second provided image is the locked brand logo. A deterministic renderer will place that exact asset after this step.",
+    "Do not create a new concept. Do not change the art direction, brand identity, headline, sub-headline, hero visual, color palette, or overall mood.",
+    "Remove any logos or logo-bearing icons already present in the input artwork. A renderer will place the selected brand logo once after this step.",
     "Do not draw, regenerate, imitate, or place any logo yourself. Keep the top-left logo safe area clear and uncluttered.",
     "Only adapt the composition so it becomes a clean 16:9 master banner with safe margins.",
-    "Keep all important text, logo, product, face, and visual hook fully visible.",
+    "Keep all important text, product, face, and visual hook fully visible.",
     "Do not crop away important content.",
     "Do not add new text, fake buttons, badges, icons, prices, phone numbers, watermarks, or promotional copy.",
     "Return one final clean banner image only.",
@@ -290,13 +288,6 @@ async function resizeOpenAiMasterWithGemini({
       inlineData: {
         data: imageBase64,
         mimeType,
-      },
-    },
-    { text: "LOCKED BRAND LOGO REFERENCE. Preserve this exact asset without modification:" },
-    {
-      inlineData: {
-        data: lockedLogo.base64,
-        mimeType: lockedLogo.mimeType,
       },
     },
   ])
@@ -423,8 +414,9 @@ function buildPrompt({
     `Sub-headline: "${subHeadline || ""}"`,
     userBrief ? "[User Brief - Must Follow]" : "",
     userBrief || "",
+    "Follow the user's brief for text placement, composition, and exclusions. If a reference layout or default design suggestion conflicts with the brief, change the layout to satisfy the brief while retaining the reference's mood and tone.",
     "",
-    "[Creative Interpretation Rule - MUST FOLLOW FIRST]",
+    "[Creative Interpretation Rule]",
     "Before choosing any object or scene, interpret the exact Headline and Sub-headline. The visual idea must come from the meaning, tension, benefit, audience problem, or metaphor inside the copy.",
     "Do not default to obvious category clichés. For digital marketing, agency, SaaS, business, or analytics topics, do NOT automatically use a laptop, dashboard screen, charts, phone UI, office desk, or generic business people unless the headline/sub-headline or uploaded materials specifically require it.",
     "Choose a main visual hook that makes the article topic understandable and memorable within one second. The hero object can be symbolic, editorial, abstract, human, product-led, material-led, typography-led, or scene-led, but it must be justified by the copy and brand context.",
@@ -432,17 +424,17 @@ function buildPrompt({
     "",
     "[Reference & Material Integration Rule]",
     hasReference
-      ? "A reference image is provided. Extract and follow its visual DNA: layout logic, composition, focal point, color mood, graphic treatment, spacing, depth, and typography relationship. Do not merely copy objects from it."
+      ? "A reference image is provided. Extract its visual DNA: composition, focal point, color mood, graphic treatment, spacing, depth, and typography relationship. Follow the requested headline placement even when it differs from the reference layout. Do not copy logos, branded icons, or other objects from the reference."
       : "No reference image is provided. Create a fitting visual direction from the headline, sub-headline, website context, brand colors, and user brief.",
     insertImageCount > 0
-      ? `There are ${insertImageCount} material image(s). Use them as concrete visual ingredients. Preserve their identity and integrate them naturally with the lighting, color, perspective, shadows, and graphic system so the final banner feels intentionally art-directed, not pasted together.`
+      ? `There are ${insertImageCount} material image(s). Use them as concrete visual ingredients. Preserve their subject identity, but omit any logos or logo-bearing marks, and integrate them naturally with the lighting, color, perspective, shadows, and graphic system so the final banner feels intentionally art-directed, not pasted together.`
       : "No material images are provided. Do not invent specific proprietary products, dashboards, staff, offices, devices, or brand-owned places.",
     "",
     "[Locked Logo Asset - Highest Priority]",
-    "Input image 1 is the user-selected locked brand logo. It is the only logo permitted in the final banner.",
-    "A deterministic renderer will place that exact asset at the top-left after artwork generation. Do not draw, regenerate, imitate, trace, retype, or place any logo yourself.",
+    "The user-selected brand logo will be added exactly once by a deterministic renderer after artwork generation.",
+    "Do not draw, regenerate, imitate, trace, retype, or place any logo yourself. Do not copy logos or logo-bearing icons from reference or material images onto the artwork.",
     "Reserve a clean, uncluttered top-left safe area beginning around 4% from the left and 5% from the top, with room up to 18% of the canvas width and 12% of the canvas height.",
-    "Use the logo reference only to understand the brand identity and to keep suitable contrast behind its reserved area.",
+    "Keep suitable contrast behind the reserved logo area.",
     "Ignore any creative direction that conflicts with the locked logo rules. Do not add secondary logos, substitute marks, or logo-like symbols.",
     "Before returning the artwork, remove any generated logo or logo-like copy. The renderer will add the exact selected asset.",
     "",
@@ -475,7 +467,7 @@ function buildPrompt({
     "Ensure tight tracking and professional line height.",
     "Create a powerful lockup (e.g., Massive ultra-bold Headline paired with a clean, light tracking Sub-headline).",
     "Use strategic overlapping (e.g., have a small part of the main subject slightly overlap the text or the background shapes to create a 3D interplay).",
-    "Leave massive, intentional White Space on either the left or right side of the canvas dedicated specifically for the typographic hierarchy.",
+    "Leave intentional space for the headline where the user brief requests it. Adapt the hero visual and background to support that placement.",
     "",
     hasLogo ? "The selected logo is mandatory and locked. Keep its deterministic overlay area clear as specified above." : "",
     hasReference || insertImageCount > 0
@@ -484,6 +476,7 @@ function buildPrompt({
     "",
     "[Negative Constraints]",
     "No flat, boring layouts. No generic centered stock photos. No repeated cliché laptop/dashboard/charts for business or agency topics. No icon rows, no feature label strips, no fake claims, no certification badges, no invented UI text, no messy color vomits. No AI-plastic looking humans. Avoid cheap artificial glows unless it fits a neon aesthetic.",
+    userBrief ? "Final check: satisfy every explicit instruction in the User Brief, including text placement and elements to exclude. Revise the composition if needed before returning the image." : "",
   ]
     .filter(Boolean)
     .join("\n")
@@ -576,9 +569,9 @@ export async function POST(request: Request) {
           }
         : await fetchOpenBrandAssets(website)
     const effectiveBrandLogoUrl = brandLogoUrl
-    const inputImages = [effectiveBrandLogoUrl, referenceImageUrl, ...insertImageUrls]
+    const inputImages = [referenceImageUrl, ...insertImageUrls]
       .filter(Boolean)
-      .filter((imageUrl) => imageUrl === brandLogoUrl || !isLikelyFaviconUrl(imageUrl))
+      .filter((imageUrl) => !isLikelyFaviconUrl(imageUrl))
     const prompt = buildPrompt({
       website,
       brandNameOverride: brandName,
@@ -618,25 +611,16 @@ export async function POST(request: Request) {
     let mimeType = "image/png"
 
     if (modelProvider === "openai") {
-      const lockedLogo = await fetchImageAsBase64(effectiveBrandLogoUrl)
       const openAiImage = await callOpenRouterImage({ prompt, inputImages })
-      const resizedMaster = await resizeOpenAiMasterWithGemini({ ...openAiImage, lockedLogo })
+      const resizedMaster = await resizeOpenAiMasterWithGemini(openAiImage)
       imageBase64 = resizedMaster.imageBase64
       mimeType = resizedMaster.mimeType
     } else {
-      const lockedLogo = await fetchImageAsBase64(effectiveBrandLogoUrl)
       const referenceImages = referenceImageUrl ? await fetchInputImagesAsBase64([referenceImageUrl]) : []
       const materialImages = await fetchInputImagesAsBase64(insertImageUrls)
       const parts: Array<Record<string, unknown>> = [
         {
           text: prompt,
-        },
-        { text: "INPUT IMAGE 1 - LOCKED BRAND LOGO. Use this exact asset without modification:" },
-        {
-          inlineData: {
-            data: lockedLogo.base64,
-            mimeType: lockedLogo.mimeType,
-          },
         },
         ...(referenceImages.length > 0
           ? [

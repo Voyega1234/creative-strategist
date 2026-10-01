@@ -72,7 +72,7 @@ type BrandColorRole = "Primary" | "Secondary" | "Accent" | "Background" | "Text"
 
 type SeoBlogBannerResult = {
   imageUrl: string
-  sourceDataUrl: string
+  artworkUrl: string
   lockedLogoUrl: string
   provider: ImageModelProvider
   model: string
@@ -1004,6 +1004,8 @@ export function SeoBlogBannerPanel({
         throw new Error(payload?.error || "Cannot generate SEO blog banner")
       }
 
+      const artworkBlob = await normalizeToMasterCanvas(payload.image_data_url)
+      const artworkUrl = await uploadGeneratedImageBlob(artworkBlob, "generated/seo-blog-banner-outputs", "artwork-1600x900")
       const masterBlob = await normalizeToMasterCanvas(payload.image_data_url, logoAsset?.previewUrl)
       const publicUrl = await uploadGeneratedImageBlob(masterBlob, "generated/seo-blog-banner-outputs", "master-1600x900")
 
@@ -1011,7 +1013,7 @@ export function SeoBlogBannerPanel({
       setAdditionalOutputs([])
       setResult({
         imageUrl: publicUrl,
-        sourceDataUrl: payload.image_data_url,
+        artworkUrl,
         lockedLogoUrl: brandLogoUrl,
         provider: payload.provider || "openai",
         model: payload.model || "openai/gpt-image-2.5-flare",
@@ -1039,6 +1041,7 @@ export function SeoBlogBannerPanel({
             brandName: brandName.trim(),
             headline: headline.trim(),
             subHeadline: subHeadline.trim(),
+            artworkUrl,
             targetMasterSize: payload.target_master_size || "1600x900",
             requestedSize: payload.requested_size || "2K",
             lockedLogoUrl: brandLogoUrl,
@@ -1094,7 +1097,7 @@ export function SeoBlogBannerPanel({
     setAdditionalOutputs([])
     setResult({
       imageUrl,
-      sourceDataUrl: imageUrl,
+      artworkUrl: typeof metadata.artworkUrl === "string" ? metadata.artworkUrl : imageUrl,
       lockedLogoUrl: savedLockedLogoUrl,
       provider: "openai",
       model: session.model || "image-generation",
@@ -1130,7 +1133,7 @@ export function SeoBlogBannerPanel({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          image_url: result.imageUrl,
+          image_url: result.artworkUrl,
           locked_logo_url: result.lockedLogoUrl,
           target_size: selectedAdditionalSize,
         }),
@@ -1202,7 +1205,7 @@ export function SeoBlogBannerPanel({
     setIsEditing(true)
     setEditError(null)
 
-    const sourceImageUrl = result.imageUrl
+    const sourceImageUrl = result.artworkUrl
     const instruction = editPrompt.trim()
 
     try {
@@ -1231,6 +1234,12 @@ export function SeoBlogBannerPanel({
         throw new Error(payload?.error || "Cannot edit SEO banner")
       }
 
+      const editedArtworkBlob = await normalizeToMasterCanvas(payload.image_url as string)
+      const editedArtworkUrl = await uploadGeneratedImageBlob(
+        editedArtworkBlob,
+        "generated/seo-blog-banner-outputs",
+        "edited-artwork-1600x900",
+      )
       const editedBlob = await normalizeToMasterCanvas(payload.image_url as string, result.lockedLogoUrl)
       const editedImageUrl = await uploadGeneratedImageBlob(
         editedBlob,
@@ -1242,7 +1251,7 @@ export function SeoBlogBannerPanel({
           ? {
               ...current,
               imageUrl: editedImageUrl,
-              sourceDataUrl: editedImageUrl,
+              artworkUrl: editedArtworkUrl,
               model: payload.model || current.model,
               prompt: payload.prompt || instruction,
             }
@@ -1270,6 +1279,7 @@ export function SeoBlogBannerPanel({
             brandName: brandName.trim(),
             headline: headline.trim(),
             subHeadline: subHeadline.trim(),
+            artworkUrl: editedArtworkUrl,
             lockedLogoUrl: result.lockedLogoUrl,
             parentImageUrl: sourceImageUrl,
             editInstruction: instruction,

@@ -94,14 +94,12 @@ function buildResizePrompt(target: (typeof TARGET_SIZES)[TargetSizeKey]) {
     `Final target export size: ${target.width} x ${target.height} px.`,
     "",
     "Use the provided master banner as the source of truth.",
-    "The second provided image is the locked brand logo and is the only permitted logo.",
-    "Keep that logo visually identical. Never redraw, regenerate, restyle, recolor, retype, crop, distort, or replace it.",
-    "Preserve its exact spelling, letterforms, symbol geometry, spacing, colors, proportions, transparency, and internal details.",
+    "Remove any logos or logo-bearing icons already present in the source artwork. The selected brand logo will be placed once after this step.",
     "Do not create a new concept. Do not redesign the brand system.",
-    "Preserve the same headline, sub-headline, logo, brand identity, art direction, color palette, hero visual, and overall mood.",
+    "Preserve the same headline, sub-headline, brand identity, art direction, color palette, hero visual, and overall mood.",
     "Recompose only as needed so the banner works naturally for the target size.",
     "Keep every important visual element and all text inside safe margins.",
-    "Do not crop away important text, logo, product, face, or key visual hook.",
+    "Do not crop away important text, product, face, or key visual hook.",
     "Write no new text. Add no fake buttons, badges, icons, prices, phone numbers, or promotional copy.",
     "Return only one final clean banner image.",
   ].join("\n")
@@ -110,12 +108,10 @@ function buildResizePrompt(target: (typeof TARGET_SIZES)[TargetSizeKey]) {
 async function callGeminiResize({
   prompt,
   image,
-  lockedLogo,
   aspectRatio,
 }: {
   prompt: string
   image: { base64: string; mimeType: string }
-  lockedLogo: { base64: string; mimeType: string }
   aspectRatio: string
 }) {
   const response = await openRouterGenerateContent(GEMINI_IMAGE_MODEL, {
@@ -127,13 +123,6 @@ async function callGeminiResize({
             inlineData: {
               data: image.base64,
               mimeType: image.mimeType,
-            },
-          },
-          { text: "LOCKED BRAND LOGO REFERENCE. Preserve this exact asset without modification:" },
-          {
-            inlineData: {
-              data: lockedLogo.base64,
-              mimeType: lockedLogo.mimeType,
             },
           },
         ],
@@ -185,10 +174,7 @@ export async function POST(request: Request) {
     }
 
     const parsedDataUrl = imageDataUrl ? parseDataUrl(imageDataUrl) : null
-    const [sourceImage, lockedLogo] = await Promise.all([
-      parsedDataUrl ? Promise.resolve(parsedDataUrl) : fetchImageAsBase64(imageUrl),
-      fetchImageAsBase64(lockedLogoUrl),
-    ])
+    const sourceImage = parsedDataUrl || await fetchImageAsBase64(imageUrl)
     const prompt = buildResizePrompt(target)
 
     console.log("[seo-blog-banner-resize] Resizing approved master", {
@@ -205,7 +191,6 @@ export async function POST(request: Request) {
     const geminiPayload = await callGeminiResize({
       prompt,
       image: sourceImage,
-      lockedLogo,
       aspectRatio: target.aspectRatio,
     })
     const images = getGeminiImages(geminiPayload)

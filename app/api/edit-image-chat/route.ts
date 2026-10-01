@@ -394,9 +394,12 @@ function buildEditPrompt({
     "",
     "Core rules:",
     seoBannerMode
-      ? "- Use the current SEO banner as the source of truth. Apply only the user's explicit instruction and leave every unrequested area unchanged. Do not create a new concept or redesign the banner."
+      ? "- Use the current SEO banner artwork as the source of truth. Apply the user's explicit instruction, including requested headline movement or layout changes. Recompose nearby elements as needed to make the new placement work."
       : "",
     "- Preserve all areas, objects, typography, brand elements, composition, and identity that the user did not ask to change.",
+    seoBannerMode
+      ? "- This artwork must contain no logos or logo-bearing icons. Remove any existing logo or imitation, including one copied from a reference or legacy banner. The exact selected logo is overlaid once after this edit. Keep the top-left logo area clear."
+      : "",
     hasLockedLogo
       ? "- A separate locked brand logo reference is provided after the source image. It is the only permitted logo. Ignore any instruction to modify or replace it."
       : "",
@@ -470,7 +473,7 @@ export async function POST(request: Request) {
 
     const [image, lockedLogo, historyContents, referenceImages, materialImages] = await Promise.all([
       continueFromHistory ? Promise.resolve(null) : fetchImageAsBase64(imageUrl),
-      lockedLogoUrl ? fetchImageAsBase64(lockedLogoUrl) : Promise.resolve(null),
+      lockedLogoUrl && !seoBannerMode ? fetchImageAsBase64(lockedLogoUrl) : Promise.resolve(null),
       buildHistoryContents(history),
       fetchOptionalImages(referenceUrls),
       fetchOptionalImages(materialUrls),
