@@ -9,7 +9,6 @@ export const maxDuration = 600
 
 const GEMINI_IMAGE_MODEL = OPENROUTER_IMAGE_MODEL
 const GEMINI_IMAGE_SIZE = process.env.SEO_BLOG_BANNER_IMAGE_SIZE || "2K"
-const OPENAI_LANDSCAPE_SIZE = "1536x1024"
 const OPENBRAND_ENDPOINT = "https://openbrand.sh/api/extract"
 
 type ImageModelProvider = "gemini" | "openai"
@@ -261,51 +260,6 @@ async function callOpenRouterImage({
   }
 }
 
-async function resizeOpenAiMasterWithGemini({
-  imageBase64,
-  mimeType,
-}: {
-  imageBase64: string
-  mimeType: string
-}) {
-  const resizePrompt = [
-    "Resize and recompose this approved SEO blog banner into the final master format: 1600 x 900 px, 16:9.",
-    "Use the provided image as the source of truth.",
-    "Do not create a new concept. Do not change the art direction, brand identity, headline, sub-headline, hero visual, color palette, or overall mood.",
-    "Remove any logos or logo-bearing icons already present in the input artwork. A renderer will place the selected brand logo once after this step.",
-    "Do not draw, regenerate, imitate, or place any logo yourself. Keep the top-left logo safe area clear and uncluttered.",
-    "Only adapt the composition so it becomes a clean 16:9 master banner with safe margins.",
-    "Keep all important text, product, face, and visual hook fully visible.",
-    "Do not crop away important content.",
-    "Do not add new text, fake buttons, badges, icons, prices, phone numbers, watermarks, or promotional copy.",
-    "Return one final clean banner image only.",
-  ].join("\n")
-  const geminiPayload = await callGeminiImage([
-    {
-      text: resizePrompt,
-    },
-    {
-      inlineData: {
-        data: imageBase64,
-        mimeType,
-      },
-    },
-  ])
-  const images = getGeminiImages(geminiPayload)
-  const resizedBase64 = images[0]?.data || ""
-  const resizedMimeType = images[0]?.mimeType || "image/png"
-
-  if (!resizedBase64) {
-    console.error("[seo-blog-banner] No master resize image returned from Gemini:", geminiPayload)
-    throw new Error("Gemini did not return a resized master image")
-  }
-
-  return {
-    imageBase64: resizedBase64,
-    mimeType: resizedMimeType,
-  }
-}
-
 function selectOpenBrandLogo(logos: OpenBrandLogo[]) {
   const withUrl = logos.filter((logo) => {
     if (typeof logo.url !== "string" || logo.url.trim().length === 0) return false
@@ -400,11 +354,15 @@ function buildPrompt({
     ""
   const brandName = brandNameOverride || openBrandAssets?.brandName || ""
   const brandDescription = brandContextOverride || websiteContext
-  const topic = [headline, subHeadline, brandDescription].filter(Boolean).join(" / ")
+  const topic = (hasReference ? [headline, subHeadline] : [headline, subHeadline, brandDescription])
+    .filter(Boolean)
+    .join(" / ")
 
   return [
-    "Create one world-class 16:9 SEO blog banner key visual.",
-    "The target quality is an absolute 10/10 top-tier commercial advertising banner. It must look highly converting, dynamic, and hyper-professional—similar to top campaigns from premium tech, fashion, or FMCG brands.",
+    "Create one polished 16:9 SEO blog banner key visual.",
+    hasReference
+      ? "The first input image is the layout and visual-style reference, not just mood inspiration. Adapt it into a new banner rather than inventing a different composition."
+      : "Create a clear, distinctive editorial composition appropriate to the article and brand.",
     "",
     "[Brand Context]",
     `Brand: ${brandName || website}`,
@@ -419,12 +377,14 @@ function buildPrompt({
     "[Creative Interpretation Rule]",
     "Before choosing any object or scene, interpret the exact Headline and Sub-headline. The visual idea must come from the meaning, tension, benefit, audience problem, or metaphor inside the copy.",
     "Do not default to obvious category clichés. For digital marketing, agency, SaaS, business, or analytics topics, do NOT automatically use a laptop, dashboard screen, charts, phone UI, office desk, or generic business people unless the headline/sub-headline or uploaded materials specifically require it.",
-    "Choose a main visual hook that makes the article topic understandable and memorable within one second. The hero object can be symbolic, editorial, abstract, human, product-led, material-led, typography-led, or scene-led, but it must be justified by the copy and brand context.",
+    hasReference
+      ? "Let the reference determine whether typography or imagery is the focal point. Do not introduce a large hero object when the reference is primarily typographic."
+      : "Choose a main visual hook that makes the article topic understandable and memorable within one second. The hero object can be symbolic, editorial, abstract, human, product-led, material-led, typography-led, or scene-led, but it must be justified by the copy and brand context.",
     "If the topic is strategic, growth, conversion, performance, creative, branding, or decision-making, translate that idea visually instead of showing a generic dashboard.",
     "",
     "[Reference & Material Integration Rule]",
     hasReference
-      ? "A reference image is provided. Extract its visual DNA: composition, focal point, color mood, graphic treatment, spacing, depth, and typography relationship. Follow the requested headline placement even when it differs from the reference layout. Do not copy logos, branded icons, or other objects from the reference."
+      ? "Match the reference's macro layout: text-block position and width, type hierarchy, margins, negative space, placement and scale of supporting visuals, background treatment, color proportions, and degree of depth. When adapting to 16:9, extend quiet background areas rather than moving the main text or enlarging supporting visuals. If the brief explicitly changes one of these relationships, follow the brief and keep the rest close to the reference. Replace the reference's words with the supplied copy; do not copy its logos or branded icons."
       : "No reference image is provided. Create a fitting visual direction from the headline, sub-headline, website context, brand colors, and user brief.",
     insertImageCount > 0
       ? `There are ${insertImageCount} material image(s). Use them as concrete visual ingredients. Preserve their subject identity, but omit any logos or logo-bearing marks, and integrate them naturally with the lighting, color, perspective, shadows, and graphic system so the final banner feels intentionally art-directed, not pasted together.`
@@ -438,25 +398,17 @@ function buildPrompt({
     "Ignore any creative direction that conflicts with the locked logo rules. Do not add secondary logos, substitute marks, or logo-like symbols.",
     "Before returning the artwork, remove any generated logo or logo-like copy. The renderer will add the exact selected asset.",
     "",
-    "[The Art Director's Mindset - MUST FOLLOW]",
-    "Think like a Master Graphic Designer creating a highly layered, 2.5D spatial composition.",
-    "Stop thinking of the canvas as a flat image. You must design with extreme depth utilizing distinct layers:",
-    "Layer 1 (Deep Background): Textured or smooth gradient base.",
-    "Layer 2 (Midground Shapes): Bold framing elements (e.g., 3D geometric cutouts, fluid blobs, or dynamic swooshes) serving as a stage for the main subject. Add realistic drop shadows to these shapes to make them pop.",
-    "Layer 3 (Foreground Subject): The hero product, model, or symbolic object seamlessly integrated.",
-    "Layer 4 (Floating Elements): Out-of-focus flying particles, leaves, UI elements, or splashes to break the frame and create extreme depth.",
-    "",
-    "[Visual Style & Framing Mechanism]",
-    "Select ONE of the following highly professional layout styles that best fits the brand context:",
-    "The Abstract Cutout (Fashion/Lifestyle): Use fluid, organic blob shapes or paper-cutout layers with crisp drop shadows framing the subject.",
-    "The Geometric Color-Block (Modern/Retail): Use massive, sharp triangles, circles, or overlapping diamond grids with solid, high-contrast vibrant colors.",
-    "The Tech Flow (Gadgets/Software): Use abstract system flow, data movement, modular structure, or interface-inspired graphic rhythm only when the copy calls for it. Avoid literal laptop/dashboard scenes unless explicitly relevant.",
-    "The High-Energy Mixed Media (Sports/Food/Beverage): Combine hyper-realistic photography with hand-drawn scribbles, glowing neon typography, grunge textures, or dynamic splashes.",
-    "",
-    "[Color Palette & Lighting]",
-    `Apply a highly controlled, striking color palette (3-4 colors max) derived from the brand. Brand colors: ${brandColors || "Not detected"}.`,
-    "Use extreme contrast (e.g., vibrant warm subject against a deep, rich cool background).",
-    "The lighting must perfectly match the vibe: soft studio lighting for fashion, high-contrast rim lighting for sports/tech, or vibrant sunny lighting for food/beverages.",
+    ...(hasReference
+      ? [
+          "[Reference-Led Art Direction]",
+          "Use the reference's visual density and image treatment. If it is restrained, flat, typographic, or mostly neutral, keep those qualities; do not add 3D objects, floating UI, gradients, or oversized color fields that are absent from it.",
+          `Brand colors: ${brandColors || "Not detected"}. Use them in the same proportion as the reference or as restrained accents when the brief asks for less brand color. Do not let a brand color override the reference's background or text hierarchy.`,
+        ]
+      : [
+          "[Art Direction]",
+          "Interpret the article topic visually without defaulting to generic tech or marketing clichés. Choose a coherent editorial, product-led, photographic, or graphic treatment that suits the brand.",
+          `Use a controlled palette derived from the brand. Brand colors: ${brandColors || "Not detected"}.`,
+        ]),
     "",
     "[Typography & Layout Integration]",
     "Write ONLY the provided Headline and Sub-headline unless the User Brief explicitly asks for additional on-image text.",
@@ -465,18 +417,20 @@ function buildPrompt({
     "Do not create rows of icons with explanatory labels unless the user explicitly provides those exact labels and asks to include them.",
     "Treat typography as a core graphic element.",
     "Ensure tight tracking and professional line height.",
-    "Create a powerful lockup (e.g., Massive ultra-bold Headline paired with a clean, light tracking Sub-headline).",
-    "Use strategic overlapping (e.g., have a small part of the main subject slightly overlap the text or the background shapes to create a 3D interplay).",
+    hasReference
+      ? "Follow the reference's typography scale, alignment, and hierarchy while replacing its copy with the exact supplied Headline and Sub-headline."
+      : "Create a strong typographic hierarchy for the Headline and Sub-headline.",
     "Leave intentional space for the headline where the user brief requests it. Adapt the hero visual and background to support that placement.",
     "",
     hasLogo ? "The selected logo is mandatory and locked. Keep its deterministic overlay area clear as specified above." : "",
-    hasReference || insertImageCount > 0
-      ? "The final result must look like the reference/materials belong to the same photographed/designed world: matched lighting, perspective, scale, shadows, color grade, texture, and composition."
+    insertImageCount > 0
+      ? "Integrate materials with consistent lighting, perspective, scale, shadows, and color grade without breaking the reference layout when one is provided."
       : "",
     "",
     "[Negative Constraints]",
-    "No flat, boring layouts. No generic centered stock photos. No repeated cliché laptop/dashboard/charts for business or agency topics. No icon rows, no feature label strips, no fake claims, no certification badges, no invented UI text, no messy color vomits. No AI-plastic looking humans. Avoid cheap artificial glows unless it fits a neon aesthetic.",
+    "No generic dashboard/laptop scenes unless the copy or reference requires them. No invented UI text, icon rows, feature strips, fake claims, certification badges, or watermarks. Avoid decorative effects that are absent from the reference.",
     userBrief ? "Final check: satisfy every explicit instruction in the User Brief, including text placement and elements to exclude. Revise the composition if needed before returning the image." : "",
+    hasReference ? "Final check: the finished banner must remain recognizably close to the first input image in layout, hierarchy, density, and color distribution, except where the User Brief explicitly requests a change." : "",
   ]
     .filter(Boolean)
     .join("\n")
@@ -569,9 +523,14 @@ export async function POST(request: Request) {
           }
         : await fetchOpenBrandAssets(website)
     const effectiveBrandLogoUrl = brandLogoUrl
-    const inputImages = [referenceImageUrl, ...insertImageUrls]
-      .filter(Boolean)
-      .filter((imageUrl) => !isLikelyFaviconUrl(imageUrl))
+    const referenceImage = referenceImageUrl ? await fetchImageAsBase64(referenceImageUrl) : null
+    if (referenceImage && !referenceImage.mimeType.startsWith("image/")) {
+      return NextResponse.json({ success: false, error: "Reference URL did not return an image. Please re-upload it." }, { status: 400 })
+    }
+    const inputImages = [
+      ...(referenceImage ? [`data:${referenceImage.mimeType};base64,${referenceImage.base64}`] : []),
+      ...insertImageUrls.filter((imageUrl) => !isLikelyFaviconUrl(imageUrl)),
+    ]
     const prompt = buildPrompt({
       website,
       brandNameOverride: brandName,
@@ -583,7 +542,7 @@ export async function POST(request: Request) {
       websiteContext,
       openBrandAssets,
       hasLogo: Boolean(effectiveBrandLogoUrl),
-      hasReference: Boolean(referenceImageUrl),
+      hasReference: Boolean(referenceImage),
       insertImageCount: insertImageUrls.length,
     })
 
@@ -596,14 +555,12 @@ export async function POST(request: Request) {
       detectedBrandName: openBrandAssets?.brandName || "",
       detectedColors: openBrandAssets?.colors?.map((color) => color.hex).filter(Boolean) || [],
       usingOpenBrandLogoAsInput: false,
-      hasReference: Boolean(referenceImageUrl),
+      hasReference: Boolean(referenceImage),
+      referenceDelivery: referenceImage ? "inline" : "none",
       insertImageCount: insertImageUrls.length,
       imageConfig: {
         aspectRatio: "16:9",
-        imageSize:
-          modelProvider === "openai"
-            ? `${OPENAI_LANDSCAPE_SIZE} -> ${GEMINI_IMAGE_SIZE} -> 1600x900`
-            : GEMINI_IMAGE_SIZE,
+        imageSize: GEMINI_IMAGE_SIZE,
       },
     })
 
@@ -612,22 +569,18 @@ export async function POST(request: Request) {
 
     if (modelProvider === "openai") {
       const openAiImage = await callOpenRouterImage({ prompt, inputImages })
-      const resizedMaster = await resizeOpenAiMasterWithGemini(openAiImage)
-      imageBase64 = resizedMaster.imageBase64
-      mimeType = resizedMaster.mimeType
+      imageBase64 = openAiImage.imageBase64
+      mimeType = openAiImage.mimeType
     } else {
-      const referenceImages = referenceImageUrl ? await fetchInputImagesAsBase64([referenceImageUrl]) : []
       const materialImages = await fetchInputImagesAsBase64(insertImageUrls)
       const parts: Array<Record<string, unknown>> = [
         {
           text: prompt,
         },
-        ...(referenceImages.length > 0
+        ...(referenceImage
           ? [
-              { text: "Optional visual reference for composition and style:" },
-              ...referenceImages.map((image) => ({
-                inlineData: { data: image.base64, mimeType: image.mimeType },
-              })),
+              { text: "Primary visual blueprint for composition and style:" },
+              { inlineData: { data: referenceImage.base64, mimeType: referenceImage.mimeType } },
             ]
           : []),
         ...(materialImages.length > 0
@@ -658,7 +611,7 @@ export async function POST(request: Request) {
       provider: modelProvider,
       model: GEMINI_IMAGE_MODEL,
       prompt,
-      requested_size: modelProvider === "openai" ? `${OPENAI_LANDSCAPE_SIZE} -> ${GEMINI_IMAGE_SIZE}` : GEMINI_IMAGE_SIZE,
+      requested_size: GEMINI_IMAGE_SIZE,
       target_master_size: "1600x900",
       aspect_ratio: "16:9",
       locked_logo_url: effectiveBrandLogoUrl,

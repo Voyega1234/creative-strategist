@@ -456,7 +456,7 @@ function AssetUpload({
             onClick={() => inputRef.current?.click()}
             className="h-9 flex-1 rounded-full"
           >
-            Upload logo
+            Replace image
           </Button>
           {onRemove ? (
             <Button
@@ -1658,6 +1658,11 @@ export function SeoBlogBannerPanel({
                   placeholder="Creative direction เช่น editorial, clean, premium"
                   className="min-h-[52px] resize-none rounded-2xl bg-white"
                 />
+                <p className="text-xs leading-5 text-slate-500">
+                  {referenceAsset
+                    ? "Reference image attached. Its layout and visual style will guide the banner."
+                    : "To match a reference layout, upload the image in References & materials below."}
+                </p>
               </div>
 
               <details className="rounded-[22px] border border-black/10 bg-white p-4">
@@ -1680,7 +1685,7 @@ export function SeoBlogBannerPanel({
                 <div className="mt-4 space-y-4">
                   <AssetUpload
                     label="Reference Image"
-                    description="Optional visual direction."
+                    description="Layout and visual-style guide. Explicit changes in the brief take priority."
                     asset={referenceAsset}
                     onSelect={handleReferenceSelect}
                     onRemove={() => {
@@ -2314,7 +2319,9 @@ export function SeoBlogBannerPanel({
                   className="min-h-[92px] resize-y rounded-2xl bg-white"
                 />
                 <p className="text-xs leading-5 text-slate-500">
-                  This brief is sent as a must-follow instruction for image generation.
+                  This brief is sent as a must-follow instruction for image generation. {referenceAsset
+                    ? "The attached reference guides the layout and visual style."
+                    : "To follow a reference layout, upload its image below."}
                 </p>
               </div>
             </div>
@@ -2340,7 +2347,7 @@ export function SeoBlogBannerPanel({
             <div className="grid gap-4">
               <AssetUpload
                 label="Reference Image"
-                description="Optional visual direction."
+                description="Layout and visual-style guide. Explicit changes in the brief take priority."
                 asset={referenceAsset}
                 onSelect={handleReferenceSelect}
                 onRemove={() => {
