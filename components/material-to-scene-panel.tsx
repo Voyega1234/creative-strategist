@@ -733,7 +733,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                     <SelectContent>
                       {PHOTOSTOCK_IMAGE_MODELS.map((model) => (
                         <SelectItem key={model} value={model}>
-                          {model.replace("openai/", "")}
+                          {model.split("/")[1]}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -3,6 +3,7 @@ export const MAX_PRODUCT_REFERENCES = 10
 export const PHOTOSTOCK_IMAGE_MODELS = [
   "openai/gpt-image-2.5-flare",
   "openai/gpt-image-2.5-sunburst",
+  "google/gemini-nano-banana-2.1",
 ] as const
 
 export type PhotostockImageModel = (typeof PHOTOSTOCK_IMAGE_MODELS)[number]
