@@ -223,6 +223,7 @@ async function adaptSuccessfulResponse(response: Response, adapter: (payload: un
 }
 
 export async function openRouterGenerateImage({
+  model = process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL,
   prompt,
   inputReferences = [],
   resolution,
@@ -230,6 +231,7 @@ export async function openRouterGenerateImage({
   size,
   signal,
 }: {
+  model?: string
   prompt: string
   inputReferences?: string[]
   resolution?: string
@@ -237,7 +239,6 @@ export async function openRouterGenerateImage({
   size?: string
   signal?: AbortSignal
 }): Promise<Response> {
-  const model = process.env.OPENROUTER_IMAGE_MODEL || DEFAULT_IMAGE_MODEL
   // Retired 4:5 requests now produce 3:4 output, without cropping back.
   if (aspectRatio?.trim() === "4:5") aspectRatio = "3:4"
   if (aspectRatio?.trim() === "5:4") aspectRatio = "4:3"
@@ -266,7 +267,7 @@ export async function openRouterGenerateImage({
 
 }
 
-async function generateCompatibleImage(body: GeminiRequest, signal?: AbortSignal): Promise<Response> {
+async function generateCompatibleImage(body: GeminiRequest, model: string, signal?: AbortSignal): Promise<Response> {
   const generationConfig = body.generationConfig || body.generation_config || {}
   const allParts = (body.contents || []).flatMap((content) => content.parts || [])
   const prompt = allParts
@@ -283,6 +284,7 @@ async function generateCompatibleImage(body: GeminiRequest, signal?: AbortSignal
   })
 
   const response = await openRouterGenerateImage({
+    model,
     prompt: prompt || "Create the requested image using the supplied reference images.",
     inputReferences: inputReferences.map((reference) => reference.image_url.url),
     resolution: generationConfig.imageConfig?.imageSize,
@@ -302,7 +304,7 @@ export async function openRouterGenerateContent(
   const generationConfig = body.generationConfig || body.generation_config || {}
   const wantsImage = generationConfig.responseModalities?.includes("IMAGE")
 
-  if (wantsImage) return generateCompatibleImage(body, init?.signal)
+  if (wantsImage) return generateCompatibleImage(body, model, init?.signal)
 
   const requestBody: Record<string, unknown> = {
     model: normalizeTextModel(model),

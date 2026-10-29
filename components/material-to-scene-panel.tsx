@@ -22,7 +22,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { downloadImageFromUrl, downloadImagesFromUrls, uploadDataUrlToImageStorage, uploadFileToImageStorage } from "@/lib/images/client"
-import { MAX_PRODUCT_REFERENCES } from "@/lib/images/photostock"
+import {
+  isPhotostockImageModel,
+  MAX_PRODUCT_REFERENCES,
+  PHOTOSTOCK_IMAGE_MODELS,
+  type PhotostockImageModel,
+} from "@/lib/images/photostock"
 import { cn } from "@/lib/utils"
 import { MaterialToSceneError } from "@/components/material-to-scene/material-to-scene-error"
 import { MaterialToSceneHeader } from "@/components/material-to-scene/material-to-scene-header"
@@ -130,6 +135,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
   const [prompt, setPrompt] = useState("")
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("1:1")
   const [photographyStyle, setPhotographyStyle] = useState<PhotographyStyle>("auto")
+  const [imageModel, setImageModel] = useState<PhotostockImageModel>(PHOTOSTOCK_IMAGE_MODELS[0])
   const [generatedImageUrls, setGeneratedImageUrls] = useState<string[]>([])
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -265,6 +271,10 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
     const savedAspectRatio = session.metadata.aspectRatio
     const savedPhotographyStyle = session.metadata.photographyStyle
 
+    if (isPhotostockImageModel(session.model)) {
+      setImageModel(session.model)
+    }
+
     if (typeof savedAspectRatio === "string" && ASPECT_RATIOS.includes(savedAspectRatio as AspectRatio)) {
       setAspectRatio(savedAspectRatio as AspectRatio)
     }
@@ -367,6 +377,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
         },
         body: JSON.stringify({
           action: "generate",
+          model: imageModel,
           reference_image_urls: referenceImageUrls,
           scene_reference_image_urls: sceneReferenceImageUrls,
           mime_type: file.type,
@@ -399,7 +410,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
       void saveGenerationSession({
         outputUrls: urls,
         inputUrls: [...referenceImageUrls, ...sceneReferenceImageUrls],
-        model: typeof result.model === "string" ? result.model : "gemini-image",
+        model: typeof result.model === "string" ? result.model : imageModel,
       })
     } catch (err) {
       console.error("Material to Scene generation failed:", err)
@@ -429,6 +440,7 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
         },
         body: JSON.stringify({
           action: "remove_background",
+          model: imageModel,
           image_url: publicUrl,
           mime_type: mimeType,
         }),
@@ -702,6 +714,30 @@ export function MaterialToScenePanel({ clientName, productFocus }: MaterialToSce
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Output</p>
                   <h3 className="mt-1.5 text-lg font-semibold tracking-[-0.02em] text-slate-950">Format settings</h3>
+                </div>
+
+                <div className="space-y-2.5">
+                  <label htmlFor="photostock-image-model" className="text-sm font-medium text-slate-900">
+                    Image model
+                  </label>
+                  <Select
+                    value={imageModel}
+                    onValueChange={(value) => {
+                      if (isPhotostockImageModel(value)) setImageModel(value)
+                    }}
+                    disabled={isGenerating}
+                  >
+                    <SelectTrigger id="photostock-image-model" className="h-11 rounded-2xl border-slate-200 bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PHOTOSTOCK_IMAGE_MODELS.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model.replace("openai/", "")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2.5">

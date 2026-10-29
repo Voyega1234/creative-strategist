@@ -1,4 +1,4 @@
-import { MAX_PRODUCT_REFERENCES } from "@/lib/images/photostock"
+import { isPhotostockImageModel, MAX_PRODUCT_REFERENCES } from "@/lib/images/photostock"
 import { NextResponse } from "next/server"
 import { createHash } from "node:crypto"
 import { getSupabase } from "@/lib/supabase/server"
@@ -225,8 +225,8 @@ function getGeminiImages(payload: any): GeminiInlineImage[] {
     .filter((part: GeminiInlineImage) => Boolean(part.data))
 }
 
-async function callGemini(body: unknown, operation: PhotostockOperation) {
-  const response = await openRouterGenerateContent(IMAGE_MODEL, body, {
+async function callGemini(body: unknown, operation: PhotostockOperation, model: string) {
+  const response = await openRouterGenerateContent(model, body, {
     labels: { ...PHOTOSTOCK_LABELS, operation },
   })
 
@@ -410,6 +410,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const action = typeof body.action === "string" ? body.action : "generate"
+    const imageModel = body.model === undefined ? IMAGE_MODEL : body.model
+
+    if (!isPhotostockImageModel(imageModel)) {
+      return NextResponse.json({ success: false, error: "Unsupported Photostock image model" }, { status: 400 })
+    }
 
     if (action === "remove_background") {
       const imageBase64 = typeof body.image_base64 === "string" ? body.image_base64.trim() : ""
@@ -444,7 +449,7 @@ export async function POST(request: Request) {
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
         },
-      }, "background_removal")
+      }, "background_removal", imageModel)
 
       const images = getGeminiImages(payload)
       if (images.length === 0) {
@@ -456,6 +461,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
+        model: imageModel,
         image_data_url: `data:${images[0].mimeType || "image/png"};base64,${images[0].data}`,
       })
     }
@@ -544,7 +550,7 @@ export async function POST(request: Request) {
               imageSize,
             },
           },
-        }, "scene_generation"),
+        }, "scene_generation", imageModel),
       ),
     )
 
@@ -554,7 +560,7 @@ export async function POST(request: Request) {
         const dataUrl = `data:${image.mimeType || "image/png"};base64,${image.data}`
         const storedImage = await saveGeneratedImageToStorage(image, {
           source: "material-to-scene",
-          model: IMAGE_MODEL,
+          model: imageModel,
           index: index + 1,
           aspect_ratio: aspectRatio,
           image_size: imageSize,
@@ -578,6 +584,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      model: imageModel,
       images,
       material_description: materialDescription,
       material_analysis_cache_hit: materialAnalysisCacheHit,
